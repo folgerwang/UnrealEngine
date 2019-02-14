@@ -53,7 +53,7 @@ bool GenerateRectLightImportanceSampledRay(
 	for (uint Index = 0; Index < MipCount - StopLevel; ++Index)
 	{
 		uint MipIndex = MipCount - Index - 1;
-		uint BufferOffset = BufferOffsetAtPixel(MipPixel, MipIndex, RectLight.MipTreeDimensions);
+		uint BufferOffset = BufferOffsetAtPixel(MipPixel, MipIndex, RectLight.MipTreeDimensions.xy);
 		uint4 BufferOffsets = BufferOffset + uint4(0, 1, 2, 3);
 		float4 PowerTerm = float4(RectLight.MipTree[BufferOffsets.x], RectLight.MipTree[BufferOffsets.y], RectLight.MipTree[BufferOffsets.z], RectLight.MipTree[BufferOffsets.w]);
 		PowerTerm = max(PowerTerm, 0.0);
@@ -61,7 +61,7 @@ bool GenerateRectLightImportanceSampledRay(
 		// Determine sample positions
 		uint DummyVariable;
 		float2 Jitter = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
-		float2 DimInv = 1.0 / DimensionsAtLevel(RectLight.MipTreeDimensions, MipIndex);
+		float2 DimInv = 1.0 / DimensionsAtLevel(RectLight.MipTreeDimensions.xy, MipIndex);
 		float2 UV00 = (MipPixel + Jitter) * DimInv - 0.5;
 		float2 UV10 = (MipPixel + Jitter + uint2(1, 0)) * DimInv - 0.5;
 		float2 UV01 = (MipPixel + Jitter + uint2(0, 1)) * DimInv - 0.5;
@@ -128,7 +128,7 @@ bool GenerateRectLightImportanceSampledRay(
 	// Sample within stop-level texel
 	uint DummyVariable;
 	float2 PixelOffset = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
-	float2 DimensionsAtStopLevel = DimensionsAtLevel(RectLight.MipTreeDimensions, StopLevel);
+	float2 DimensionsAtStopLevel = DimensionsAtLevel(RectLight.MipTreeDimensions.xy, StopLevel);
 	float2 MipPixelUV = (MipPixel + PixelOffset) / DimensionsAtStopLevel;
 
 	// Map sample point to quad
@@ -148,7 +148,7 @@ bool GenerateRectLightImportanceSampledRay(
 	// #dxr_todo: Performing direct lighting here could save some recalculation
 
 	// Define ray
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayOrigin = WorldPosition;
 	RayDirection = LightDirection;
 	RayTMin = 0.0;
 	RayTMax = length(LightPosition - WorldPosition);
@@ -180,6 +180,7 @@ void RectLightOcclusionRGS()
 	float2 InvBufferSize = View.BufferSizeAndInvSize.zw;
 	float2 UV = (float2(PixelCoord) + 0.5) * InvBufferSize;
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	FGBufferData GBuffer = ScreenSpaceData.GBuffer;
 	float Depth = ScreenSpaceData.GBuffer.Depth;
 	float3 WorldPosition = ReconstructWorldPositionFromDepth(UV, Depth);
 	float3 CameraOrigin = ReconstructWorldPositionFromDepth(UV, 0.0f);
@@ -201,6 +202,7 @@ void RectLightOcclusionRGS()
 	}
 
 	float3 ExitantRadiance = 0.0;
+	float3 DiffuseExitantRadiance = 0.0;
 	for (uint SampleIndex = 0; SampleIndex < SamplesPerPixel; ++SampleIndex)
 	{
 		RayDesc Ray;
@@ -222,6 +224,8 @@ void RectLightOcclusionRGS()
 #else
 		bool bIsValid = GenerateRectLightOcclusionRay(WorldPosition, WorldNormal, LightPosition, LightNormal, LightdPdu, LightdPdv, LightWidth, LightHeight, RandSample, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax, RayPdf);
 #endif
+		ApplyPositionBias(Ray, WorldNormal, RectLight.MaxNormalBias);
+
 		if (!bIsValid)
 		{
 			continue;
@@ -264,26 +268,24 @@ void RectLightOcclusionRGS()
 			float3 DeltaPosition = LightPosition - RectLightCorner;
 			float2 UV = float2(dot(DeltaPosition, RectLight.dPdu) / RectLight.Width, dot(DeltaPosition, RectLight.dPdv) / RectLight.Height);
 			UV = 1.0 - UV;
-			float3 TextureColor = Texture2DSample(RectLight.Texture, RectLight.TextureSampler, UV);
+			float3 TextureColor = Texture2DSample(RectLight.Texture, RectLight.TextureSampler, UV).xyz;
 			float3 IncomingRadiance = RectLight.Color * TextureColor;
 
-			// Unlit material model
-			// #dxr_todo: use ShadingModelID dispatch instead
+			// Evaluate material
 			half3 N = WorldNormal;
 			half3 V = -CameraDirection;
 			half3 L = Ray.Direction;
-			float3 Diffuse = Diffuse_Lambert(DiffuseColor);
+			FShadowTerms ShadowTerms = { 0.0, 0.0, 0.0 };
+			FDirectLighting LightingSample = EvaluateBxDF(ScreenSpaceData.GBuffer, N, V, L, NoL, ShadowTerms);
+			float3 Brdf = LightingSample.Diffuse + LightingSample.Transmission + LightingSample.Specular;
 
-			BxDFContext Context;
-			Init(Context, N, V, L);
-			float a2 = Pow4(Roughness);
-			float D = D_GGX(a2, Context.NoH);
-			float Vis = Vis_SmithJointApprox(a2, Context.NoV, NoL);
-			float3 F = F_Schlick(SpecularColor, Context.VoH);
-			float3 Specular = D * Vis * F;
-
-			float3 Brdf = Diffuse + Specular;
-			ExitantRadiance += IncomingRadiance * Brdf * NoL / RayPdf;
+			// #dxr_todo: Determine best way to incorporate integrals:
+			// 1) Return combined contribution (current method)
+			// 2) Split the integral (defer specular contribution to another pass)
+			// 3) Store diffuse and specular contribution separately
+			float3 Irradiance = IncomingRadiance * NoL / RayPdf;
+			ExitantRadiance += Irradiance * Brdf;
+			DiffuseExitantRadiance += Irradiance * (LightingSample.Diffuse + LightingSample.Transmission);
 #else
 			// Record exitant radiance as visibility score
 			ExitantRadiance += 1.0;

@@ -27,7 +27,9 @@
 #define DEBUG_MODE DEBUG_MODE_DISABLED
 
 /** DIsable any bilateral rejection. */
-#define DEBUG_DISABLE_BILATERAL 0
+#ifndef DEBUG_DISABLE_BILATERAL
+	#define DEBUG_DISABLE_BILATERAL 0
+#endif
 
 /** Prefer to store normalized components in internal texture. */
 #define DEBUG_STORE_NORMALIZED_COMPONENTS 1
@@ -53,10 +55,19 @@
 #define MIP_LEVEL_INVALID -1
 #define MIP_LEVEL_MISS 1024
 
+// Maximum number of signal that can be multiplexed into single output.
+#define MAX_SIGNAL_MULTIPLEXING 3
+
+// Maximum number of buffer a signal can be encode to/decoded from.
+#define MAX_RENDER_TARGET_FOR_SIGNAL 3
+
 
 //------------------------------------------------------- ENUMS
 
 /** Layouts of the signal buffer. */
+	/** Buffer layout for the shadow penumbra given as input. */
+	#define SIGNAL_BUFFER_LAYOUT_UNINITIALIZED 0xDEAD
+
 	/** Buffer layout for the shadow penumbra given as input. */
 	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT 0
 
@@ -69,17 +80,29 @@
 	/** Buffer layout taken as input by */ // TODO: unused, remove it.
 	// #define SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT 3
 
+
 	/** Buffer layout for the reflection given by the ray generation shader. */
 	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT 3
 
+	/** Buffer layout for the rejection output. */
+	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION 9
+
 	/** Buffer layout for the reflection output. */
 	#define SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY 4
+
 
 	/** Buffer layout given by the ray generation shader for ambient occlusion. */
 	#define SIGNAL_BUFFER_LAYOUT_AO_INPUT 5
 
 	/** Internal buffer layout for ambient occlusion. */
 	#define SIGNAL_BUFFER_LAYOUT_AO_HISTORY 6
+
+
+	/** Buffer layout given by the ray generation shader for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_INPUT 7
+
+	/** Internal buffer layout for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY 8
 
 
 /** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
@@ -91,6 +114,9 @@
 
 	/** Ambient occlusion denoising. */
 	#define SIGNAL_PROCESSING_AO 2
+
+	/** Global illumination denoising. */
+	#define SIGNAL_PROCESSING_GI_AND_AO 3
 
 
 
@@ -110,10 +136,35 @@
 	#define LIGHT_TYPE_RECT 3
 
 
-//------------------------------------------------------- SHARED CONFIG
+/** Sets of sample available for the spatial kernel. */
+	// For debug purpose, only sample the center of the kernel.
+	#define SAMPLE_SET_1X1 0
+
+	// Filtering
+	#define SAMPLE_SET_2X2_BILINEAR 1
+
+	// Square kernel
+	#define SAMPLE_SET_3X3 2
+	#define SAMPLE_SET_3X3_SOBEK2018 3
+	#define SAMPLE_SET_5X5_WAVELET 4
+
+	#define SAMPLE_SET_3X3_PLUS 5
+	#define SAMPLE_SET_3X3_CROSS 6
+
+	#define SAMPLE_SET_NXN 7
+
+	// [ Stackowiak 2015, "Stochastic Screen-Space Reflections" ]
+	#define SAMPLE_SET_STACKOWIAK_4_SETS 8
+
+
+
+//------------------------------------------------------- GLOBAL CONFIGURATION OF ALL DENOISER SHADERS
 
 /** Do normal based anysotropy. */
 #define CONFIG_NORMAL_ANISOTROPY 1
 
 /** By default, the color space stored into intermediary buffer is linear premultiplied RGBA. */
-#define CONFIG_BUFFER_COLOR_SPACE COLOR_SPACE_RGB
+#define STANDARD_BUFFER_COLOR_SPACE COLOR_SPACE_RGB
+
+/** Color space used for reflection history rejection. */
+#define REFLECTIONS_REJECTION_COLOR_SPACE (COLOR_SPACE_LCOCG | COLOR_SPACE_UNPREMULTIPLY)

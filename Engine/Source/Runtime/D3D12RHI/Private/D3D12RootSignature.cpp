@@ -99,9 +99,16 @@ FD3D12RootSignatureDesc::FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShade
 		BindingSpace = RAY_TRACING_REGISTER_SPACE_LOCAL;
 
 		// Add standard root parameters for hit groups, as per FHitGroupSystemParameters declaration in D3D12RayTracing.cpp and RayTracingHitGroupCommon.ush:
-		// - index buffer as root SRV (raw buffer)
-		// - vertex buffer as root SRV (raw buffer)
-		// - index/vertex fetch configuration as root constant (1 DWORD, defining index and vertex formats)
+		//          Resources:
+		// 8 bytes: index buffer as root SRV (raw buffer)
+		// 8 bytes: vertex buffer as root SRV (raw buffer)
+		//          FHitGroupSystemRootConstants:
+		// 4 bytes: index/vertex fetch configuration as root constant (bitfield defining index and vertex formats)
+		// 4 bytes: index buffer offset in bytes
+		// 4 bytes: hit group user data
+		// 4 bytes: unused padding to ensure the next parameter is aligned to 8-byte boundary
+		// -----------
+		// 32 bytes
 
 		// #dxr_todo: Root parameters for hit shaders should be added in the shader pipeline, so that regular root parameter generation code can be used without hard-coding anything.
 
@@ -123,12 +130,11 @@ FD3D12RootSignatureDesc::FD3D12RootSignatureDesc(const FD3D12QuantizedBoundShade
 			RootParametersSize += RootDescriptorCost;
 		}
 
-		// Configuration structure (b0, space1)
+		// FHitGroupSystemRootConstants structure
 		{
 			check(RootParameterCount < MaxRootParameters);
-			// 1 DWORD as defined by FHitGroupSystemParameters::Config
-			// 1 DWORD padding to ensure that the next parameter is aligned to 8-byte boundary
-			const uint32 NumConstants = 2;
+			static_assert(sizeof(FHitGroupSystemRootConstants) % 8 == 0, "FHitGroupSystemRootConstants structure must be 8-byte aligned");
+			const uint32 NumConstants = sizeof(FHitGroupSystemRootConstants) / sizeof(uint32);
 			TableSlots[RootParameterCount].InitAsConstants(NumConstants, RAY_TRACING_SYSTEM_ROOTCONSTANT_REGISTER, RAY_TRACING_REGISTER_SPACE_SYSTEM);
 			RootParameterCount++;
 			RootParametersSize += NumConstants * RootConstantCost;

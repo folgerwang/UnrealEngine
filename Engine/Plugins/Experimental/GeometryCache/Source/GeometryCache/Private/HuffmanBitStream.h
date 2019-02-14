@@ -4,11 +4,12 @@
 #include "CoreMinimal.h"
 #include "Containers/Array.h"
 
+#define USE_UNALIGNED_READ (PLATFORM_WINDOWS | PLATFORM_MAC | PLATFORM_XBOXONE | PLATFORM_PS4)	// Little-endian platforms that support fast unaligned reads
+#define MINIMUM_BITS_AFTER_REFILL 56															// Minimum number of bits guaranteed to be available in the internal buffer after a buffer refill.
 
 /**
 A bit stream writer class for use with the Huffman coding.
-This class allows coding arbitrary sized integers up to 32 bits in size. The bits in the int are logically written
-into the stream with their most significant bit first.
+This class allows coding arbitrary sized integers up to 32 bits in size. The bits are written in Little-endian order.
 */
 class FHuffmanBitStreamWriter
 {
@@ -28,56 +29,30 @@ public:
 	void Clear()
 	{
 		Bytes.Empty();
-		Pos = -1;
-		BitsLeftInLastByte = 0;
 		bFlushed = false;
+		BitBuffer = 0;
+		BitBufferBits = 0;
 		NumBits = 0;
 	}
 
 	/**
-	Return a new integer which only the lowest NumBits of the input integer K.
-	*/
-	FORCEINLINE static uint32 LeastNBits(uint32 K, uint32 NumBits)
-	{
-		return K & ((1 << NumBits) - 1);
-	}
-
-	/**
-	Return a new integer with NumBits bits from K starting at FirstBit. The
-	returned value is right aligned so FirstBit will be in position 0 of
-	the returned number.
-	*/
-	FORCEINLINE static uint32 ExtractBits(uint32 K, int32 FirstBit, uint32 InNumBits)
-	{
-		return LeastNBits(K >> FirstBit, InNumBits);
-	}
-
-	/**
-	Write an NumBits integer value to the stream. The most significant bit
-	will be logically first in the stream.
+	Write an NumBits integer value to the stream.
 	*/
 	void Write(uint32 Bits, uint32 InNumBits)
 	{
 		checkf(bFlushed == false, TEXT("You cannot write to a stream that has already been closed"));
+		check(Bits < (1u << InNumBits));
 
-		uint32 BitsLeft = InNumBits;
-		while (BitsLeft > 0)
-		{
-			// Alloc another byte if we're out of space
-			if (BitsLeftInLastByte == 0)
-			{
-				Bytes.Add(0);
-				Pos++;
-				BitsLeftInLastByte = 8;
-			}
-
-			const uint32 NumBitsToWrite = FMath::Min(BitsLeftInLastByte, BitsLeft);
-			Bytes[Pos] = Bytes[Pos] << NumBitsToWrite;
-			Bytes[Pos] |= ExtractBits(Bits, BitsLeft - NumBitsToWrite, NumBitsToWrite);
-			BitsLeft -= NumBitsToWrite;
-			BitsLeftInLastByte -= NumBitsToWrite;
-		}
+		BitBuffer |= (uint64)Bits << BitBufferBits;
+		BitBufferBits += InNumBits;
 		NumBits += InNumBits;
+
+		while(BitBufferBits >= 8)
+		{
+			Bytes.Add((uint8)BitBuffer);
+			BitBuffer >>= 8;
+			BitBufferBits -= 8;
+		}
 	}
 
 	/**
@@ -87,9 +62,13 @@ public:
 	*/
 	void Close()
 	{
-		// Write zeros to the last byte this ensures the MSB is correctly shifted left
-		// in the last byte.
-		Write(0, BitsLeftInLastByte);
+		// Round up to next byte by appending 0s.
+		if(BitBufferBits)
+		{
+			Write(0, 8 - BitBufferBits);
+		}
+		check(BitBufferBits == 0);
+		
 		bFlushed = true;
 	}
 
@@ -122,8 +101,8 @@ public:
 
 private:
 	TArray<uint8> Bytes;
-	uint32 Pos;
-	uint32 BitsLeftInLastByte;
+	uint64 BitBuffer;
+	uint32 BitBufferBits;
 	uint32 NumBits;
 	bool bFlushed;
 };
@@ -157,25 +136,15 @@ private:
 class FHuffmanBitStreamReader
 {
 public:
-
 	/**
-	Initialize the stream for reading with the specified data bytes. Bytes will be read assuming the most significant bit in the byte comes logically
-	earlier in the stream.
+	Initialize the stream for reading with the specified data bytes. The bitstream doesn't own the data, so the caller is responsible for keeping the data valid while reader is active.
+	Additionally the caller is responsible for over-allocating the buffer by 16 bytes, so we can safely read the data as uint64s.
+	16 bytes and not 8 bytes, because the input pointer can move 8 bytes past the data and perform a 8 byte read from there.
 	*/
-	FHuffmanBitStreamReader(uint8 *Data, uint32 NumBytes)
+	FHuffmanBitStreamReader(const uint8* InBytes, uint32 InNumBytes)
 	{
-		Bytes.SetNumUninitialized(NumBytes);
-		FMemory::Memcpy(&Bytes[0], Data, NumBytes);
-		Reset();
-	}
-
-	/**
-	Initialize the stream for reading with the specified data bytes. Bytes will be read assuming the most significant bit in the byte comes logically
-	earlier in the stream.
-	*/
-	FHuffmanBitStreamReader(const TArray<uint8> &SetBytes)
-	{
-		Bytes = SetBytes;
+		Bytes = InBytes;
+		NumBytes = InNumBytes;
 		Reset();
 	}
 
@@ -184,8 +153,34 @@ public:
 	*/
 	void Reset()
 	{
-		ReadPos = -1;
-		BitsLeftInByte = 0;
+		BitBuffer = 0;
+		BitBufferBits = 0;
+		BytePos = 0;
+	}
+
+	/**
+	Fill the internal bit buffer. Will not check against buffer bounds, so make sure the input buffer is large enough to read all the bits requested +16 bytes.
+	After the call the bit buffer is guaranteed to contain at least MINIMUM_BITS_AFTER_REFILL valid bits.
+	*/
+	FORCEINLINE void Refill()
+	{
+		const uint8* BytesData = Bytes;
+#if USE_UNALIGNED_READ
+		// Branchless buffer refill
+		checkSlow(BytePos + 7 < NumBytes);	// Make sure entire read uint64 is within buffer bounds
+		BitBuffer |= *(const uint64*)(BytesData + BytePos) << BitBufferBits;
+		BytePos += (63 - BitBufferBits) >> 3;
+		BitBufferBits |= 56;
+#else
+		// Read one byte at a time. Doesn't require unaligned reads and is agnostic to endianness.
+		while (BitBufferBits <= 56)
+		{
+			checkSlow(BytePos < NumBytes);
+			uint8 Byte = BytesData[BytePos++];
+			BitBuffer |= uint64(Byte) << BitBufferBits;
+			BitBufferBits += 8;
+		}
+#endif
 	}
 
 	/**
@@ -193,17 +188,7 @@ public:
 	*/
 	FORCEINLINE uint32 Read()
 	{
-		// Advance to the next byte
-		if (BitsLeftInByte == 0)
-		{
-			ReadPos++;
-			BitsLeftInByte = 8;
-			checkf(ReadPos < Bytes.Num(), TEXT("Read past the end of the bitstream"));
-		}
-
-		uint32 Result = FHuffmanBitStreamWriter::ExtractBits(Bytes[ReadPos], BitsLeftInByte - 1, 1);
-		BitsLeftInByte--;
-		return Result;
+		return Read(1);
 	}
 
 	/**
@@ -211,76 +196,48 @@ public:
 	*/
 	FORCEINLINE uint32 Read(uint32 NumBits)
 	{
-		uint32 BitsLeft = NumBits;
-		uint32 Result = 0;
-		while (BitsLeft > 0)
-		{
-			// Advance to the next byte
-			if (BitsLeftInByte == 0)
-			{
-				ReadPos++;
-				BitsLeftInByte = 8;
-				checkf(ReadPos < Bytes.Num(), TEXT("Read past the end of the bitstream"));
-			}
-
-			const uint32 NumBitsToRead = FMath::Min(BitsLeftInByte, BitsLeft);
-			Result = Result << NumBitsToRead;
-			Result |= FHuffmanBitStreamWriter::ExtractBits(Bytes[ReadPos], BitsLeftInByte - NumBitsToRead, NumBitsToRead);
-			BitsLeft -= NumBitsToRead;
-			BitsLeftInByte -= NumBitsToRead;
-		}
-		return Result;
+		Refill();
+		uint32 Value = BitBuffer & ((1ull << NumBits) - 1ull);
+		BitBuffer >>= NumBits;
+		BitBufferBits -= NumBits;
+		return Value;
 	}
 
 	/**
-	Skip the next NumBits in the stream.
-	This "may" be slightly faster than reading the bits and discarding the result.
+	Read the next NumBits from the stream without refilling the bit buffer.
 	*/
-	void Advance(uint32 NumBits)
+	FORCEINLINE uint32 ReadNoRefill(uint32 NumBits)
 	{
-		uint32 BitsLeft = NumBits;
-		while (BitsLeft > 0)
-		{
-			// Advance to the next byte
-			if (BitsLeftInByte == 0)
-			{
-				ReadPos++;
-				BitsLeftInByte = 8;
-				checkf(ReadPos < Bytes.Num(), TEXT("Read past the end of the bitstream"));
-			}
+		uint32 Value = BitBuffer & ((1ull << NumBits) - 1ull);
+		BitBuffer >>= NumBits;
+		BitBufferBits -= NumBits;
+		return Value;
+	}
 
-			const uint32 NumBitsToRead = FMath::Min(BitsLeftInByte, BitsLeft);
-			BitsLeft -= NumBitsToRead;
-			BitsLeftInByte -= NumBitsToRead;
-		}
+	/**
+	Read the next NumBits from the stream without refilling the bit buffer.
+	*/
+	FORCEINLINE void SkipNoRefill(uint32 NumBits)
+	{
+		BitBuffer >>= NumBits;
+		BitBufferBits -= NumBits;
 	}
 
 	/**
 	Return the next NumBits in the stream but do not advance the read position.
-	If this reads past the end zero bits will be returned for the bits beyond the end of the stream.
 	*/
-	FORCEINLINE int32 PeekWithZeros(uint32 NumBits)
+	FORCEINLINE int32 Peek(uint32 NumBits)
 	{
-		uint32 BitsLeft = NumBits;
-		uint32 Result = 0;
-		int32 PeekPos = ReadPos;
-		uint32 PeekBitsLeftInByte = BitsLeftInByte;
-		while (BitsLeft > 0)
-		{
-			// Advance to the next byte
-			if (PeekBitsLeftInByte == 0)
-			{
-				PeekPos++;
-				PeekBitsLeftInByte = 8;
-			}
+		Refill();
+		return BitBuffer & ((1ull << NumBits) - 1ull);
+	}
 
-			const uint32 NumBitsToRead = FMath::Min(PeekBitsLeftInByte, BitsLeft);
-			Result = Result << NumBitsToRead;
-			Result |= FHuffmanBitStreamWriter::ExtractBits((PeekPos >= Bytes.Num()) ? 0 : Bytes[PeekPos], PeekBitsLeftInByte - NumBitsToRead, NumBitsToRead);
-			BitsLeft -= NumBitsToRead;
-			PeekBitsLeftInByte -= NumBitsToRead;
-		}
-		return Result;
+	/**
+	Return the next NumBits in the stream but do not advance the read position without refilling the bit buffer.
+	*/
+	FORCEINLINE int32 PeekNoRefill(uint32 NumBits)
+	{
+		return BitBuffer & ((1ull << NumBits) - 1ull);
 	}
 
 	/**
@@ -288,19 +245,13 @@ public:
 	*/
 	FORCEINLINE int32 GetNumBytes()
 	{
-		return Bytes.Num();
+		return NumBytes;
 	}
-
-	/**
-	Note GetNumBits intentionally does not exist. This class doesn't know exactly how much bits there are
-	it only knows this up to a multiple of 8 the bytes. If data was correctly written using
-	the FHuffmanBitstreamWiter class these extra bits are however guaranteed to be zero.
-	*/
-	//uint32 GetNumBits()
-
 private:
-	TArray<uint8> Bytes;
-	int32 ReadPos;
-	uint32 BitsLeftInByte;
+	const uint8* Bytes;
+	uint64 NumBytes;
+	uint64 BitBuffer;
+	uint32 BitBufferBits;
+	uint32 BytePos;
 };
 

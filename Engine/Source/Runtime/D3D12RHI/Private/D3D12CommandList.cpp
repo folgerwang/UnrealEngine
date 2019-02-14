@@ -71,6 +71,18 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 	SetName(CommandList, Name.GetCharArray().GetData());
 #endif
 
+#if NV_AFTERMATH
+	AftermathHandle = nullptr;
+
+	if (GDX12NVAfterMathEnabled)
+	{
+		GFSDK_Aftermath_Result Result = GFSDK_Aftermath_DX12_CreateContextHandle(CommandList, &AftermathHandle);
+
+		check(Result == GFSDK_Aftermath_Result_Success);
+		ParentDevice->GetParentAdapter()->GetGPUProfiler().RegisterCommandList(AftermathHandle);
+	}
+#endif
+
 	// Initially start with all lists closed.  We'll open them as we allocate them.
 	Close();
 
@@ -81,6 +93,17 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 
 FD3D12CommandListHandle::FD3D12CommandListData::~FD3D12CommandListData()
 {
+#if NV_AFTERMATH
+	if (AftermathHandle)
+	{
+		GetParentDevice()->GetParentAdapter()->GetGPUProfiler().UnregisterCommandList(AftermathHandle);
+
+		GFSDK_Aftermath_Result Result = GFSDK_Aftermath_ReleaseContextHandle(AftermathHandle);
+
+		check(Result == GFSDK_Aftermath_Result_Success);
+	}
+#endif
+
 	CommandList.SafeRelease();
 	DEC_DWORD_STAT(STAT_D3D12NumCommandLists);
 

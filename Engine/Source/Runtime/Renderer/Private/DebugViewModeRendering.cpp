@@ -18,6 +18,7 @@ DebugViewModeRendering.cpp: Contains definitions for rendering debug viewmodes.
 #include "PostProcess/PostProcessStreamingAccuracyLegend.h"
 #include "CompositionLighting/PostProcessPassThrough.h"
 #include "PostProcess/PostProcessCompositeEditorPrimitives.h"
+#include "PostProcess/PostProcessUpscale.h"
 #include "SceneRendering.h"
 #include "DeferredShadingRenderer.h"
 #include "MeshPassProcessor.inl"
@@ -114,6 +115,31 @@ void FDeferredShadingSceneRenderer::DoDebugViewModePostProcessing(FRHICommandLis
 		GPostProcessing.AddSelectionOutline(Context);
 	}
 #endif
+
+	FIntPoint PrimaryUpscaleViewSize = Context.View.GetSecondaryViewRectSize();
+
+	// Adds primary spatial upscale regardless of using temporal upsample, so screen percentage preview can work.
+	if (View.ViewRect.Size() != PrimaryUpscaleViewSize)
+	{
+		int32 UpscaleQuality = 1;
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(
+			View, UpscaleQuality, FRCPassPostProcessUpscale::PaniniParams::Default, /* bIsSecondaryUpscale = */ false));
+		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput)); // Bilinear sampling.
+		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput)); // Point sampling.
+		Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+	}
+
+	// Adds secondary spatial upscale for OS DPI to work correctly in editor.
+	if (View.RequiresSecondaryUpscale())
+	{
+		int32 UpscaleQuality = View.Family->SecondaryScreenPercentageMethod == ESecondaryScreenPercentageMethod::LowerPixelDensitySimulation ? 6 : 0;
+
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(
+			View, UpscaleQuality, FRCPassPostProcessUpscale::PaniniParams::Default, /* bIsSecondaryUpscale = */ true));
+		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
+		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));
+		Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+	}
 
 	// After the graph is built but before the graph is processed.
 	// If a postprocess material is using a GBuffer it adds the refcount int FRCPassPostProcessMaterial::Process()

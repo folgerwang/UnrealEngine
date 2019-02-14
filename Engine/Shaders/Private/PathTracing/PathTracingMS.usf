@@ -11,5 +11,6 @@ void PathTracingMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
 	//Payload.InstanceID = ~0;
 	//Payload.InstanceIndex = ~0;
 	//Payload.PrimitiveIndex = ~0;
-	PackedPayload.Payload.HitT = -1;
+
+	PackedPayload.HitT = -1;
 }

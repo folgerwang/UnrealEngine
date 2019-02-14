@@ -87,14 +87,13 @@ struct FCodecV1DecodingContext
 	/** Reader to read bit stream from */
 	FHuffmanBitStreamReader* Reader;
 	/** Huffman tables */
-	FHuffmanTable ResidualIndicesTable;	
-	FHuffmanTable ResidualVertexPosTable;
-	FHuffmanTable ResidualColorTable;
-	FHuffmanTable ResidualNormalTangentXTable;
-	FHuffmanTable ResidualNormalTangentZTable;
-	FHuffmanTable ResidualUVTable;
-	FHuffmanTable VertexPredictionModeTable;
-	FHuffmanTable ResidualMotionVectorTable;	
+	FHuffmanDecodeTable ResidualIndicesTable;	
+	FHuffmanDecodeTable ResidualVertexPosTable;
+	FHuffmanDecodeTable ResidualColorTable;
+	FHuffmanDecodeTable ResidualNormalTangentXTable;
+	FHuffmanDecodeTable ResidualNormalTangentZTable;
+	FHuffmanDecodeTable ResidualUVTable;
+	FHuffmanDecodeTable ResidualMotionVectorTable;
 };
 
 /** Configuration settings for the encoder */
@@ -131,19 +130,18 @@ struct FCodecV1EncodingContext
 	/** Huffman bit writer to write bitstream to */
 	FHuffmanBitStreamWriter* Writer;	
 	/** Huffman tables */
-	FHuffmanTable ResidualIndicesTable;
-	FHuffmanTable ResidualVertexPosTable;
-	FHuffmanTable ResidualColorTable;
-	FHuffmanTable ResidualColorSkipTable;
-	FHuffmanTable ResidualNormalTangentXTable;
-	FHuffmanTable ResidualNormalTangentZTable;
-	FHuffmanTable ResidualUVTable;
-	FHuffmanTable VertexPredictionModeTable;
-	FHuffmanTable ResidualMotionVectorTable;
+	FHuffmanEncodeTable ResidualIndicesTable;
+	FHuffmanEncodeTable ResidualVertexPosTable;
+	FHuffmanEncodeTable ResidualColorTable;
+	FHuffmanEncodeTable ResidualColorSkipTable;
+	FHuffmanEncodeTable ResidualNormalTangentXTable;
+	FHuffmanEncodeTable ResidualNormalTangentZTable;
+	FHuffmanEncodeTable ResidualUVTable;
+	FHuffmanEncodeTable ResidualMotionVectorTable;
 };
 
-const uint32 VertexPredictionModeCount = 4; // vertex position prediction methods
 const int32 HuffmanTableInt32SymbolCount = 64; // 31 negative lengths, zero, 32 positive length
+const int32 HuffmanTableInt8SymbolCount = 256;
 const uint32 VertexStreamCodingIndexHistorySize = 9; // Sizes of the previously-seen histories used for prediction of the various stream elements
 const uint32 VertexStreamCodingVertexHistorySize = 9;
 const uint32 IndexStreamCodingHistorySize = 5;
@@ -156,17 +154,6 @@ const uint32 MotionVectorStreamCodingHistorySize = 9;
 class FCodecV1SharedTools 
 {
 public:
-	
-	/** Predict a vertex according to the prediction mode using the vertex history	*/
-	static FORCEINLINE FIntVector PredictVertex(uint32 CornerIndex, uint32 PreviousTriangleRotationOffsets[3], FRingBuffer<FIntVector, VertexStreamCodingVertexHistorySize>& ReconstructedVertexHistory, uint32 Mode);
-	
-	/** Find the edge two triangles share. Return the rotation of the first triangle (index offsets) such that the first 
-	    two indices point to the shared edge: (shared corner index 1, shared corner index 2, non-shared corner index) */
-	static FORCEINLINE bool FindTrianglesSharedEdge(const uint32 Triangle1[3], const uint32 Triangle2[3], uint32 orderedTriangle1[3]);
-	
-	/** Estimate the coding cost of a vector */
-	static FORCEINLINE int32 EstimateCodingCost(const FIntVector& Value);
-
 	/** Sum two IntVector4 vectors, because IntVector4 does not implement arithmetic operations contrary to IntVector */
 	static FORCEINLINE FIntVector4 SumVector4(const FIntVector4& First, const FIntVector4& Second)
 	{
@@ -222,7 +209,7 @@ private:
 	/** Encode a buffer with vertex colors */
 	void EncodeColorStream(const FColor* Stream, uint64 ElementOffsetBytes, uint32 ElementCount, FStreamEncodingStatistics& Stats);
 	/** Encode a buffer with vertex normals */
-	void EncodeNormalStream(const FPackedNormal* Stream, uint64 ElementOffsetBytes, uint32 ElementCount, FHuffmanTable& Table, FStreamEncodingStatistics& Stats);
+	void EncodeNormalStream(const FPackedNormal* Stream, uint64 ElementOffsetBytes, uint32 ElementCount, FHuffmanEncodeTable& Table, FStreamEncodingStatistics& Stats);
 	/** Encode a buffer with vertex texture coordinates */
 	void EncodeUVStream(const FVector2D* Stream, uint64 ElementOffsetBytes, uint32 ElementCount, FStreamEncodingStatistics& Stats);
 	/** Encode a buffer with vertex motion vectors */
@@ -242,7 +229,7 @@ private:
 	void WriteBytes(const void* Data, int64 Num);
 	
 	/**	Write a 32-bit signed value from the bit stream using a Huffman coder */
-	void WriteInt32(FHuffmanTable& ValueTable, int32 Value);
+	void WriteInt32(FHuffmanEncodeTable& ValueTable, int32 Value);
 
 	/** Write a given number of bits to the bit stream using the Huffman bit writer */
 	FORCEINLINE void WriteBits(int32 Data, uint32 NumBits)
@@ -256,7 +243,7 @@ private:
 	}
 
 	/** Write a symbol to the bit stream using a Huffman Table */
-	FORCEINLINE void WriteSymbol(FHuffmanTable& table, int32 symbol)
+	FORCEINLINE void WriteSymbol(FHuffmanEncodeTable& table, int32 symbol)
 	{
 		// Write using the table, will not write anything in the prepass phase
 		table.Encode(*EncodingContext.Writer, symbol);
@@ -320,22 +307,12 @@ private:
 	/** Decode a buffer of vertex colors from the bitstream */
 	void DecodeColorStream(FColor* Stream, uint64 ElementOffset, uint32 ElementCount);
 	/** Decode a buffer of vertex normals from the bitstream */
-	void DecodeNormalStream(FPackedNormal* Stream, uint64 ElementOffset, uint32 ElementCount, FHuffmanTable& Table);
+	void DecodeNormalStream(FPackedNormal* Stream, uint64 ElementOffset, uint32 ElementCount, FHuffmanDecodeTable& Table);
 	/** Decode a buffer of vertex texture coordinates from the bitstream */
 	void DecodeUVStream(FVector2D* Stream, uint64 ElementOffset, uint32 ElementCount);
 	/** Decode a buffer of vertex motion vectors from the bitstream */
 	void DecodeMotionVectorStream(FVector* Stream, uint64 ElementOffset, uint32 ElementCount);
-	/** Clear a stream of vectors */
-	void ClearStream(FVector* Stream, uint64 ElementOffset, uint32 NumElements);
-	/** Clear a stream of colors */
-	void ClearStream(FColor* Stream, uint64 ElementOffset, uint32 NumElements);
-	/** Clear a stream of normals */
-	void ClearStream(FPackedNormal* Stream, uint64 ElementOffset, uint32 NumElements);	
-	/** Clear a stream of texture coordinates*/
-	void ClearStream(FVector2D* Stream, uint64 ElementOffset, uint32 NumElements);
-	/** Memclear a generic stream */
-	void ZeroStream(uint8* Stream, uint64 ElementOffset, uint64 ElementSize, uint32 NumElements);
-
+	
 	/** Initialize and read Huffman tables from the bitstream */
 	void SetupAndReadTables();	
 	
@@ -343,24 +320,32 @@ private:
 	FORCEINLINE void ReadBytes(void* Data, uint32 NumBytes);
 
 	/**	Read a 32-bit signed value from the bit stream using a Huffman coder */
-	FORCEINLINE int32 ReadInt32(FHuffmanTable& ValueTable);
+	FORCEINLINE int32 ReadInt32(FHuffmanDecodeTable& ValueTable);
 
 	/** Read a symbol from the bit stream using a Huffman Table */
-	FORCEINLINE int32 ReadSymbol(FHuffmanTable& table)
+	FORCEINLINE int32 ReadSymbol(FHuffmanDecodeTable& table)
 	{
 		return table.Decode(*DecodingContext.Reader);
 	}
 
-	/** Read a given number of bits from the bit stream using the Huffman bit writer */
+	/** Read a given number of bits from the bit stream */
 	FORCEINLINE int32 ReadBits(uint32 NumBits)
 	{
 		return DecodingContext.Reader->Read(NumBits);
 	}
 
+	/** Read a given number of bits from the bit stream without refilling bits */
+	FORCEINLINE int32 ReadBitsNoRefill(uint32 NumBits)
+	{
+		return DecodingContext.Reader->ReadNoRefill(NumBits);
+	}
+
 	/** Read info on the available streams from the bit stream */
 	void ReadCodedStreamDescription();
 
-	/** Any context information to decode a frame in a sequence of frames */
+	/** Any context information to decode a frame in a sequence of frames, such as the bit steam and any Huffman tables used.*/
 	FCodecV1DecodingContext DecodingContext;	
+
+	int32 HighBitsLUT[64];
 };
 

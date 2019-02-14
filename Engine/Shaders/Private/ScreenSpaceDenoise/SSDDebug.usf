@@ -16,6 +16,7 @@ SSDOutput.usf: Output the denoising signal for external consumer
 
 Texture2D SignalInput0;
 Texture2D SignalInput1;
+Texture2D SignalInput2;
 
 RWTexture2D<float4>	DebugOutput0;
 RWTexture2D<float4>	DebugOutput1;
@@ -34,7 +35,7 @@ void MainCS(
 	FSSFTileInfos TileInfos = LoadTileInfos(GroupId);
 
 	FSSFSignalSample Sample = SampleInputSignal(
-		SignalInput0, SignalInput1,
+		SignalInput0, SignalInput1, SignalInput2,
 		GlobalPointClampedSampler,
 		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL,
 		SceneBufferUV,

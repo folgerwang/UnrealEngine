@@ -247,6 +247,9 @@ private:
 #if D3D12_RHI_RAYTRACING
 		TRefCountPtr<ID3D12GraphicsCommandList4> RayTracingCommandList;
 #endif // D3D12_RHI_RAYTRACING
+#if NV_AFTERMATH
+		GFSDK_Aftermath_ContextHandle			AftermathHandle;
+#endif
 		FD3D12CommandAllocator*					CurrentCommandAllocator;	// Command allocator currently being used for recording the command list
 		uint64									CurrentGeneration;
 		uint64									LastCompleteGeneration;
@@ -409,6 +412,14 @@ public:
 		return CommandListData->RayTracingCommandList.GetReference();
 	}
 #endif // D3D12_RHI_RAYTRACING
+
+#if NV_AFTERMATH
+	GFSDK_Aftermath_ContextHandle AftermathCommandContext() const
+	{
+		check(CommandListData);
+		return CommandListData->AftermathHandle;
+	}
+#endif
 
 	uint64 CurrentGeneration() const
 	{

@@ -77,6 +77,14 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
 	uint32 bCastVolumetricShadow : 1;
 
+	/** Whether the light shadows are computed with shadow-mapping or ray-tracing (when available). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bCastRaytracedShadow : 1;
+
+	/** Whether the light affects objects in reflections, when ray-traced reflection is enabled. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bAffectReflection : 1;
+
 	/** 
 	 * Scales the indirect lighting contribution from this light. 
 	 * A value of 0 disables any GI from this light. Default is 1.
@@ -116,6 +124,12 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
 	void SetCastVolumetricShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetAffectReflection(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetCastRaytracedShadow(bool bNewValue);
 
 	virtual void Serialize(FArchive& Ar) override;
 

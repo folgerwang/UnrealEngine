@@ -396,7 +396,7 @@ TArray<uint32> FShaderResource::GlobalUnusedIndicies;
 TMap<uint32, FRHIRayTracingShader*> FShaderResource::GlobalRayTracingMaterialLibrary;
 FCriticalSection FShaderResource::GlobalRayTracingMaterialLibraryCS;
 
-void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials)
+void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingShaderRHIParamRef>& RayTracingMaterials, FRayTracingShaderRHIParamRef DefaultShader)
 {
 	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
 	RayTracingMaterials.Reset();
@@ -404,18 +404,16 @@ void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupIni
 
 	for (const auto Entry : GlobalRayTracingMaterialLibrary)
 	{
-		FRayTracingHitGroupInitializer HitGroupInitializer;
-		HitGroupInitializer.ShaderRHI = Entry.Value;
-		RayTracingMaterials[Entry.Key] = HitGroupInitializer;
+		RayTracingMaterials[Entry.Key] = Entry.Value;
 	}
 
 	for (uint32 Index : GlobalUnusedIndicies)
 	{
-		RayTracingMaterials[Index] = FRayTracingHitGroupInitializer();
+		RayTracingMaterials[Index] = DefaultShader;
 	}
 }
 
-uint32 FShaderResource::AddToRayTracingLibrary(FRHIRayTracingShader* Shader)
+uint32 FShaderResource::AddToRayTracingLibrary(FRayTracingShaderRHIParamRef Shader)
 {
 	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
 

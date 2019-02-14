@@ -2898,6 +2898,13 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 
 	GPrimitiveIdVertexBufferPool.DiscardAll();
 
+	// Destroy cached preshadow transient arrays (allocated with SceneRenderingAllocator).
+	TArray<TRefCountPtr<FProjectedShadowInfo>>& CachedPreshadows = SceneRenderer->Scene->CachedPreshadows;
+	for (int32 CachedShadowIndex = 0; CachedShadowIndex < CachedPreshadows.Num(); ++CachedShadowIndex)
+	{
+		CachedPreshadows[CachedShadowIndex]->ClearTransientArrays();
+	}
+
 	FViewInfo::DestroyAllSnapshots(); // this destroys viewinfo snapshots
 	FSceneRenderTargets::GetGlobalUnsafe().DestroyAllSnapshots(); // this will destroy the render target snapshots
 	static const IConsoleVariable* AsyncDispatch	= IConsoleManager::Get().FindConsoleVariable(TEXT("r.RHICmdAsyncRHIThreadDispatch"));

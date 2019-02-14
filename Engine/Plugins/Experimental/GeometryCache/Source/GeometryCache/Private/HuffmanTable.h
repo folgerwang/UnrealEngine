@@ -6,10 +6,10 @@
 #include "HuffmanBitStream.h"
 
 /**
-	An encapsulated Huffman coding/decoding class. To use this class roughly follow the following sequence of calls
+	Encapsulated Huffman coding/decoding classes. To use these classes roughly follow the following sequence of calls
 
-	//Create a table
-	HuffmanTable Tab(MaxValue);
+	// Create an encoding table
+	FHuffmanEncodeTable Tab(MaxValue);
 
 	// First pass, gather statistics about the data to code
 	Tab.SetPrepass(true)
@@ -20,10 +20,10 @@
 	for each value to code
 		Tab.Encode(value)
 
-	The generated bits are then saved to disc alongside the generated Huffman table.
+	The generated bits are then saved to disk alongside the generated Huffman table.
 	To decode the following is then done
 
-	HuffmanTable Tab(SerializedTable)
+	FHuffmanDecodeTable Tab(SerializedTable)
 	for each value to decode
 		value = Tab.Decode()
 
@@ -33,62 +33,16 @@
 	- Codeword: The Huffman code. A variable length bit pattern.
 	- Some symbols will get a codeword assigned others which never occurred will not get a codeword assigned
 	- Symbols which occur more often preferably get a shorter code word
-
 */
-class FHuffmanTable
+
+#define HUFFMAN_MAX_CODES 256
+#define HUFFMAN_MAX_CODE_LENGTH 11
+#define HUFFMAN_MAX_CODE_LENGTH_BITS 4	// Number of bits needed to decode a value in the range [0..HUFFMAN_MAX_CODE_LENGTH]
+#define HUFFMAN_SYMBOL_COUNT_BITS 9		// Number of bits needed to send the number of symbols
+
+class FHuffmanEncodeTable
 {
-	// This has a sentinel element at index NumValues!! And thus contains NumValues+1 elements
-	TArray<uint32> SymbolFrequencies;
-	TArray<int32> CodewordSymbols;
-	static const int32 MaxCodeLength = 24;
-
-	struct FCodeWord
-	{
-		int32 Bits;
-		int32 Length;
-	};
-
-	struct FDecodeTableEntry
-	{
-		int32 MinCode;	// contains the smallest code value for a given length I
-		int32 MaxCode;	// contains the largest code value for a given length I
-		int32 ValPtr;	//contains the index to the start of the list of values in HUFFVAL which are decoded by code words of length I.
-	};
-
-	struct FLookaheadEntry
-	{
-		int32 Length; //Length of the codeword we recognized in the lookahead
-		int32 Symbol; //Symbol it corresponds to
-	};
-
-	TArray<FCodeWord> CodeWords; // For every symbol the corresponding huffcode bits
-	int32 NumCodeWordsOfLength[MaxCodeLength+1]; //Number of codewords with a given length, element 0 is unused
-	int32 NumSymbols;
-
-	void GenerateOptimalTable();
-	void CountTotalCodewords();
-	void GenerateCodewords();
-	
-	FDecodeTableEntry DecodeTable[MaxCodeLength+2];
-
-	static const int32 LookaheadBits = 8;
-	static const int32 LookaheadEntries = 1 << LookaheadBits;
-
-	FLookaheadEntry Lookahead[LookaheadEntries];
-
-	int32 TotalCodeWords;
-
-	int32 LongDecode(FHuffmanBitStreamReader& Stream, int32 MinLength);
-	void ResetFrequencies();
-	bool bIsPrepass;
-
 public:
-
-	/**
-		Uninitialized Huffman table, call Initialize() first
-	*/
-	FHuffmanTable();
-
 	/**
 		Initialize a Huffman table for encoding values in the range [0..NumSymbols[
 		The table will initially be in prepass mode.
@@ -96,18 +50,12 @@ public:
 	void Initialize(int32 NumSymbols);
 
 	/**
-		Initialize a Huffman table based on the serialized table.
-		The table will initially be in encode/decode mode.
+		Serialize the Huffman table to the bitstream, deserialize using FHuffmanDecodeTable::Initialize
 	*/
-	void Initialize(FHuffmanBitStreamReader& Stream);
+	void Serialize(FHuffmanBitStreamWriter& Stream);
 
 	/**
-		Serialize the Huffman table to the bitstream, deserialize by calling Initialise(Reader)
-	*/
-	void Serialize(FHuffmanBitStreamWriter& Stream);	
-
-	/**
-		Toggle between prepass mode and encoding/decoding mode.
+		Toggle between prepass mode and encoding mode.
 		Note: Toggling will update internal data structures and may have take more time than setting a simple variable.
 	*/
 	void SetPrepass(bool bInIsPrepass);
@@ -124,15 +72,63 @@ public:
 		Encode a symbol to the bitstream. If the table is in prepass mode no actual bits will be emitted to the stream.
 	*/
 	void Encode(FHuffmanBitStreamWriter& Stream, int32 Symbol);
+private:
+	// This has a sentinel element at index NumValues!! And thus contains NumValues+1 elements
+	TArray<uint32> SymbolFrequencies;
+	TArray<int32> CodewordSymbols;
+
+	struct FCodeWord
+	{
+		int32 Bits;
+		int32 Length;
+	};
+
+	TArray<FCodeWord> CodeWords; // For every symbol the corresponding huffcode bits
+	int32 NumCodeWordsOfLength[HUFFMAN_MAX_CODE_LENGTH+1]; // Number of codewords with a given length, element 0 is unused
+	int32 NumSymbols;
+
+	void ResetFrequencies();
+	bool bIsPrepass;
+};
+
+class FHuffmanDecodeTable
+{
+public:
+	/**
+		Initialize a Huffman decode table based on the serialized table.
+	*/
+	void Initialize(FHuffmanBitStreamReader& Stream);
 
 	/**
 		Decode the next symbol from the bitstream.
 	*/
-	int32 Decode(FHuffmanBitStreamReader& Stream);
+	FORCEINLINE int32 Decode(FHuffmanBitStreamReader &Stream)
+	{
+		Stream.Refill();
+		const int32 Bits = Stream.PeekNoRefill(HUFFMAN_MAX_CODE_LENGTH);
+
+		const int32 Length = TableEntries[Bits].Length;
+		Stream.SkipNoRefill(Length);
+		return TableEntries[Bits].Symbol;
+	}
 
 	/**
-		Mark all symbols as being used at least once. This is useful if your prepass is not using the whole dataset but just a small fraction of it.
-		Symbols never occurred in the sample dataset can still be coded (but will obviously have a high coding cost).
+	Decode the next symbol from the bitstream without refilling the bit buffer.
 	*/
-	void MarkAllSymbols();
+	FORCEINLINE int32 DecodeNoRefill(FHuffmanBitStreamReader &Stream)
+	{
+		const int32 Bits = Stream.PeekNoRefill(HUFFMAN_MAX_CODE_LENGTH);
+		const int32 Length = TableEntries[Bits].Length;
+		Stream.SkipNoRefill(Length);
+		return TableEntries[Bits].Symbol;
+	}
+
+private:
+	struct FTableEntry
+	{
+		int8 Length;
+		int8 Symbol;
+	};
+
+	FTableEntry TableEntries[1u << HUFFMAN_MAX_CODE_LENGTH];
 };

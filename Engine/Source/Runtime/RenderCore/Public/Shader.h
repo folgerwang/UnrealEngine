@@ -377,15 +377,15 @@ public:
 		return RayTracingMaterialLibraryIndex;
 	}
 
-	RENDERCORE_API static void GetRayTracingMaterialLibrary(TArray<FRayTracingHitGroupInitializer>& RayTracingMaterials);
+	RENDERCORE_API static void GetRayTracingMaterialLibrary(TArray<FRayTracingShaderRHIParamRef>& RayTracingMaterials, FRayTracingShaderRHIParamRef DefaultShader);
 
 private:
-	RENDERCORE_API static uint32 AddToRayTracingLibrary(FRHIRayTracingShader* Shader);
+	RENDERCORE_API static uint32 AddToRayTracingLibrary(FRayTracingShaderRHIParamRef Shader);
 	RENDERCORE_API static void RemoveFromRayTracingLibrary(uint32 Index);
 
 	static uint32 GlobalMaxIndex;
 	static TArray<uint32> GlobalUnusedIndicies;
-	static TMap<uint32, FRHIRayTracingShader*> GlobalRayTracingMaterialLibrary;
+	static TMap<uint32, FRayTracingShaderRHIParamRef> GlobalRayTracingMaterialLibrary;
 	static FCriticalSection GlobalRayTracingMaterialLibraryCS;
 
 public:

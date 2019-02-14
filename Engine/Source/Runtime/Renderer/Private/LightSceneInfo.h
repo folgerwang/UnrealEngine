@@ -36,6 +36,8 @@ public:
 	uint32 bCastDynamicShadow : 1;
 	uint32 bCastStaticShadow : 1;
 	uint32 bStaticLighting : 1;
+	uint32 bAffectReflection : 1;
+	uint32 bCastRaytracedShadow : 1;
 
 	/** Initializes the compact scene info from the light's full scene info. */
 	void Init(FLightSceneInfo* InLightSceneInfo);

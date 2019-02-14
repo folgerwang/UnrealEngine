@@ -648,16 +648,16 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 	if (GDX11NVAfterMathEnabled && bTrackingGPUCrashData)
 	{
 		GFSDK_Aftermath_Device_Status Status;
-		auto Result = GFSDK_Aftermath_GetDeviceStatus(&Status);
+		GFSDK_Aftermath_Result Result = GFSDK_Aftermath_GetDeviceStatus(&Status);
 		if (Result == GFSDK_Aftermath_Result_Success)
 		{
 			if (Status != GFSDK_Aftermath_Device_Status_Active)
 			{
 				GIsGPUCrashed = true;
 				const TCHAR* AftermathReason[] = { TEXT("Active"), TEXT("Timeout"), TEXT("OutOfMemory"), TEXT("PageFault"), TEXT("Unknown") };
-				check(Status < 5);
+				check(Status < ARRAYSIZE(AftermathReason));
 				UE_LOG(LogRHI, Error, TEXT("[Aftermath] Status: %s"), AftermathReason[Status]);
-				auto AftermathContext = D3D11RHI->GetNVAftermathContext();
+				GFSDK_Aftermath_ContextHandle AftermathContext = D3D11RHI->GetNVAftermathContext();
 
 				if (AftermathContext)
 				{

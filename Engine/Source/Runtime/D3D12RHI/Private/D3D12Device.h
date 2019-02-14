@@ -110,6 +110,10 @@ public:
 	void PushGPUEvent(const TCHAR* Name, FColor Color);
 	void PopGPUEvent();
 
+#if NV_AFTERMATH
+	void PushGPUEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context);
+#endif
+
 	FD3D12SamplerState* CreateSampler(const FSamplerStateInitializerRHI& Initializer);
 	void CreateSamplerInternal(const D3D12_SAMPLER_DESC& Desc, D3D12_CPU_DESCRIPTOR_HANDLE Descriptor);
 

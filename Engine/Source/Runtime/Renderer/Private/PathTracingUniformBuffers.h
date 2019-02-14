@@ -26,22 +26,12 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingLightData, )
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 
-BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingSkyLightData, )
-	SHADER_PARAMETER(uint32, SkyLightRowCount)
-	SHADER_PARAMETER(uint32, SkyLightColumnCount)
-	SHADER_PARAMETER_SRV(Buffer<float>, SkyLightRowCdf)
-	SHADER_PARAMETER_SRV(Buffer<float>, SkyLightColumnCdf)
-	SHADER_PARAMETER_SRV(Buffer<float>, SkyLightCubeFaceCdf)
-	SHADER_PARAMETER_TEXTURE(TextureCube, SkyLightTexture)
-	SHADER_PARAMETER_SAMPLER(SamplerState, SkyLightTextureSampler)
-END_GLOBAL_SHADER_PARAMETER_STRUCT()
-
-
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingAdaptiveSamplingData, )
 	SHADER_PARAMETER(uint32, UseAdaptiveSampling)
 	SHADER_PARAMETER(uint32, RandomSequence)
 	SHADER_PARAMETER(uint32, MinimumSamplesPerPixel)
 	SHADER_PARAMETER(uint32, Iteration)
+	SHADER_PARAMETER(float, MaxNormalBias)
 	SHADER_PARAMETER(FIntVector, VarianceDimensions)
 	SHADER_PARAMETER_SRV(Buffer<float>, VarianceMipTree)
 END_GLOBAL_SHADER_PARAMETER_STRUCT()

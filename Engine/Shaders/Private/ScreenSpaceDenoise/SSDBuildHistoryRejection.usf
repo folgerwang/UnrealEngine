@@ -14,6 +14,8 @@
 	#define CONFIG_SIGNAL_REDUCE_LAYOUT		SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
 	#define CONFIG_SIGNAL_OUTPUT_LAYOUT		SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
 
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 1
+
 #else
 	#error Unknown signal processing
 
@@ -32,12 +34,15 @@
 
 Texture2D RawSignalInput0;
 Texture2D RawSignalInput1;
+Texture2D RawSignalInput2;
 
 Texture2D ReducedSignal0;
 Texture2D ReducedSignal1;
+Texture2D ReducedSignal2;
 
 RWTexture2D<float4>	SignalOutput0;
 RWTexture2D<float4>	SignalOutput1;
+RWTexture2D<float4>	SignalOutput2;
 
 
 //------------------------------------------------------- LDS
@@ -71,7 +76,11 @@ void SpatialAccumulation(
 
 
 	// Read reference data.
-	FSSFSignalSample Accumulator = SampleInputSignal(ReducedSignal0, ReducedSignal1, GlobalPointClampedSampler, CONFIG_SIGNAL_REDUCE_LAYOUT, SceneBufferUV);
+	FSSFSignalSample Accumulator = SampleInputSignal(
+		ReducedSignal0, ReducedSignal1, ReducedSignal2,
+		GlobalPointClampedSampler,
+		CONFIG_SIGNAL_REDUCE_LAYOUT,
+		SceneBufferUV);
 	FSSFSampleSceneInfos CurrentSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV);
 
 	float CurrentWorldBluringRadius = ComputePixelWorldRadius(CurrentSceneMetadata);
@@ -104,7 +113,10 @@ void SpatialAccumulation(
 		float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
 
 		// Sample the neighborhood.
-		FSSFSignalSample NeighborSample = SampleInputSignal(ReducedSignal0, ReducedSignal1, GlobalPointClampedSampler, CONFIG_SIGNAL_REDUCE_LAYOUT, NeighborBufferUV);
+		FSSFSignalSample NeighborSample = SampleInputSignal(
+			ReducedSignal0, ReducedSignal1, ReducedSignal2,
+			GlobalPointClampedSampler,
+			CONFIG_SIGNAL_REDUCE_LAYOUT, NeighborBufferUV);
 		FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, NeighborBufferUV);
 
 		float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborSceneMetadata);
@@ -126,7 +138,10 @@ void SpatialAccumulation(
 
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
 
-	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Accumulator);
+	OutputSignal(
+		SignalOutput0, SignalOutput1, SignalOutput2,
+		CONFIG_SIGNAL_OUTPUT_LAYOUT,
+		DispatchThreadId, Accumulator);
 }
 
 void BuildHistoryRejection(
@@ -151,7 +166,7 @@ void BuildHistoryRejection(
 	FSSFSampleSceneInfos SceneMetadata;
 	{
 		InputSample = SampleInputSignal(
-			RawSignalInput0, RawSignalInput1,
+			RawSignalInput0, RawSignalInput1, RawSignalInput2,
 			GlobalPointClampedSampler,
 			CONFIG_SIGNAL_RAW_INPUT_LAYOUT,
 			SceneBufferUV);
@@ -310,7 +325,7 @@ void BuildHistoryRejection(
 
 				// Sample the neighborhood.
 				FSSFSignalSample NeighborSample = SampleInputSignal(
-					ReducedSignal0, ReducedSignal1,
+					ReducedSignal0, ReducedSignal1, ReducedSignal2,
 					GlobalPointClampedSampler,
 					CONFIG_SIGNAL_REDUCE_LAYOUT,
 					NeighborBufferUV, MipLevel);
@@ -353,7 +368,10 @@ void BuildHistoryRejection(
 	FSSFSignalSample OutputSample = CreateSignalSample();
 	OutputSample.AccumulatedSampleCount = 1;
 	OutputSample.LeavingRayCount = Shadow * OutputSample.AccumulatedSampleCount;
-	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, OutputSample);
+	OutputSignal(
+		SignalOutput0, SignalOutput1, SignalOutput2,
+		CONFIG_SIGNAL_OUTPUT_LAYOUT,
+		DispatchThreadId, OutputSample);
 }
 
 
@@ -376,7 +394,10 @@ void MainCS(
 		// TODO: DEBUG_WASTFUL_OUTPUT
 		// TODO: Not entirely right.
 		FSSFSignalSample Final = GetConstantSignalSample(TileInfos.TileMode);
-		OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, Final);
+		OutputSignal(
+			SignalOutput0, SignalOutput1, SignalOutput2,
+			CONFIG_SIGNAL_OUTPUT_LAYOUT,
+			DispatchThreadId, Final);
 	}
 	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
 	{

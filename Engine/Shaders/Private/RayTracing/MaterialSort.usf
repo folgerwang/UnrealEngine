@@ -1,0 +1,71 @@
+#include "RayTracingCommon.ush"
+
+#ifndef NUM_ELEMENTS
+#define NUM_THREADS  512
+#define NUM_ELEMENTS  NUM_THREADS * 2
+#endif
+
+groupshared FDeferredMaterialPayload Entries[NUM_ELEMENTS];
+
+int NumTotalEntries;
+RWStructuredBuffer<FDeferredMaterialPayload> MaterialBuffer;
+
+void SwapMaterials(inout FDeferredMaterialPayload A, inout FDeferredMaterialPayload B)
+{
+	FDeferredMaterialPayload C = A;
+	A = B;
+	B = C;
+}
+
+// #dxr_todo: Placeholder sorting within a window of up to 1024 elements. Needs to be replaced with an optimized counting / bucket sort.
+[numthreads(NUM_ELEMENTS, 1, 1)]
+void MaterialSortLocal(uint3 DispatchThread : SV_DispatchThreadID, uint3 GroupThread : SV_GroupThreadID)
+{
+	FDeferredMaterialPayload A = (FDeferredMaterialPayload)0;
+	FDeferredMaterialPayload B = (FDeferredMaterialPayload)0;
+
+	if (DispatchThread.x < NumTotalEntries)
+	{
+		A = MaterialBuffer[DispatchThread.x];
+	}
+	else
+	{
+		// ensure invalid entries sort to the end
+		A.SortKey = RAY_TRACING_DEFERRED_MATERIAL_KEY_INVALID;
+	}
+
+	Entries[GroupThread.x] = A;
+
+	GroupMemoryBarrierWithGroupSync();
+
+	int i, j, k;
+	[unroll]
+	for (k = 2; k <= NUM_ELEMENTS; k = 2 * k) // Outer loop, double size for each step
+	{
+		[unroll]
+		for (j = k >> 1; j > 0; j = j >> 1) // Inner loop, half size for each step
+		{
+			i = GroupThread.x;
+
+			int ixj = i ^ j; // Calculate indexing!
+			if ((ixj) > i)
+			{
+				A = Entries[i];
+				B = Entries[ixj];
+
+				if ((i&k) == 0 && A.SortKey > B.SortKey) SwapMaterials(A, B);
+				if ((i&k) != 0 && A.SortKey < B.SortKey) SwapMaterials(A, B);
+
+				Entries[i] = A;
+				Entries[ixj] = B;
+			}
+
+			GroupMemoryBarrierWithGroupSync();
+		}
+	}
+
+	if (DispatchThread.x < NumTotalEntries)
+	{
+		MaterialBuffer[DispatchThread.x] = Entries[GroupThread.x];
+	}
+}

@@ -1,0 +1,598 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#include "SSDSignalAccumulator.ush"
+#include "../TextureSampling.ush"
+
+
+//------------------------------------------------------- STRUCTURE
+
+/** Configures the spatial kernel. */
+struct FSSDKernelConfig
+{
+	// --------------------------- compile time.
+
+	// Compile time set of sample to use.
+	uint SampleSet;
+	
+	// Compile time selection of sample to use.
+	uint SampleSubSetId;
+
+	// Compile time layout of the buffer to accumulate.
+	uint BufferLayout;
+
+	// Compile time configuration whether want do LOOP or UNROLL
+	//  false by default to expose in user code when the shader byte code might potentially be big.
+	bool bUnroll;
+	
+	// Compile time whether the center of the kernel sample is sampled.
+	bool bSampleKernelCenter;
+
+	// Compile time whether 
+	bool bPreviousFrameMetadata;
+
+	bool bConsiderInputSampleBlurRadius;
+
+	// The color space that has been encoded in the buffer.
+	uint BufferColorSpace[MAX_SIGNAL_MULTIPLEXING];
+	
+	// The color space of the accumulation.
+	uint AccumulatorColorSpace[MAX_SIGNAL_MULTIPLEXING];
+
+	// Whether a sample should be normalised to 1 before accmulation.
+	bool bNormalizeSample[MAX_SIGNAL_MULTIPLEXING];
+
+	
+	// --------------------------- Per wave.
+
+	// Buffer size and inv size.
+	float4 BufferSizeAndInvSize;
+	float4 BufferBilinearUVMinMax;
+
+	// Mip level in the buffer to sample.
+	float BufferMipLevel;
+
+	// Multiplier on the sample's offset.
+	float KernelSpreadFactor;
+
+	
+	// --------------------------- Per lane.
+	
+	// Number of samples should be done when doing variable box sampling.
+	uint BoxKernelRadius;
+
+	// Runtime number of samples
+	uint SampleCount;
+
+	// Buffer coordinate of the center of the kernel.
+	float2 BufferUV;
+
+	// Metadata of the scene for the bilateral therm.
+	FSSFSampleSceneInfos RefSceneMetadata;
+
+	// Runtime to force the first sample of the kernel to be accumulated.
+	bool bForceKernelCenterAccumulation;
+
+	// Runtime to force accumulating all sample.
+	bool bForceAllAccumulation;
+
+	// Runtime selection of a track of sample.
+	uint SampleTrackId;
+};
+
+FSSDKernelConfig CreateKernelConfig()
+{
+	FSSDKernelConfig KernelConfig;
+	KernelConfig.SampleSet = SAMPLE_SET_1X1;
+	KernelConfig.SampleSubSetId = 0;
+	KernelConfig.BufferLayout = SIGNAL_BUFFER_LAYOUT_UNINITIALIZED;
+	KernelConfig.bUnroll = false;
+	KernelConfig.bSampleKernelCenter = false;
+	KernelConfig.bPreviousFrameMetadata = false;
+	KernelConfig.bConsiderInputSampleBlurRadius = true;
+	
+	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+	{
+		KernelConfig.BufferColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
+		KernelConfig.AccumulatorColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
+		KernelConfig.bNormalizeSample[MultiplexId] = false;
+	}
+	
+	KernelConfig.BufferSizeAndInvSize = float4(0, 0, 0, 0);
+	KernelConfig.BufferBilinearUVMinMax = float4(0, 0, 0, 0);
+	KernelConfig.BufferMipLevel = 0.0;
+	KernelConfig.KernelSpreadFactor = 1;
+	
+	KernelConfig.BoxKernelRadius = 1;
+	KernelConfig.SampleCount = 1;
+	KernelConfig.BufferUV = 0.0;
+	KernelConfig.RefSceneMetadata = CreateSampleSceneInfos();
+	KernelConfig.bForceKernelCenterAccumulation = false;
+	KernelConfig.bForceAllAccumulation = false;
+	KernelConfig.SampleTrackId = 0;
+	return KernelConfig;
+}
+
+
+//------------------------------------------------------- CONSTANT
+
+static const float kWaveletFilterWeights5x5[] = { 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
+
+
+//------------------------------------------------------- SHARED SAMPLING
+
+FSSFSignalSample TransformSignalSampleForAccumulation(
+	FSSDKernelConfig KernelConfig,
+	uint MultiplexId,
+	FSSFSignalSample Sample)
+{
+	// TODO: could be an option of the sampling to avoid *= M; *= rcp(M);
+	if (KernelConfig.bNormalizeSample[MultiplexId])
+	{
+		Sample = NormalizeToOneSample(Sample);
+	}
+
+	// TODO: could pass down information that this sample may be normalized.
+	Sample = TransformSignal(
+		Sample, 
+		/* SrcBasis  = */ KernelConfig.BufferColorSpace[MultiplexId], 
+		/* DestBasis = */ KernelConfig.AccumulatorColorSpace[MultiplexId]);
+
+	return Sample;
+}
+
+void AccumulateMultiplexedSignals(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	inout FSSDSignalAccumulator Accumulator,
+	float2 SampleBufferUV,
+	float KernelSampleWeight,
+	const bool bForceSample)
+{
+	// Sample the meta data of the sample.	
+	float2 SampleViewportUV = BufferUVToViewportUV(SampleBufferUV);
+	float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
+
+	FSSFSampleSceneInfos SampleSceneMetadata;
+	if (KernelConfig.bPreviousFrameMetadata)
+	{
+		SampleSceneMetadata = FetchPrevSceneInfos(SampleScreenPosition, SampleBufferUV);
+	}
+	else
+	{
+		SampleSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleBufferUV);
+	}
+
+	float RefWorldBluringRadius = ComputePixelWorldRadius(KernelConfig.RefSceneMetadata);
+
+	UNROLL
+	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+	{
+		FSSFSignalSample Sample = SampleMultiplexedSignal(
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			GlobalPointClampedSampler,
+			KernelConfig.BufferLayout,
+			MultiplexId,
+			SampleBufferUV,
+			KernelConfig.BufferMipLevel);
+		
+		Sample = TransformSignalSampleForAccumulation(KernelConfig, MultiplexId, Sample);
+
+		float SampleWorldBluringRadius = ComputePixelWorldRadius(SampleSceneMetadata);
+		
+		float MaxBilateralWorldDistance;
+		if (KernelConfig.bConsiderInputSampleBlurRadius)
+		{
+			MaxBilateralWorldDistance = WorldBluringRadiusToBilateralWorldDistance(min(SampleWorldBluringRadius, RefWorldBluringRadius));
+		}
+		else
+		{
+			MaxBilateralWorldDistance = WorldBluringRadiusToBilateralWorldDistance(RefWorldBluringRadius);
+		}
+
+		float BilateralWeight = ComputeBilateralWeight(
+			MaxBilateralWorldDistance,
+			KernelConfig.RefSceneMetadata,
+			SampleSceneMetadata);
+		
+		uint2 NeighborPixelCoord = floor(SampleBufferUV * KernelConfig.BufferSizeAndInvSize.xy);
+		float RatioEstimatorWeight = GetRatioEstimatorWeight(
+			KernelConfig.RefSceneMetadata, SampleSceneMetadata, Sample, NeighborPixelCoord);
+
+		float FinalWeight = KernelSampleWeight * BilateralWeight * RatioEstimatorWeight;
+
+		if (bForceSample || KernelConfig.bForceAllAccumulation)
+		{
+			FinalWeight = 1;
+		}
+
+		if (Sample.AccumulatedSampleCount == 0)
+		{
+			FinalWeight = 0;
+		}
+
+		AccumulateSample(
+			/* inout */ Accumulator,
+			MultiplexId,
+			Sample,
+			FinalWeight);
+	}
+}
+
+
+//------------------------------------------------------- EASY CONVOLUTIONS
+
+void AccumulateBilinear(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	inout FSSDSignalAccumulator Accumulator)
+{
+	const float MipLevelPow2 = 1;
+
+	FBilinearSampleInfos BilinearInfos = GetBilinearSampleLevelInfosEx(
+		KernelConfig.BufferUV,
+		KernelConfig.BufferSizeAndInvSize.xy,
+		KernelConfig.BufferSizeAndInvSize.zw,
+		MipLevelPow2, rcp(MipLevelPow2));
+
+	UNROLL
+	for (uint i = 0; i < 4; i++)
+	{
+		float2 SampleOffset = BilinearSamplingOffsets2x2[i];
+		
+		// TODO: could be more ALU efficient for this.
+		// TODO: -0.5 full res pixel to ensure always select the mip, regardless of mantissa precision?
+		float2 SampleBufferUV = (BilinearInfos.TopLeftPixelCoord + (SampleOffset + 0.5)) * MipLevelPow2 * KernelConfig.BufferSizeAndInvSize.zw;
+		
+		if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
+		{
+			continue;
+		}
+		
+		float BilinearWeight = GetSampleWeight(BilinearInfos, i);
+		
+		AccumulateMultiplexedSignals(
+			KernelConfig,
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			/* inout */ Accumulator,
+			SampleBufferUV,
+			BilinearWeight,
+			/* bForceSample = */ false);
+	}
+} // AccumulateBilinear()
+
+void AccumulateSquareKernel(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	inout FSSDSignalAccumulator Accumulator)
+{
+	int KernelRadius = 1;
+	if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
+	{
+		KernelRadius = 2;
+	}
+	else if (KernelConfig.SampleSet == SAMPLE_SET_NXN)
+	{
+		KernelRadius = KernelConfig.BoxKernelRadius;
+	}
+	
+	if (KernelConfig.bUnroll)
+	{
+		UNROLL for (int x = -KernelRadius; x <= KernelRadius; x++)
+		UNROLL for (int y = -KernelRadius; y <= KernelRadius; y++)
+		{
+			const bool bIsKernelCenterSample = x == 0 && y == 0;
+
+			if (bIsKernelCenterSample && !KernelConfig.bSampleKernelCenter) continue;
+
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_PLUS && (abs(x) + abs(y)) > 1) continue;
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_CROSS && abs(x) != abs(y)) continue;
+
+			float2 SampleOffset = float2(x, y);
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_SOBEK2018)
+			{
+				SampleOffset = mul(float2x2(float2(2, -1), float2(1, 2)), SampleOffset);
+			}
+			
+			float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
+			if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
+			{
+				continue;
+			}
+		
+			float KernelWeight = 1;
+			if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
+			{
+				KernelWeight = 
+					kWaveletFilterWeights5x5[abs(x)] *
+					kWaveletFilterWeights5x5[abs(y)] *
+					rcp(kWaveletFilterWeights5x5[0] * kWaveletFilterWeights5x5[0]);
+			}
+
+			AccumulateMultiplexedSignals(
+				KernelConfig,
+				SignalBuffer0,
+				SignalBuffer1,
+				SignalBuffer2,
+				/* inout */ Accumulator,
+				SampleBufferUV,
+				KernelWeight,
+				/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+		}
+	}
+	else
+	{
+		LOOP for (int x = -KernelRadius; x <= KernelRadius; x++)
+		LOOP for (int y = -KernelRadius; y <= KernelRadius; y++)
+		{
+			const bool bIsKernelCenterSample = x == 0 && y == 0;
+
+			if (bIsKernelCenterSample && !KernelConfig.bSampleKernelCenter) continue;
+
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_PLUS && (abs(x) + abs(y)) > 1) continue;
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_CROSS && abs(x) != abs(y)) continue;
+
+			float2 SampleOffset = float2(x, y);
+			if (KernelConfig.SampleSet == SAMPLE_SET_3X3_SOBEK2018)
+			{
+				SampleOffset = mul(float2x2(float2(2, -1), float2(1, 2)), SampleOffset);
+			}
+			
+			float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
+			if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
+			{
+				continue;
+			}
+		
+			float KernelWeight = 1;
+			if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
+			{
+				KernelWeight = 
+					kWaveletFilterWeights5x5[abs(x)] *
+					kWaveletFilterWeights5x5[abs(y)] *
+					rcp(kWaveletFilterWeights5x5[0] * kWaveletFilterWeights5x5[0]);
+			}
+
+			AccumulateMultiplexedSignals(
+				KernelConfig,
+				SignalBuffer0,
+				SignalBuffer1,
+				SignalBuffer2,
+				/* inout */ Accumulator,
+				SampleBufferUV,
+				KernelWeight,
+				/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+		}
+	}
+} // AccumulateSquareKernel()
+
+
+//------------------------------------------------------- STACKOWIAK 2018
+
+static const float2 kStackowiakSampleSet0[56 * 4] =
+{
+	float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
+	float2(-1.5, +0.5), float2(-1.5, -0.5), float2(-0.5, +1.5), float2(+1.5, -0.5),
+	float2(+0.5, -1.5), float2(+2.5, -0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
+	float2(-1.5, -2.5), float2(-0.5, -2.5), float2(-1.5, -1.5), float2(-0.5, +2.5),
+	float2(-1.5, +1.5), float2(+1.5, -2.5), float2(-1.5, +2.5), float2(+1.5, +2.5),
+	float2(+0.5, -2.5), float2(-2.5, -0.5), float2(-2.5, -1.5), float2(-2.5, +0.5),
+	float2(+0.5, +1.5), float2(+0.5, +2.5), float2(-3.5, +0.5), float2(+0.5, +3.5),
+	float2(+1.5, -1.5), float2(+3.5, -0.5), float2(+2.5, +1.5), float2(+3.5, +0.5),
+	float2(+1.5, +1.5), float2(-2.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +1.5),
+	float2(-3.5, -0.5), float2(-1.5, -3.5), float2(-2.5, -2.5), float2(-2.5, +2.5),
+	float2(+2.5, +0.5), float2(+2.5, +2.5), float2(+1.5, +3.5), float2(+3.5, -1.5),
+	float2(-3.5, -2.5), float2(+3.5, -2.5), float2(+2.5, -1.5), float2(+0.5, -3.5),
+	float2(-0.5, +3.5), float2(-0.5, -4.5), float2(-4.5, +0.5), float2(+4.5, +0.5),
+	float2(-4.5, -1.5), float2(-3.5, +1.5), float2(-0.5, -3.5), float2(+1.5, -3.5),
+	float2(+0.5, -4.5), float2(-1.5, +3.5), float2(+0.5, +4.5), float2(-3.5, -1.5),
+	float2(-4.5, +1.5), float2(+2.5, -4.5), float2(+2.5, -2.5), float2(-1.5, +4.5),
+	float2(-2.5, -4.5), float2(+4.5, -2.5), float2(+2.5, +3.5), float2(-3.5, +3.5),
+	float2(-2.5, +3.5), float2(+0.5, -5.5), float2(-4.5, +3.5), float2(-2.5, -3.5),
+	float2(-4.5, +2.5), float2(+3.5, +3.5), float2(+2.5, -3.5), float2(+4.5, +3.5),
+	float2(+3.5, -3.5), float2(+4.5, +2.5), float2(-5.5, +1.5), float2(-4.5, -0.5),
+	float2(+3.5, +2.5), float2(-0.5, +4.5), float2(-1.5, +5.5), float2(+1.5, +5.5),
+	float2(+4.5, -0.5), float2(+5.5, +0.5), float2(+4.5, +1.5), float2(-1.5, -4.5),
+	float2(-1.5, -5.5), float2(-4.5, -2.5), float2(-2.5, +5.5), float2(+2.5, +5.5),
+	float2(+1.5, +4.5), float2(+5.5, +1.5), float2(+1.5, -4.5), float2(-3.5, -3.5),
+	float2(+3.5, -4.5), float2(-3.5, -4.5), float2(+4.5, -1.5), float2(+4.5, -3.5),
+	float2(-3.5, -5.5), float2(-2.5, -5.5), float2(-4.5, -3.5), float2(+4.5, +4.5),
+	float2(-3.5, +4.5), float2(-2.5, +4.5), float2(-5.5, -2.5), float2(-5.5, +0.5),
+	float2(+2.5, -5.5), float2(+3.5, +4.5), float2(-0.5, -5.5), float2(-0.5, +6.5),
+	float2(+2.5, +4.5), float2(-5.5, -0.5), float2(-6.5, -1.5), float2(+1.5, -5.5),
+	float2(-6.5, -0.5), float2(+0.5, +5.5), float2(+1.5, +6.5), float2(+6.5, +1.5),
+	float2(-0.5, +5.5), float2(+6.5, -0.5), float2(-4.5, -4.5), float2(-5.5, +2.5),
+	float2(+5.5, -0.5), float2(-5.5, -1.5), float2(-6.5, +3.5), float2(-1.5, +6.5),
+	float2(-6.5, +0.5), float2(+4.5, -5.5), float2(-3.5, +6.5), float2(+6.5, -1.5),
+	float2(+0.5, -6.5), float2(-5.5, -3.5), float2(+5.5, -2.5), float2(+4.5, -4.5),
+	float2(+5.5, -1.5), float2(+3.5, -6.5), float2(+5.5, +3.5), float2(+3.5, -5.5),
+	float2(-5.5, -4.5), float2(+6.5, -3.5), float2(-0.5, -6.5), float2(+3.5, +6.5),
+	float2(-5.5, +3.5), float2(+0.5, +6.5), float2(+6.5, +0.5), float2(+6.5, -2.5),
+	float2(-6.5, -3.5), float2(-4.5, +4.5), float2(-7.5, -0.5), float2(+7.5, +0.5),
+	float2(+5.5, +2.5), float2(-0.5, -7.5), float2(+0.5, +7.5), float2(-4.5, +5.5),
+	float2(+3.5, +5.5), float2(-3.5, +5.5), float2(-4.5, -5.5), float2(+4.5, +6.5),
+	float2(+5.5, -4.5), float2(+4.5, +5.5), float2(-4.5, +6.5), float2(+6.5, +4.5),
+	float2(-7.5, +1.5), float2(-6.5, +1.5), float2(+5.5, -3.5), float2(-6.5, +2.5),
+	float2(-2.5, +6.5), float2(-1.5, -7.5), float2(+5.5, +4.5), float2(-1.5, -6.5),
+	float2(-3.5, -7.5), float2(+2.5, -7.5), float2(-7.5, +2.5), float2(-6.5, -2.5),
+	float2(-5.5, +5.5), float2(+2.5, +6.5), float2(-2.5, -6.5), float2(-7.5, +0.5),
+	float2(-0.5, +7.5), float2(+7.5, -2.5), float2(-2.5, +7.5), float2(+0.5, -7.5),
+	float2(-4.5, -7.5), float2(+7.5, +1.5), float2(+1.5, -6.5), float2(-6.5, +4.5),
+	float2(-1.5, +7.5), float2(-5.5, -5.5), float2(+6.5, +2.5), float2(-3.5, -6.5),
+	float2(+3.5, -7.5), float2(-5.5, +4.5), float2(+2.5, -6.5), float2(+1.5, -7.5),
+	float2(+6.5, +3.5), float2(+5.5, -6.5), float2(-6.5, +5.5), float2(+7.5, +4.5),
+	float2(+7.5, -1.5), float2(-7.5, -1.5), float2(+3.5, +7.5), float2(-5.5, +6.5),
+	float2(+1.5, +7.5), float2(+7.5, +3.5), float2(+7.5, -0.5), float2(-7.5, -2.5),
+	float2(+5.5, +5.5), float2(+6.5, +5.5), float2(+5.5, -5.5), float2(-2.5, -7.5),
+	float2(+2.5, +7.5), float2(-7.5, -3.5), float2(-7.5, -4.5), float2(-6.5, -4.5),
+	float2(+7.5, -3.5), float2(+5.5, +6.5), float2(-5.5, -6.5), float2(-4.5, -6.5),
+	float2(+7.5, +2.5), float2(-7.5, +3.5), float2(+4.5, -6.5), float2(+7.5, -4.5),
+};
+
+static const float2 kStackowiakSampleSet1[56 * 4] =
+{
+    float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
+    float2(+0.5, -1.5), float2(+1.5, -1.5), float2(-1.5, -0.5), float2(+1.5, +1.5),
+    float2(-0.5, -2.5), float2(-1.5, -1.5), float2(+0.5, +1.5), float2(-1.5, +0.5),
+    float2(+1.5, -0.5), float2(-0.5, +1.5), float2(-2.5, +0.5), float2(+0.5, +2.5),
+    float2(-2.5, -1.5), float2(+2.5, +0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
+    float2(-1.5, +1.5), float2(+2.5, -2.5), float2(-3.5, -0.5), float2(-1.5, +2.5),
+    float2(-2.5, +1.5), float2(-2.5, -0.5), float2(-1.5, -2.5), float2(+2.5, -1.5),
+    float2(-3.5, +0.5), float2(-0.5, -3.5), float2(-1.5, +3.5), float2(+0.5, -2.5),
+    float2(+1.5, +2.5), float2(-0.5, +2.5), float2(+0.5, +3.5), float2(+3.5, +0.5),
+    float2(+2.5, +1.5), float2(-2.5, -2.5), float2(+2.5, -0.5), float2(+3.5, -1.5),
+    float2(-0.5, +3.5), float2(+3.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +2.5),
+    float2(+3.5, -0.5), float2(+0.5, -4.5), float2(-2.5, +3.5), float2(+0.5, -3.5),
+    float2(-1.5, -4.5), float2(+1.5, +3.5), float2(+1.5, -2.5), float2(-3.5, +1.5),
+    float2(+2.5, -3.5), float2(-2.5, -3.5), float2(+2.5, +2.5), float2(+1.5, +4.5),
+    float2(-4.5, -2.5), float2(-2.5, +2.5), float2(-4.5, +1.5), float2(+4.5, +1.5),
+    float2(-2.5, -4.5), float2(+3.5, -3.5), float2(-1.5, -3.5), float2(-3.5, -1.5),
+    float2(+1.5, -4.5), float2(+4.5, -2.5), float2(+1.5, -3.5), float2(-1.5, +4.5),
+    float2(-4.5, +2.5), float2(-4.5, -0.5), float2(+2.5, +4.5), float2(-4.5, +0.5),
+    float2(-3.5, -4.5), float2(+0.5, +4.5), float2(+3.5, -2.5), float2(-3.5, -2.5),
+    float2(-3.5, +3.5), float2(+3.5, +3.5), float2(+4.5, +0.5), float2(+0.5, +5.5),
+    float2(-0.5, +4.5), float2(+4.5, -3.5), float2(-1.5, +5.5), float2(-0.5, -4.5),
+    float2(+2.5, +3.5), float2(+4.5, +2.5), float2(-2.5, +5.5), float2(+2.5, -4.5),
+    float2(+4.5, -0.5), float2(+5.5, -0.5), float2(-4.5, +4.5), float2(+5.5, -1.5),
+    float2(-5.5, -1.5), float2(-4.5, -1.5), float2(+3.5, +4.5), float2(-3.5, -3.5),
+    float2(-5.5, +0.5), float2(+1.5, -5.5), float2(-5.5, -2.5), float2(-3.5, +4.5),
+    float2(+0.5, -5.5), float2(-2.5, -5.5), float2(+2.5, +5.5), float2(+4.5, +4.5),
+    float2(+4.5, -1.5), float2(-2.5, +4.5), float2(+4.5, +3.5), float2(+0.5, +6.5),
+    float2(-0.5, -6.5), float2(+5.5, +2.5), float2(-0.5, -5.5), float2(-5.5, -0.5),
+    float2(-6.5, -1.5), float2(-0.5, +5.5), float2(-0.5, +6.5), float2(+6.5, -0.5),
+    float2(+1.5, +5.5), float2(+1.5, -6.5), float2(+5.5, +0.5), float2(-5.5, +2.5),
+    float2(+5.5, +1.5), float2(-5.5, +1.5), float2(-6.5, -0.5), float2(-1.5, -5.5),
+    float2(-5.5, -4.5), float2(-4.5, +3.5), float2(-6.5, +1.5), float2(+2.5, -5.5),
+    float2(+3.5, -5.5), float2(-5.5, -3.5), float2(+1.5, +6.5), float2(+6.5, +2.5),
+    float2(+4.5, -4.5), float2(+3.5, -6.5), float2(-4.5, -4.5), float2(-4.5, -3.5),
+    float2(-6.5, +2.5), float2(+3.5, +5.5), float2(+3.5, -4.5), float2(+5.5, -3.5),
+    float2(-5.5, +4.5), float2(+6.5, -3.5), float2(-6.5, -2.5), float2(+5.5, +4.5),
+    float2(-1.5, +6.5), float2(-0.5, -7.5), float2(-6.5, +3.5), float2(-5.5, +3.5),
+    float2(-6.5, -4.5), float2(+7.5, -1.5), float2(-3.5, -5.5), float2(+3.5, +6.5),
+    float2(+5.5, +3.5), float2(+7.5, +0.5), float2(+5.5, -2.5), float2(-6.5, +0.5),
+    float2(-7.5, +1.5), float2(-3.5, -6.5), float2(+6.5, +0.5), float2(+7.5, +1.5),
+    float2(-2.5, -7.5), float2(-3.5, +5.5), float2(-7.5, -0.5), float2(-3.5, +6.5),
+    float2(-2.5, +6.5), float2(+4.5, -6.5), float2(-5.5, +5.5), float2(+4.5, -5.5),
+    float2(+6.5, -2.5), float2(+6.5, +3.5), float2(-1.5, -6.5), float2(-1.5, +7.5),
+    float2(+6.5, +1.5), float2(-5.5, -5.5), float2(+0.5, -6.5), float2(+7.5, +3.5),
+    float2(+2.5, +6.5), float2(-4.5, +5.5), float2(-6.5, -3.5), float2(-4.5, -5.5),
+    float2(-6.5, -5.5), float2(+5.5, -6.5), float2(-2.5, -6.5), float2(+5.5, -5.5),
+    float2(+4.5, +5.5), float2(-7.5, +0.5), float2(+6.5, -1.5), float2(+0.5, -7.5),
+    float2(+7.5, -0.5), float2(-3.5, -7.5), float2(+2.5, -6.5), float2(-3.5, +7.5),
+    float2(-4.5, -7.5), float2(-0.5, +7.5), float2(-6.5, +5.5), float2(+7.5, -3.5),
+    float2(-4.5, +6.5), float2(+1.5, +7.5), float2(+5.5, -4.5), float2(+7.5, +4.5),
+    float2(+0.5, +7.5), float2(+4.5, +6.5), float2(-4.5, +7.5), float2(-7.5, -1.5),
+    float2(+3.5, -7.5), float2(+7.5, -4.5), float2(+3.5, +7.5), float2(-1.5, -7.5),
+    float2(+6.5, -4.5), float2(-7.5, -3.5), float2(+6.5, +4.5), float2(+2.5, -7.5),
+    float2(+7.5, -2.5), float2(-7.5, +2.5), float2(+1.5, -7.5), float2(-5.5, +6.5),
+    float2(+5.5, +5.5), float2(-2.5, +7.5), float2(+7.5, +2.5), float2(-7.5, -2.5),
+    float2(+2.5, +7.5), float2(-6.5, +4.5), float2(+5.5, +6.5), float2(-4.5, -6.5),
+};
+
+static const uint kStackowiakSampleSetCount = 4;
+static const uint kStackowiakSampleCountPerSet = 56;
+
+void ConvolveStackowiakKernel(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	inout FSSDSignalAccumulator Accumulator)
+{
+	LOOP for (uint SampleId = (KernelConfig.bSampleKernelCenter ? 0 : 1); SampleId < KernelConfig.SampleCount; SampleId++)
+	{
+		const bool bIsKernelCenterSample = SampleId == 0;
+
+		float2 SampleOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+		if (KernelConfig.SampleSubSetId == 1)
+		{
+			SampleOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+		}
+			
+		float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
+		if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
+		{
+			continue;
+		}
+		
+		float KernelWeight = 1;
+		AccumulateMultiplexedSignals(
+			KernelConfig,
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			/* inout */ Accumulator,
+			SampleBufferUV,
+			KernelWeight,
+			/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+	}
+} // ConvolveStackowiakKernel()
+
+
+//------------------------------------------------------- MAIN ENTRY POINTS
+
+void AccumulateKernel(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	inout FSSDSignalAccumulator Accumulator)
+{
+	if (KernelConfig.SampleSet == SAMPLE_SET_1X1)
+	{
+		if (KernelConfig.bSampleKernelCenter)
+		{
+			AccumulateMultiplexedSignals(
+				KernelConfig,
+				SignalBuffer0,
+				SignalBuffer1,
+				SignalBuffer2,
+				/* inout */ Accumulator,
+				KernelConfig.BufferUV,
+				/* KernelSampleWeight = */ 1,
+				/* bForceSample = */ true);
+		}
+	}
+	else if (KernelConfig.SampleSet == SAMPLE_SET_2X2_BILINEAR)
+	{
+		AccumulateBilinear(
+			KernelConfig,
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			/* inout */ Accumulator);
+	}
+	else if (
+		KernelConfig.SampleSet == SAMPLE_SET_3X3 ||
+		KernelConfig.SampleSet == SAMPLE_SET_3X3_SOBEK2018 ||
+		KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET ||
+		KernelConfig.SampleSet == SAMPLE_SET_3X3_PLUS ||
+		KernelConfig.SampleSet == SAMPLE_SET_3X3_CROSS ||
+		KernelConfig.SampleSet == SAMPLE_SET_NXN)
+	{
+		AccumulateSquareKernel(
+			KernelConfig,
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			/* inout */ Accumulator);
+	}
+	else if (KernelConfig.SampleSet == SAMPLE_SET_STACKOWIAK_4_SETS)
+	{
+		ConvolveStackowiakKernel(
+			KernelConfig,
+			SignalBuffer0,
+			SignalBuffer1,
+			SignalBuffer2,
+			/* inout */ Accumulator);
+	}
+} // AccumulateKernel()

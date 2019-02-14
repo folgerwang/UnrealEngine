@@ -137,8 +137,13 @@ void FD3D12CommandContext::RHIPushEvent(const TCHAR* Name, FColor Color)
 {
 	if (IsDefaultContext())
 	{
+#if NV_AFTERMATH
+		GetParentDevice()->PushGPUEvent(Name, Color, CommandListHandle.AftermathCommandContext());
+#else
 		GetParentDevice()->PushGPUEvent(Name, Color);
+#endif
 	}
+
 
 #if PLATFORM_WINDOWS
 	AGSContext* const AmdAgsContext = OwningRHI.GetAmdAgsContext();

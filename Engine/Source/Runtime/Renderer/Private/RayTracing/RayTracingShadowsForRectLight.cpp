@@ -15,10 +15,11 @@
 #include "PostProcess/PostProcessing.h"
 #include "PostProcess/SceneFilterRendering.h"
 #include "RectLightSceneProxy.h"
+#include "RaytracingOptions.h"
 
 #include "RHI/Public/PipelineStateCache.h"
 
-static int32 GRayTracingRectLight = 1;
+static int32 GRayTracingRectLight = 0;
 static FAutoConsoleVariableRef CVarRayTracingRectLight(
 	TEXT("r.RayTracing.RectLight"),
 	GRayTracingRectLight,
@@ -48,6 +49,7 @@ bool IsRayTracingRectLightSelected()
 bool ShouldRenderRayTracingStaticOrStationaryRectLight(const FLightSceneInfo& LightSceneInfo)
 {
 	return IsRayTracingRectLightSelected()
+		&& LightSceneInfo.Proxy->CastsRaytracedShadow()
 		&& LightSceneInfo.Proxy->GetLightType() == LightType_Rect
 		&& !LightSceneInfo.Proxy->IsMovable();
 }
@@ -55,6 +57,7 @@ bool ShouldRenderRayTracingStaticOrStationaryRectLight(const FLightSceneInfo& Li
 bool ShouldRenderRayTracingDynamicRectLight(const FLightSceneInfo& LightSceneInfo)
 {
 	return IsRayTracingRectLightSelected()
+		&& LightSceneInfo.Proxy->CastsRaytracedShadow()
 		&& LightSceneInfo.Proxy->GetLightType() == LightType_Rect
 		&& LightSceneInfo.Proxy->IsMovable();
 }
@@ -72,6 +75,7 @@ SHADER_PARAMETER(FVector, Color)
 SHADER_PARAMETER(float, Width)
 SHADER_PARAMETER(float, Height)
 SHADER_PARAMETER(FIntVector, MipTreeDimensions)
+SHADER_PARAMETER(float, MaxNormalBias)
 SHADER_PARAMETER_TEXTURE(Texture2D, Texture)
 SHADER_PARAMETER_SAMPLER(SamplerState, TextureSampler)
 // Sampling data
@@ -80,7 +84,6 @@ END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 DECLARE_GPU_STAT_NAMED(RayTracingRectLight, TEXT("Ray Tracing RectLight"));
 DECLARE_GPU_STAT_NAMED(RayTracingRectLightOcclusion, TEXT("Ray Tracing RectLight Occlusion"));
-DECLARE_GPU_STAT_NAMED(BuildRectLightMipTree, TEXT("Build RectLight Mip Tree"));
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRectLightData, "RectLight");
 
@@ -112,6 +115,8 @@ public:
 		SceneTexturesParameter.Bind(Initializer.ParameterMap, TEXT("SceneTexturesStruct"));
 		RectLightParameter.Bind(Initializer.ParameterMap, TEXT("RectLight"));
 		TLASParameter.Bind(Initializer.ParameterMap, TEXT("TLAS"));
+		TransmissionProfilesTextureParameter.Bind(Initializer.ParameterMap, TEXT("SSProfilesTexture"));
+		TransmissionProfilesLinearSamplerParameter.Bind(Initializer.ParameterMap, TEXT("TransmissionProfilesLinearSampler"));
 
 		OcclusionMaskUAVParameter.Bind(Initializer.ParameterMap, TEXT("RWOcclusionMaskUAV"));
 		RayDistanceUAVParameter.Bind(Initializer.ParameterMap, TEXT("RWRayDistanceUAV"));
@@ -124,6 +129,8 @@ public:
 		Ar << SceneTexturesParameter;
 		Ar << RectLightParameter;
 		Ar << TLASParameter;
+		Ar << TransmissionProfilesTextureParameter;
+		Ar << TransmissionProfilesLinearSamplerParameter;
 		Ar << OcclusionMaskUAVParameter;
 		Ar << RayDistanceUAVParameter;
 		return bShaderHasOutdatedParameters;
@@ -141,7 +148,9 @@ public:
 	)
 	{
 		FRayTracingPipelineStateInitializer Initializer;
-		Initializer.RayGenShaderRHI = GetRayTracingShader();
+
+		FRayTracingShaderRHIParamRef RayGenShaderTable[] = { GetRayTracingShader() };
+		Initializer.SetRayGenShaderTable(RayGenShaderTable);
 
 		FRHIRayTracingPipelineState* Pipeline = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer); // #dxr_todo: this should be done once at load-time and cached
 
@@ -153,7 +162,24 @@ public:
 		GlobalResources.Set(OcclusionMaskUAVParameter, OcclusionMaskUAV);
 		GlobalResources.Set(RayDistanceUAVParameter, RayDistanceUAV);
 
-		RHICmdList.RayTraceDispatch(Pipeline, GlobalResources, Width, Height);
+		if (TransmissionProfilesTextureParameter.IsBound())
+		{
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+			const IPooledRenderTarget* PooledRT = GetSubsufaceProfileTexture_RT((FRHICommandListImmediate&)RHICmdList);
+
+			if (!PooledRT)
+			{
+				// no subsurface profile was used yet
+				PooledRT = GSystemTextures.BlackDummy;
+			}
+			const FSceneRenderTargetItem& Item = PooledRT->GetRenderTargetItem();
+
+			GlobalResources.SetTexture(TransmissionProfilesTextureParameter.GetBaseIndex(), Item.ShaderResourceTexture);
+			GlobalResources.SetSampler(TransmissionProfilesLinearSamplerParameter.GetBaseIndex(), TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI());
+		}
+
+		const uint32 RayGenShaderIndex = 0;
+		RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, GlobalResources, Width, Height);
 	}
 
 private:
@@ -162,6 +188,10 @@ private:
 	FShaderUniformBufferParameter ViewParameter;
 	FShaderUniformBufferParameter SceneTexturesParameter;
 	FShaderUniformBufferParameter RectLightParameter;
+
+	// SSS Profile
+	FShaderResourceParameter TransmissionProfilesTextureParameter;
+	FShaderResourceParameter TransmissionProfilesLinearSamplerParameter;
 
 	// Output
 	FShaderResourceParameter OcclusionMaskUAVParameter;
@@ -399,6 +429,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingRectLightInternal(
 	RectLightData.TextureSampler = RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Border, AM_Border, AM_Border));
 	RectLightData.MipTree = RectLightSceneProxy->RectLightMipTree.SRV;
 	RectLightData.MipTreeDimensions = RectLightSceneProxy->RectLightMipTreeDimensions;
+	RectLightData.MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
 	FUniformBufferRHIRef RectLightUniformBuffer = RHICreateUniformBuffer(&RectLightData, FRectLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ++ViewIndex)

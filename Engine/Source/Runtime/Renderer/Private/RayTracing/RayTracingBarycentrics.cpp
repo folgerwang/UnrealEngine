@@ -85,9 +85,16 @@ void FDeferredShadingSceneRenderer::RenderRayTracedBarycentrics(FRHICommandListI
 	auto MissShader = ShaderMap->GetShader<FRayTracingBarycentricsMS>();
 
 	FRayTracingPipelineStateInitializer Initializer;
-	Initializer.RayGenShaderRHI = RayGenShader->GetRayTracingShader();
-	Initializer.DefaultClosestHitShaderRHI = ClosestHitShader->GetRayTracingShader();
-	Initializer.MissShaderRHI = MissShader->GetRayTracingShader();
+
+	FRayTracingShaderRHIParamRef RayGenShaderTable[] = { RayGenShader->GetRayTracingShader() };
+	Initializer.SetRayGenShaderTable(RayGenShaderTable);
+
+	FRayTracingShaderRHIParamRef MissShaderTable[] = { MissShader->GetRayTracingShader() };
+	Initializer.SetMissShaderTable(MissShaderTable);
+
+	FRayTracingShaderRHIParamRef HitGroupTable[] = { ClosestHitShader->GetRayTracingShader() };
+	Initializer.SetHitGroupTable(HitGroupTable);
+	Initializer.HitGroupStride = 0; // Use the same hit shader for all geometry in the scene by disabling SBT indexing.
 
 	FRHIRayTracingPipelineState* Pipeline = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer); // #dxr_todo: this should be done once at load-time and cached
 
@@ -111,7 +118,8 @@ void FDeferredShadingSceneRenderer::RenderRayTracedBarycentrics(FRHICommandListI
 		SetShaderParameters(GlobalResources, RayGenShader, *RayGenParameters);
 
 		// Dispatch rays using default shader binding table
-		RHICmdList.RayTraceDispatch(Pipeline, GlobalResources, ViewRect.Size().X, ViewRect.Size().Y);
+		const uint32 RayGenShaderIndex = 0;
+		RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, GlobalResources, ViewRect.Size().X, ViewRect.Size().Y);
 	});
 
 	GraphBuilder.Execute();

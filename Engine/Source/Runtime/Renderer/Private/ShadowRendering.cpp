@@ -1237,6 +1237,12 @@ FDeferredShadingSceneRenderer
  */
 bool FSceneRenderer::CheckForProjectedShadows( const FLightSceneInfo* LightSceneInfo ) const
 {
+	// If light has ray-traced occlusion enabled, then it will project some shadows. No need 
+	// for doing a lookup through shadow maps data
+	const FLightOcclusionType LightOcclusionType = GetLightOcclusionType(*LightSceneInfo->Proxy);
+	if (LightOcclusionType == FLightOcclusionType::Raytraced)
+		return true;
+
 	// Find the projected shadows cast by this light.
 	const FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 	for( int32 ShadowIndex=0; ShadowIndex<VisibleLightInfo.AllProjectedShadows.Num(); ShadowIndex++ )

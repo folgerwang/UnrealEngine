@@ -26,8 +26,8 @@ bool GenerateRectLightOcclusionRay(
 	RandSample -= 0.5;
 
 	// Map sample point to quad
-	LightPosition += LightdPdu * LightWidth * RandSample.x + LightdPdv * LightHeight * RandSample.y;
-	float3 LightDirection = normalize(LightPosition - WorldPosition);
+	float3 LightSamplePosition = LightPosition + LightdPdu * LightWidth * RandSample.x + LightdPdv * LightHeight * RandSample.y;
+	float3 LightDirection = normalize(LightSamplePosition - WorldPosition);
 
 	// Light-normal culling
 	if (dot(-LightDirection, LightNormal) <= 0.0)
@@ -36,10 +36,10 @@ bool GenerateRectLightOcclusionRay(
 	}
 
 	// Apply normal perturbation when defining ray
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayOrigin = WorldPosition;
 	RayDirection = LightDirection;
 	RayTMin = 0.0;
-	RayTMax = length(LightPosition - WorldPosition);
+	RayTMax = length(LightSamplePosition - WorldPosition);
 
 	// Define rectangle
 	FRect Rect;

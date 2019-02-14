@@ -295,6 +295,7 @@ public:
 		int32 CommandIndex;
 	};
 	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
+	void UpdateRayTracingLodIndexToMeshDrawCommandIndicies();
 #endif
 
 	/** Initialization constructor. */

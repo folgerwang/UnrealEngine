@@ -1,0 +1,52 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "SSDSignalCore.ush"
+
+
+//------------------------------------------------------- STRUCTURE
+
+/** Accumulator of multiple signals. */
+struct FSSDSignalAccumulator
+{
+	FSSFSignalSample Moment1[MAX_SIGNAL_MULTIPLEXING];
+	FSSFSignalSample Moment2[MAX_SIGNAL_MULTIPLEXING];
+
+	FSSFSignalSample Min[MAX_SIGNAL_MULTIPLEXING];
+	FSSFSignalSample Max[MAX_SIGNAL_MULTIPLEXING];
+};
+
+
+FSSDSignalAccumulator CreateSignalAccumulator()
+{
+	FSSDSignalAccumulator Accumulator;
+	
+	for (uint i = 0; i < MAX_SIGNAL_MULTIPLEXING; i++)
+	{
+		Accumulator.Moment1[i] = CreateSignalSampleFromScalarValue(0.0);
+		Accumulator.Moment2[i] = CreateSignalSampleFromScalarValue(0.0);
+		
+		Accumulator.Min[i] = CreateSignalSampleFromScalarValue(1.#INF);
+		Accumulator.Max[i] = CreateSignalSampleFromScalarValue(0.0); // TODO: -1.#INF? otherwise there is a risk to color clamp with YCoCg.
+	}
+
+	return Accumulator;
+}
+
+
+//------------------------------------------------------- SPATIAL KERNEL ENTRY POINT.
+
+/** Accumulate a sample withing the accumulator. */
+void AccumulateSample(inout FSSDSignalAccumulator Accumulator, uint MultiplexId, FSSFSignalSample Sample, float SampleWeight)
+{
+	Accumulator.Moment1[MultiplexId] = Add(Accumulator.Moment1[MultiplexId], Mul(Sample, SampleWeight));
+	Accumulator.Moment2[MultiplexId] = Add(Accumulator.Moment2[MultiplexId], Mul(Power(Sample, 2), SampleWeight));
+
+	FLATTEN
+	if (SampleWeight > 0)
+	{
+		Accumulator.Min[MultiplexId] = Min(Accumulator.Min[MultiplexId], Sample);
+		Accumulator.Max[MultiplexId] = Max(Accumulator.Max[MultiplexId], Sample);
+	}
+}

@@ -13,6 +13,17 @@
 #include "SSDDefinitions.ush"
 
 
+//------------------------------------------------------- SHARED SHADER PARAMETERS
+
+float4x4  PrevScreenToTranslatedWorld;
+Texture2D PrevHistory0;
+Texture2D PrevHistory1;
+Texture2D PrevHistory2;
+Texture2D<uint> PrevTileClassificationTexture;
+Texture2D PrevDepthBuffer;
+Texture2D PrevGBufferA;
+Texture2D PrevGBufferB;
+
 
 //------------------------------------------------------- SHARED FUNCTION
 
@@ -71,6 +82,23 @@ FSSFSampleSceneInfos FetchCurrentSceneInfos(float2 ScreenPosition, float2 Buffer
 	return InitSampleSceneInfos(
 		View.ScreenToTranslatedWorld,
 		ScreenPosition, GBufferData.Depth, GBufferData.WorldNormal, GBufferData.Roughness);
+}
+
+FSSFSampleSceneInfos FetchPrevSceneInfos(float2 ScreenPosition, float2 BufferUV)
+{
+	// TODO: so what to do with mip level of these guys?
+	float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).r);
+	float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).rgb);
+	float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).b;
+
+	FSSFSampleSceneInfos OutMetadata;
+	OutMetadata = InitSampleSceneInfos(
+		View.PrevScreenToTranslatedWorld,
+		ScreenPosition, WorldSceneDepth, WorldNormal, Roughness);
+
+	// TODO: PrevScreenToCurrentTranslatedWorld
+	OutMetadata.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
+	return OutMetadata;
 }
 
 float ProjectWorldDistanceToScreenDistance(FSSFSampleSceneInfos SceneMetadata, float WorldDistance)

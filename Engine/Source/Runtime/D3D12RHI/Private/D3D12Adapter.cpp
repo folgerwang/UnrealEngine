@@ -183,6 +183,47 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 	}
 #endif // D3D12_RHI_RAYTRACING
 
+#if NV_AFTERMATH
+	// Two ways to enable aftermath, command line or the r.GPUCrashDebugging variable
+	// Note: If intending to change this please alert game teams who use this for user support.
+	if (FParse::Param(FCommandLine::Get(), TEXT("gpucrashdebugging")))
+	{
+		GDX12NVAfterMathEnabled = true;
+	}
+	else
+	{
+		static IConsoleVariable* GPUCrashDebugging = IConsoleManager::Get().FindConsoleVariable(TEXT("r.GPUCrashDebugging"));
+		if (GPUCrashDebugging)
+		{
+			GDX12NVAfterMathEnabled = GPUCrashDebugging->GetInt();
+		}
+	}
+
+	if (GDX12NVAfterMathEnabled)
+	{
+		if (IsRHIDeviceNVIDIA())
+		{
+			GFSDK_Aftermath_Result Result = GFSDK_Aftermath_DX12_Initialize(GFSDK_Aftermath_Version_API, GFSDK_Aftermath_FeatureFlags_Maximum, RootDevice);
+			if (Result == GFSDK_Aftermath_Result_Success)
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("[Aftermath] Aftermath enabled and primed"));
+				SetEmitDrawEvents(true);
+			}
+			else
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("[Aftermath] Aftermath enabled but failed to initialize (%x)"), Result);
+				GDX12NVAfterMathEnabled = 0;
+			}
+		}
+		else
+		{
+			GDX12NVAfterMathEnabled = 0;
+			UE_LOG(LogD3D12RHI, Warning, TEXT("[Aftermath] Skipping aftermath initialization on non-Nvidia device"));
+		}
+	}
+#endif
+
+
 #if UE_BUILD_DEBUG	&& PLATFORM_WINDOWS
 	//break on debug
 	TRefCountPtr<ID3D12Debug> d3dDebug;

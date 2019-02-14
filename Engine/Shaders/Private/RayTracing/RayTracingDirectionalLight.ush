@@ -4,6 +4,7 @@
 
 #include "../PathTracing/Utilities/PathTracingRandomSequence.ush"
 #include "../MonteCarlo.ush"
+#include "RayTracingCommon.ush"
 
 // #patrick todo: move to RayTracingCommon.ush
 float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
@@ -68,10 +69,9 @@ void GenerateDirectionalLightOcclusionRay(
 	}
 	float3 dPdv = cross(dPdu, N);
 	LightDirection += dPdu * DiskUV.x + dPdv * DiskUV.y;
-
-	// Apply normal perturbation when defining ray
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
-	RayDirection = normalize(LightDirection);
+	
+    RayOrigin = WorldPosition;
+    RayDirection = normalize(LightDirection);
 	RayTMin = 0.0;
 	RayTMax = 1.0e27;
 }

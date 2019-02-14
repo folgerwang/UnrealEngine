@@ -593,6 +593,7 @@ struct FRayTracingGeometryInstanceCollection
 	};
 
 	FRayTracingGeometry* Geometry = nullptr;
+	uint32 NumDynamicVertices = 0;
 	FRWBuffer* DynamicVertexPositionBuffer = nullptr;
 	TransformMode InstanceTransformMode;
 	TArray<FMatrix> CustomTransforms;

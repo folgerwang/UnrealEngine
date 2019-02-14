@@ -308,20 +308,7 @@ FRayTracingShaderRHIRef FD3D12DynamicRHI::RHICreateRayTracingShader(const TArray
 #else // USE_STATIC_ROOT_SIGNATURE
 	const D3D12_RESOURCE_BINDING_TIER Tier = Adapter.GetResourceBindingTier();
 	FD3D12QuantizedBoundShaderState QBSS;
-	QuantizeBoundShaderState(Tier, Shader, QBSS);
-	switch (ShaderFrequency)
-	{
-	case SF_RayGen:
-	case SF_RayMiss:
-		QBSS.RootSignatureType = RS_RayTracingGlobal;
-		break;
-	case SF_RayHitGroup:
-		// Local root signature is used for hit group shaders
-		QBSS.RootSignatureType = RS_RayTracingLocal;
-		break;
-	default:
-		checkNoEntry(); // Unexpected shader target frequency
-	}
+	QuantizeBoundShaderState(ShaderFrequency, Tier, Shader, QBSS);
 	Shader->pRootSignature = Adapter.GetRootSignature(QBSS);
 #endif // USE_STATIC_ROOT_SIGNATURE
 

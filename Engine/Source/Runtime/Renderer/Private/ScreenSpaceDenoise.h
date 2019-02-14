@@ -97,10 +97,9 @@ public:
 	
 	/** All the inputs of the AO denoisers. */
 	BEGIN_SHADER_PARAMETER_STRUCT(FAmbientOcclusionInputs, )
-		// G16R16F texture:
-		//  R: mask as [0; 1].
-		//  B: closest hit distance of the ray.
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, MaskAndRayHitDistance)
+		// TODO: Merge this back to MaskAndRayHitDistance into RG texture for performance improvement of denoiser's reconstruction pass. May also support RayDistanceOnly for 1spp AO ray tracing.
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Mask)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RayHitDistance)
 	END_SHADER_PARAMETER_STRUCT()
 
 	/** All the outputs of the AO denoiser may generate. */
@@ -116,6 +115,27 @@ public:
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
 		const FAmbientOcclusionInputs& ReflectionInputs,
 		const FAmbientOcclusionRayTracingConfig RayTracingConfig) const = 0;
+
+	/** All the inputs of the GI denoisers. */
+	BEGIN_SHADER_PARAMETER_STRUCT(FGlobalIlluminationInputs, )
+		// Irradiance in RGB, AO mask in alpha.
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Color)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RayHitDistance)
+	END_SHADER_PARAMETER_STRUCT()
+
+	/** All the outputs of the GI denoiser may generate. */
+	BEGIN_SHADER_PARAMETER_STRUCT(FGlobalIlluminationOutputs, )
+		// Irradiance in RGB, AO mask in alpha.
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Color)
+	END_SHADER_PARAMETER_STRUCT()
+
+	/** Entry point to denoise reflections. */
+	virtual FGlobalIlluminationOutputs DenoiseGlobalIllumination(
+		FRDGBuilder& GraphBuilder,
+		const FViewInfo& View,
+		const FSceneViewFamilyBlackboard& SceneBlackboard,
+		const FGlobalIlluminationInputs& Inputs,
+		const FAmbientOcclusionRayTracingConfig Config) const = 0;
 
 	/** Returns the interface of the default denoiser of the renderer. */
 	static const IScreenSpaceDenoiser* GetDefaultDenoiser();

@@ -4099,6 +4099,10 @@ void FSceneRenderer::InitDynamicShadows(FRHICommandListImmediate& RHICmdList, FG
 
 			FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 
+			const FLightOcclusionType OcclusionType = GetLightOcclusionType(LightSceneInfoCompact);
+			if (OcclusionType != FLightOcclusionType::Shadowmap)
+				continue;
+
 			// Only consider lights that may have shadows.
 			if ((LightSceneInfoCompact.bCastStaticShadow || LightSceneInfoCompact.bCastDynamicShadow) && GetShadowQuality() > 0)
 			{

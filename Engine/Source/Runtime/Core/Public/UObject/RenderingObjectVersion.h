@@ -77,6 +77,8 @@ struct CORE_API FRenderingObjectVersion
 
 		VirtualTexturedLightmaps,
 
+		GeometryCacheFastDecoder,
+
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,
 		LatestVersion = VersionPlusOne - 1

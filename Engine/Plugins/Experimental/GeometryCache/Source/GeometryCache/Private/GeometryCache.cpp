@@ -38,10 +38,29 @@ void UGeometryCache::PostInitProperties()
 void UGeometryCache::Serialize(FArchive& Ar)
 {
 	Ar.UsingCustomVersion(FAnimPhysObjectVersion::GUID);
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
+	auto ShowDeprecationNotification = [this]()
+	{
+		Tracks.Empty();
+		Materials.Empty();
+
+		const FText ErrorText = LOCTEXT("GeometryCacheEmptied", "Geometry Cache asset has been emptied as it does not support backwards compatibility");
+		FNotificationInfo Info(ErrorText);
+		Info.ExpireDuration = 5.0f;
+		FSlateNotificationManager::Get().AddNotification(Info);
+
+		UE_LOG(LogGeometryCache, Warning, TEXT("(%s) %s"), *ErrorText.ToString(), *GetName());
+	};
 		
 	if (Ar.CustomVer(FAnimPhysObjectVersion::GUID) >= FAnimPhysObjectVersion::GeometryCacheAssetDeprecation)
 	{
 		Super::Serialize(Ar);
+
+		if (Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::GeometryCacheFastDecoder)
+		{
+			ShowDeprecationNotification();
+		}
 	}
 	else
 	{
@@ -63,15 +82,7 @@ void UGeometryCache::Serialize(FArchive& Ar)
 			Ar << Materials;
 		}
 
-		Tracks.Empty();
-		Materials.Empty();
-		
-		const FText ErrorText = LOCTEXT("GeometryCacheEmptied", "Geometry Cache asset has been emptied as it does not support backwards compatibility");
-		FNotificationInfo Info(ErrorText);
-		Info.ExpireDuration = 5.0f;
-		FSlateNotificationManager::Get().AddNotification(Info);
-
-		UE_LOG(LogGeometryCache, Warning, TEXT("(%s) %s"), *ErrorText.ToString(), *GetName());
+		ShowDeprecationNotification();
 	}
 }
 

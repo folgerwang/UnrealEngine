@@ -46,6 +46,26 @@ static FAutoConsoleVariableRef CVarRayTracingOcclusion(
 	TEXT("1: use ray gen shader (default)")
 );
 
+FLightOcclusionType GetLightOcclusionType(const FLightSceneProxy& Proxy)
+{
+#if RHI_RAYTRACING
+	const bool bCastRaytracedShadow = IsRayTracingEnabled() && GRayTracingOcclusion == 1 && Proxy.CastsRaytracedShadow();
+	return bCastRaytracedShadow ? FLightOcclusionType::Raytraced : FLightOcclusionType::Shadowmap;
+#else
+	return FLightOcclusionType::Shadowmap;
+#endif
+}
+
+FLightOcclusionType GetLightOcclusionType(const FLightSceneInfoCompact& LightInfo)
+{
+#if RHI_RAYTRACING
+	const bool bCastRaytracedShadow = IsRayTracingEnabled() && GRayTracingOcclusion == 1 && LightInfo.bCastRaytracedShadow;
+	return bCastRaytracedShadow ? FLightOcclusionType::Raytraced : FLightOcclusionType::Shadowmap;
+#else
+	return FLightOcclusionType::Shadowmap;
+#endif
+}
+
 float GetLightFadeFactor(const FSceneView& View, const FLightSceneProxy* Proxy)
 {
 	// Distance fade
@@ -752,20 +772,15 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				{
 					INC_DWORD_STAT(STAT_NumShadowedLights);
 
-#if RHI_RAYTRACING
-					// #dxr_todo: Clean up this dispatch mess after removing specific rect light dispatches
-					if (ShouldRenderRayTracingStaticOrStationaryRectLight(LightSceneInfo))
-					{
-						RenderRayTracingOcclusionForRectLight(RHICmdList, LightSceneInfo, ScreenShadowMaskTexture);
-					}
-					// #dxr_todo: ShouldRenderRayTracingOcclusion()
-					else if (IsRayTracingEnabled() && GRayTracingOcclusion == 1)
-					{
+				#if RHI_RAYTRACING
+					const FLightOcclusionType OcclusionType = GetLightOcclusionType(*LightSceneInfo.Proxy);
+					if (OcclusionType == FLightOcclusionType::Raytraced)
+					{	
 						RenderRayTracingOcclusion(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture);
 					}
-					else
+					else // (OcclusionType == FOcclusionType::Shadowmap)
+				#endif
 					{
-#endif
 						for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 						{
 							const FViewInfo& View = Views[ViewIndex];
@@ -777,17 +792,17 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 						// All shadows render with min blending
 						bool bClearToWhite = !bClearLightScreenExtentsOnly;
 
-					FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
-					RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
-					RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneContext.GetSceneDepthSurface();
-					RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
-					if (bClearToWhite)
-					{
-						RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
-					}
+						FRHIRenderPassInfo RPInfo(ScreenShadowMaskTexture->GetRenderTargetItem().TargetableTexture, ERenderTargetActions::Load_Store);
+						RPInfo.DepthStencilRenderTarget.Action = MakeDepthStencilTargetActions(ERenderTargetActions::Load_DontStore, ERenderTargetActions::Load_Store);
+						RPInfo.DepthStencilRenderTarget.DepthStencilTarget = SceneContext.GetSceneDepthSurface();
+						RPInfo.DepthStencilRenderTarget.ExclusiveDepthStencil = FExclusiveDepthStencil::DepthRead_StencilWrite;
+						if (bClearToWhite)
+						{
+							RPInfo.ColorRenderTargets[0].Action = ERenderTargetActions::Clear_Store;
+						}
 
-					TransitionRenderPassTargets(RHICmdList, RPInfo);
-					RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearScreenShadowMask"));
+						TransitionRenderPassTargets(RHICmdList, RPInfo);
+						RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearScreenShadowMask"));
 						if (bClearLightScreenExtentsOnly)
 						{
 							SCOPED_DRAW_EVENT(RHICmdList, ClearQuad);
@@ -817,10 +832,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 						RHICmdList.EndRenderPass();
 
 						RenderShadowProjections(RHICmdList, &LightSceneInfo, ScreenShadowMaskTexture, bInjectedTranslucentVolume);
-
-#if RHI_RAYTRACING
 					}
-#endif
 
 					bUsedShadowMaskTexture = true;					
 				}

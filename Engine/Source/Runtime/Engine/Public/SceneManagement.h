@@ -1238,6 +1238,8 @@ public:
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
 	inline bool CastsTranslucentShadows() const { return bCastTranslucentShadows; }
 	inline bool CastsVolumetricShadow() const { return bCastVolumetricShadow; }
+	inline bool CastsRaytracedShadow() const { return bCastRaytracedShadow; }
+	inline bool AffectReflection() const { return bAffectReflection; }
 	inline bool CastsShadowsFromCinematicObjectsOnly() const { return bCastShadowsFromCinematicObjectsOnly; }
 	inline bool CastsModulatedShadows() const { return bCastModulatedShadows; }
 	inline const FLinearColor& GetModulatedShadowColor() const { return ModulatedShadowColor; }
@@ -1383,6 +1385,12 @@ protected:
 	const uint8 bCastShadowsFromCinematicObjectsOnly : 1;
 
 	const uint8 bForceCachedShadowsForMovablePrimitives : 1;
+
+	/** Whether the light shadows are computed with shadow-mapping or ray-tracing (when available). */
+	const uint8 bCastRaytracedShadow : 1;
+
+	/** Whether the light affects objects in reflections, when ray-traced reflection is enabled. */
+	const uint8 bAffectReflection : 1;
 
 	/** Whether the light affects translucency or not.  Disabling this can save GPU time when there are many small lights. */
 	const uint8 bAffectTranslucentLighting : 1;

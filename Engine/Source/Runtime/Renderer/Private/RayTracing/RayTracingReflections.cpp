@@ -15,6 +15,16 @@
 #include "VisualizeTexture.h"
 #include "LightRendering.h"
 #include "SystemTextures.h"
+#include "RayTracing/RaytracingOptions.h"
+#include "RayTracing/RayTracingDeferredMaterials.h"
+#include "RenderGraph.h"
+
+static int32 GRayTracingReflectionsMaxBounces = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxBounces(
+	TEXT("r.RayTracing.Reflections.MaxBounces"),
+	GRayTracingReflectionsMaxBounces,
+	TEXT("Sets the maximum number of ray tracing reflection bounces (default = 1)")
+);
 
 static int32 GRayTracingReflectionsEmissiveAndIndirectLighting = 1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsEmissiveAndIndirectLighting(
@@ -51,6 +61,31 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionsMaxRayDistance(
 	TEXT("Sets the maximum ray distance for ray traced reflection rays. When ray shortening is used, skybox will not be sampled in RT reflection pass and will be composited later, together with local reflection captures. Negative values turn off this optimization. (default = -1 (infinite rays))")
 );
 
+static TAutoConsoleVariable<int32> CVarRayTracingReflectionsSortMaterials(
+	TEXT("r.RayTracing.Reflections.SortMaterials"),
+	0,
+	TEXT("Sets whether refected materials will be sorted before shading\n")
+	TEXT("0: Disabled (Default)\n ")
+	TEXT("1: Enabled, using Trace->Sort->Trace\n"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarRayTracingReflectionsSortTileSize(
+	TEXT("r.RayTracing.Reflections.SortTileSize"),
+	32,
+	TEXT("Size of pixel tiles for sorted reflections\n")
+	TEXT("  Default 32\n"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarRayTracingReflectionsSortSize(
+	TEXT("r.RayTracing.Reflections.SortSize"),
+	3,
+	TEXT("Size of horizon for material ID sort\n")
+	TEXT("0: Disabled\n")
+	TEXT("1: 256 Elements\n")
+	TEXT("2: 512 Elements\n")
+	TEXT("3: 1024 Elements (Default)\n"),
+	ECVF_RenderThreadSafe);
+
 static const int32 GReflectionLightCountMaximum = 64;
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FReflectionsLightData, )
@@ -84,7 +119,9 @@ void SetupReflectionsLightData(
 
 	for (auto Light : Lights)
 	{
-		if (Light.LightSceneInfo->Proxy->HasStaticLighting() && Light.LightSceneInfo->IsPrecomputedLightingValid()) continue;
+		const bool bHasStaticLighting = Light.LightSceneInfo->Proxy->HasStaticLighting() && Light.LightSceneInfo->IsPrecomputedLightingValid();
+		const bool bAffectReflection = Light.LightSceneInfo->Proxy->AffectReflection();
+		if (bHasStaticLighting || !bAffectReflection) continue;
 
 		FLightShaderParameters LightParameters;
 		Light.LightSceneInfo->Proxy->GetLightShaderParameters(LightParameters);
@@ -125,17 +162,26 @@ class FRayTracingReflectionsRG : public FGlobalShader
 	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingReflectionsRG, FGlobalShader)
 
 	class FDenoiserOutput : SHADER_PERMUTATION_BOOL("DIM_DENOISER_OUTPUT");
-	using FPermutationDomain = TShaderPermutationDomain<FDenoiserOutput>;
+
+	class FDeferredMaterialMode : SHADER_PERMUTATION_ENUM_CLASS("DIM_DEFERRED_MATERIAL_MODE", EDeferredMaterialMode);
+
+	using FPermutationDomain = TShaderPermutationDomain<FDenoiserOutput, FDeferredMaterialMode>;
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(int32, SamplesPerPixel)
+		SHADER_PARAMETER(int32, MaxBounces)
+		SHADER_PARAMETER(int32, HeightFog)
 		SHADER_PARAMETER(int32, ShouldDoDirectLighting)
 		SHADER_PARAMETER(int32, ShouldDoReflectedShadows)
 		SHADER_PARAMETER(int32, ShouldDoEmissiveAndIndirectLighting)
 		SHADER_PARAMETER(int32, UpscaleFactor)
+		SHADER_PARAMETER(int32, SortTileSize)
+		SHADER_PARAMETER(FIntPoint, RayTracingResolution)
+		SHADER_PARAMETER(FIntPoint, TileAlignedResolution)
 		SHADER_PARAMETER(float, ReflectionMinRayDistance)
 		SHADER_PARAMETER(float, ReflectionMaxRayDistance)
 		SHADER_PARAMETER(float, ReflectionMaxRoughness)
+		SHADER_PARAMETER(float, ReflectionMaxNormalBias)
 
 		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
 
@@ -144,10 +190,17 @@ class FRayTracingReflectionsRG : public FGlobalShader
 		SHADER_PARAMETER_TEXTURE(Texture2D, LTCAmpTexture)
 		SHADER_PARAMETER_SAMPLER(SamplerState, LTCAmpSampler)
 
+		SHADER_PARAMETER_TEXTURE(Texture2D, PreIntegratedGF)
+		SHADER_PARAMETER_SAMPLER(SamplerState, PreIntegratedGFSampler)
+
 		SHADER_PARAMETER_STRUCT_REF(FViewUniformShaderParameters, ViewUniformBuffer)
 		SHADER_PARAMETER_STRUCT_REF(FSceneTexturesUniformParameters, SceneTexturesStruct)
 		SHADER_PARAMETER_STRUCT_REF(FReflectionsLightData, LightData)
 		SHADER_PARAMETER_STRUCT_REF(FReflectionUniformParameters, ReflectionStruct)
+		SHADER_PARAMETER_STRUCT_REF(FFogUniformParameters, FogUniformParameters)
+
+		// Optional indirection buffer used for sorted materials
+		SHADER_PARAMETER_RDG_BUFFER_UAV(StructuredBuffer<FDeferredMaterialPayload>, MaterialBuffer)
 
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float4>, ColorOutput)
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<float>, RayHitDistanceOutput)
@@ -191,16 +244,19 @@ IMPLEMENT_GLOBAL_SHADER(FRayTracingReflectionsMS, "/Engine/Private/RayTracing/Ra
 
 #endif // RHI_RAYTRACING
 
-
 void FDeferredShadingSceneRenderer::RayTraceReflections(
 	FRDGBuilder& GraphBuilder,
 	const FViewInfo& View,
 	FRDGTextureRef* OutColorTexture,
 	FRDGTextureRef* OutRayHitDistanceTexture,
-	int32 SamplePerPixel, 
+	int32 SamplePerPixel,
+	int32 HeightFog,
 	float ResolutionFraction)
 #if RHI_RAYTRACING
 {
+	const uint32 SortTileSize = CVarRayTracingReflectionsSortTileSize.GetValueOnRenderThread();
+	const bool bSortMaterials = CVarRayTracingReflectionsSortMaterials.GetValueOnRenderThread();
+
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
 
 	int32 UpscaleFactor = int32(1.0f / ResolutionFraction);
@@ -208,7 +264,7 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 	ensureMsgf(FComputeShaderUtils::kGolden2DGroupSize % UpscaleFactor == 0, TEXT("Reflection ray tracing will have uv misalignement."));
 	FIntPoint RayTracingResolution = FIntPoint::DivideAndRoundUp(View.ViewRect.Size(), UpscaleFactor);
 
-	{		
+	{
 		FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
 		Desc.Format = PF_FloatRGBA;
 		Desc.Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
@@ -220,65 +276,161 @@ void FDeferredShadingSceneRenderer::RayTraceReflections(
 		*OutRayHitDistanceTexture = GraphBuilder.CreateTexture(Desc, TEXT("RayTracingReflectionsHitDistance"));
 	}
 
-	FRayTracingReflectionsRG::FParameters* PassParameters = GraphBuilder.AllocParameters<FRayTracingReflectionsRG::FParameters>();
+	// When deferred materials are used, we need to dispatch the reflection shader twice:
+	// - First pass gathers reflected ray hit data and sorts it by hit shader ID.
+	// - Second pass re-traces the reflected ray and performs full shading.
+	// When deferred materials are not used, everything is done in a single pass.
+	const uint32 NumPasses = bSortMaterials ? 2 : 1;
+	const EDeferredMaterialMode DeferredMaterialModes[2] = 
+	{
+		bSortMaterials ? EDeferredMaterialMode::Gather : EDeferredMaterialMode::None,
+		bSortMaterials ? EDeferredMaterialMode::Shade : EDeferredMaterialMode::None,
+	};
 
-	PassParameters->SamplesPerPixel = SamplePerPixel;
-	PassParameters->ShouldDoDirectLighting = GRayTracingReflectionsDirectLighting;
-	PassParameters->ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
-	PassParameters->ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;
-	PassParameters->UpscaleFactor = UpscaleFactor;
-	PassParameters->ReflectionMinRayDistance = FMath::Min(GRayTracingReflectionsMinRayDistance, GRayTracingReflectionsMaxRayDistance);
-	PassParameters->ReflectionMaxRayDistance = GRayTracingReflectionsMaxRayDistance;
-	PassParameters->ReflectionMaxRoughness = FMath::Clamp(View.FinalPostProcessSettings.ScreenSpaceReflectionMaxRoughness, 0.01f, 1.0f);
-	PassParameters->LTCMatTexture = GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture;
-	PassParameters->LTCMatSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-	PassParameters->LTCAmpTexture = GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture;
-	PassParameters->LTCAmpSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	FRDGBufferRef DeferredMaterialBuffer = nullptr;
 
-	PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
-	PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
+	FIntPoint TileAlignedResolution = RayTracingResolution;
+	if (SortTileSize)
+	{
+		TileAlignedResolution = FIntPoint::DivideAndRoundUp(RayTracingResolution, SortTileSize) * SortTileSize;
+	}
+
+	const uint32 DeferredMaterialBufferNumElements = TileAlignedResolution.X * TileAlignedResolution.Y;
+
+	FRayTracingReflectionsRG::FParameters CommonParameters;
+
+	CommonParameters.SamplesPerPixel = SamplePerPixel;
+	CommonParameters.MaxBounces = GRayTracingReflectionsMaxBounces;
+	CommonParameters.HeightFog = HeightFog;
+	CommonParameters.ShouldDoDirectLighting = GRayTracingReflectionsDirectLighting;
+	CommonParameters.ShouldDoReflectedShadows = GRayTracingReflectionsShadows;
+	CommonParameters.ShouldDoEmissiveAndIndirectLighting = GRayTracingReflectionsEmissiveAndIndirectLighting;
+	CommonParameters.UpscaleFactor = UpscaleFactor;
+	CommonParameters.ReflectionMinRayDistance = FMath::Min(GRayTracingReflectionsMinRayDistance, GRayTracingReflectionsMaxRayDistance);
+	CommonParameters.ReflectionMaxRayDistance = GRayTracingReflectionsMaxRayDistance;
+	CommonParameters.ReflectionMaxRoughness = FMath::Clamp(View.FinalPostProcessSettings.ScreenSpaceReflectionMaxRoughness, 0.01f, 1.0f);
+	CommonParameters.ReflectionMaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
+	CommonParameters.LTCMatTexture = GSystemTextures.LTCMat->GetRenderTargetItem().ShaderResourceTexture;
+	CommonParameters.LTCMatSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	CommonParameters.LTCAmpTexture = GSystemTextures.LTCAmp->GetRenderTargetItem().ShaderResourceTexture;
+	CommonParameters.LTCAmpSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	CommonParameters.PreIntegratedGF = GSystemTextures.PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture;
+	CommonParameters.PreIntegratedGFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+	CommonParameters.RayTracingResolution = RayTracingResolution;
+	CommonParameters.TileAlignedResolution = TileAlignedResolution;
+
+	CommonParameters.TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
+	CommonParameters.ViewUniformBuffer = View.ViewUniformBuffer;
 	{
 		FReflectionsLightData LightData;
 		SetupReflectionsLightData(Scene->Lights, View, &LightData);
-		PassParameters->LightData = CreateUniformBufferImmediate(LightData, EUniformBufferUsage::UniformBuffer_SingleDraw);
+		CommonParameters.LightData = CreateUniformBufferImmediate(LightData, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	}
 	{ // TODO: use FSceneViewFamilyBlackboard.
 		FSceneTexturesUniformParameters SceneTextures;
 		SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, ESceneTextureSetupMode::All, SceneTextures);
-		PassParameters->SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleDraw);
+		CommonParameters.SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	}
 	{
 		FReflectionUniformParameters ReflectionStruct;
 		SetupReflectionUniformParameters(View, ReflectionStruct);
-		PassParameters->ReflectionStruct = CreateUniformBufferImmediate(ReflectionStruct, EUniformBufferUsage::UniformBuffer_SingleDraw);
+		CommonParameters.ReflectionStruct = CreateUniformBufferImmediate(ReflectionStruct, EUniformBufferUsage::UniformBuffer_SingleFrame);
 	}
-	PassParameters->ColorOutput = GraphBuilder.CreateUAV(*OutColorTexture);
-	PassParameters->RayHitDistanceOutput = GraphBuilder.CreateUAV(*OutRayHitDistanceTexture);
-	
-	auto RayGenShader = View.ShaderMap->GetShader<FRayTracingReflectionsRG>();
-	ClearUnusedGraphResources(RayGenShader, PassParameters);
-
-	GraphBuilder.AddPass(
-		RDG_EVENT_NAME("ReflectionRayTracing %dx%d", RayTracingResolution.X, RayTracingResolution.X),
-		PassParameters,
-		ERenderGraphPassFlags::Compute,
-		[PassParameters, this, &View, RayGenShader, RayTracingResolution](FRHICommandList& RHICmdList)
 	{
-		auto ClosestHitShader = View.ShaderMap->GetShader<FRayTracingReflectionsCHS>();
-		auto MissShader = View.ShaderMap->GetShader<FRayTracingReflectionsMS>();
+		FFogUniformParameters FogStruct;
+		SetupFogUniformParameters(View, FogStruct);
+		CommonParameters.FogUniformParameters = CreateUniformBufferImmediate(FogStruct, EUniformBufferUsage::UniformBuffer_SingleFrame);
+	}
+	CommonParameters.ColorOutput = GraphBuilder.CreateUAV(*OutColorTexture);
+	CommonParameters.RayHitDistanceOutput = GraphBuilder.CreateUAV(*OutRayHitDistanceTexture);
+	CommonParameters.SortTileSize = SortTileSize;
 
-		FRHIRayTracingPipelineState* Pipeline = BindRayTracingPipeline(
-			RHICmdList, View,
-			RayGenShader->GetRayTracingShader(),
-			MissShader->GetRayTracingShader(),
-			ClosestHitShader->GetRayTracingShader()); // #dxr_todo: this should be done once at load-time and cached
+	for (uint32 PassIndex = 0; PassIndex < NumPasses; ++PassIndex)
+	{
+		FRayTracingReflectionsRG::FParameters* PassParameters = GraphBuilder.AllocParameters<FRayTracingReflectionsRG::FParameters>();
+		*PassParameters = CommonParameters;
 
-		FRayTracingShaderBindingsWriter GlobalResources;
-		SetShaderParameters(GlobalResources, RayGenShader, *PassParameters);
+		const EDeferredMaterialMode DeferredMaterialMode = DeferredMaterialModes[PassIndex];
 
-		FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
-		RHICmdList.RayTraceDispatch(Pipeline, RayTracingSceneRHI, GlobalResources, RayTracingResolution.X, RayTracingResolution.Y);
-	});
+		if (DeferredMaterialMode != EDeferredMaterialMode::None)
+		{
+			if (DeferredMaterialMode == EDeferredMaterialMode::Gather)
+			{
+				FRDGBufferDesc Desc = FRDGBufferDesc::CreateStructuredDesc(sizeof(FDeferredMaterialPayload), DeferredMaterialBufferNumElements);
+				DeferredMaterialBuffer = GraphBuilder.CreateBuffer(Desc, TEXT("RayTracingReflectionsMaterialBuffer"));
+			}
+
+			PassParameters->MaterialBuffer = GraphBuilder.CreateUAV(DeferredMaterialBuffer);
+		}
+
+		FRayTracingReflectionsRG::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FRayTracingReflectionsRG::FDeferredMaterialMode>(DeferredMaterialMode);
+
+		auto RayGenShader = View.ShaderMap->GetShader<FRayTracingReflectionsRG>(PermutationVector);
+		ClearUnusedGraphResources(RayGenShader, PassParameters);
+
+		if (DeferredMaterialMode == EDeferredMaterialMode::Gather)
+		{
+			GraphBuilder.AddPass(
+				RDG_EVENT_NAME("ReflectionRayTracingGatherMaterials %dx%d", RayTracingResolution.X, RayTracingResolution.Y),
+				PassParameters,
+				ERenderGraphPassFlags::Compute,
+				[PassParameters, this, &View, RayGenShader, RayTracingResolution](FRHICommandList& RHICmdList)
+			{
+				FRHIRayTracingPipelineState* Pipeline = BindRayTracingPipelineForDeferredMaterialGather(RHICmdList, View, RayGenShader->GetRayTracingShader());
+
+				FRayTracingShaderBindingsWriter GlobalResources;
+				SetShaderParameters(GlobalResources, RayGenShader, *PassParameters);
+
+				FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
+				const uint32 RayGenShaderIndex = 0;
+				RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, RayTracingResolution.X, RayTracingResolution.Y);
+			});
+
+			// A material sorting pass
+			const uint32 SortSize = CVarRayTracingReflectionsSortSize.GetValueOnRenderThread();
+			if (SortSize)
+			{
+				SortDeferredMaterials(GraphBuilder, View, SortSize, DeferredMaterialBufferNumElements, DeferredMaterialBuffer);
+			}
+		}
+		else
+		{
+			GraphBuilder.AddPass(
+				RDG_EVENT_NAME("ReflectionRayTracing %dx%d", RayTracingResolution.X, RayTracingResolution.Y),
+				PassParameters,
+				ERenderGraphPassFlags::Compute,
+				[PassParameters, this, &View, RayGenShader, RayTracingResolution, DeferredMaterialBufferNumElements, DeferredMaterialMode](FRHICommandList& RHICmdList)
+			{
+				auto ClosestHitShader = View.ShaderMap->GetShader<FRayTracingReflectionsCHS>();
+				auto MissShader = View.ShaderMap->GetShader<FRayTracingReflectionsMS>();
+
+				FRHIRayTracingPipelineState* Pipeline = BindRayTracingPipeline(
+					RHICmdList, View,
+					RayGenShader->GetRayTracingShader(),
+					MissShader->GetRayTracingShader(),
+					ClosestHitShader->GetRayTracingShader()); // #dxr_todo: this should be done once at load-time and cached
+
+				FRayTracingShaderBindingsWriter GlobalResources;
+				SetShaderParameters(GlobalResources, RayGenShader, *PassParameters);
+
+				FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
+				const uint32 RayGenShaderIndex = 0;
+
+				if (DeferredMaterialMode == EDeferredMaterialMode::Shade)
+				{
+					// Shading pass for sorted materials uses 1D dispatch over all elements in the material buffer.
+					// This can be reduced to the number of output pixels if sorting pass guarantees that all invalid entries are moved to the end.
+					RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, DeferredMaterialBufferNumElements, 1);
+				}
+				else
+				{
+					RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, RayTracingResolution.X, RayTracingResolution.Y);
+				}
+			});
+		}
+	}
+
 }
 #else // !RHI_RAYTRACING
 {

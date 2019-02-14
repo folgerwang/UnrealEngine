@@ -6,7 +6,8 @@ PathTracingRayGenShader.usf: Reference path tracing
 
 #include "../Common.ush"
 #include "../PostProcessCommon.ush"
-#include "../Montecarlo.ush"
+#include "../RectLight.ush"
+//#include "../Montecarlo.ush"
 
 #include "PathTracingCommon.ush"
 #include "../RayTracing/RayTracingHitGroupCommon.ush"
@@ -96,7 +97,8 @@ void PathTracingMainRG()
 
 		float MaterialPdf = 0.0;
 		uint Bounces = 0;
-		while (Bounces < 32)
+		uint BouncesMax = 32;
+		while (Bounces < BouncesMax)
 		{
 			// Environment contribution
 			if (!IsHit(Ray, Payload))
@@ -115,7 +117,7 @@ void PathTracingMainRG()
 						{
 							float NeePdf = 0.0;
 							float3 LightUV = GetLightUV(SkyLightId, Ray, Payload);
-							PdfLight(Ray, SkyLightId, LightUV, NeePdf);
+							PdfLight(Ray, Payload, SkyLightId, LightUV, NeePdf);
 
 							// Note: MaterialPdf will need to be stored on the ray for an iterative solution
 							MisWeight = MaterialPdf / (MaterialPdf + NeePdf);
@@ -144,7 +146,7 @@ void PathTracingMainRG()
 						float NeePdf = 0.0;
 						int LightId = GetLightId(Payload);
 						float3 LightUV = GetLightUV(LightId, Ray, Payload);
-						PdfLight(Ray, LightId, LightUV, NeePdf);
+						PdfLight(Ray, Payload, LightId, LightUV, NeePdf);
 
 						float MisWeight = MaterialPdf / (MaterialPdf + NeePdf);
 					}
@@ -182,8 +184,8 @@ void PathTracingMainRG()
 					FRayCone LightRayCone = RayCone;
 
 					GenerateLightRay(Ray, LightId, LightUV, LightRay);
-					// #dxr_todo: Guard against tracing a back-facing ray
-
+					ApplyPositionBias(LightRay, Payload.WorldNormal, AdaptiveSamplingData.MaxNormalBias);
+					
 					uint RayFlags = RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
 
 					FMaterialClosestHitPayload NeePayload = TraceRayInternal(
@@ -204,7 +206,7 @@ void PathTracingMainRG()
 #if 0
 						// DEBUG: Validate NEE PDF
 						float NeePdfTmp;
-						PdfLight(Ray, LightId, LightUV, NeePdfTmp);
+						PdfLight(Ray, RayHitInfo, LightId, LightUV, NeePdfTmp);
 						if (abs(NeePdf - NeePdfTmp) > 0.0001)
 						{
 							Irradiance = float3(-10, -10, -10);
@@ -255,6 +257,7 @@ void PathTracingMainRG()
 
 			// Update ray
 			Ray.Direction = Direction;
+			ApplyPositionBias(Ray, Payload.WorldNormal, AdaptiveSamplingData.MaxNormalBias);
 			RayThroughput *= Throughput;
 			RayPdf *= MaterialPdf;
 

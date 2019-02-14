@@ -295,7 +295,7 @@ namespace D3DX12Residency
 		bool Initialize(Internal::SyncManager* pSyncManagerIn, UINT32 MaxSize)
 		{
 			pSyncManager = pSyncManagerIn;
-			MaxResidencySetSize = FMath::Max(MaxSize, 16U);	// Make sure capacity is non-zero so the allocation won't fail
+			MaxResidencySetSize = MaxSize;
 			
 			if (MaxSize)
 			{

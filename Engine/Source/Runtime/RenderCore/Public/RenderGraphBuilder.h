@@ -336,11 +336,16 @@ public:
 
 	/** Allocates parameter struct specifically to survive through the life time of the render graph. */
 	template< typename ParameterStructType >
-	inline ParameterStructType* AllocParameters() const
+	inline ParameterStructType* AllocParameters()
 	{
 		// TODO(RDG): could allocate using AllocateForRHILifeTime() to avoid the copy done when using FRHICommandList::BuildLocalUniformBuffer()
 		ParameterStructType* OutParameterPtr = new(FMemStack::Get()) ParameterStructType;
 		FMemory::Memzero(OutParameterPtr, sizeof(ParameterStructType));
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			AllocatedUnusedPassParameters.Add(static_cast<void *>(OutParameterPtr));
+		}
+		#endif
 		return OutParameterPtr;
 	}
 
@@ -363,6 +368,19 @@ public:
 		#if RENDER_GRAPH_DEBUGGING
 		{
 			checkf(!bHasExecuted, TEXT("Render graph pass %s needs to be added before the builder execution."), Name.GetTCHAR());
+
+			/** A pass parameter structure requires a correct life time until the pass execution, and therefor needs to be
+			 * allocated with FRDGBuilder::AllocParameters().
+			 *
+			 * Moreover, because the destructor of this parameter structure will be done after the pass execution, a it can
+			 * only be used by a single AddPass().
+			 */
+			checkf(
+				AllocatedUnusedPassParameters.Contains(static_cast<void *>(ParameterStruct)),
+				TEXT("The pass parameter structure has not been alloctaed for correct life time FRDGBuilder::AllocParameters() or has already ")
+				TEXT("been used by another previous FRDGBuilder::AddPass()."));
+
+			AllocatedUnusedPassParameters.Remove(static_cast<void *>(ParameterStruct));
 		}
 		#endif
 
@@ -473,6 +491,9 @@ private:
 
 		/** Lists of all created resources */
 		TArray<const FRDGResource*, SceneRenderingAllocator> Resources;
+
+		// All recently allocated pass parameter structure, but not used by a AddPass() yet.
+		TSet<void*> AllocatedUnusedPassParameters;
 	#endif
 
 	void DebugPass(const FRenderGraphPass* Pass);

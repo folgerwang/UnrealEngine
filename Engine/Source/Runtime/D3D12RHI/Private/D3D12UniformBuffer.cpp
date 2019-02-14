@@ -90,6 +90,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 				}
 				else if (IsRDGResourceReferenceShaderParameterType(ResourceType))
 				{
+					check(IsInRenderingThread()); // TODO: UE-68018
 					FRHIResource** ResourcePtr = *(FRHIResource***)((uint8*)Contents + Layout.Resources[i].MemberOffset);
 					Resource = ResourcePtr ? *ResourcePtr : nullptr;
 				}
@@ -214,6 +215,7 @@ void FD3D12DynamicRHI::RHIUpdateUniformBuffer(FUniformBufferRHIParamRef UniformB
 			}
 			else if (IsRDGResourceReferenceShaderParameterType(ResourceType))
 			{
+				check(IsInRenderingThread()); // TODO: UE-68018
 				FRHIResource** ResourcePtr = *(FRHIResource***)((uint8*)Contents + Layout.Resources[ResourceIndex].MemberOffset);
 				Resource = ResourcePtr ? *ResourcePtr : nullptr;
 			}

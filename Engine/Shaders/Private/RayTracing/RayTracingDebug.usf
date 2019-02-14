@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "../Common.ush"
+#include "../ShadingCommon.ush"
 #include "RayTracingDebugDefinitions.ush"
 #include "RayTracingCommon.ush"
 #include "RayTracingHitGroupCommon.ush"
@@ -87,7 +88,7 @@ void RayTracingDebugMainRGS()
 			Result = float4(Payload.Ior, Payload.Ior, Payload.Ior, 1.0f);
 			break;
 		case RAY_TRACING_DEBUG_VIZ_SHADING_MODEL:
-			Result = float4(Payload.ShadingModelID, Payload.ShadingModelID, Payload.ShadingModelID, 1.0f);
+            Result = float4(GetShadingModelColor(Payload.ShadingModelID), 1.0f);
 			break;
 		case RAY_TRACING_DEBUG_VIZ_BLENDING_MODE:
 			Result = float4(Payload.BlendingMode, Payload.BlendingMode, Payload.BlendingMode, 1.0f);
@@ -119,7 +120,7 @@ void RayTracingDebugMainRGS()
 [shader("miss")]
 void RayTracingDebugMainMS(inout FPackedMaterialClosestHitPayload PackedPayload)
 {
-	PackedPayload.Payload.HitT = -1;
+	PackedPayload.HitT = -1;
 }
 
 

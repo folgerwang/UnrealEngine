@@ -98,4 +98,9 @@ uint GetInstanceUserData()
 	return InstanceID();
 }
 
+uint GetHitGroupUserData()
+{
+	return HitGroupSystemRootConstants.UserData;
+}
+
 #endif // RAYTRACINGHITGROUPCOMMON_USH_INCLUDED // Workarround for UE-66460

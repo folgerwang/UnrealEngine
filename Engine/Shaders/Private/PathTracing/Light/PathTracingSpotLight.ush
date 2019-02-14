@@ -1,0 +1,100 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================================
+	PathTracingSpotLight.usf: Light sampling functions for Spot light implementation
+===============================================================================================*/
+
+#pragma once
+
+#include "PathTracingLightCommon.ush"
+
+void SpotLight_GenerateLightRay(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out RayDesc OutLightRay
+)
+{
+	OutLightRay.Origin = Ray.Origin;
+	OutLightRay.TMin = 0.001;
+	float3 LightDir = GetPosition(LightId) - Ray.Origin;
+	float Length = length(LightDir);
+	OutLightRay.Direction = LightDir / Length;
+	OutLightRay.TMax = Length;
+}
+
+void SpotLight_PdfLight(
+	RayDesc Ray,
+	int LightId,
+	float3 LightUV,
+	out float OutPdf
+)
+{
+	OutPdf = 0.0;
+}
+
+void SpotLight_EvalLight(
+	int LightId,
+	float3 LightUV,
+	RayDesc Ray,
+	out float3 OutRadiance
+)
+{
+	OutRadiance = 0.0;
+
+	float3 Color = GetColor(LightId);
+	float3 LightDirection = GetPosition(LightId) - Ray.Origin;
+	float LightDistanceSquared = dot(LightDirection, LightDirection);
+	LightDirection = normalize(LightDirection);
+
+	// Apply culling
+	float3 LightNormal = GetNormal(LightId);
+	float CosAngle = GetCosConeAngle(LightId);
+	float NoL = dot(-LightDirection, LightNormal);
+	if (NoL >= CosAngle)
+	{
+		float Falloff = NoL - CosAngle;
+		Falloff *= Falloff;
+		OutRadiance = Color * Falloff / LightDistanceSquared;
+		// dxr_todo: apply inner core
+	}
+}
+
+void SpotLight_EstimateLight(
+	int LightId,
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	out float OutIrradiance
+)
+{
+	// Distance
+	float3 LightDirection = GetPosition(LightId) - Payload.WorldPos;
+	float LightDistanceSquared = dot(LightDirection, LightDirection);
+	LightDirection = normalize(LightDirection);
+
+	// Apply culling
+	float3 LightNormal = GetNormal(LightId);
+	float CosAngle = GetCosConeAngle(LightId);
+	float NoL = dot(LightNormal, -LightDirection);
+	if (NoL >= CosAngle)
+	{
+		float LightPower = Luminance(GetColor(LightId));
+		float Falloff = NoL - CosAngle;
+		Falloff *= Falloff;
+		OutIrradiance = LightPower * Falloff / LightDistanceSquared;
+		// dxr_todo: apply inner core
+	}
+}
+
+void SpotLight_SampleLight(
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	float4 RandSample,
+	int LightId,
+	out float3 OutLightUV,
+	out float OutPdf
+)
+{
+	OutLightUV = 0;
+	OutPdf = 1.0;
+}

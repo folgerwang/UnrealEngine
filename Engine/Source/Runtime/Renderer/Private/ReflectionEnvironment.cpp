@@ -121,6 +121,12 @@ static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
 	GRayTracingReflectionsSamplesPerPixel,
 	TEXT("Sets the samples-per-pixel for reflections (default = 1)"));
 
+static int32 GRayTracingReflectionsHeightFog = 1;
+static FAutoConsoleVariableRef CVarRayTracingReflectionsHeightFog(
+	TEXT("r.RayTracing.Reflections.HeightFog"),
+	GRayTracingReflectionsHeightFog,
+	TEXT("Enables height fog in ray traced reflections (default = 1)"));
+
 static TAutoConsoleVariable<int32> CVarUseReflectionDenoiser(
 	TEXT("r.Reflections.Denoiser"),
 	2,
@@ -501,6 +507,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 	class FSkyLight					: SHADER_PERMUTATION_BOOL("ENABLE_SKY_LIGHT");
 	class FDynamicSkyLight			: SHADER_PERMUTATION_BOOL("ENABLE_DYNAMIC_SKY_LIGHT");
 	class FSkyShadowing				: SHADER_PERMUTATION_BOOL("APPLY_SKY_SHADOWING");
+	class FClearCoat				: SHADER_PERMUTATION_BOOL("ENABLE_CLEAR_COAT");
 
 	using FPermutationDomain = TShaderPermutationDomain<
 		FHasBoxCaptures,
@@ -509,7 +516,8 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		FSpecularBounce,
 		FSkyLight,
 		FDynamicSkyLight,
-		FSkyShadowing>;
+		FSkyShadowing,
+		FClearCoat>;
 
 	static FPermutationDomain RemapPermutation(FPermutationDomain PermutationVector)
 	{
@@ -537,7 +545,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		return PermutationVector;
 	}
 
-	static FPermutationDomain BuildPermutationVector(const FViewInfo& View, bool bBoxCapturesOnly, bool bSphereCapturesOnly, bool bSupportDFAOIndirectOcclusion, bool bSpecularBounce, bool bEnableSkyLight, bool bEnableDynamicSkyLight, bool bApplySkyShadowing)
+	static FPermutationDomain BuildPermutationVector(const FViewInfo& View, bool bBoxCapturesOnly, bool bSphereCapturesOnly, bool bSupportDFAOIndirectOcclusion, bool bSpecularBounce, bool bEnableSkyLight, bool bEnableDynamicSkyLight, bool bApplySkyShadowing, bool bEnableClearCoat)
 	{
 		FPermutationDomain PermutationVector;
 
@@ -548,6 +556,7 @@ class FReflectionEnvironmentSkyLightingPS : public FGlobalShader
 		PermutationVector.Set<FSkyLight>(bEnableSkyLight);
 		PermutationVector.Set<FDynamicSkyLight>(bEnableDynamicSkyLight);
 		PermutationVector.Set<FSkyShadowing>(bApplySkyShadowing);
+		PermutationVector.Set<FClearCoat>(bEnableClearCoat);
 
 		return RemapPermutation(PermutationVector);
 	}
@@ -767,7 +776,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			RayTraceReflections(
 				GraphBuilder,
 				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance,
-				GRayTracingReflectionsSamplesPerPixel, RayTracingConfig.ResolutionFraction);
+				GRayTracingReflectionsSamplesPerPixel, GRayTracingReflectionsHeightFog, RayTracingConfig.ResolutionFraction);
 
 
 			// Denoise the reflections.
@@ -829,7 +838,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			TShaderMapRef<FPostProcessVS> VertexShader(View.ShaderMap);
 
-			auto PermutationVector = FReflectionEnvironmentSkyLightingPS::BuildPermutationVector(View, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing);
+			auto PermutationVector = FReflectionEnvironmentSkyLightingPS::BuildPermutationVector(View, bHasBoxCaptures, bHasSphereCaptures, DynamicBentNormalAO != NULL, bReflectionCapture, bSkyLight, bDynamicSkyLight, bApplySkyShadowing, !bRayTracedReflections);
 
 			TShaderMapRef<FReflectionEnvironmentSkyLightingPS> PixelShader(View.ShaderMap, PermutationVector);
 

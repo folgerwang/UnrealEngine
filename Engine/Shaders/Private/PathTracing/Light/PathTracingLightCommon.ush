@@ -31,6 +31,11 @@ bool IsRectLight(int LightId)
 	return SceneLightsData.Type[LightId] == 3;
 }
 
+bool IsSpotLight(int LightId)
+{
+	return SceneLightsData.Type[LightId] == 4;
+}
+
 // A light is a physical light if it can be intersected by a ray.
 bool IsPhysicalLight(int LightId)
 {
@@ -80,6 +85,11 @@ float GetHeight(int LightId)
 float GetDepth(int LightId)
 {
 	return SceneLightsData.Dimensions[LightId].z;
+}
+
+float GetCosConeAngle(int LightId)
+{
+	return SceneLightsData.Dimensions[LightId].x;
 }
 
 float3 GetColor(int LightId)

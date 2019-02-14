@@ -45,9 +45,9 @@ static inline uint32 GetTypeHash(const FGraphicsPipelineStateInitializer& Initia
 static inline uint32 GetTypeHash(const FRayTracingPipelineStateInitializer& Initializer)
 {
 	return GetTypeHash(Initializer.MaxPayloadSizeInBytes) ^
-		GetTypeHash(Initializer.RayGenShaderRHI) ^
-		GetTypeHash(Initializer.MissShaderRHI) ^
-		GetTypeHash(Initializer.DefaultClosestHitShaderRHI) ^ 
+		GetTypeHash(Initializer.HitGroupStride) ^
+		GetTypeHash(Initializer.GetRayGenHash()) ^
+		GetTypeHash(Initializer.GetRayMissHash()) ^
 		GetTypeHash(Initializer.GetHitGroupHash());
 }
 #endif

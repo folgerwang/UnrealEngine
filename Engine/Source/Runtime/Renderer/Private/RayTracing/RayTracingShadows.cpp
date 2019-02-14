@@ -14,7 +14,7 @@
 #include "UniformBuffer.h"
 #include "VisualizeTexture.h"
 #include "RayGenShaderUtils.h"
-
+#include "RaytracingOptions.h"
 #include "Containers/DynamicRHIResourceArray.h"
 
 #include "SceneViewFamilyBlackboard.h"
@@ -27,6 +27,12 @@ static FAutoConsoleVariableRef CVarRayTracingOcclusionSamplesPerPixel(
 	TEXT("Sets the samples-per-pixel for directional light occlusion (default = 1)")
 );
 
+static float GRayTracingOcclusionNormalBias = 0.1f;
+static FAutoConsoleVariableRef CVarRayTracingOcclusionNormalBias(
+	TEXT("r.Shadow.RayTracing.NormalBias"),
+	GRayTracingOcclusionNormalBias,
+	TEXT("Sets the max. normal bias used for offseting the ray start position along the normal for light occlusion (default = 0.1)")
+);
 static TAutoConsoleVariable<int32> CVarShadowUseDenoiser(
 	TEXT("r.Shadow.Denoiser"),
 	2,
@@ -52,7 +58,7 @@ class FOcclusionRGS : public FGlobalShader
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER(uint32, SamplesPerPixel)
-
+		SHADER_PARAMETER(float, NormalBias)
 		SHADER_PARAMETER_STRUCT(FLightShaderParameters, Light)
 
 		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
@@ -65,12 +71,25 @@ class FOcclusionRGS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FOcclusionRGS, "/Engine/Private/RayTracing/RayTracingOcclusionRGS.usf", "OcclusionRGS", SF_RayGen);
 
+float GetRaytracingOcclusionMaxNormalBias()
+{
+	return FMath::Max(0.01f, GRayTracingOcclusionNormalBias);
+}
+
 void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 	FRHICommandListImmediate& RHICmdList,
 	const FLightSceneInfo* LightSceneInfo,
 	TRefCountPtr<IPooledRenderTarget>& OutScreenShadowMaskTexture
 )
 {
+	// Special path for rect light shadow
+	// #dxr_todo: Clean up this dispatch mess after removing specific rect light dispatches
+	if (ShouldRenderRayTracingStaticOrStationaryRectLight(*LightSceneInfo))
+	{
+		RenderRayTracingOcclusionForRectLight(RHICmdList, *LightSceneInfo, OutScreenShadowMaskTexture);
+		return;
+	}
+
 	check(LightSceneInfo);
 	FLightSceneProxy* LightSceneProxy = LightSceneInfo->Proxy;
 	check(LightSceneProxy);
@@ -108,6 +127,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingOcclusion(
 		PassParameters->RWOcclusionMaskUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ScreenShadowMaskTexture));
 		PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(RayDistanceTexture));
 		PassParameters->SamplesPerPixel = GRayTracingOcclusionSamplesPerPixel;
+		PassParameters->NormalBias = GetRaytracingOcclusionMaxNormalBias();
 		LightSceneProxy->GetLightShaderParameters(PassParameters->Light);
 		PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;

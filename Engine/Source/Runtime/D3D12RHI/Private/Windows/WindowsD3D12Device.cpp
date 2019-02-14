@@ -34,6 +34,17 @@ static TAutoConsoleVariable<int32> CVarGraphicsAdapter(
 	TEXT("  1: Adapter #1, ..."),
 	ECVF_RenderThreadSafe);
 
+#if NV_AFTERMATH
+// Disabled by default since introduces stalls between render and driver threads
+int32 GDX12NVAfterMathEnabled = 0;
+static FAutoConsoleVariableRef CVarDX12NVAfterMathBufferSize(
+	TEXT("r.DX12NVAfterMathEnabled"),
+	GDX12NVAfterMathEnabled,
+	TEXT("Use NV Aftermath for GPU crash analysis in D3D12"),
+	ECVF_ReadOnly
+);
+#endif
+
 static inline int D3D12RHI_PreferAdapterVendor()
 {
 	if (FParse::Param(FCommandLine::Get(), TEXT("preferAMD")))
@@ -448,6 +459,22 @@ FDynamicRHI* FD3D12DynamicRHIModule::CreateRHI(ERHIFeatureLevel::Type RequestedF
 
 void FD3D12DynamicRHIModule::StartupModule()
 {
+#if NV_AFTERMATH
+	// Note - can't check device type here, we'll check for that before actually initializing Aftermath
+	FString AftermathBinariesRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NVIDIA/NVaftermath/Win64/");
+	if (LoadLibraryW(*(AftermathBinariesRoot + "GFSDK_Aftermath_Lib.x64.dll")) == nullptr)
+	{
+		UE_LOG(LogD3D12RHI, Warning, TEXT("Failed to load GFSDK_Aftermath_Lib.x64.dll"));
+		GDX12NVAfterMathEnabled = 0;
+		return;
+	}
+	else
+	{
+		UE_LOG(LogD3D12RHI, Log, TEXT("Aftermath initialized"));
+		GDX12NVAfterMathEnabled = 1;
+	}
+#endif
+
 #if USE_PIX
 	static FString WindowsPixDllRelativePath = FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries/ThirdParty/Windows/DirectX/x64"));
 	static FString WindowsPixDll("WinPixEventRuntime.dll");

@@ -110,7 +110,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracedDebug(FRHICommandListImmediat
 
 	FRDGBuilder GraphBuilder(RHICmdList);
 
-	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);	
+	TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
 
 	auto RayGenShader = ShaderMap->GetShader<FRayTracingDebugRGS>();
 	auto ClosestHitShader = ShaderMap->GetShader<FRayTracingDebugCHS>();
@@ -144,7 +144,8 @@ void FDeferredShadingSceneRenderer::RenderRayTracedDebug(FRHICommandListImmediat
 		SetShaderParameters(GlobalResources, RayGenShader, *RayGenParameters);
 
 		// Dispatch rays using default shader binding table
-		RHICmdList.RayTraceDispatch(Pipeline, RayTracingSceneRHI, GlobalResources, ViewRect.Size().X, ViewRect.Size().Y);
+		const uint32 RayGenShaderIndex = 0;
+		RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, ViewRect.Size().X, ViewRect.Size().Y);
 	});
 
 	GraphBuilder.Execute();

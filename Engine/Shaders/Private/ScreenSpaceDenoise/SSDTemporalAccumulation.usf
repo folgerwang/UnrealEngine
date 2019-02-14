@@ -3,6 +3,25 @@
 #include "SSDDefinitions.ush"
 
 
+//------------------------------------------------------- ENUM VALUES
+
+/** What signal should be outputed. */
+	#define REJECTION_INPUT_MODE_1UNNORMALIZED 0
+	#define REJECTION_INPUT_MODE_2PRETRANSFORMED_MOMMENTS 1
+
+/** What set of sample should be used for history rejection. */
+	#define REJECTION_SAMPLE_SET_BOX 0
+	// [ Sobek 2018, "Real-time Reflections_in Mafia III" ]
+	#define REJECTION_SAMPLE_SET_SOBEK2018 1
+
+
+/** How to perform history rejection. */
+	#define HISTORY_REJECTION_DISABLED 0
+	#define HISTORY_REJECTION_MINMAX_BOUNDARIES 1
+	#define HISTORY_REJECTION_VAR_BOUNDARIES 2
+	#define HISTORY_REJECTION_ADAPTIVE_INTEGRATION 3
+
+
 //------------------------------------------------------- CONFIGS
 
 #define TILE_PIXEL_SIZE 8
@@ -11,47 +30,49 @@
 #define CONFIG_SIGNAL_PROCESSING DIM_SIGNAL_PROCESSING
 
 
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-	// Input and output layout.
-	// TODO: Do SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL that does not store certainty for the history.
-	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
-	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
-
-	// Uses a larger kernel when burteforcing to converge faster.
-	#define CONFIG_LARGER_HISTORY_KERNEL 1
-
-	// Input is from reduce pass that has been tile classified.
-	#define CONFIG_INPUT_TILE_CLASSIFICATION 1
-
-	// The work is control by tile classification to avoid doing useless mip levels.
-	#define CONFIG_USE_TILE_CLASSIFICATION 1
-
-	// Uses a rejection buffer at MIP 0 because is very unstable otherwise.
-	#define CONFIG_USE_REJECTION_BUFFER (DIM_IS_MIP_0 == 1)
-	#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
-
-	// Uses a larger kernel when brute forcing to increase the speed of convergence by bluring more spatially.
-	#define CONFIG_LARGE_HISTORY_KERNEL 1
-
-	// Reject based on certainty of the mip level.
-	#define CONFIG_CERTAINTY_BASED_REJECTION 1
-
-#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	// Input and output layout.
 	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
-	#define CONFIG_HISTORY_REJECTION 2
-	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE (COLOR_SPACE_LCOCG | COLOR_SPACE_UNPREMULTIPLY)
+	// Can only be done using tokoyashi because have more than one sample at a time.
+	#define CONFIG_TOKOYASHI_LOBE_BILATERAL 1
+	#define CONFIG_TOKOYASHI_AXES_BILATERAL 1
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 1
 
-	//#define CONFIG_HISTORY_BLENDING_COLOR_SPACE (COLOR_SPACE_RGB | COLOR_SPACE_UNPREMULTIPLY | COLOR_SPACE_KARIS_WEIGHTING)
+	// Use variance based rejection.
+	#define CONFIG_HISTORY_REJECTION             HISTORY_REJECTION_VAR_BOUNDARIES
+	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE REFLECTIONS_REJECTION_COLOR_SPACE
+
+	// Use pre transformed rejection buffer that contains pre transformed momment 1 & 2.
+	#if 1
+		#define CONFIG_USE_REJECTION_BUFFER               1
+		#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT    SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION
+		
+		#define CONFIG_REJECTION_BUFFER_COLOR_SPACE       REFLECTIONS_REJECTION_COLOR_SPACE
+		#define CONFIG_REJECTION_INPUT_MODE               REJECTION_INPUT_MODE_2PRETRANSFORMED_MOMMENTS
+		#define CONFIG_REJECTION_SAMPLE_SET               REJECTION_SAMPLE_SET_SOBEK2018
+	#endif
 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
 	// Input and output layout.
 	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_AO_HISTORY
 	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_AO_HISTORY
 
-	#define CONFIG_HISTORY_REJECTION 1
+	#define CONFIG_HISTORY_REJECTION HISTORY_REJECTION_MINMAX_BOUNDARIES
+
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 1
+	#define CONFIG_NORMAL_BASED_BILATERAL 1
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
+	// Input and output layout.
+	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY
+	#define CONFIG_SIGNAL_HISTORY_LAYOUT SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY
+
+	#define CONFIG_HISTORY_REJECTION HISTORY_REJECTION_MINMAX_BOUNDARIES
+
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 1
+	#define CONFIG_NORMAL_BASED_BILATERAL 1
 
 #else
 	#error Unimplemented signal processing.
@@ -71,29 +92,19 @@
 	#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT CONFIG_SIGNAL_INPUT_LAYOUT
 #endif
 
-/** Whether this pass as a tile classified input. */
-#ifndef CONFIG_INPUT_TILE_CLASSIFICATION
-	#define CONFIG_INPUT_TILE_CLASSIFICATION 0
+/** Input mode of the rejection signals. */
+#ifndef CONFIG_REJECTION_INPUT_MODE
+	#define CONFIG_REJECTION_INPUT_MODE REJECTION_INPUT_MODE_1UNNORMALIZED
 #endif
 
-/** Uses a kernel that is larger to sample the history. */
-#ifndef CONFIG_LARGE_HISTORY_KERNEL
-	#define CONFIG_LARGE_HISTORY_KERNEL 0
+/** Sample set to use for history rejection. */
+#ifndef CONFIG_REJECTION_SAMPLE_SET
+	#define CONFIG_REJECTION_SAMPLE_SET REJECTION_SAMPLE_SET_BOX
 #endif
 
-/** Whether the history rejection should be taking into account the certainty. */
-#ifndef CONFIG_CERTAINTY_BASED_REJECTION
-	#define CONFIG_CERTAINTY_BASED_REJECTION 0
-#endif
-
-/** Whether should use a larger kernel to sample history. */
-#ifndef CONFIG_LARGER_HISTORY_KERNEL
-	#define CONFIG_LARGER_HISTORY_KERNEL 0
-#endif
-
-/** Whether the color should be be weightted according to intensity. */
-#ifndef CONFIG_TEMPORAL_COLOR_WEIGHT
-	#define CONFIG_TEMPORAL_COLOR_WEIGHT 0
+/** The color space to use for history rejection. */
+#ifndef CONFIG_REJECTION_BUFFER_COLOR_SPACE
+	#define CONFIG_REJECTION_BUFFER_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
 #endif
 
 
@@ -101,71 +112,66 @@
 
 /** Whether should do history rejection. */
 #ifndef CONFIG_HISTORY_REJECTION
-	#define CONFIG_HISTORY_REJECTION 1
+	#define CONFIG_HISTORY_REJECTION HISTORY_REJECTION_DISABLED
 #endif
 
 /** The color space to use for history rejection. */
 #ifndef CONFIG_HISTORY_REJECTION_COLOR_SPACE
-	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
+	#define CONFIG_HISTORY_REJECTION_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
 #endif
 
 /** The color space to use for history blending. */
 #ifndef CONFIG_HISTORY_BLENDING_COLOR_SPACE
-	#define CONFIG_HISTORY_BLENDING_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
+	#define CONFIG_HISTORY_BLENDING_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
 #endif
 
 
 //------------------------------------------------------- INCLUDES
 
 #include "SSDSignalFramework.ush"
-#include "../TextureSampling.ush"
+#include "SSDSpatialKernel.ush"
 
 
 //------------------------------------------------------- PARAMETERS
 
 int bCameraCut;
 
-#if DIM_IS_MIP_0
-	static const uint iMipLevel = 0;
-	static const uint iMipLevelPow2 = 1;
-	static const float MipLevel = 0;
-	static const float MipLevelPow2 = 1;
-	static const float InvMipLevelPow2 = 1;
-#else
-	uint iMipLevel;
-	uint iMipLevelPow2;
-	float MipLevel;
-	float MipLevelPow2; // pow(2, MipLevel)
-	float InvMipLevelPow2; // pow(0.5, MipLevel)
-#endif
+static const uint iMipLevel = 0;
+static const uint iMipLevelPow2 = 1;
+static const float MipLevel = 0;
+static const float MipLevelPow2 = 1;
+static const float InvMipLevelPow2 = 1;
 
 Texture2D SignalInput0;
 Texture2D SignalInput1;
-
-float4x4  PrevScreenToTranslatedWorld;
-Texture2D PrevHistory0;
-Texture2D PrevHistory1;
-Texture2D<uint> PrevTileClassificationTexture;
-Texture2D PrevDepthBuffer;
-Texture2D PrevGBufferA;
-Texture2D PrevGBufferB;
+Texture2D SignalInput2;
 
 Texture2D HistoryRejectionSignal0;
 Texture2D HistoryRejectionSignal1;
+Texture2D HistoryRejectionSignal2;
 
 RWTexture2D<float4>	SignalHistoryOutput0;
 RWTexture2D<float4>	SignalHistoryOutput1;
+RWTexture2D<float4>	SignalHistoryOutput2;
 
 RWTexture2D<float4>	DebugOutput;
 
 
 //------------------------------------------------------- FUNCTIONS
 
-FSSFSignalSample TransformSignalForPreRejection(FSSFSignalSample Sample)
+FSSFSignalSample TransformInputBufferForPreRejection(FSSFSignalSample Sample)
 {
 	return TransformSignal(
 		Sample,
-		/* SrcConfig = */ CONFIG_BUFFER_COLOR_SPACE,
+		/* SrcConfig = */ STANDARD_BUFFER_COLOR_SPACE,
+		/* DestConfig = */ CONFIG_HISTORY_REJECTION_COLOR_SPACE);
+}
+
+FSSFSignalSample TransformRejectionBufferSignal(FSSFSignalSample Sample)
+{
+	return TransformSignal(
+		Sample,
+		/* SrcConfig = */ CONFIG_REJECTION_BUFFER_COLOR_SPACE,
 		/* DestConfig = */ CONFIG_HISTORY_REJECTION_COLOR_SPACE);
 }
 
@@ -174,25 +180,7 @@ FSSFSignalSample TransformSignalForPostRejection(FSSFSignalSample Sample)
 	return TransformSignal(
 		Sample,
 		/* SrcConfig = */ CONFIG_HISTORY_REJECTION_COLOR_SPACE,
-		/* DestConfig = */ CONFIG_BUFFER_COLOR_SPACE);
-}
-
-/** Sample history using a point sampler. */
-void PointSampleHistory(float2 ScreenPosition, float2 BufferUV, out FSSFSignalSample OutSample, out FSSFSampleSceneInfos OutMetadata)
-{
-	OutSample = SampleInputSignal(PrevHistory0, PrevHistory1, GlobalPointClampedSampler, CONFIG_SIGNAL_HISTORY_LAYOUT, BufferUV, MipLevel);
-	
-	// TODO: so what to do with mip level of these guys?
-	float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).r);
-	float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).rgb);
-	float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, BufferUV, 0).b;
-
-	OutMetadata = InitSampleSceneInfos(
-		View.PrevScreenToTranslatedWorld,
-		ScreenPosition, WorldSceneDepth, WorldNormal, Roughness);
-
-	// TODO: PrevScreenToCurrentTranslatedWorld
-	OutMetadata.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
+		/* DestConfig = */ STANDARD_BUFFER_COLOR_SPACE);
 }
 
 /** Temporally accumulate the input. */
@@ -201,8 +189,7 @@ void TemporallyAccumulate(
 	uint2 GroupId : SV_GroupID,
 	uint2 GroupThreadId : SV_GroupThreadID,
 	uint GroupThreadIndex : SV_GroupIndex,
-	FSSFTileInfos TileInfos,
-	const bool bBruteForce)
+	FSSFTileInfos TileInfos)
 {
 	// Find out scene buffer UV.
 	float2 SceneBufferUV = ((DispatchThreadId + 0.5) * MipLevelPow2 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
@@ -239,7 +226,7 @@ void TemporallyAccumulate(
 
 
 	// Sample current frame data.
-	FSSFSignalSample CurrentFrame = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV, MipLevel);
+	FSSFSignalSample CurrentFrame = SampleInputSignal(SignalInput0, SignalInput1, SignalInput2, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV, MipLevel);
 	FSSFSampleSceneInfos CurrentSceneMetadata = FetchCurrentSceneInfos(ScreenPosition, SceneBufferUV); // TODO: MipLevel
 
 	// Use the diameter, because that is the distance between two pixel.
@@ -247,12 +234,8 @@ void TemporallyAccumulate(
 	float WorldBluringRadius = WorldBluringRadiusToBilateralWorldDistance(PixelWorldBluringRadius);
 	
 	float TargetedSampleCount = TARGETED_SAMPLE_COUNT;
-	#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-	{
-		TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : (16 * MipLevelPow2 * MipLevelPow2);
-		//const float TargetedSampleCount = bBruteForce ? (0.125 * TARGETED_SAMPLE_COUNT) : TARGETED_SAMPLE_COUNT;
-	}
-	#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
+
+	#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	{
 		float SignalPixelBluringRadius = ComputeInfinityBluringRadius(CurrentSceneMetadata) * View.ViewSizeAndInvSize.x;
 
@@ -267,7 +250,7 @@ void TemporallyAccumulate(
 		//	max(CurrentFrame.AccumulatedSampleCount - TargetedSampleCount, 0),
 		//	0);
 	}
-	#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+	#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
 	{
 		TargetedSampleCount = TARGETED_SAMPLE_COUNT;
 	}
@@ -285,293 +268,35 @@ void TemporallyAccumulate(
 		BRANCH
 		if (!bIsPreviousFrameOffscreen)
 		{
-			FBilinearSampleInfos BilinearInfos = GetBilinearSampleLevelInfosEx(
-				HistoryBufferUV,
-				View.BufferSizeAndInvSize.xy,
-				View.BufferSizeAndInvSize.zw,
-				MipLevelPow2, rcp(MipLevelPow2));
-
-			// Number of sample to use.
-			#if CONFIG_LARGER_HISTORY_KERNEL == 0
-				const bool bUseLargerTAAKernel = false;
-			#elif CONFIG_LARGER_HISTORY_KERNEL == 1
-				const bool bUseLargerTAAKernel = bBruteForce;
-			#endif
-			const uint SampleCount = bUseLargerTAAKernel ? 16 : 4;
-
-			// Disabled because it is useful to count the sample we add together when brute forcing,
-			// so can converge faster the history.
-			// TODO: kill it.
-			float KernelWeight = 1;
-			if (bUseLargerTAAKernel)
-			{
-				KernelWeight = 0;
-
-				UNROLL
-				for (uint i = 0; i < SampleCount; i++)
-				{
-					float2 SampleOffset = float2(float(i % 4) - 1, float(i / 4) - 1);
-					KernelWeight += exp(-length2(SampleOffset - BilinearInfos.BilinearInterp));
-				}
-			}
-
-			// bilateral kernel of the history.
-			UNROLL
-			for (uint i = 0; i < SampleCount; i++)
-			{
-				float2 SampleOffset;
-				if (bUseLargerTAAKernel)
-				{
-					SampleOffset = float2(float(i % 4) - 1, float(i / 4) - 1);
-				}
-				else
-				{
-					SampleOffset = BilinearSamplingOffsets2x2[i];
-				}
-
-				// TODO: could be more ALU efficient for this.
-				// TODO: -0.5 full res pixel to ensure always select the mip, regardless of mantissa precision?
-				float2 SampleHistoryBufferUV = (BilinearInfos.TopLeftPixelCoord + (SampleOffset + 0.5)) * MipLevelPow2 * View.BufferSizeAndInvSize.zw;
-
-				// Snap to closest pixel.
-				//SampleHistoryBufferUV = SnapToClosestPixelCenterUVEx(
-				//	SampleHistoryBufferUV,
-				//	View.BufferSizeAndInvSize.xy, View.BufferSizeAndInvSize.zw,
-				//	MipLevelPow2, rcp(MipLevelPow2));
-
-				if (1)
-				{
-					if (any(SampleHistoryBufferUV != clamp(SampleHistoryBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
-					{
-						continue;
-					}
-				}
-
-				float2 SampleViewportUV = BufferUVToViewportUV(SampleHistoryBufferUV);
-				float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
-
-				// Read tile information of then history.
-				// TODO: can share a gather4 across all sampples.
-				uint2 HistoryTilePos = uint2(SampleHistoryBufferUV * View.BufferSizeAndInvSize.xy * rcp(8));
-				HistoryTilePos = (uint2(BilinearInfos.TopLeftPixelCoord + SampleOffset) * iMipLevelPow2) / 8;
-
-				FSSFTileInfos HistoryTileInfos = DecodeTileInfos(
-					PrevTileClassificationTexture[HistoryTilePos]);
-
-				// Sample history.
-				FSSFSignalSample HistorySample = GetConstantSignalSample(TILE_MODE_FULLY_INVALID);
-
-				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-				if (bBruteForce)
-				{
-					BRANCH
-					if (HistoryTileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
-					{
-						HistorySample = SampleInputSignal(
-							PrevHistory0, PrevHistory1,
-							GlobalPointClampedSampler,
-							CONFIG_SIGNAL_HISTORY_LAYOUT,
-							SampleHistoryBufferUV,
-							/* MipLevel = */ 0);
-					}
-					else if (HistoryTileInfos.TileMode == TILE_MODE_FAST && 1) // TODO
-					{
-						HistorySample.AccumulatedSampleCount = 1.#INF;
-
-						float PenumbraMask = 1;
-
-						UNROLL
-						for (uint i = 0; i < MAX_MIP_LEVEL_COUNT; i++)
-						{
-							BRANCH
-							if (HistoryTileInfos.bProcessMipLevel[i])
-							{
-								// May need to sample all mip levels?
-								FSSFSignalSample HistoryLayerSample = SampleInputSignal(
-									PrevHistory0, PrevHistory1,
-									GlobalPointClampedSampler,
-									CONFIG_SIGNAL_HISTORY_LAYOUT,
-									SampleHistoryBufferUV,
-									i);
-
-								HistorySample.AccumulatedSampleCount = min(
-									HistorySample.AccumulatedSampleCount,
-									HistoryLayerSample.AccumulatedSampleCount);
-								PenumbraMask *= GetSamplePenumbraSafe(HistoryLayerSample);
-							}
-						}
-
-						HistorySample.LeavingRayCount = PenumbraMask * HistorySample.AccumulatedSampleCount;
-					}
-					else if (
-						HistoryTileInfos.TileMode == TILE_MODE_FULLY_LIGHTED ||
-						HistoryTileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED)
-					{
-						HistorySample = GetConstantSignalSample(HistoryTileInfos.TileMode);
-					}
-				}
-				else // if (!bBruteForce)
-				{
-					BRANCH
-					if (HistoryTileInfos.TileMode == TILE_MODE_BRUTE_FORCE && 1) // TODO.
-					{
-						HistorySample = CreateSignalSample();
-
-						// TODO: this seriously needs to be optimised.
-						for (uint x = 0; x < iMipLevelPow2; x++)
-						for (uint y = 0; y < iMipLevelPow2; y++)
-						{
-							if (x != 0 || y != 0) continue;
-
-							float2 SampleHistoryBufferUV2 = (BilinearInfos.TopLeftPixelCoord * MipLevelPow2 + (uint2(x, y) + 0.5)) * View.BufferSizeAndInvSize.zw;
-
-							float2 SampleViewportUV2 = BufferUVToViewportUV(SampleHistoryBufferUV2);
-							float2 SampleScreenPosition2 = ViewportUVToScreenPos(SampleViewportUV2);
-
-							FSSFSignalSample HistorySample2 = SampleInputSignal(
-								PrevHistory0, PrevHistory1,
-								GlobalPointClampedSampler,
-								CONFIG_SIGNAL_HISTORY_LAYOUT,
-								SampleHistoryBufferUV2,
-								/* MipLevel = */ 0);
-
-							if (!(HistorySample2.AccumulatedSampleCount >= 0))
-								continue;
-
-							// Sample the meta data of the history sample.
-							FSSFSampleSceneInfos HistoryMetadata2;
-							{
-								float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).r);
-								float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).rgb);
-								float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV2, 0).b;
-
-								HistoryMetadata2 = InitSampleSceneInfos(
-									View.PrevScreenToTranslatedWorld,
-									SampleScreenPosition2, WorldSceneDepth, WorldNormal, Roughness);
-
-								// TODO: PrevScreenToCurrentTranslatedWorld
-								HistoryMetadata2.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
-							}
-
-							// Ignores if history samples have more than targeted sample count.
-							float SampleCountCorrectionWeight = min(1, TargetedSampleCount / HistorySample2.AccumulatedSampleCount);
-
-							// Compute sample weight for accumultation.
-							float BilateralWeight = ComputeBilateralWeight(
-								WorldBluringRadius,
-								CurrentSceneMetadata,
-								HistoryMetadata2);
-
-							HistorySample = Add(HistorySample, Mul(HistorySample2, SampleCountCorrectionWeight * BilateralWeight));
-						}
-
-						// TODO: no longer have ray hit distance, an artifact is generated here because applying a same PenumbraMask onto
-						// multiple mip level that then get multiplied together and end up producing a output darker than it needs.
-						if (1)
-						{
-							float Count = 0;
-							for (uint k = 0; k < 4; k++)
-							{
-								Count += TileInfos.bProcessMipLevel[k] ? 1 : 0;
-							}
-
-							float Penumbra = GetSamplePenumbraSafe(HistorySample);
-							float NewPenumbra = pow(Penumbra, rcp(Count));
-							HistorySample.LeavingRayCount = HistorySample.AccumulatedSampleCount * NewPenumbra;
-						}
-
-						// Ignores if history samples have more than targeted sample count.
-						float SampleCountCorrectionWeight = min(1, TargetedSampleCount / HistorySample.AccumulatedSampleCount);
-
-						float BilinearWeight = GetSampleWeight(BilinearInfos, i);
-
-						PreviousFrame = Add(PreviousFrame, Mul(HistorySample, SampleCountCorrectionWeight * BilinearWeight));
-
-
-						continue;
-					}
-					else if (HistoryTileInfos.TileMode == TILE_MODE_FAST)
-					{
-						BRANCH
-						if (HistoryTileInfos.bProcessMipLevel[iMipLevel])
-						{
-							// TODO: project in lobe space additionally.
-							HistorySample = SampleInputSignal(
-								PrevHistory0, PrevHistory1,
-								GlobalPointClampedSampler,
-								CONFIG_SIGNAL_HISTORY_LAYOUT,
-								SampleHistoryBufferUV,
-								MipLevel);
-						}
-					}
-					else if (
-						HistoryTileInfos.TileMode == TILE_MODE_FULLY_LIGHTED ||
-						HistoryTileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED)
-					{
-						HistorySample = Mul(GetConstantSignalSample(HistoryTileInfos.TileMode), MipLevelPow2 * MipLevelPow2);
-					}
-				} // if (!bBruteForce)
-				#else // CONFIG_SIGNAL_PROCESSING != SIGNAL_PROCESSING_PENUMBRA
-				{
-					HistorySample = SampleInputSignal(
-						PrevHistory0, PrevHistory1,
-						GlobalPointClampedSampler,
-						CONFIG_SIGNAL_HISTORY_LAYOUT,
-						SampleHistoryBufferUV,
-						/* MipLevel = */ 0);
-				}
-				#endif
-
-				if (HistorySample.AccumulatedSampleCount > 0)
-				{
-					// Sample the meta data of the history sample.
-					FSSFSampleSceneInfos HistoryMetadata;
-					{
-						float WorldSceneDepth = ConvertFromDeviceZ(PrevDepthBuffer.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).r);
-						float3 WorldNormal = DecodeNormal(PrevGBufferA.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).rgb);
-						float Roughness = PrevGBufferB.SampleLevel(GlobalPointClampedSampler, SampleHistoryBufferUV, 0).b;
-
-						HistoryMetadata = InitSampleSceneInfos(
-							View.PrevScreenToTranslatedWorld,
-							SampleScreenPosition, WorldSceneDepth, WorldNormal, Roughness);
-
-						// TODO: PrevScreenToCurrentTranslatedWorld
-						HistoryMetadata.TranslatedWorldPosition += -View.PrevPreViewTranslation.xyz + View.PreViewTranslation.xyz;
-					}
-
-					// Ignores if history samples have more than targeted sample count.
-					float SampleCountCorrectionWeight = min(1, TargetedSampleCount / HistorySample.AccumulatedSampleCount);
-
-					// Compute sample weight for accumultation.
-					float BilateralWeight = ComputeBilateralWeight(
-						WorldBluringRadius,
-						CurrentSceneMetadata,
-						HistoryMetadata);
-
-					float BilinearWeight = 1;
-					if (bUseLargerTAAKernel)
-					{
-						// TODO: that is a lot of ALU.
-						BilinearWeight = exp(-length2(SampleOffset - BilinearInfos.BilinearInterp));
-					}
-					else
-					{
-						BilinearWeight = GetSampleWeight(BilinearInfos, i);
-					}
-
-					float FinalWeight = BilateralWeight * BilinearWeight;
-
-					PreviousFrame = Add(PreviousFrame, Mul(HistorySample, SampleCountCorrectionWeight * FinalWeight));
-				}
-			} // for (uint i = 0; i < SampleCount; i++)
-
-			PreviousFrame = Mul(PreviousFrame, rcp(KernelWeight));
+			FSSDKernelConfig KernelConfig = CreateKernelConfig();
+			
+			// compile time configuration of the kernel.
+			KernelConfig.SampleSet = SAMPLE_SET_2X2_BILINEAR;
+			KernelConfig.BufferLayout = CONFIG_SIGNAL_HISTORY_LAYOUT;
+			KernelConfig.bUnroll = true;
+			KernelConfig.bPreviousFrameMetadata = true;
+			
+			// SGPR configuration of the kernel.
+			KernelConfig.BufferSizeAndInvSize = View.BufferSizeAndInvSize;
+			KernelConfig.BufferBilinearUVMinMax = View.BufferBilinearUVMinMax;
+			
+			// VGPR configuration of the kernel.
+			KernelConfig.BufferUV = HistoryBufferUV;
+			KernelConfig.RefSceneMetadata = CurrentSceneMetadata;
+			
+			FSSDSignalAccumulator SignalAccumulator = CreateSignalAccumulator();
+			AccumulateKernel(
+				KernelConfig,
+				PrevHistory0, PrevHistory1, PrevHistory2,
+				/* inout */ SignalAccumulator);
+		
+			PreviousFrame = SignalAccumulator.Moment1[0];
 		} // if (!bIsPreviousFrameOffscreen)
 	}
 	
 	FSSFSignalSample HistorySample = PreviousFrame;
 
-	const bool bPostRejectionBlending = !bBruteForce || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO;
+	const bool bPostRejectionBlending = CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO;
 
 	if (!bPostRejectionBlending)
 	{
@@ -582,244 +307,131 @@ void TemporallyAccumulate(
 	}
 
 	// History rejection.
-	#if CONFIG_HISTORY_REJECTION > 0
-	BRANCH
-	if (HistorySample.AccumulatedSampleCount > 0 && 1 || 1)
+	#if CONFIG_HISTORY_REJECTION == HISTORY_REJECTION_MINMAX_BOUNDARIES || CONFIG_HISTORY_REJECTION == HISTORY_REJECTION_VAR_BOUNDARIES
 	{
 		// Whether the history is rejected using rejection history signal.
 		const bool bUsesHistoryRejectionSignal = CONFIG_USE_REJECTION_BUFFER;
+		const bool bUseCurrentSampleForCenter = bPostRejectionBlending && !CONFIG_USE_REJECTION_BUFFER;
 
-		// Compile time size of the neighborhood to look for.
-		int NeighborSize = 2; // TODO: based on anisotropy.
-		#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+		FSSDKernelConfig KernelConfig = CreateKernelConfig();
+
+		// compile time configuration of the kernel.
 		{
-			if (bBruteForce)
+			KernelConfig.bSampleKernelCenter = !bUseCurrentSampleForCenter;
+		
+			// History rejection is already fudge factor by how reprojection. Want to prioritize rejection stability with more sample
+			// than accuracy, so only take the sample blur distance.
+			KernelConfig.bConsiderInputSampleBlurRadius = false;
+
+			#if CONFIG_REJECTION_SAMPLE_SET == REJECTION_SAMPLE_SET_SOBEK2018
 			{
-				// Brute forcing, want to have very large clamping box.
-				NeighborSize = bUsesHistoryRejectionSignal ? 3 : 4;
+				KernelConfig.SampleSet = SAMPLE_SET_3X3_SOBEK2018;
+				//KernelConfig.SampleSet = SAMPLE_SET_NXN;
+				//KernelConfig.BoxKernelRadius = 3;
+				KernelConfig.bUnroll = true;
 			}
-			else if (bUsesHistoryRejectionSignal)
-			{
-				NeighborSize = 2;
-			}
-		}
-		#else
-		{
-			NeighborSize = 3;
-		}
-		#endif
-
-		// The minimum and maximum penumbra.
-		FSSFSignalSample NeighborMin = CreateSignalSampleFromScalarValue(1.#INF);
-		FSSFSignalSample NeighborMax = CreateSignalSampleFromScalarValue(0.0);
-
-		float NeighborMomentWeight = 0;
-		FSSFSignalSample NeighborMoment1 = CreateSignalSampleFromScalarValue(0.0);
-		FSSFSignalSample NeighborMoment2 = CreateSignalSampleFromScalarValue(0.0);
-
-		float NeighborMinPenumbra = 1.0;
-		float NeighborMaxPenumbra = 0.0;
-
-		const bool bUseCurrentSampleForCenter = bPostRejectionBlending;
-		if (bUseCurrentSampleForCenter && CurrentFrame.AccumulatedSampleCount > 0)
-		{
-			NeighborMinPenumbra = GetSamplePenumbraSafe(CurrentFrame);
-			NeighborMaxPenumbra = GetSamplePenumbraSafe(CurrentFrame);
-
-			FSSFSignalSample TransformedCurrentFrame = TransformSignalForPreRejection(NormalizeToOneSample(CurrentFrame));
-
-			NeighborMin = TransformedCurrentFrame;
-			NeighborMax = TransformedCurrentFrame;
-
-			NeighborMomentWeight = 1;
-			NeighborMoment1 = TransformedCurrentFrame;
-			NeighborMoment2 = Power(TransformedCurrentFrame, 2.0);
-		}
-
-		// Look for neighborhood to build clamping box.
-		LOOP for (int x = -NeighborSize; x <= NeighborSize; x++)
-		LOOP for (int y = -NeighborSize; y <= NeighborSize; y++)
-		{
-			if (x == 0 && y == 0 && bUseCurrentSampleForCenter)
-			{
-				continue;
-			}
-
-			float2 SampleBufferUV = SceneBufferUV + (float2(x, y) * MipLevelPow2) * View.BufferSizeAndInvSize.zw;
-			if (1)
-			{
-				if (any(SampleBufferUV != clamp(SampleBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
-				{
-					continue;
-				}
-			}
-
-			FSSFSignalSample NeighborSample = CreateSignalSample();
-			float NeighborPenumbra = -1;
-			float NeighborUncertainty = 1.0;
-
-			#if CONFIG_INPUT_TILE_CLASSIFICATION
-			{
-				FSSFTileInfos SampleTileInfos;
-
-				// TODO: unless being lowest mip level, can reduce this to a gather4.
-				SampleTileInfos = LoadTileInfos(uint2(floor(SampleBufferUV * View.BufferSizeAndInvSize.xy)) / 8);
-
-				// Already know this sample will be invalid.
-				if (SampleTileInfos.TileMode == TILE_MODE_FULLY_INVALID && 0) // TODO: enable
-				{
-					continue;
-				}
-				else if (SampleTileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED && 0)
-				{
-					NeighborPenumbra = 0;
-					NeighborUncertainty = 0.0;
-				}
-				else if (SampleTileInfos.TileMode == TILE_MODE_FULLY_LIGHTED && 0)
-				{
-					NeighborPenumbra = 1;
-					NeighborUncertainty = 0.0;
-				}
-				else
-				{
-					bool bUseSample;
-					if (bBruteForce)
-					{
-						bUseSample = SampleTileInfos.TileMode == TILE_MODE_BRUTE_FORCE;
-					}
-					else if (DIM_IS_MIP_0)
-					{
-						bUseSample = SampleTileInfos.TileMode != TILE_MODE_BRUTE_FORCE && SampleTileInfos.bProcessMipLevel[0];
-					}
-					else
-					{
-						bUseSample = SampleTileInfos.TileMode != TILE_MODE_BRUTE_FORCE && SampleTileInfos.bProcessMipLevel[iMipLevel];
-					}
-
-					FLATTEN
-					if (bUseSample)
-					{
-						float2 SampleViewportUV = BufferUVToViewportUV(SampleBufferUV);
-						float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
-
-						// Sample the neighor for history rejection.
-						NeighborSample = SampleInputSignal(
-							bUsesHistoryRejectionSignal ? HistoryRejectionSignal0 : SignalInput0,
-							bUsesHistoryRejectionSignal ? HistoryRejectionSignal1 : SignalInput1,
-							GlobalPointClampedSampler,
-							bUsesHistoryRejectionSignal ? CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT : CONFIG_SIGNAL_INPUT_LAYOUT,
-							SampleBufferUV, MipLevel);
-
-						// Sample the meta data of the neighbor.	
-						FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleBufferUV);
-
-						// TODO: needs to be done for TILE_MODE_FULLY_OCCLUDED and TILE_MODE_FULLY_LIGHTED
-						float BilateralWeight = ComputeBilateralWeight(
-							WorldBluringRadius,
-							CurrentSceneMetadata,
-							NeighborSceneMetadata);
-
-						if (BilateralWeight > 0 && NeighborSample.AccumulatedSampleCount > 0)
-						{
-							NeighborPenumbra = GetSamplePenumbra(NeighborSample);
-							NeighborUncertainty = bUsesHistoryRejectionSignal
-								? 0.0
-								: NeighborSample.UncertainRayCount / (NeighborSample.AccumulatedSampleCount + NeighborSample.UncertainRayCount);
-						}
-					} // if (bUseSample)
-				}
-
-			}
-			#else // !CONFIG_INPUT_TILE_CLASSIFICATION
-			{
-				float2 SampleViewportUV = BufferUVToViewportUV(SampleBufferUV);
-				float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
-
-				// Sample the neighor for history rejection.
-				NeighborSample = SampleInputSignal(
-					bUsesHistoryRejectionSignal ? HistoryRejectionSignal0 : SignalInput0,
-					bUsesHistoryRejectionSignal ? HistoryRejectionSignal1 : SignalInput1,
-					GlobalPointClampedSampler,
-					bUsesHistoryRejectionSignal ? CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT : CONFIG_SIGNAL_INPUT_LAYOUT,
-					SampleBufferUV, MipLevel);
-
-				// Sample the meta data of the neighbor.	
-				FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleBufferUV);
-
-				float BilateralWeight = ComputeBilateralWeight(
-					WorldBluringRadius,
-					CurrentSceneMetadata,
-					NeighborSceneMetadata);
-
-				if (BilateralWeight > 0 && NeighborSample.AccumulatedSampleCount > 0)
-				{
-					NeighborPenumbra = GetSamplePenumbra(NeighborSample);
-					NeighborUncertainty = bUsesHistoryRejectionSignal
-						? 0.0
-						: NeighborSample.UncertainRayCount / (NeighborSample.AccumulatedSampleCount + NeighborSample.UncertainRayCount);
-				}
-			}
-			#endif // !CONFIG_INPUT_TILE_CLASSIFICATION
-			
-			FSSFSignalSample NormalizedNeighborSample = NormalizeToOneSample(NeighborSample);
-			NormalizedNeighborSample = TransformSignalForPreRejection(NormalizedNeighborSample);
-			
-			#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-				bool bUseNeighborSample = NeighborUncertainty < 1.0;
 			#else
-				bool bUseNeighborSample = NeighborSample.AccumulatedSampleCount > 0.0;
+			{
+				KernelConfig.SampleSet = SAMPLE_SET_NXN;
+				KernelConfig.BoxKernelRadius = 3;
+				KernelConfig.bUnroll = false;
+			}
 			#endif
 
-			if (CONFIG_CERTAINTY_BASED_REJECTION && bUseNeighborSample)
+			if (bUsesHistoryRejectionSignal)
 			{
-				NeighborMinPenumbra = min(NeighborMinPenumbra, NeighborPenumbra + NeighborUncertainty);
-				NeighborMaxPenumbra = max(NeighborMaxPenumbra, NeighborPenumbra - NeighborUncertainty);
+				KernelConfig.BufferLayout = CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT;
+			
+				for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+				{
+					KernelConfig.BufferColorSpace[MultiplexId] = CONFIG_REJECTION_BUFFER_COLOR_SPACE;
+					KernelConfig.AccumulatorColorSpace[MultiplexId] = CONFIG_HISTORY_REJECTION_COLOR_SPACE;
+					KernelConfig.bNormalizeSample[MultiplexId] = false;
+				}
+
+				// Force to sample the kernel center because will contain two momments for matching scene meta data.
+				KernelConfig.bForceKernelCenterAccumulation = true;
 			}
-			else if (bUseNeighborSample)
+			else
 			{
-				NeighborMinPenumbra = min(NeighborMinPenumbra, NeighborPenumbra);
-				NeighborMaxPenumbra = max(NeighborMaxPenumbra, NeighborPenumbra);
+				KernelConfig.BufferLayout = CONFIG_SIGNAL_INPUT_LAYOUT;
+			
+				for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+				{
+					KernelConfig.AccumulatorColorSpace[MultiplexId] = CONFIG_HISTORY_REJECTION_COLOR_SPACE;
+					KernelConfig.bNormalizeSample[MultiplexId] = true;
+				}
+			
+				// TODO: missing && abs(PixelOffset.x) <= 1 && abs(PixelOffset.y) <= 1;
+				KernelConfig.bForceAllAccumulation = CurrentFrame.AccumulatedSampleCount == 0;
 			}
+		}
 
-			if (bUseNeighborSample)
-			{
-				NeighborMin = Min(NeighborMin, NormalizedNeighborSample);
-				NeighborMax = Max(NeighborMax, NormalizedNeighborSample);
+		// SGPR configuration of the kernel.
+		{
+			KernelConfig.BufferSizeAndInvSize = View.BufferSizeAndInvSize;
+			KernelConfig.BufferBilinearUVMinMax = View.BufferBilinearUVMinMax;
+		}
 
-				float Weight = 1;
+		// VGPR configuration of the kernel.
+		{
+			KernelConfig.BufferUV = SceneBufferUV;
+			KernelConfig.RefSceneMetadata = CurrentSceneMetadata;
+		}
 
-				NeighborMomentWeight += Weight;
-				NeighborMoment1 = Add(NeighborMoment1, Mul(NormalizedNeighborSample, Weight));
-				NeighborMoment2 = Add(NeighborMoment2, Mul(Power(NormalizedNeighborSample, 2.0), Weight));
-			}
-		} // for (neighbors)
+		// Accumulate the current frame to save perf with unecessary bilateral evaluation.
+		FSSDSignalAccumulator SignalAccumulator = CreateSignalAccumulator();		
+		if (bUseCurrentSampleForCenter && CurrentFrame.AccumulatedSampleCount > 0)
+		{
+			const uint MultiplexId = 0;
+			FSSFSignalSample TransformedCurrentFrame = TransformSignalSampleForAccumulation(
+				KernelConfig, MultiplexId, CurrentFrame);
 
-		NeighborMoment1 = Mul(NeighborMoment1, rcp(NeighborMomentWeight));
-		NeighborMoment2 = Mul(NeighborMoment2, rcp(NeighborMomentWeight));
+			AccumulateSample(
+				/* inout */ SignalAccumulator,
+				MultiplexId,
+				TransformedCurrentFrame,
+				/* FinalWeight = */ 1.0);
+		}
+
+		AccumulateKernel(
+			KernelConfig,
+			bUsesHistoryRejectionSignal ? HistoryRejectionSignal0 : SignalInput0,
+			bUsesHistoryRejectionSignal ? HistoryRejectionSignal1 : SignalInput1,
+			bUsesHistoryRejectionSignal ? HistoryRejectionSignal2 : SignalInput2,
+			/* inout */ SignalAccumulator);
+		
+		FSSFSignalSample NeighborMin = SignalAccumulator.Min[0];
+		FSSFSignalSample NeighborMax = SignalAccumulator.Max[0];
+		
+		FSSFSignalSample NeighborMoment1 = CreateSignalSampleFromScalarValue(0.0);
+		FSSFSignalSample NeighborMoment2 = CreateSignalSampleFromScalarValue(0.0);
+		#if CONFIG_REJECTION_INPUT_MODE == REJECTION_INPUT_MODE_1UNNORMALIZED
+		{
+			float NormalizeFactor = SafeRcp(SignalAccumulator.Moment1[0].AccumulatedSampleCount);
+			NeighborMoment1 = Mul(SignalAccumulator.Moment1[0], NormalizeFactor);
+			NeighborMoment2 = Mul(SignalAccumulator.Moment2[0], NormalizeFactor);
+		}
+		#elif CONFIG_REJECTION_INPUT_MODE == REJECTION_INPUT_MODE_2PRETRANSFORMED_MOMMENTS
+		{
+			float NormalizeFactor = SafeRcp(SignalAccumulator.Moment1[0].AccumulatedSampleCount);
+			NeighborMoment1 = Mul(SignalAccumulator.Moment1[0], NormalizeFactor);
+			NeighborMoment2 = Mul(SignalAccumulator.Moment1[1], NormalizeFactor);
+		}
+		#else
+			#error NOrmalized samples. 
+		#endif
+		
+		#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS && 0
+			FSSFSignalSample Temp = TransformSignalForPostRejection(NeighborMoment1);
+			DebugOutput[DispatchThreadId] = float4(
+				Temp.SceneColor.rgb,
+				0);
+		#endif
+
 
 		// Clamp the history.
-		#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-		{
-			// The clamping box might be uncertain, in witch case we just take the middle.
-			if (CONFIG_CERTAINTY_BASED_REJECTION && NeighborMinPenumbra > NeighborMaxPenumbra)
-			{
-				NeighborMaxPenumbra = NeighborMinPenumbra = (NeighborMinPenumbra + NeighborMaxPenumbra) * 0.5;
-			}
-
-			float HistoryPenumbra = GetSamplePenumbraSafe(HistorySample);
-			float NewHistoryPenumbra = clamp(
-				HistoryPenumbra, NeighborMinPenumbra, NeighborMaxPenumbra);
-
-			float PreviousSampleCount = HistorySample.AccumulatedSampleCount;
-
-			// Count the number of samples (hit or miss) that have been rejected by the clamp.
-			float RejectedSampleCount = abs(NewHistoryPenumbra - HistoryPenumbra) * PreviousSampleCount;
-
-			// Amend the previous frame with new sample count and clamped penumbra.
-			HistorySample.AccumulatedSampleCount -= RejectedSampleCount;
-			HistorySample.LeavingRayCount = HistorySample.AccumulatedSampleCount * NewHistoryPenumbra;
-		}
-		#elif CONFIG_HISTORY_REJECTION == 2
+		#if CONFIG_HISTORY_REJECTION == HISTORY_REJECTION_VAR_BOUNDARIES
 		{
 			const float StdDevMultiplier = 1.25;
 
@@ -839,7 +451,7 @@ void TemporallyAccumulate(
 
 			// Transform the history so that it in correct component spaces, and normalized as the clamping box.
 			FSSFSignalSample NormalizedHistorySample = NormalizeToOneSample(HistorySample);
-			FSSFSignalSample TransformedHistorySample = TransformSignalForPreRejection(NormalizedHistorySample);
+			FSSFSignalSample TransformedHistorySample = TransformInputBufferForPreRejection(NormalizedHistorySample);
 
 			// Clamp the history.
 			FSSFSignalSample ClampedTransformedHistorySample = Clamp(TransformedHistorySample, NeighborMin, NeighborMax);
@@ -862,7 +474,7 @@ void TemporallyAccumulate(
 					RejectionFactor = max(RejectionFactor, 1 * max(RejectedDiff.SceneColor.y, RejectedDiff.SceneColor.z));
 					RejectionFactor = max(RejectionFactor, 1 * RejectedDiff.SceneColor.a);
 				}
-				#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+				#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
 				{
 					RejectionFactor = abs(ClampedTransformedHistorySample.LeavingRayCount - TransformedHistorySample.LeavingRayCount);
 				}
@@ -887,10 +499,10 @@ void TemporallyAccumulate(
 				HistorySample.AccumulatedSampleCount = FinalHistoryWeight;
 			}
 		}
-		#else // CONFIG_HISTORY_REJECTION == 1
+		#elif CONFIG_HISTORY_REJECTION == HISTORY_REJECTION_MINMAX_BOUNDARIES
 		{
 			float RejectedSampleCount = 0;
-			HistorySample = Mul(TransformSignalForPostRejection(Clamp(TransformSignalForPreRejection(NormalizeToOneSample(HistorySample)), NeighborMin, NeighborMax)), HistorySample.AccumulatedSampleCount - RejectedSampleCount);
+			HistorySample = Mul(TransformSignalForPostRejection(Clamp(TransformInputBufferForPreRejection(NormalizeToOneSample(HistorySample)), NeighborMin, NeighborMax)), HistorySample.AccumulatedSampleCount - RejectedSampleCount);
 		}
 		#endif
 	}
@@ -906,11 +518,11 @@ void TemporallyAccumulate(
 		// Pre transformation of the signal.
 		HistorySample = TransformSignal(
 			HistorySample,
-			/* SrcBasis = */ CONFIG_BUFFER_COLOR_SPACE,
+			/* SrcBasis = */ STANDARD_BUFFER_COLOR_SPACE,
 			/* DestBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE);
 		CurrentFrame = TransformSignal(
 			CurrentFrame,
-			/* SrcBasis = */ CONFIG_BUFFER_COLOR_SPACE,
+			/* SrcBasis = */ STANDARD_BUFFER_COLOR_SPACE,
 			/* DestBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE);
 
 		// Blending.
@@ -920,7 +532,7 @@ void TemporallyAccumulate(
 		HistorySample = TransformSignal(
 			HistorySample,
 			/* SrcBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE,
-			/* DestBasis = */ CONFIG_BUFFER_COLOR_SPACE);
+			/* DestBasis = */ STANDARD_BUFFER_COLOR_SPACE);
 	}
 
 	// Romoves NaN and negative numbers
@@ -928,7 +540,10 @@ void TemporallyAccumulate(
 
 	if (all(DispatchThreadId < uint2(View.ViewSizeAndInvSize.xy)))
 	{
-		OutputSignal(SignalHistoryOutput0, SignalHistoryOutput1, CONFIG_SIGNAL_HISTORY_LAYOUT, DispatchThreadId, HistorySample);
+		OutputSignal(
+			SignalHistoryOutput0, SignalHistoryOutput1, SignalHistoryOutput2,
+			CONFIG_SIGNAL_HISTORY_LAYOUT,
+			DispatchThreadId, HistorySample);
 	}
 } // TemporallyAccumulate
 
@@ -941,61 +556,9 @@ void MainCS(
 	uint2 GroupId : SV_GroupID,
 	uint2 GroupThreadId : SV_GroupThreadID,
 	uint GroupThreadIndex : SV_GroupIndex)
-#if CONFIG_USE_TILE_CLASSIFICATION
-{
-	// TODO: tile classification.
-	FSSFTileInfos TileInfos = LoadTileInfos((iMipLevelPow2 * DispatchThreadId) / TILE_PIXEL_SIZE);
-
-	BRANCH
-	if (TileInfos.TileMode == TILE_MODE_FULLY_OCCLUDED ||
-		TileInfos.TileMode == TILE_MODE_FULLY_LIGHTED ||
-		TileInfos.TileMode == TILE_MODE_FULLY_INVALID)
-	{
-		// NOP, brute force is only done at level 0.
-		#if DEBUG_WASTFUL_OUTPUT
-			FSSFSignalSample Final = GetConstantSignalSample(TileInfos.TileMode);
-			OutputSignal(SignalHistoryOutput0, SignalHistoryOutput1, CONFIG_SIGNAL_HISTORY_LAYOUT, DispatchThreadId, Final);
-		#endif
-	}
-	#if DIM_IS_MIP_0 // TODO: maybe early return on lower mip levels?
-	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
-	{
-		TemporallyAccumulate(
-			DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex,
-			TileInfos,
-			/* bBruteForce = */ true);
-	}
-	#else
-	else if (TileInfos.TileMode == TILE_MODE_BRUTE_FORCE)
-	{
-		// NOP, brute force is only done at level 0.
-		#if DEBUG_WASTFUL_OUTPUT
-			FSSFSignalSample Final = GetConstantSignalSample(TILE_MODE_FULLY_INVALID);
-			OutputSignal(SignalHistoryOutput0, SignalHistoryOutput1, CONFIG_SIGNAL_HISTORY_LAYOUT, DispatchThreadId, Final);
-		#endif
-	}
-	#endif
-	else if (TileInfos.bProcessMipLevel[iMipLevel]) // && TileInfos.TileMode == TILE_MODE_FAST)
-	{
-		TemporallyAccumulate(
-			DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex,
-			TileInfos,
-			/* bBruteForce = */ false);
-	}
-	else
-	{
-		#if DEBUG_WASTFUL_OUTPUT
-			FSSFSignalSample Final = GetConstantSignalSample(TILE_MODE_FULLY_INVALID);
-			OutputSignal(SignalHistoryOutput0, SignalHistoryOutput1, CONFIG_SIGNAL_HISTORY_LAYOUT, DispatchThreadId, Final);
-		#endif
-	}
-}
-#else // !CONFIG_USE_TILE_CLASSIFICATION
 {
 	FSSFTileInfos TileInfos = CreateTileInfos();
 	TemporallyAccumulate(
 		DispatchThreadId, GroupId, GroupThreadId, GroupThreadIndex,
-		TileInfos,
-		/* bBruteForce = */ true);
+		TileInfos);
 }
-#endif // !CONFIG_USE_TILE_CLASSIFICATION

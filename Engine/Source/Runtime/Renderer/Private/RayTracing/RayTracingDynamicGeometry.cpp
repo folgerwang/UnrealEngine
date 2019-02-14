@@ -22,7 +22,8 @@ public:
 		PassUniformBuffer.Bind(Initializer.ParameterMap, FSceneTexturesUniformParameters::StaticStructMetadata.GetShaderVariableName());
 
 		RWVertexPositions.Bind(Initializer.ParameterMap, TEXT("VertexPositions"));
-		NumVertices.Bind(Initializer.ParameterMap, TEXT("NumVertices"));
+		NumMaxVertices.Bind(Initializer.ParameterMap, TEXT("NumMaxVertices"));
+		NumCPUVertices.Bind(Initializer.ParameterMap, TEXT("NumCPUVertices"));
 	}
 
 	FRayTracingDynamicGeometryConverterCS() = default;
@@ -37,7 +38,8 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FMeshMaterialShader::Serialize(Ar);
 		Ar << RWVertexPositions;
-		Ar << NumVertices;
+		Ar << NumMaxVertices;
+		Ar << NumCPUVertices;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -71,7 +73,8 @@ public:
 	}
 
 	FRWShaderParameter RWVertexPositions;
-	FShaderParameter NumVertices;
+	FShaderParameter NumMaxVertices;
+	FShaderParameter NumCPUVertices;
 };
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FRayTracingDynamicGeometryConverterCS, TEXT("/Engine/Private/RayTracing/RayTracingDynamicMesh.usf"), TEXT("RayTracingDynamicGeometryConverterCS"), SF_Compute);
@@ -82,6 +85,7 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy, 
 	const FMeshBatch& MeshBatch, 
 	FRayTracingGeometry& Geometry,
+	uint32 NumMaxVertices,
 	FRWBuffer& Buffer)
 {
 	const FMaterialRenderProxy* FallbackMaterialRenderProxyPtr = nullptr;
@@ -117,18 +121,19 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 	FVertexInputStreamArray DummyArray;
 	Shader->GetElementShaderBindings(Scene, View, MeshBatch.VertexFactory, false, Scene->GetFeatureLevel(), PrimitiveSceneProxy, MeshBatch, MeshBatch.Elements[0], ShaderElementData, SingleShaderBindings, DummyArray);
 
-	DispatchCmd.NumVertices = MeshBatch.Elements[0].NumPrimitives * 3 * MeshBatch.Elements[0].NumInstances;
 	DispatchCmd.TargetBuffer = &Buffer;
 	DispatchCmd.TargetGeometry = &Geometry;
+	DispatchCmd.NumMaxVertices = NumMaxVertices;
+	DispatchCmd.NumCPUVertices = MeshBatch.Elements[0].NumPrimitives * 2 * MeshBatch.Elements[0].NumInstances;
 
-	uint32 DesiredVertexBufferSize = FMath::DivideAndRoundUp((uint32)(DispatchCmd.NumVertices * sizeof(FVector)), 4096u) * 4096u;
+	uint32 DesiredVertexBufferSize = FMath::DivideAndRoundUp((uint32)(NumMaxVertices * sizeof(FVector)), 4096u) * 4096u;
 	if (Buffer.NumBytes != DesiredVertexBufferSize)
 	{
 		int32 OriginalSize = Buffer.NumBytes;
 		Buffer.Initialize(4, DesiredVertexBufferSize / 4, PF_R32_FLOAT, BUF_UnorderedAccess | BUF_ShaderResource, TEXT("RayTracingDynamicVertexBuffer"));
 	}
 
-	check(DispatchCmd.TargetBuffer->NumBytes >= DispatchCmd.NumVertices * sizeof(FVector));
+	check(DispatchCmd.TargetBuffer->NumBytes >= NumMaxVertices * sizeof(FVector));
 
 #if MESH_DRAW_COMMAND_DEBUG_DATA
 	FMeshProcessorShaders ShadersForDebug = Shaders.GetUntypedShaders();
@@ -139,7 +144,7 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 
 	check(Geometry.IsInitialized());
 	Geometry.Initializer.PositionVertexBuffer = Buffer.Buffer;
-	Geometry.Initializer.TotalPrimitiveCount = DispatchCmd.NumVertices / 3;
+	Geometry.Initializer.TotalPrimitiveCount = NumMaxVertices / 3;
 	Geometry.RayTracingGeometryRHI = RHICreateRayTracingGeometry(Geometry.Initializer);
 }
 
@@ -157,9 +162,10 @@ void FRayTracingDynamicGeometryCollection::DispatchUpdates(FRHICommandListImmedi
 
 			Cmd.ShaderBindings.SetOnCommandListForCompute(RHICmdList, Shader->GetComputeShader());
 			Shader->RWVertexPositions.SetBuffer(RHICmdList, Shader->GetComputeShader(), *Cmd.TargetBuffer);
-			SetShaderValue(RHICmdList, Shader->GetComputeShader(), Shader->NumVertices, Cmd.NumVertices);
+			SetShaderValue(RHICmdList, Shader->GetComputeShader(), Shader->NumMaxVertices, Cmd.NumMaxVertices);
+			SetShaderValue(RHICmdList, Shader->GetComputeShader(), Shader->NumCPUVertices, Cmd.NumCPUVertices);
 
-			RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(Cmd.NumVertices, 256), 1, 1);
+			RHICmdList.DispatchComputeShader(FMath::DivideAndRoundUp<uint32>(Cmd.NumMaxVertices, 256), 1, 1);
 			Shader->RWVertexPositions.UnsetUAV(RHICmdList, Shader->GetComputeShader());
 		}
 

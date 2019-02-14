@@ -298,6 +298,14 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				VFLooseParams.ParticleFacingMode = CollectorResources.VertexFactory.GetFacingMode();
 				VFLooseParams.SortedIndices = CollectorResources.VertexFactory.GetSortedIndicesSRV() ? CollectorResources.VertexFactory.GetSortedIndicesSRV().GetReference() : GFNiagaraNullSortedIndicesVertexBuffer.VertexBufferSRV.GetReference();
 				VFLooseParams.SortedIndicesOffset = CollectorResources.VertexFactory.GetSortedIndicesOffset();
+				if (DynamicDataSprites->DataSet->GetSimTarget() == ENiagaraSimTarget::GPUComputeSim)
+				{
+					VFLooseParams.IndirectArgsBuffer = DynamicDataSprites->DataSet->GetCurDataSetIndices().SRV;
+				}
+				else
+				{
+					VFLooseParams.IndirectArgsBuffer = GFNiagaraNullSortedIndicesVertexBuffer.VertexBufferSRV;
+				}
 
 				CollectorResources.VertexFactory.LooseParameterUniformBuffer = FNiagaraSpriteVFLooseParametersRef::CreateUniformBufferImmediate(VFLooseParams, UniformBuffer_SingleFrame);
 
@@ -346,8 +354,21 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 #if RHI_RAYTRACING
 void NiagaraRendererSprites::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
 {
+	FNiagaraDynamicDataSprites *DynamicDataSprites = static_cast<FNiagaraDynamicDataSprites*>(DynamicDataRender);
+
+	if (!DynamicDataSprites
+		|| DynamicDataSprites->RTParticleData.GetNumInstancesAllocated() == 0
+		|| DynamicDataSprites->RTParticleData.GetNumInstances() == 0
+		|| nullptr == Properties
+		|| !GSupportsResourceView // Current shader requires SRV to draw properly in all cases.
+		)
+	{
+		return;
+	}
+
 	FRayTracingGeometryInstanceCollection Collection;
 	Collection.Geometry = &RayTracingGeometry;
+	Collection.NumDynamicVertices = 6 * DynamicDataSprites->RTParticleData.GetNumInstances();
 	Collection.DynamicVertexPositionBuffer = &RayTracingDynamicVertexBuffer;
 	Collection.InstanceTransformMode = FRayTracingGeometryInstanceCollection::TransformMode::Identity;
 

@@ -17,6 +17,7 @@
 #include "LightPropagationVolumeSettings.h"
 #include "DecalRenderingShared.h"
 #include "VisualizeTexture.h"
+#include "RayTracing/RaytracingOptions.h"
 
 /** The global center for all deferred lighting activities. */
 FCompositionLighting GCompositionLighting;
@@ -122,11 +123,10 @@ bool ShouldRenderScreenSpaceAmbientOcclusion(const FViewInfo& View)
 			&& (FSSAOHelper::IsBasePassAmbientOcclusionRequired(View) || IsAmbientCubemapPassRequired(View) || IsReflectionEnvironmentActive(View) || IsSkylightActive(View) || View.Family->EngineShowFlags.VisualizeBuffer)
 			&& !IsSimpleForwardShadingEnabled(View.GetShaderPlatform());
 	}
-
-	// #dxr_todo: hard-coded FindConsoleVariable is a bad hack. The current variable is hidden behind DeferredShadingRenderer
-	static IConsoleVariable* UseRayTracingAmbientOcclusionCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RayTracing.AmbientOcclusion"));
-	bool bUseRayTracingAmbientOcclusion = IsRayTracingEnabled() && UseRayTracingAmbientOcclusionCVar && UseRayTracingAmbientOcclusionCVar->GetInt() > 0;
-	return bEnabled && !bUseRayTracingAmbientOcclusion;
+#if RHI_RAYTRACING
+	bEnabled &= !ShouldRenderRayTracingAmbientOcclusion();
+#endif
+	return bEnabled;
 }
 
 static void AddPostProcessingAmbientCubemap(FPostprocessContext& Context, FRenderingCompositeOutputRef AmbientOcclusion)
@@ -329,7 +329,12 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 		if (!IsForwardShadingEnabled(View.GetShaderPlatform()))
 		{
 			FRenderingCompositeOutputRef AmbientOcclusion;
-
+#if RHI_RAYTRACING
+			if (ShouldRenderRayTracingAmbientOcclusion() && SceneContext.bScreenSpaceAOIsValid)
+			{
+				AmbientOcclusion = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(SceneContext.ScreenSpaceAO));
+			}
+#endif
 			uint32 SSAOLevels = FSSAOHelper::ComputeAmbientOcclusionPassCount(Context.View);
 			if (SSAOLevels)
 			{
@@ -352,13 +357,14 @@ void FCompositionLighting::ProcessAfterBasePass(FRHICommandListImmediate& RHICmd
 						TEXT("Ambient occlusion decals are not supported with Async compute SSAO."));
 				}
 
-				if (FSSAOHelper::IsBasePassAmbientOcclusionRequired(Context.View))
-				{
-					FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBasePassAO());
-					Pass->AddDependency(Context.FinalOutput);
+			}
 
-					Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
-				}
+			if (SceneContext.bScreenSpaceAOIsValid && FSSAOHelper::IsBasePassAmbientOcclusionRequired(Context.View))
+			{
+				FRenderingCompositePass* Pass = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessBasePassAO());
+				Pass->AddDependency(Context.FinalOutput);
+
+				Context.FinalOutput = FRenderingCompositeOutputRef(Pass);
 			}
 
 			if (IsAmbientCubemapPassRequired(Context.View))

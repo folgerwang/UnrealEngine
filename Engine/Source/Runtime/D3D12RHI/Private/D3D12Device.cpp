@@ -372,6 +372,13 @@ void FD3D12Device::PushGPUEvent(const TCHAR* Name, FColor Color)
 	GetParentAdapter()->GetGPUProfiler().PushEvent(Name, Color);
 }
 
+#if NV_AFTERMATH
+void FD3D12Device::PushGPUEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context)
+{
+	GetParentAdapter()->GetGPUProfiler().PushEvent(Name, Color, Context);
+}
+#endif
+
 void FD3D12Device::PopGPUEvent()
 {
 	GetParentAdapter()->GetGPUProfiler().PopEvent();

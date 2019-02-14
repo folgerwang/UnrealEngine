@@ -548,3 +548,11 @@ private:
 
 extern void SetBoundingGeometryRasterizerAndDepthState(FGraphicsPipelineStateInitializer& GraphicsPSOInit, const FViewInfo& View, const FSphere& LightBounds);
 
+enum class FLightOcclusionType : uint8
+{
+	Shadowmap,
+	Raytraced,
+};
+FLightOcclusionType GetLightOcclusionType(const FLightSceneProxy& Proxy);
+FLightOcclusionType GetLightOcclusionType(const FLightSceneInfoCompact& LightInfo);
+

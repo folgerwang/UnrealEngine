@@ -266,7 +266,7 @@ FD3D12StagingBuffer::~FD3D12StagingBuffer()
 {
 	if (StagedRead)
 	{
-		StagedRead.SafeRelease();
+		StagedRead->DeferDelete();
 	}
 }
 
@@ -274,13 +274,12 @@ void* FD3D12StagingBuffer::Lock(uint32 Offset, uint32 NumBytes)
 {
 	check(!bIsLocked);
 	bIsLocked = true;
-	FD3D12Resource* pResource = StagedRead.GetReference();
-	if (pResource)
+	if (StagedRead)
 	{
 		D3D12_RANGE ReadRange;
 		ReadRange.Begin = Offset;
 		ReadRange.End = Offset + NumBytes;
-		return reinterpret_cast<uint8*>(pResource->Map(&ReadRange)) + Offset;
+		return reinterpret_cast<uint8*>(StagedRead->Map(&ReadRange)) + Offset;
 	}
 	else
 	{
@@ -292,9 +291,8 @@ void FD3D12StagingBuffer::Unlock()
 {
 	check(bIsLocked);
 	bIsLocked = false;
-	FD3D12Resource* pResource = StagedRead.GetReference();
-	if (pResource)
+	if (StagedRead)
 	{
-		pResource->Unmap();
+		StagedRead->Unmap();
 	}
 }

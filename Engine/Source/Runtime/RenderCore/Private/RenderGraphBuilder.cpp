@@ -138,6 +138,16 @@ void FRDGBuilder::Execute()
 		checkf(CurrentScope == nullptr, TEXT("Render graph needs to have all scopes ended to execute."));
 
 		checkf(!bHasExecuted, TEXT("Render graph execution should only happen once to ensure consistency with immediate mode."));
+
+		/** FRDGBuilder::AllocParameters() allocates shader parameter structure for the life time until pass execution.
+		 * But they are allocated on a FMemStack for CPU performance reason, and have their destructor called right after
+		 * the pass execution. Therefore allocating pass parameter unused by a FRDGBuilder::AddPass() can lead on a memory
+		 * leak of RHI resource that have been reference in the parameter structure.
+		 */
+		checkf(
+			AllocatedUnusedPassParameters.Num() == 0,
+			TEXT("%i pass parameter structure has been allocated with FRDGBuilder::AllocParameters(), but has not be used by a ")
+			TEXT("FRDGBuilder::AddPass() that can cause RHI resource leak."), AllocatedUnusedPassParameters.Num());
 	}
 	#endif
 
@@ -740,7 +750,7 @@ void FRDGBuilder::PushDrawEventStack(const FRenderGraphPass* Pass)
 		}
 
 		// Pop no longer used scopes
-		for (int32 i = CommonScopeId + 1; CommonScopeId >= 0 && i < kMaxScopeCount; i++)
+		for (int32 i = CommonScopeId + 1; i < kMaxScopeCount; i++)
 		{
 			if (!ScopesStack[i])
 				break;

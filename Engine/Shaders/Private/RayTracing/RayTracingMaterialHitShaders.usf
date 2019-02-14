@@ -22,6 +22,8 @@
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
 
+#include "/Engine/Private/ShadingCommon.ush"
+#include "/Engine/Private/DeferredShadingCommon.ush"
 #include "/Engine/Private/SHCommon.ush"
 #include "/Engine/Private/ReflectionEnvironmentShared.ush"
 #include "/Engine/Private/LightmapCommon.ush"
@@ -227,12 +229,14 @@ void CalcInterpolants(in FRayCone RayCone, in FDefaultAttributes Attributes, out
 	float3 PB = WorldPositions[2] - WorldPositions[0];
     float3 Unnormalized = cross(PB, PA);
 	float InvWorldArea = rsqrt(dot(Unnormalized, Unnormalized));
+    float3 FaceNormal = Unnormalized * InvWorldArea;
     
     float RayConeCapArea = RayCone.Width * RayCone.Width * (1.0f / (2.0f * PI));
     float3 RayDir = WorldRayDirection();
-    float3 ShadingNormal = normalize(Interpolated.InterpolantsVSToPS.TangentToWorld2);
-    float RaySlope = dot(RayDir, ShadingNormal);
-    GlobalRayCone_TexArea = (UvArea * InvWorldArea * RayConeCapArea) / max(RaySlope * RaySlope, 0.00001f);
+    float RaySlope = dot(RayDir, FaceNormal);
+    const float SmallValue = 1.0 / 16777216.0;
+    GlobalRayCone_TexArea = (UvArea * InvWorldArea * RayConeCapArea) / max(RaySlope * RaySlope, SmallValue);
+    GlobalRayCone_TexArea = max(GlobalRayCone_TexArea, SmallValue);
 #endif
 }
 
@@ -283,27 +287,44 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	Payload.Roughness = Roughness;
 	Payload.Metallic = Metallic;
 	Payload.Ior = Refraction.x;
-	//Payload.Opacity = Opacity;
+    Payload.CustomData = float4(GetMaterialCustomData0(MaterialParameters), GetMaterialCustomData1(MaterialParameters), 0, 0);
+	#if CLEAR_COAT_BOTTOM_NORMAL
+	{
+		float2 oct2 = UnitVectorToOctahedron(Payload.WorldNormal);
 
-// #if MATERIAL_SHADINGMODEL_UNLIT
-	// Payload.ShadingModelID = SHADINGMODELID_UNLIT;
-// #else
-	// Payload.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
-	// // TODO - support other ShadingModelIDs in path tracer
-// #endif
+		#if NUM_MATERIAL_OUTPUTS_CLEARCOATBOTTOMNORMAL > 0
+			#if MATERIAL_TANGENTSPACENORMAL
+				float3 tempnormal = normalize(TransformTangentVectorToWorld( MaterialParameters.TangentToWorld, ClearCoatBottomNormal0(MaterialParameters) ));
+			#else
+				float3 tempnormal =  ClearCoatBottomNormal0(MaterialParameters);
+			#endif
 
-	// TODO - support different blending modes in path tracer?
-	// uint MaterialBlendingMode = 0;
-// #if MATERIALBLENDING_ALPHACOMPOSITE
-	// MaterialBlendingMode = RT_MATERIAL_BLEND_MODE_ALPHA_COMPOSITE;
-// #elif MATERIALBLENDING_TRANSLUCENT
-	// MaterialBlendingMode = RT_MATERIAL_BLEND_MODE_TRANSLUCENT;
-// #elif MATERIALBLENDING_ADDITIVE
-	// MaterialBlendingMode = RT_MATERIAL_BLEND_MODE_ADDITIVE;
-// #elif MATERIALBLENDING_MODULATE
-	// MaterialBlendingMode = RT_MATERIAL_BLEND_MODE_MODULATE;
-// #endif
-	// Payload.BlendingMode = MaterialBlendingMode;
+			float2 oct1 = UnitVectorToOctahedron(tempnormal);
+			float2 oct3 = ( (oct1 - oct2) *  0.5 ) + (128.0/255.0);
+			Payload.CustomData.a = oct3.x;
+			Payload.CustomData.z = oct3.y;
+		#else
+			Payload.CustomData.a = 128.0/255.0;
+			Payload.CustomData.z = 128.0/255.0;
+		#endif
+	}
+	#endif
+	Payload.Opacity = GetMaterialOpacity(PixelMaterialInputs);
+    Payload.ShadingModelID = GetShadingModelID();
+
+ #if MATERIALBLENDING_ALPHACOMPOSITE
+	uint MaterialBlendingMode = RAY_TRACING_BLEND_MODE_ALPHA_COMPOSITE;
+ #elif MATERIALBLENDING_TRANSLUCENT
+	uint MaterialBlendingMode = RAY_TRACING_BLEND_MODE_TRANSLUCENT;
+ #elif MATERIALBLENDING_ADDITIVE
+	uint MaterialBlendingMode = RAY_TRACING_BLEND_MODE_ADDITIVE;
+ #elif MATERIALBLENDING_MODULATE
+	uint MaterialBlendingMode = RAY_TRACING_BLEND_MODE_MODULATE;
+#else
+	uint MaterialBlendingMode = RAY_TRACING_BLEND_MODE_OPAQUE;
+#endif
+
+	Payload.BlendingMode = MaterialBlendingMode;
 
 	Payload.HitT = RayTCurrent();
 #if !MATERIAL_TWOSIDED
@@ -326,7 +347,7 @@ void MaterialCHS(inout FPackedMaterialClosestHitPayload PackedPayload, in FDefau
 	Payload.DiffuseColor = BaseColor - BaseColor * Metallic;
 	Payload.SpecularColor = lerp(0.08 * Specular.xxx, BaseColor, Metallic);
 	
-	Payload.IndirectIrradiance += Payload.DiffuseColor * DiffuseIndirectLighting; // Contains both lightmap & skylight
+	Payload.IndirectIrradiance += DiffuseIndirectLighting; // Contains both lightmap & skylight
 
 	PackedPayload = PackRayTracingPayload(Payload, PropagatedCone);
 }

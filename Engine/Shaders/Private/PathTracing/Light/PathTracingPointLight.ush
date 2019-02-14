@@ -46,6 +46,27 @@ void PointLight_EvalLight(
 	OutRadiance = Color / DistanceSquared;
 }
 
+void PointLight_EstimateLight(
+	int LightId,
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	out float OutIrradiance
+)
+{
+	// Distance
+	float3 LightDirection = GetPosition(LightId) - Payload.WorldPos;
+	float LightDistanceSquared = dot(LightDirection, LightDirection);
+	LightDirection = normalize(LightDirection);
+
+	// Geometric term
+	float3 SurfaceNormal = Payload.WorldNormal;
+	// dxr_todo: incorporate sphere light radius
+	float NoL = saturate(dot(SurfaceNormal, LightDirection));
+
+	float LightPower = Luminance(GetColor(LightId));
+	OutIrradiance = LightPower * NoL / LightDistanceSquared;
+}
+
 void PointLight_SampleLight(
 	RayDesc Ray,
 	FMaterialClosestHitPayload Payload,

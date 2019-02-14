@@ -443,11 +443,10 @@ private:
 		FRDGTextureRef* OutColorTexture,
 		FRDGTextureRef* OutRayHitDistanceTexture,
 		int32 SamplePerPixel,
+		int32 HeightFog,
 		float ResolutionFraction);
 
 #if RHI_RAYTRACING
-	bool ShouldRenderRayTracingAmbientOcclusion() const;
-
 	void RenderRayTracingOcclusion(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture);
 
 	void VisualizeRectLightMipTree(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, const FRWBuffer& RectLightMipTree, const FIntVector& RectLightMipTreeDimensions);
@@ -455,8 +454,10 @@ private:
 	void RenderRayTracingOcclusionForRectLight(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& RectLightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture);
 	template <int CalcDirectLighting, int EncodeVisibility, int TextureImportanceSampling> void RenderRayTracingRectLightInternal(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& RectLightSceneInfo, TRefCountPtr<IPooledRenderTarget>& ScreenShadowMaskTexture, TRefCountPtr<IPooledRenderTarget>& RayDistanceTexture);
 
-	void RenderRayTracingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT);
+	void RenderRayTracingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionHitDistanceRT);
 	void CompositeRayTracingAmbientOcclusion(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT);
+	void RenderRayTracingGlobalIllumination(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& GlobalIlluminationRT, TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT);
+	void CompositeGlobalIllumination(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& GlobalIlluminationRT);
 
 	void BuildSkyLightMipTree(FRHICommandListImmediate& RHICmdList, FTextureRHIRef SkyLightTexture, FRWBuffer& SkyLightMipTreePosX, FRWBuffer& SkyLightMipTreePosY, FRWBuffer& SkyLightMipTreePosZ, FRWBuffer& SkyLightMipTreeNegX, FRWBuffer& SkyLightMipTreeNegY, FRWBuffer& SkyLightMipTreeNegZ, FIntVector& SkyLightMipTreeDimensions);
 	void BuildSkyLightMipTreePdf(
@@ -481,6 +482,16 @@ private:
 	void RenderRayTracingSkyLight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& SkyLightRT, TRefCountPtr<IPooledRenderTarget>& HitDistanceRT);
 	void CompositeRayTracingSkyLight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& SkyLightRT, TRefCountPtr<IPooledRenderTarget>& HitDistanceRT);
 
+	void RayTraceTranslucency(FRHICommandListImmediate& RHICmdList);
+	void RayTraceTranslucencyView(
+		FRDGBuilder& GraphBuilder,
+		const FViewInfo& View,
+		FRDGTextureRef* OutColorTexture,
+		FRDGTextureRef* OutRayHitDistanceTexture,
+		int32 SamplePerPixel,
+		int32 HeightFog,
+		float ResolutionFraction);
+
 	/** Path tracing functions. */
 	void RenderPathTracing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
 
@@ -503,7 +514,8 @@ private:
 
 	bool GatherRayTracingWorldInstances(FRHICommandListImmediate& RHICmdList);
 	bool DispatchRayTracingWorldUpdates(FRHICommandListImmediate& RHICmdList);
-	FRHIRayTracingPipelineState* BindRayTracingPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader, FRayTracingShaderRHIParamRef MissShader, FRayTracingShaderRHIParamRef DefaultChsShader);
+	FRHIRayTracingPipelineState* BindRayTracingPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader, FRayTracingShaderRHIParamRef MissShader, FRayTracingShaderRHIParamRef DefaultClosestHitShader);
+	FRHIRayTracingPipelineState* BindRayTracingPipelineForDeferredMaterialGather(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader);
 #endif // RHI_RAYTRACING
 };
 

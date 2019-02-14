@@ -42,6 +42,21 @@ void DirectionalLight_EvalLight(
 	OutRadiance = Color;
 }
 
+void DirectionalLight_EstimateLight(
+	int LightId,
+	RayDesc Ray,
+	FMaterialClosestHitPayload Payload,
+	out float OutIrradiance
+)
+{
+	float3 LightDirection = GetNormal(LightId);
+	float3 SurfaceNormal = Payload.WorldNormal;
+	float NoL = saturate(dot(SurfaceNormal, LightDirection));
+
+	float LightPower = Luminance(GetColor(LightId));
+	OutIrradiance = LightPower * NoL;
+}
+
 void DirectionalLight_SampleLight(
 	RayDesc Ray,
 	FMaterialClosestHitPayload Payload,

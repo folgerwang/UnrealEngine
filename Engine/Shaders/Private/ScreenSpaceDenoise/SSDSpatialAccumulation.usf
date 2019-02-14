@@ -7,19 +7,21 @@
 
 /** Different possible stage for spatial accumulation. Matches  */
 	#define STAGE_RECONSTRUCTION 0
-	#define STAGE_POST_FILTERING 1
-
-/** Sets of sample available for the spatial kernel. */
-	#define SAMPLE_SET_NONE 0
-	#define SAMPLE_SET_3X3 1
-	#define SAMPLE_SET_5X5_WAVELET 2
-	#define SAMPLE_SET_STACKOWIAK_4_SETS 3
+	#define STAGE_REJECTION_PRE_CONVOLUTION 1
+	#define STAGE_POST_FILTERING 2
 
 /** Policy to use to change the size of kernel. */
 	#define SAMPLE_COUNT_POLICY_DISABLED 0
 	#define SAMPLE_COUNT_POLICY_METADATA_BASED 1
 	#define SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED 2
 	#define SAMPLE_COUNT_POLICY_ACCUMULATION_BASED 3
+	#define SAMPLE_COUNT_POLICY_SAMPLE_ACCUMULATION_BASED 4
+
+/** What signal should be outputed. */
+	// Only output the sum of the signal 0.
+	#define OUTPUT_MODE_SUM 0
+	// Only output the sum of the momment 1 & 2 of the signal 0.
+	#define OUTPUT_MODE_2MOMMENT_SUM 1
 
 
 //------------------------------------------------------- CONFIGS
@@ -34,6 +36,8 @@
 	// Input and output layout.
 	#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL
 	#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION
+
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 1
 
 	#define CONFIG_SAMPLE_SET SAMPLE_SET_3X3
 
@@ -53,36 +57,62 @@
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
 		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_HIT_DISTANCE_BASED
 
-		// Reconstruction has 1 ray per input pixel, therefore can use MIS.
+		// Reconstruction has 1 ray per input pixel, therefore can use specular ratio estimator instead of Tokoyashi axes bilateral kernel.
 		#define CONFIG_SPECULAR_RATIO_ESTIMATOR 1
+
+		// Uses tokoyashi lobe bilateral rejection to avoid mixing up significantly different lobes that can cause leaking/strong biasing.
+		#define CONFIG_TOKOYASHI_LOBE_BILATERAL 1
 
 		//#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_DISABLED
 
 		// Do color accumulation with karis weighting to avoid flickering specular highlight to show up the kernel pattern.
-		//#define CONFIG_COLOR_SPACE          (COLOR_SPACE_RGB | COLOR_SPACE_KARIS_WEIGHTING)
+		// TODO: This is a bit agressive.
+		#define CONFIG_ACCUMULATION_COLOR_SPACE (COLOR_SPACE_RGB | COLOR_SPACE_KARIS_WEIGHTING)
 
+	#elif DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION
+		// Input and output layout.
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION
+
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3_PLUS
+
+		// Can only be done using tokoyashi because have more than one sample at a time.
+		#define CONFIG_TOKOYASHI_LOBE_BILATERAL 1
+		#define CONFIG_TOKOYASHI_AXES_BILATERAL 1
+
+		// Normalize the input, because want to measure the spatial variance regardless of how many samples where used to reconstruct the signal.
+		#define CONFIG_NORMALIZE_INPUT 1
+
+		#define CONFIG_ACCUMULATION_COLOR_SPACE REFLECTIONS_REJECTION_COLOR_SPACE
+		#define CONFIG_OUTPUT_COLOR_SPACE       REFLECTIONS_REJECTION_COLOR_SPACE
+
+		// Output the 2 momment because history rejection is varaiance based, and may flicker with momment 2 loss since the pre
+		// convolution will reduce the variance of momment 1.
+		#define CONFIG_OUTPUT_MODE OUTPUT_MODE_2MOMMENT_SUM
 
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		// Input and output layout.
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 
-		#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3
-		//#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
-		//#define CONFIG_SAMPLE_SUBSET        1
+		//#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_SAMPLE_SUBSET        1
 		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_ACCUMULATION_BASED
+		//#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_DISABLED
 
-		// Post filtering can only be done using tokoyashi because have more than one sample at a time.
-		#define CONFIG_TOKOYASHI_BILATERAL 1
-
-		// TODO: Not sure of the math of Tokoyashi, weight of the center kernel might be != 1.
-		#define CONFIG_WEIGHT_KERNEL_CENTER 1
+		// Can only be done using tokoyashi because have more than one sample at a time.
+		#define CONFIG_TOKOYASHI_LOBE_BILATERAL 1
+		#define CONFIG_TOKOYASHI_AXES_BILATERAL 1
 
 	#else
 		#error Unexpected stage.
 	#endif
 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 2
+	#define CONFIG_NORMAL_BASED_BILATERAL 1
+
 	#if DIM_STAGE == STAGE_RECONSTRUCTION
 		// Input and output layout.
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_AO_INPUT
@@ -92,10 +122,38 @@
 
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		// Input and output layout.
-		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_AO_INPUT
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_AO_HISTORY
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_AO_HISTORY
 
-		#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_SAMPLE_SUBSET        1
+
+		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_SAMPLE_ACCUMULATION_BASED
+
+	#else
+		#error Unexpected stage.
+	#endif
+
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 2
+	#define CONFIG_NORMAL_BASED_BILATERAL 1
+
+	#if DIM_STAGE == STAGE_RECONSTRUCTION
+		// Input and output layout.
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_GI_AND_AO_INPUT
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY
+
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+
+	#elif DIM_STAGE == STAGE_POST_FILTERING
+		// Input and output layout.
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY
+
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_SAMPLE_SUBSET        1
+
+		#define CONFIG_SAMPLE_COUNT_POLICY  SAMPLE_COUNT_POLICY_SAMPLE_ACCUMULATION_BASED
 
 	#else
 		#error Unexpected stage.
@@ -107,16 +165,6 @@
 
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
-
-/** Whether the output signal should be normalized. */
-#ifndef CONFIG_NORMALIZE_OUTPUT
-	#define CONFIG_NORMALIZE_OUTPUT 0
-#endif
-
-/** Ensures the center of the kernel have a correct weight. */
-#ifndef CONFIG_WEIGHT_KERNEL_CENTER
-	#define CONFIG_WEIGHT_KERNEL_CENTER 0
-#endif
 
 /** Changes the logic controling the number of sample to do. */
 #ifndef CONFIG_SAMPLE_COUNT_POLICY
@@ -133,145 +181,41 @@
 	#define CONFIG_UPSCALE 0
 #endif
 
-/** Color space. */
-#ifndef CONFIG_COLOR_SPACE
-	#define CONFIG_COLOR_SPACE CONFIG_BUFFER_COLOR_SPACE
+/** Color space of the input signal. */
+#ifndef CONFIG_INPUT_COLOR_SPACE
+	#define CONFIG_INPUT_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
+#endif
+
+/** Color space to use for the accumulation. */
+#ifndef CONFIG_ACCUMULATION_COLOR_SPACE
+	#define CONFIG_ACCUMULATION_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
+#endif
+
+/** Color space to output in the signal. */
+#ifndef CONFIG_OUTPUT_COLOR_SPACE
+	#define CONFIG_OUTPUT_COLOR_SPACE STANDARD_BUFFER_COLOR_SPACE
+#endif
+
+/** Removes the highest color. */
+#ifndef CONFIG_REJECT_HIGHEST_COLOR
+	#define CONFIG_REJECT_HIGHEST_COLOR 0
+#endif
+
+/** Whether the input signal should be normalized. */
+#ifndef CONFIG_NORMALIZE_INPUT
+	#define CONFIG_NORMALIZE_INPUT 0
+#endif
+
+/** The oupput mode that should be use. */
+#ifndef CONFIG_OUTPUT_MODE
+	#define CONFIG_OUTPUT_MODE OUTPUT_MODE_SUM
 #endif
 
 
 //------------------------------------------------------- INCLUDES
 
 #include "SSDSignalFramework.ush"
-
-
-//------------------------------------------------------- CONSTANTS
-
-static const float kWaveletFilterWeights5x5[] = { 3.0 / 8.0, 1.0 / 4.0, 1.0 / 16.0 };
-
-
-// [ Stackowiak 2015, "Stochastic Screen-Space Reflections" ]
-static const float2 kStackowiakSampleSet0[56 * 4] =
-{
-	float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
-	float2(-1.5, +0.5), float2(-1.5, -0.5), float2(-0.5, +1.5), float2(+1.5, -0.5),
-	float2(+0.5, -1.5), float2(+2.5, -0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
-	float2(-1.5, -2.5), float2(-0.5, -2.5), float2(-1.5, -1.5), float2(-0.5, +2.5),
-	float2(-1.5, +1.5), float2(+1.5, -2.5), float2(-1.5, +2.5), float2(+1.5, +2.5),
-	float2(+0.5, -2.5), float2(-2.5, -0.5), float2(-2.5, -1.5), float2(-2.5, +0.5),
-	float2(+0.5, +1.5), float2(+0.5, +2.5), float2(-3.5, +0.5), float2(+0.5, +3.5),
-	float2(+1.5, -1.5), float2(+3.5, -0.5), float2(+2.5, +1.5), float2(+3.5, +0.5),
-	float2(+1.5, +1.5), float2(-2.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +1.5),
-	float2(-3.5, -0.5), float2(-1.5, -3.5), float2(-2.5, -2.5), float2(-2.5, +2.5),
-	float2(+2.5, +0.5), float2(+2.5, +2.5), float2(+1.5, +3.5), float2(+3.5, -1.5),
-	float2(-3.5, -2.5), float2(+3.5, -2.5), float2(+2.5, -1.5), float2(+0.5, -3.5),
-	float2(-0.5, +3.5), float2(-0.5, -4.5), float2(-4.5, +0.5), float2(+4.5, +0.5),
-	float2(-4.5, -1.5), float2(-3.5, +1.5), float2(-0.5, -3.5), float2(+1.5, -3.5),
-	float2(+0.5, -4.5), float2(-1.5, +3.5), float2(+0.5, +4.5), float2(-3.5, -1.5),
-	float2(-4.5, +1.5), float2(+2.5, -4.5), float2(+2.5, -2.5), float2(-1.5, +4.5),
-	float2(-2.5, -4.5), float2(+4.5, -2.5), float2(+2.5, +3.5), float2(-3.5, +3.5),
-	float2(-2.5, +3.5), float2(+0.5, -5.5), float2(-4.5, +3.5), float2(-2.5, -3.5),
-	float2(-4.5, +2.5), float2(+3.5, +3.5), float2(+2.5, -3.5), float2(+4.5, +3.5),
-	float2(+3.5, -3.5), float2(+4.5, +2.5), float2(-5.5, +1.5), float2(-4.5, -0.5),
-	float2(+3.5, +2.5), float2(-0.5, +4.5), float2(-1.5, +5.5), float2(+1.5, +5.5),
-	float2(+4.5, -0.5), float2(+5.5, +0.5), float2(+4.5, +1.5), float2(-1.5, -4.5),
-	float2(-1.5, -5.5), float2(-4.5, -2.5), float2(-2.5, +5.5), float2(+2.5, +5.5),
-	float2(+1.5, +4.5), float2(+5.5, +1.5), float2(+1.5, -4.5), float2(-3.5, -3.5),
-	float2(+3.5, -4.5), float2(-3.5, -4.5), float2(+4.5, -1.5), float2(+4.5, -3.5),
-	float2(-3.5, -5.5), float2(-2.5, -5.5), float2(-4.5, -3.5), float2(+4.5, +4.5),
-	float2(-3.5, +4.5), float2(-2.5, +4.5), float2(-5.5, -2.5), float2(-5.5, +0.5),
-	float2(+2.5, -5.5), float2(+3.5, +4.5), float2(-0.5, -5.5), float2(-0.5, +6.5),
-	float2(+2.5, +4.5), float2(-5.5, -0.5), float2(-6.5, -1.5), float2(+1.5, -5.5),
-	float2(-6.5, -0.5), float2(+0.5, +5.5), float2(+1.5, +6.5), float2(+6.5, +1.5),
-	float2(-0.5, +5.5), float2(+6.5, -0.5), float2(-4.5, -4.5), float2(-5.5, +2.5),
-	float2(+5.5, -0.5), float2(-5.5, -1.5), float2(-6.5, +3.5), float2(-1.5, +6.5),
-	float2(-6.5, +0.5), float2(+4.5, -5.5), float2(-3.5, +6.5), float2(+6.5, -1.5),
-	float2(+0.5, -6.5), float2(-5.5, -3.5), float2(+5.5, -2.5), float2(+4.5, -4.5),
-	float2(+5.5, -1.5), float2(+3.5, -6.5), float2(+5.5, +3.5), float2(+3.5, -5.5),
-	float2(-5.5, -4.5), float2(+6.5, -3.5), float2(-0.5, -6.5), float2(+3.5, +6.5),
-	float2(-5.5, +3.5), float2(+0.5, +6.5), float2(+6.5, +0.5), float2(+6.5, -2.5),
-	float2(-6.5, -3.5), float2(-4.5, +4.5), float2(-7.5, -0.5), float2(+7.5, +0.5),
-	float2(+5.5, +2.5), float2(-0.5, -7.5), float2(+0.5, +7.5), float2(-4.5, +5.5),
-	float2(+3.5, +5.5), float2(-3.5, +5.5), float2(-4.5, -5.5), float2(+4.5, +6.5),
-	float2(+5.5, -4.5), float2(+4.5, +5.5), float2(-4.5, +6.5), float2(+6.5, +4.5),
-	float2(-7.5, +1.5), float2(-6.5, +1.5), float2(+5.5, -3.5), float2(-6.5, +2.5),
-	float2(-2.5, +6.5), float2(-1.5, -7.5), float2(+5.5, +4.5), float2(-1.5, -6.5),
-	float2(-3.5, -7.5), float2(+2.5, -7.5), float2(-7.5, +2.5), float2(-6.5, -2.5),
-	float2(-5.5, +5.5), float2(+2.5, +6.5), float2(-2.5, -6.5), float2(-7.5, +0.5),
-	float2(-0.5, +7.5), float2(+7.5, -2.5), float2(-2.5, +7.5), float2(+0.5, -7.5),
-	float2(-4.5, -7.5), float2(+7.5, +1.5), float2(+1.5, -6.5), float2(-6.5, +4.5),
-	float2(-1.5, +7.5), float2(-5.5, -5.5), float2(+6.5, +2.5), float2(-3.5, -6.5),
-	float2(+3.5, -7.5), float2(-5.5, +4.5), float2(+2.5, -6.5), float2(+1.5, -7.5),
-	float2(+6.5, +3.5), float2(+5.5, -6.5), float2(-6.5, +5.5), float2(+7.5, +4.5),
-	float2(+7.5, -1.5), float2(-7.5, -1.5), float2(+3.5, +7.5), float2(-5.5, +6.5),
-	float2(+1.5, +7.5), float2(+7.5, +3.5), float2(+7.5, -0.5), float2(-7.5, -2.5),
-	float2(+5.5, +5.5), float2(+6.5, +5.5), float2(+5.5, -5.5), float2(-2.5, -7.5),
-	float2(+2.5, +7.5), float2(-7.5, -3.5), float2(-7.5, -4.5), float2(-6.5, -4.5),
-	float2(+7.5, -3.5), float2(+5.5, +6.5), float2(-5.5, -6.5), float2(-4.5, -6.5),
-	float2(+7.5, +2.5), float2(-7.5, +3.5), float2(+4.5, -6.5), float2(+7.5, -4.5),
-};
-
-static const float2 kStackowiakSampleSet1[56 * 4] =
-{
-    float2(-0.5, -0.5), float2(+0.5, -0.5), float2(-0.5, +0.5), float2(+0.5, +0.5),
-    float2(+0.5, -1.5), float2(+1.5, -1.5), float2(-1.5, -0.5), float2(+1.5, +1.5),
-    float2(-0.5, -2.5), float2(-1.5, -1.5), float2(+0.5, +1.5), float2(-1.5, +0.5),
-    float2(+1.5, -0.5), float2(-0.5, +1.5), float2(-2.5, +0.5), float2(+0.5, +2.5),
-    float2(-2.5, -1.5), float2(+2.5, +0.5), float2(+1.5, +0.5), float2(-0.5, -1.5),
-    float2(-1.5, +1.5), float2(+2.5, -2.5), float2(-3.5, -0.5), float2(-1.5, +2.5),
-    float2(-2.5, +1.5), float2(-2.5, -0.5), float2(-1.5, -2.5), float2(+2.5, -1.5),
-    float2(-3.5, +0.5), float2(-0.5, -3.5), float2(-1.5, +3.5), float2(+0.5, -2.5),
-    float2(+1.5, +2.5), float2(-0.5, +2.5), float2(+0.5, +3.5), float2(+3.5, +0.5),
-    float2(+2.5, +1.5), float2(-2.5, -2.5), float2(+2.5, -0.5), float2(+3.5, -1.5),
-    float2(-0.5, +3.5), float2(+3.5, +1.5), float2(-3.5, +2.5), float2(+3.5, +2.5),
-    float2(+3.5, -0.5), float2(+0.5, -4.5), float2(-2.5, +3.5), float2(+0.5, -3.5),
-    float2(-1.5, -4.5), float2(+1.5, +3.5), float2(+1.5, -2.5), float2(-3.5, +1.5),
-    float2(+2.5, -3.5), float2(-2.5, -3.5), float2(+2.5, +2.5), float2(+1.5, +4.5),
-    float2(-4.5, -2.5), float2(-2.5, +2.5), float2(-4.5, +1.5), float2(+4.5, +1.5),
-    float2(-2.5, -4.5), float2(+3.5, -3.5), float2(-1.5, -3.5), float2(-3.5, -1.5),
-    float2(+1.5, -4.5), float2(+4.5, -2.5), float2(+1.5, -3.5), float2(-1.5, +4.5),
-    float2(-4.5, +2.5), float2(-4.5, -0.5), float2(+2.5, +4.5), float2(-4.5, +0.5),
-    float2(-3.5, -4.5), float2(+0.5, +4.5), float2(+3.5, -2.5), float2(-3.5, -2.5),
-    float2(-3.5, +3.5), float2(+3.5, +3.5), float2(+4.5, +0.5), float2(+0.5, +5.5),
-    float2(-0.5, +4.5), float2(+4.5, -3.5), float2(-1.5, +5.5), float2(-0.5, -4.5),
-    float2(+2.5, +3.5), float2(+4.5, +2.5), float2(-2.5, +5.5), float2(+2.5, -4.5),
-    float2(+4.5, -0.5), float2(+5.5, -0.5), float2(-4.5, +4.5), float2(+5.5, -1.5),
-    float2(-5.5, -1.5), float2(-4.5, -1.5), float2(+3.5, +4.5), float2(-3.5, -3.5),
-    float2(-5.5, +0.5), float2(+1.5, -5.5), float2(-5.5, -2.5), float2(-3.5, +4.5),
-    float2(+0.5, -5.5), float2(-2.5, -5.5), float2(+2.5, +5.5), float2(+4.5, +4.5),
-    float2(+4.5, -1.5), float2(-2.5, +4.5), float2(+4.5, +3.5), float2(+0.5, +6.5),
-    float2(-0.5, -6.5), float2(+5.5, +2.5), float2(-0.5, -5.5), float2(-5.5, -0.5),
-    float2(-6.5, -1.5), float2(-0.5, +5.5), float2(-0.5, +6.5), float2(+6.5, -0.5),
-    float2(+1.5, +5.5), float2(+1.5, -6.5), float2(+5.5, +0.5), float2(-5.5, +2.5),
-    float2(+5.5, +1.5), float2(-5.5, +1.5), float2(-6.5, -0.5), float2(-1.5, -5.5),
-    float2(-5.5, -4.5), float2(-4.5, +3.5), float2(-6.5, +1.5), float2(+2.5, -5.5),
-    float2(+3.5, -5.5), float2(-5.5, -3.5), float2(+1.5, +6.5), float2(+6.5, +2.5),
-    float2(+4.5, -4.5), float2(+3.5, -6.5), float2(-4.5, -4.5), float2(-4.5, -3.5),
-    float2(-6.5, +2.5), float2(+3.5, +5.5), float2(+3.5, -4.5), float2(+5.5, -3.5),
-    float2(-5.5, +4.5), float2(+6.5, -3.5), float2(-6.5, -2.5), float2(+5.5, +4.5),
-    float2(-1.5, +6.5), float2(-0.5, -7.5), float2(-6.5, +3.5), float2(-5.5, +3.5),
-    float2(-6.5, -4.5), float2(+7.5, -1.5), float2(-3.5, -5.5), float2(+3.5, +6.5),
-    float2(+5.5, +3.5), float2(+7.5, +0.5), float2(+5.5, -2.5), float2(-6.5, +0.5),
-    float2(-7.5, +1.5), float2(-3.5, -6.5), float2(+6.5, +0.5), float2(+7.5, +1.5),
-    float2(-2.5, -7.5), float2(-3.5, +5.5), float2(-7.5, -0.5), float2(-3.5, +6.5),
-    float2(-2.5, +6.5), float2(+4.5, -6.5), float2(-5.5, +5.5), float2(+4.5, -5.5),
-    float2(+6.5, -2.5), float2(+6.5, +3.5), float2(-1.5, -6.5), float2(-1.5, +7.5),
-    float2(+6.5, +1.5), float2(-5.5, -5.5), float2(+0.5, -6.5), float2(+7.5, +3.5),
-    float2(+2.5, +6.5), float2(-4.5, +5.5), float2(-6.5, -3.5), float2(-4.5, -5.5),
-    float2(-6.5, -5.5), float2(+5.5, -6.5), float2(-2.5, -6.5), float2(+5.5, -5.5),
-    float2(+4.5, +5.5), float2(-7.5, +0.5), float2(+6.5, -1.5), float2(+0.5, -7.5),
-    float2(+7.5, -0.5), float2(-3.5, -7.5), float2(+2.5, -6.5), float2(-3.5, +7.5),
-    float2(-4.5, -7.5), float2(-0.5, +7.5), float2(-6.5, +5.5), float2(+7.5, -3.5),
-    float2(-4.5, +6.5), float2(+1.5, +7.5), float2(+5.5, -4.5), float2(+7.5, +4.5),
-    float2(+0.5, +7.5), float2(+4.5, +6.5), float2(-4.5, +7.5), float2(-7.5, -1.5),
-    float2(+3.5, -7.5), float2(+7.5, -4.5), float2(+3.5, +7.5), float2(-1.5, -7.5),
-    float2(+6.5, -4.5), float2(-7.5, -3.5), float2(+6.5, +4.5), float2(+2.5, -7.5),
-    float2(+7.5, -2.5), float2(-7.5, +2.5), float2(+1.5, -7.5), float2(-5.5, +6.5),
-    float2(+5.5, +5.5), float2(-2.5, +7.5), float2(+7.5, +2.5), float2(-7.5, -2.5),
-    float2(+2.5, +7.5), float2(-6.5, +4.5), float2(+5.5, +6.5), float2(-4.5, -6.5),
-};
-
-static const uint kStackowiakSampleSetCount = 4;
-static const uint kStackowiakSampleCountPerSet = 56;
+#include "SSDSpatialKernel.ush"
 
 
 //------------------------------------------------------- PARAMETERS
@@ -279,38 +223,22 @@ static const uint kStackowiakSampleCountPerSet = 56;
 uint MaxSampleCount;
 uint UpscaleFactor;
 
+#if !CONFIG_UPSCALE && CONFIG_CUSTOM_SPREAD_FACTOR
+	float KernelSpreadFactor;
+#endif
+
 Texture2D SignalInput0;
 Texture2D SignalInput1;
+Texture2D SignalInput2;
 
 RWTexture2D<float4>	SignalOutput0;
 RWTexture2D<float4>	SignalOutput1;
+RWTexture2D<float4>	SignalOutput2;
 
 RWTexture2D<float4>	DebugOutput;
 
 
 //------------------------------------------------------- FUNCTIONS
-
-FSSFSignalSample TransformSignalForPreRejection(FSSFSignalSample Sample)
-{
-	// Unpremultiplied RGBA to avoid any opacity mismatches.
-	Sample.SceneColor.rgb *= SafeRcp(Sample.SceneColor.a);
-
-	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
-		Sample.SceneColor.rgb = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
-	#endif
-	return Sample;
-}
-
-FSSFSignalSample TransformSignalForPostRejection(FSSFSignalSample Sample)
-{
-	#if CONFIG_HISTORY_REJECTION_COLOR_SPACE == 1
-		Sample.SceneColor.rgb = LCoCg_2_LinearRGB(Sample.SceneColor.rgb);
-	#endif
-
-	// Premultiplied RGBA
-	Sample.SceneColor.rgb *= Sample.SceneColor.a;
-	return Sample;
-}
 
 // TODO: duplicated with reflection code.
 uint2 GetPixelCoord(uint2 DispatchThreadId)
@@ -346,37 +274,17 @@ void MainCS(
 
 	// Sample the reference sample.
 	#if !CONFIG_UPSCALE || 1 // TODO: this sample ends up being sampled twice when upscaling.
-		FSSFSignalSample RefSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
-	
-		RefSample = TransformSignal(
-			RefSample, 
-			/* SrcBasis  = */ CONFIG_BUFFER_COLOR_SPACE, 
-			/* DestBasis = */ CONFIG_COLOR_SPACE);
+		FSSFSignalSample RefSample = SampleInputSignal(
+			SignalInput0, SignalInput1, SignalInput2,
+			GlobalPointClampedSampler,
+			CONFIG_SIGNAL_INPUT_LAYOUT, SceneBufferUV);
 	#endif
 
-	// Setup the spatial accumulator.
-	FSSFSignalSample NeighborMoment1 = CreateSignalSampleFromScalarValue(0.0);
-	#if !CONFIG_UPSCALE
-		float AccumulatorWeight = 1; //GetMultiImportanceSamplingWeight(RefSceneMetadata, RefSceneMetadata, RefSample, DispatchThreadId);
-
-		NeighborMoment1 = Mul(RefSample, AccumulatorWeight);
-	#endif
-	
-	FSSFSignalSample NeighborMoment2 = Power(NeighborMoment1, 2.0);
-
-	float CurrentWorldBluringRadius = ComputePixelWorldRadius(RefSceneMetadata);
-
-	float BilateralWeightAdjustement = 1;
-	#if CONFIG_WEIGHT_KERNEL_CENTER
-	{
-		BilateralWeightAdjustement = rcp(ComputeBilateralWeight(100, RefSceneMetadata, RefSceneMetadata));
-	}
-	#endif
-	
 	/** factor by witch should be spread out. */
-	float KernelSpreadFactor = 1;
 	#if CONFIG_UPSCALE
-		KernelSpreadFactor = UpscaleFactor;
+		float KernelSpreadFactor = UpscaleFactor;
+	#elif !CONFIG_CUSTOM_SPREAD_FACTOR
+		const float KernelSpreadFactor = 1;
 	#endif
 
 	/** Find out the number of samples that should be done. */
@@ -407,160 +315,183 @@ void MainCS(
 		IdealSampleCount = min(IdealSampleCount, MaxSampleCount);
 
 		RequestedSampleCount = IdealSampleCount / clamp(RefSample.AccumulatedSampleCount, 1, MaxSampleCount);
-		
-		DebugOutput[DispatchThreadId] = float4(IdealSampleCount, RequestedSampleCount, 0, 0);
+	}
+	#elif CONFIG_SAMPLE_COUNT_POLICY == SAMPLE_COUNT_POLICY_SAMPLE_ACCUMULATION_BASED
+	{
+		const float IdealSampleCount = TARGETED_SAMPLE_COUNT;
+
+		RequestedSampleCount = clamp(IdealSampleCount / RefSample.AccumulatedSampleCount, 1, MaxSampleCount);
 	}
 	#else
 		#error Unknown policy to control the number of samples.
 	#endif
 
 
-	/** Iterate over the samples of the kernel.
-	 */
-	float2 KernelCenterBufferUV = SceneBufferUV;
-
-	#if CONFIG_SAMPLE_SET == SAMPLE_SET_NONE
-		#if CONFIG_UPSCALE
-			#error Unsupported
-		#endif
-		if (0)
-
-	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-		#if CONFIG_UPSCALE
-			#error Unsupported
-		#endif
-		const int KernelRadius = CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 ? 1 : 2;
-		
-		UNROLL for (int x = -KernelRadius; x <= KernelRadius; x++)
-		UNROLL for (int y = -KernelRadius; y <= KernelRadius; y++)
-
-	#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
-		#if CONFIG_UPSCALE
-			// TODO: could be optimised, but currently reusing same peace of code as reflection for maintainability.
-			uint2 RayDispatchThreadId = (DispatchThreadId - UpscaleFactor / 2) / UpscaleFactor;
-			uint2 ClosestRayPixelCoord = GetPixelCoord(RayDispatchThreadId);
-			
-			uint RaySubPixelId = View.StateFrameIndex & (UpscaleFactor * UpscaleFactor - 1);
-
-			KernelCenterBufferUV = ((ClosestRayPixelCoord + (0.5 * KernelSpreadFactor + 0.5)) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
-			
-			// Id of the pixel in the quad.
-			uint QuadSampleSubsetId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1)) ^ 0x3;
-
-			bool bTakeFirstRay = RaySubPixelId == ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
-
-		#else // !CONFIG_UPSCALE
-			// Put the kernel center at the center of the quad. Half pixel shift is done in the sample offsets.
-			KernelCenterBufferUV = ((DispatchThreadId | 1) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
-
-			// Id of the pixel in the quad. This is to match hard coded first samples of the sample set.
-			uint QuadSampleSubsetId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
-		#endif
-
-		KernelCenterBufferUV = clamp(KernelCenterBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
-
-		uint SampleCount = clamp(RequestedSampleCount * rcp(kStackowiakSampleSetCount), 1, MaxSampleCount);
-
-		LOOP for (uint SampleId = (CONFIG_UPSCALE ? 0 : 1); SampleId < SampleCount; SampleId++)
-
-	#else
-		#error Unknown sample set
-	#endif
+	// Accumulate spatially the input.
+	FSSDSignalAccumulator SignalAccumulator = CreateSignalAccumulator();
 	{
-		float2 PixelOffset = 0;
+		FSSDKernelConfig KernelConfig = CreateKernelConfig();
+		KernelConfig.SampleSet = CONFIG_SAMPLE_SET;
+		KernelConfig.SampleSubSetId = CONFIG_SAMPLE_SUBSET;
+		KernelConfig.BufferLayout = CONFIG_SIGNAL_INPUT_LAYOUT;
+		KernelConfig.bUnroll = CONFIG_SAMPLE_SET != SAMPLE_SET_STACKOWIAK_4_SETS;
+		
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			KernelConfig.BufferColorSpace[MultiplexId] = CONFIG_INPUT_COLOR_SPACE;
+			KernelConfig.AccumulatorColorSpace[MultiplexId] = CONFIG_ACCUMULATION_COLOR_SPACE;
+			KernelConfig.bNormalizeSample[MultiplexId] = CONFIG_NORMALIZE_INPUT;
+		}
 
-		#if CONFIG_SAMPLE_SET == SAMPLE_SET_3X3 || CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-			if (x == 0 && y == 0 && !CONFIG_UPSCALE) continue;
-			PixelOffset = float2(x, y);
+		KernelConfig.BufferSizeAndInvSize = View.BufferSizeAndInvSize;
+		KernelConfig.BufferBilinearUVMinMax = View.BufferBilinearUVMinMax;
+		KernelConfig.KernelSpreadFactor = KernelSpreadFactor;
+
+		KernelConfig.bForceKernelCenterAccumulation = true;
+		KernelConfig.BufferUV = SceneBufferUV;
+		KernelConfig.RefSceneMetadata = RefSceneMetadata;
+		
+		// When not upscaling, manually force accumulate the sample of the kernel.
+		if (!CONFIG_UPSCALE)
+		{
+			const uint MultiplexId = 0;
+			KernelConfig.bSampleKernelCenter = false;
+
+			RefSample = TransformSignalSampleForAccumulation(
+				KernelConfig, MultiplexId, RefSample);
+
+			AccumulateSample(
+				/* inout */ SignalAccumulator,
+				MultiplexId,
+				RefSample,
+				/* FinalWeight = */ 1.0);
+		}
+
+		// When doing history rejection preconvolution may have invalid ref sample, in witch case need to force take neighborhood to have a clamping box.
+		if (DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION)
+		{
+			KernelConfig.bForceAllAccumulation = RefSample.AccumulatedSampleCount == 0;
+			KernelConfig.SampleSet = SAMPLE_SET_3X3_PLUS;
+		}
+
+		if (CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS)
+		{
+			KernelConfig.SampleCount = clamp(RequestedSampleCount * rcp(kStackowiakSampleSetCount), 1, MaxSampleCount);
+
+			if (CONFIG_UPSCALE)
+			{
+				// TODO: could be optimised, but currently reusing same peace of code as reflection for maintainability.
+				uint2 RayDispatchThreadId = (DispatchThreadId - UpscaleFactor / 2) / UpscaleFactor;
+				uint2 ClosestRayPixelCoord = GetPixelCoord(RayDispatchThreadId);
 			
-		#elif CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
-			#if CONFIG_SAMPLE_SUBSET == 0
-				PixelOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + QuadSampleSubsetId];
-			#elif CONFIG_SAMPLE_SUBSET == 1
-				PixelOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + QuadSampleSubsetId];
-			#else
-				#error Unknown sample subset.
-			#endif
+				uint RaySubPixelId = View.StateFrameIndex & (UpscaleFactor * UpscaleFactor - 1);
 
-		#elif CONFIG_SAMPLE_SET != SAMPLE_SET_NONE
-			#error Unknown sample set
+				KernelConfig.BufferUV = ((ClosestRayPixelCoord + (0.5 * KernelSpreadFactor + 0.5)) + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+			
+				// Sample the center of the kernel by comparing it against the RefSceneMetadata, since it may no match.
+				KernelConfig.bSampleKernelCenter = true;
+
+				// Id of the pixel in the quad.
+				KernelConfig.SampleTrackId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1)) ^ 0x3;
+
+				// To avoid precision problem when comparing potentially identicall 
+				KernelConfig.bForceKernelCenterAccumulation = RaySubPixelId == ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
+			}
+			else
+			{
+				// Put the kernel center at the center of the quad. Half pixel shift is done in the sample offsets.
+				KernelConfig.BufferUV = (DispatchThreadId | 1) * View.BufferSizeAndInvSize.zw;
+
+				// Id of the pixel in the quad. This is to match hard coded first samples of the sample set.
+				KernelConfig.SampleTrackId = ((DispatchThreadId.x & 1) | ((DispatchThreadId.y & 1) << 1));
+			}
+		}
+
+		AccumulateKernel(
+			KernelConfig,
+			SignalInput0,
+			SignalInput1,
+			SignalInput2,
+			/* inout */ SignalAccumulator);
+		
+		//if (DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION)
+		//	DebugOutput[DispatchThreadId] = float4(
+		//		KernelConfig.bForceAllAccumulation ? 1 : 0,
+		//		0,
+		//		0,
+		//		0);
+
+		// When doing history rejection pre convolution, could still have no information found with the 3x3 + kernel,
+		// therefore dynamically complete to form an entire 3x3 convolution.
+		BRANCH
+		if (DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION &&
+			KernelConfig.SampleSet == SAMPLE_SET_3X3_PLUS &&
+			KernelConfig.bForceAllAccumulation)
+		{
+			KernelConfig.SampleSet = SAMPLE_SET_3X3_CROSS;
+			KernelConfig.bSampleKernelCenter = false;
+			
+			AccumulateKernel(
+				KernelConfig,
+				SignalInput0,
+				SignalInput1,
+				SignalInput2,
+				/* inout */ SignalAccumulator);
+		}
+	}
+
+	// Color processing of the signal to reduce highlight flickering.
+	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+	{
+		#if CONFIG_REJECT_HIGHEST_COLOR
+		if (Accumulator.Moment1[MultiplexId].AccumulatedSampleCount > 0)
+		{
+			const float MaxNeighborWeight = saturate(SignalAccumulator.Moment1[MultiplexId].AccumulatedSampleCount * rcp(10) - 1);
+
+			SignalAccumulator.Moment1[MultiplexId].SceneColor.rgb =
+				(SignalAccumulator.Moment1[MultiplexId].SceneColor.rgb - MaxNeighbor.SceneColor.rgb * MaxNeighborWeight) *
+				(SignalAccumulator.Moment1[MultiplexId].AccumulatedSampleCount / (SignalAccumulator.Moment1[MultiplexId].AccumulatedSampleCount - MaxNeighborWeight));
+		}
 		#endif
 
-		// Compute sample coordinates
-		float2 NeighborBufferUV = KernelCenterBufferUV + (PixelOffset * KernelSpreadFactor) * View.BufferSizeAndInvSize.zw;
-		if (1)
+		SignalAccumulator.Moment1[MultiplexId] = TransformSignal(
+			SignalAccumulator.Moment1[MultiplexId], 
+			/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
+			/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
+
+		SignalAccumulator.Moment2[MultiplexId] = TransformSignal(
+			SignalAccumulator.Moment2[MultiplexId], 
+			/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
+			/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
+	}
+
+	// Transcode the spatial accumulation into multiplexed signal according to different modes.
+	uint MultiplexCount = 1;
+	FSSFSignalSample MultiplexedSamples[MAX_SIGNAL_MULTIPLEXING];
+	{
+		// Init samples to avoid unitialized warnings.
+		for (uint i = 0; i < MAX_SIGNAL_MULTIPLEXING; i++)
+			MultiplexedSamples[i] = CreateSignalSample();
+
+		#if CONFIG_OUTPUT_MODE == OUTPUT_MODE_SUM
 		{
-			if (1 && any(NeighborBufferUV != clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw)))
-			{
-				continue;
-			}
-
-			NeighborBufferUV = clamp(NeighborBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
+			MultiplexedSamples[0] = SignalAccumulator.Moment1[0];
 		}
-		float2 SampleViewportUV = BufferUVToViewportUV(NeighborBufferUV);
-		float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
-
-		// Sample the neighborhood.
-		FSSFSignalSample NeighborSample = SampleInputSignal(SignalInput0, SignalInput1, GlobalPointClampedSampler, CONFIG_SIGNAL_INPUT_LAYOUT, NeighborBufferUV);
-		FSSFSampleSceneInfos NeighborSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, NeighborBufferUV);
-		
-		NeighborSample = TransformSignal(
-			NeighborSample, 
-			/* SrcBasis  = */ CONFIG_BUFFER_COLOR_SPACE, 
-			/* DestBasis = */ CONFIG_COLOR_SPACE);
-
-		float NeighborWorldBluringRadius = ComputePixelWorldRadius(NeighborSceneMetadata);
-
-		// Compute the bilateral weight.
-		float BilateralWeight = BilateralWeightAdjustement * ComputeBilateralWeight(
-			WorldBluringRadiusToBilateralWorldDistance(min(CurrentWorldBluringRadius, NeighborWorldBluringRadius)),
-			RefSceneMetadata,
-			NeighborSceneMetadata);
-
-		// Multiple importance sampling weights.
-		uint2 NeighborPixelCoord = floor(NeighborBufferUV * View.BufferSizeAndInvSize.xy);
-		float RatioEstimatorWeight = GetRatioEstimatorWeight(RefSceneMetadata, NeighborSceneMetadata, NeighborSample, NeighborPixelCoord);
-
-		// Compute the weight of the sample in the kernel.
-		#if CONFIG_SAMPLE_SET == SAMPLE_SET_5X5_WAVELET
-			const float KernelWeight = 
-				kWaveletFilterWeights[abs(PixelOffset.x)] *
-				kWaveletFilterWeights[abs(PixelOffset.y)] *
-				rcp(kWaveletFilterWeights[0] * kWaveletFilterWeights[0]);
-
+		#elif CONFIG_OUTPUT_MODE == OUTPUT_MODE_2MOMMENT_SUM
+		{
+			MultiplexedSamples[0] = SignalAccumulator.Moment1[0];
+			MultiplexedSamples[1] = SignalAccumulator.Moment2[0];
+			MultiplexCount = 2;
+		}
 		#else
-			const float KernelWeight = 1;
-
+			#error Unknown output mode.
 		#endif
-
-		// Compute the final weight of that sample.
-		float FinalWeight = BilateralWeight * RatioEstimatorWeight * KernelWeight;// * (NeighborSample > 0.0 ? 1 : 0);
-		
-		#if CONFIG_UPSCALE && CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS
-		{
-			if (SampleId == 0 && bTakeFirstRay)
-			{
-				FinalWeight = 1;
-			}
-		}
-		#endif
-		
-		NeighborMoment1 = Add(NeighborMoment1, Mul(NeighborSample, FinalWeight));
-		NeighborMoment2 = Add(NeighborMoment2, Mul(Power(NeighborSample, 2.0), FinalWeight));
 	}
-	
-	NeighborMoment1 = TransformSignal(
-		NeighborMoment1, 
-		/* SrcBasis  = */ CONFIG_COLOR_SPACE, 
-		/* DestBasis = */ CONFIG_BUFFER_COLOR_SPACE);
-
-	#if CONFIG_NORMALIZE_OUTPUT
-	{
-		NeighborMoment1 = NormalizeToOneSample(NeighborMoment1);
-	}
-	#endif
 
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection
 
-	OutputSignal(SignalOutput0, SignalOutput1, CONFIG_SIGNAL_OUTPUT_LAYOUT, DispatchThreadId, NeighborMoment1);
+	OutputMultiplexedSignal(
+		SignalOutput0, SignalOutput1, SignalOutput2,
+		CONFIG_SIGNAL_OUTPUT_LAYOUT, MultiplexCount,
+		DispatchThreadId, MultiplexedSamples);
 } // MainCS

@@ -23,7 +23,7 @@ bool GenerateSphereLightOcclusionRay(
 	float RayLength = length(LightDirection);
 	LightDirection /= RayLength;
 
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayOrigin = WorldPosition;
 	RayDirection = LightDirection;
 	RayTMin = 0.0;
 	RayTMax = RayLength;

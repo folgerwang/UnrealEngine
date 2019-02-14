@@ -5,8 +5,24 @@
 
 //------------------------------------------------------- CONFIG DISABLED DEFAULTS
 
-#ifndef CONFIG_TOKOYASHI_BILATERAL
-	#define CONFIG_TOKOYASHI_BILATERAL 0
+/** Whether should use bilateral rejection for significantly different roughness. */
+#ifndef CONFIG_TOKOYASHI_LOBE_BILATERAL
+	#define CONFIG_TOKOYASHI_LOBE_BILATERAL 0
+#endif
+
+/** Whether should use bilateral rejection for significantly different lobe axis directions. */
+#ifndef CONFIG_TOKOYASHI_AXES_BILATERAL
+	#define CONFIG_TOKOYASHI_AXES_BILATERAL 0
+#endif
+
+/** Whether should use normal based rejection. */
+#ifndef CONFIG_VIEW_POSITION_BASED_BILATERAL
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 0
+#endif
+
+/** Whether should use normal based rejection. */
+#ifndef CONFIG_NORMAL_BASED_BILATERAL
+	#define CONFIG_NORMAL_BASED_BILATERAL 0
 #endif
 
 #ifndef CONFIG_SPECULAR_RATIO_ESTIMATOR
@@ -40,7 +56,7 @@
 	#include "../DeferredShadingCommon.ush"
 	#include "../CommonViewUniformBuffer.ush"
 
-#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
 
 #else
 	#error Unknown CONFIG_SIGNAL_PROCESSING
@@ -70,10 +86,22 @@ float Luma_To_LumaLog(float x)
 	return max(x > 0 ? log2(x) : -100, -100);
 }
 
+/** Returns the exposure multiplier that should be used for the color transformation of the signal. */
+float GetSignalColorTransformationExposure()
+{
+	// TODO: expose that guy.
+	const float Tweak = 1;
+
+	float FrameExposureScale = EyeAdaptationLookup();
+
+	return FrameExposureScale * Tweak;
+}
+
+/** Returns the linear color space Luma with a 4 multiplier for ALU perf reasons. */
 float GetSignalLuma4(FSSFSignalSample Sample, const uint Basis)
 {
 	// TODO: should force this to be scalar load.
-	float FrameExposureScale = EyeAdaptationLookup();
+	float FrameExposureScale = GetSignalColorTransformationExposure();
 		
 	// TODO: exposes optimisation if sample is normalized.
 	const bool bIsNormalizedSample = false;
@@ -113,15 +141,22 @@ FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, c
 		return Sample;
 	}
 
-	const float Tweak = 1;
-
 	// TODO: should force this to be scalar load.
-	float FrameExposureScale = EyeAdaptationLookup() * Tweak;
+	float FrameExposureScale = GetSignalColorTransformationExposure();
 		
 	// TODO: exposes optimisation if sample is normalized.
 	const bool bIsNormalizedSample = false;
+	const bool bDebugForceNormalizeColor = true;
+	const bool bIsNormalizedColor = bIsNormalizedSample || bDebugForceNormalizeColor;
 
-	//Sample.SceneColor *= SafeRcp(Sample.AccumulatedSampleCount);
+
+	const bool bUnchangeAlphaPremultiply = (SrcBasis & COLOR_SPACE_UNPREMULTIPLY) == (DestBasis & COLOR_SPACE_UNPREMULTIPLY);
+	const bool bUnchangeColorSpace = bUnchangeAlphaPremultiply && (SrcBasis & 0x3) == (DestBasis & 0x3);
+
+	if (bDebugForceNormalizeColor)
+	{
+		Sample.SceneColor *= SafeRcp(Sample.AccumulatedSampleCount);
+	}
 
 	// Remove Karis weighting before doing any color transformations.
 	if (SrcBasis & COLOR_SPACE_KARIS_WEIGHTING)
@@ -132,7 +167,7 @@ FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, c
 			KarisX = Sample.SceneColor.x;
 		}
 
-		if (!bIsNormalizedSample)
+		if (!bIsNormalizedColor)
 		{
 			KarisX *= SafeRcp(Sample.AccumulatedSampleCount);
 		}
@@ -140,7 +175,11 @@ FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, c
 		Sample.SceneColor *= KarisHdrWeightInvY(KarisX, FrameExposureScale);
 	}
 	
-	if ((SrcBasis & 0x3) == COLOR_SPACE_YCOCG)
+	if (bUnchangeColorSpace)
+	{
+		// NOP
+	}
+	else if ((SrcBasis & 0x3) == COLOR_SPACE_YCOCG)
 	{
 		Sample.SceneColor.rgb = YCoCg_2_LinearRGB(Sample.SceneColor.rgb);
 	}
@@ -149,35 +188,45 @@ FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, c
 		Sample.SceneColor.rgb = LCoCg_2_LinearRGB(Sample.SceneColor.rgb);
 	}
 
+	float Alpha = Sample.SceneColor.a * SafeRcp(Sample.AccumulatedSampleCount);
+	if (bIsNormalizedColor)
+	{
+		Alpha = Sample.SceneColor.a;
+	}
+
 	// Premultiplied RGBA
-	if ((SrcBasis & COLOR_SPACE_UNPREMULTIPLY) == (DestBasis & COLOR_SPACE_UNPREMULTIPLY))
+	if (bUnchangeAlphaPremultiply)
 	{
 		// NOP
 	}
 	else if (SrcBasis & COLOR_SPACE_UNPREMULTIPLY)
 	{
-		Sample.SceneColor.rgb *= Sample.SceneColor.a;
+		Sample.SceneColor.rgb *= Alpha;
 	}
 	else //if (DestBasis & COLOR_SPACE_UNPREMULTIPLY)
 	{
-		Sample.SceneColor.rgb *= SafeRcp(Sample.SceneColor.a);
+		Sample.SceneColor.rgb *= SafeRcp(Alpha);
 	}
 
 	float x = Luma4(Sample.SceneColor.rgb);
 	if ((DestBasis & 0x3) == COLOR_SPACE_YCOCG)
 	{
-		Sample.SceneColor.xyz = LinearRGB_2_YCoCg(Sample.SceneColor.rgb);
+		if (!bUnchangeColorSpace)
+			Sample.SceneColor.xyz = LinearRGB_2_YCoCg(Sample.SceneColor.rgb);
+
 		x = Sample.SceneColor.x;
 	}
 	else if ((DestBasis & 0x3) == COLOR_SPACE_LCOCG)
 	{
-		Sample.SceneColor.xyz = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
+		if (!bUnchangeColorSpace)
+			Sample.SceneColor.xyz = LinearRGB_2_LCoCg(Sample.SceneColor.rgb);
+
 		x = Sample.SceneColor.x;
 	}
 
 	if (DestBasis & COLOR_SPACE_KARIS_WEIGHTING)
 	{
-		if (bIsNormalizedSample)
+		if (bIsNormalizedColor)
 		{
 			Sample.SceneColor *= KarisHdrWeightY(x, FrameExposureScale);
 		}
@@ -187,7 +236,10 @@ FSSFSignalSample TransformSignal(FSSFSignalSample Sample, const uint SrcBasis, c
 		}
 	}
 	
-	//Sample.SceneColor *= Sample.AccumulatedSampleCount;
+	if (bDebugForceNormalizeColor)
+	{
+		Sample.SceneColor *= Sample.AccumulatedSampleCount;
+	}
 
 	return Sample;
 }
@@ -219,16 +271,19 @@ float HitDistanceToWorldBluringRadius;
 /** Create a spherical gaussian lob for a given roughness. */
 FSphericalGaussian ComputeRoughnessLobe(float Roughness, float3 N, float3 V)
 {
-	float a = Pow2( max( 0.02, Roughness ) );
+	//float a = Pow2( max( 0.02, Roughness ) );
+	float a = Pow2( max( 0.001, Roughness ) );
 	float a2 = a*a;
 	
 	float NoV = saturate( abs( dot(N, V) ) + 1e-5 );
+	//float NoV = saturate( abs( dot(N, V) ) );
 	
 	float3 R = 2 * NoV * N - V;
 
 	FSphericalGaussian SpecularSG;
 	SpecularSG.Axis = R;
 	SpecularSG.Sharpness = 0.5 / ( a2 * max( NoV, 0.1 ) );
+	//SpecularSG.Sharpness = 0.5 / ( a2 * max( NoV, 0.1 ) );
 	SpecularSG.Amplitude = rcp( PI * a2 );
 
 	return SpecularSG;
@@ -274,23 +329,6 @@ float ComputeBluringRadiusOfNormalizedSample(FSSFSignalSample Sample, FSSFSample
 	return InifinityRadius * (1 - DistanceCameraToPixel / (DistanceCameraToPixel + Sample.PenumbraClosestHit));
 }
 
-// [ Tokoyashi 2015, "Specular Lobe-Aware Filtering and Upsampling for Interactive Indirect Illumination" ]
-float TokoyashiLobeBilateralWeight(FSSFSampleSceneInfos RefSceneMetadata, FSSFSampleSceneInfos NeighborSceneMetadata)
-{
-	FSphericalGaussian Ref = ComputeRoughnessLobe(RefSceneMetadata);
-	FSphericalGaussian Neighbor = ComputeRoughnessLobe(NeighborSceneMetadata);
-	
-#if 1
-	const float Beta = 5.05; // TODO: to be tunned with GGX.
-
-	float CombinedSharpness = sqrt(Ref.Sharpness * Neighbor.Sharpness) / (Ref.Sharpness + Neighbor.Sharpness);
-
-	return pow(2 * CombinedSharpness, Beta) * exp((Beta * CombinedSharpness) * (dot(Ref.Axis, Neighbor.Axis) - 1));
-#else
-	return Dot(Ref, Neighbor);
-#endif
-}
-
 // TODO: duplicated...
 float3 GenerateReflectedRayDirection(
 	float3 IncidentDirection,
@@ -307,12 +345,21 @@ float3 GenerateReflectedRayDirection(
 	}
 	else
 	{
-		float NoV = saturate(dot(-IncidentDirection, WorldNormal));
+		float3 N = WorldNormal;
+		float3 V = -IncidentDirection;
 		float2 E = RandSample;
-		float4 Sample = ImportanceSampleGGX(E, Pow4(Roughness));
-		float3 H = TangentToWorld(Sample.xyz, WorldNormal);
-		RayDirection = reflect(IncidentDirection, H);
 
+		float3x3 TangentBasis = GetTangentBasis(N);
+		float3 TangentV = mul(TangentBasis, V);
+
+		float NoV = saturate(dot(V, WorldNormal));
+
+		float4 Sample = ImportanceSampleVisibleGGX(E, Pow4(Roughness), TangentV);
+
+		float3 H = mul(Sample.xyz, TangentBasis);
+		float3 L = 2 * dot( V, H ) * H - V;
+
+		RayDirection = L;
 		PDF = Sample.w;
 	}
 
@@ -385,15 +432,14 @@ float ComputeBilateralWeight(
 	float MaxWorldBluringDistance,
 	FSSFSampleSceneInfos RefSceneMetadata,
 	FSSFSampleSceneInfos NeighborSceneMetadata)
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA || CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
 {
 	if (DEBUG_DISABLE_BILATERAL)
 	{
 		return 1;
 	}
 	
-	float WorldBilateralWeight = 1;
-	if (1)
+	float PositionBilateralWeight = 1;
+	#if CONFIG_VIEW_POSITION_BASED_BILATERAL == 1
 	{
 		const float WorldRadius = MaxWorldBluringDistance;
 
@@ -410,11 +456,18 @@ float ComputeBilateralWeight(
 
 		float Multiplier = rcp(WorldRadius * WorldRadius);
 
-		WorldBilateralWeight = saturate(1 - DistSquare * Multiplier);
+		PositionBilateralWeight = saturate(1 - DistSquare * Multiplier);
 	}
+	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 2
+	{
+		float DistFromRefPlane = dot(RefSceneMetadata.WorldNormal, RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition);
+
+		PositionBilateralWeight = saturate(1 - DistFromRefPlane * rcp(MaxWorldBluringDistance));
+	}
+	#endif
 
 	float NormalBilateralWeight = 1;
-	if (CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO)
+	#if CONFIG_NORMAL_BASED_BILATERAL
     {
 		float NoN = max(dot(RefSceneMetadata.WorldNormal, NeighborSceneMetadata.WorldNormal), 0);
 
@@ -431,23 +484,30 @@ float ComputeBilateralWeight(
 			NormalBilateralWeight = exp(-x * x);
 		#endif
     }
-
-	return WorldBilateralWeight * NormalBilateralWeight;
-}
-#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
-{
-	float LobeBilateralWeight = 1;
-	#if CONFIG_TOKOYASHI_BILATERAL
+	#endif
+	
+	// [ Tokoyashi 2015, "Specular Lobe-Aware Filtering and Upsampling for Interactive Indirect Illumination" ]
+	float LobeSimilarity = 1;
+	float AxesSimilarity = 1;
+	#if CONFIG_TOKOYASHI_LOBE_BILATERAL || CONFIG_TOKOYASHI_AXES_BILATERAL
 	{
-		LobeBilateralWeight = TokoyashiLobeBilateralWeight(RefSceneMetadata, NeighborSceneMetadata);
+		const float Beta = 32;
+
+		FSphericalGaussian Ref = ComputeRoughnessLobe(RefSceneMetadata);
+		FSphericalGaussian Neighbor = ComputeRoughnessLobe(NeighborSceneMetadata);
+	
+		float InvSharpnessSum = rcp(Ref.Sharpness + Neighbor.Sharpness);
+
+		if (CONFIG_TOKOYASHI_LOBE_BILATERAL)
+			LobeSimilarity = pow(2 * sqrt(Ref.Sharpness * Neighbor.Sharpness) * InvSharpnessSum, Beta);
+
+		if (CONFIG_TOKOYASHI_AXES_BILATERAL)
+			AxesSimilarity = exp(-(Beta * (Ref.Sharpness * Neighbor.Sharpness) * InvSharpnessSum) * saturate(1 - dot(Ref.Axis, Neighbor.Axis)));
 	}
 	#endif
 
-	return LobeBilateralWeight;
+	return PositionBilateralWeight * NormalBilateralWeight * LobeSimilarity * AxesSimilarity;
 }
-#else
-	#error Unimplemented ComputeBilateralWeight()
-#endif
 
 float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
@@ -505,6 +565,10 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
 {
 	return 1000; //Sample.PenumbraClosestHit;
+}
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
+{
+	Sample.PenumbraClosestHit;
 }
 #else
 	#error Unimplemented GetSignalWorldBluringRadius()

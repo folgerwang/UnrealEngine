@@ -631,14 +631,14 @@ public:
 		checkNoEntry();
 	}
 
-	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, uint32 RayGenShaderIndex,
 		const FRayTracingShaderBindings& GlobalResourceBindings,
 		uint32 Width, uint32 Height)
 	{
 		checkNoEntry();
 	}
 
-	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState,
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, uint32 RayGenShaderIndex,
 		FRayTracingSceneRHIParamRef Scene, 
 		const FRayTracingShaderBindings& GlobalResourceBindings,
 		uint32 Width, uint32 Height)
@@ -647,9 +647,10 @@ public:
 	}
 
 	virtual void RHISetRayTracingHitGroup(
-		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, uint32 ShaderSlot,
 		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
-		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers)
+		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers,
+		uint32 UserData)
 	{
 		checkNoEntry();
 	}

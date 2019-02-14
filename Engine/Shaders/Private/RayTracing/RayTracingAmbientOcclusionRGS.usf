@@ -7,7 +7,8 @@
 #include "RayTracingCommon.ush"
 
 RaytracingAccelerationStructure TLAS;
-RWTexture2D<float2> RWOcclusionMaskUAV;
+RWTexture2D<float> RWOcclusionMaskUAV;
+RWTexture2D<float> RWHitDistanceUAV;
 
 uint CalcLinearIndex(uint2 PixelCoord)
 {
@@ -43,7 +44,7 @@ void GenerateCosineNormalRay(
 	float4 Direction_Tangent = CosineSampleHemisphere(RandSample);
 	float3 Direction_World = TangentToWorld(Direction_Tangent.xyz, WorldNormal);
 
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayOrigin = WorldPosition;
 	RayDirection = Direction_World;
 	RayTMin = 0.0;
 	RayTMax = AmbientOcclusion.MaxRayDistance;
@@ -68,6 +69,7 @@ void AmbientOcclusionRGS()
 
 	float RayCount = 0.0;
 	float Visibility = 0.0;
+	float Intensity = AmbientOcclusion.Intensity;
 	float ClosestRayHitDistance = 1.#INF;
 	uint SamplesPerPixel = AmbientOcclusion.SamplesPerPixel;
 	
@@ -83,7 +85,8 @@ void AmbientOcclusionRGS()
 	{
 		RayDesc Ray;
 		GenerateCosineNormalRay(WorldPosition, WorldNormal, RandSequence, Ray.Origin, Ray.Direction, Ray.TMin, Ray.TMax);
-		
+		ApplyPositionBias(Ray, WorldNormal, AmbientOcclusion.MaxNormalBias);
+
 		if (dot(WorldNormal, Ray.Direction) <= 0.0) // TODO: does it needs to be handled by the denoiser?
 			continue;
 		
@@ -104,7 +107,7 @@ void AmbientOcclusionRGS()
 		);
 		
 		RayCount += 1;
-		Visibility += Payload.HitT < 0 ? 1.0 : 0.0;
+		Visibility += Payload.HitT < 0 ? 1.0 : 1.0 - Intensity;
 		if (Payload.HitT >= 0.0)
 		{
 			ClosestRayHitDistance = min(ClosestRayHitDistance, Payload.HitT);
@@ -131,6 +134,7 @@ void AmbientOcclusionRGS()
 			RawOutput.y = ClosestRayHitDistance;
 		}
 
-		RWOcclusionMaskUAV[PixelCoord] = RawOutput;
+		RWOcclusionMaskUAV[PixelCoord] = RawOutput.x;
+		RWHitDistanceUAV[PixelCoord] = RawOutput.y;
 	}
 }

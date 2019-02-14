@@ -13,6 +13,17 @@ DEFINE_LOG_CATEGORY_STATIC(LogBlankProgram, Log, All);
 //IMPLEMENT_APPLICATION(BlankProgram, "BlankProgram");
 
 /**
+	Move data to an 16 byte larger array to make it safe to use with HuffmanBitStreamReader
+*/
+static TArray<uint8> PadData(const TArray<uint8>& Data)
+{
+	TArray<uint8> PaddedData;
+	PaddedData.SetNumUninitialized(Data.Num() + 16);
+	FMemory::Memcpy(&PaddedData[0], Data.GetData(), Data.Num());
+	return PaddedData;
+}
+
+/**
 	Floating point compression/decompression class.
 	This is a quick sample class could probably have a nicer interface where the
 	stream is not a member but passed in instead.
@@ -30,7 +41,7 @@ public:
 
 	FloatCoder()
 	{
-		BitlengthsTable.Initialize(256);
+		BitlengthsEncodeTable.Initialize(256);
 	}
 
 	/**
@@ -38,9 +49,9 @@ public:
 	*/
 	void Encode(float *Values, int32 NumValues)
 	{
-		BitlengthsTable.SetPrepass(true);
+		BitlengthsEncodeTable.SetPrepass(true);
 		EncodePass(Values, NumValues);
-		BitlengthsTable.SetPrepass(false);
+		BitlengthsEncodeTable.SetPrepass(false);
 		EncodePass(Values, NumValues);
 
 		uint32 bytes = Stream.GetNumBytes();
@@ -58,13 +69,13 @@ public:
 	*/
 	void Decode(TArray<uint8> Data, float *Values, int32 NumValues)
 	{
-		FHuffmanBitStreamReader InputStream(Data);
+		FHuffmanBitStreamReader InputStream(Data.GetData(), Data.Num());
 
 		for (int32 Index = 0; Index < NumValues; Index++)
 		{
 			float Pred = (Index > 0) ? Values[Index - 1] : 0.0f;
 			uint32 PredInt = IntEncode(Pred);
-			uint32 PackedK = BitlengthsTable.Decode(InputStream);
+			uint32 PackedK = BitlengthsDecodeTable.Decode(InputStream);
 			uint32 Value = 0;
 			if (PackedK == Zero)
 			{
@@ -131,7 +142,8 @@ protected:
 		return *((float *)(&Output));
 	}
 
-	FHuffmanTable BitlengthsTable; //Huffman table for the most significant bit & sign combo.
+	FHuffmanEncodeTable BitlengthsEncodeTable; //Huffman table for the most significant bit & sign combo.
+	FHuffmanDecodeTable BitlengthsDecodeTable;
 
 	FHuffmanBitStreamWriter Stream; // Used to write the encoded data to
 	const uint32 Zero = 33; // perfect prediction symbol
@@ -165,7 +177,7 @@ protected:
 				// case 1: under prediction
 				uint32 Delta = CodedValue - PredValue; // absolute difference
 				uint32 HiBit = HighestSetBit(Delta); // find most significant bit k
-				BitlengthsTable.Encode(Stream, Zero + (HiBit + 1));
+				BitlengthsEncodeTable.Encode(Stream, Zero + (HiBit + 1));
 				Stream.Write(Delta - (1 << HiBit), HiBit);// code remaining k bits verbatim
 			}
 			else if (PredValue > CodedValue)
@@ -173,13 +185,13 @@ protected:
 				// case 2: over prediction
 				uint32 Delta = PredValue - CodedValue; // absolute difference
 				uint32 HiBit = HighestSetBit(Delta); // find most significant bit k
-				BitlengthsTable.Encode(Stream, Zero - (HiBit + 1)); // entropy code k
+				BitlengthsEncodeTable.Encode(Stream, Zero - (HiBit + 1)); // entropy code k
 				Stream.Write(Delta - (1 << HiBit), HiBit); // code remaining k bits verbatim
 			}
 			else
 			{
 				// case 3: perfect prediction
-				BitlengthsTable.Encode(Stream, Zero);
+				BitlengthsEncodeTable.Encode(Stream, Zero);
 			}
 		}
 		Stream.Close();
@@ -202,14 +214,16 @@ void BitstreamTest()
 
 	// Single read call
 	{
-		FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
+		TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+		FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
 		uint32 Result = TableStreamReader.Read(4);
 		check(Result == 11);
 	}
 
 	// Single bit reads
 	{
-		FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
+		TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+		FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
 		uint32 Result = TableStreamReader.Read();
 		check(Result == 1);
 		Result = TableStreamReader.Read();
@@ -222,7 +236,8 @@ void BitstreamTest()
 
 	// Sequential bit reads + shifting
 	{
-		FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
+		TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+		FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
 		uint32 Result = TableStreamReader.Read(3);
 		Result = Result << 1;
 		Result |= TableStreamReader.Read();
@@ -231,8 +246,9 @@ void BitstreamTest()
 
 	// Peeking with zero padding
 	{
-		FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
-		uint32 Result = TableStreamReader.PeekWithZeros(8);
+		TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+		FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
+		uint32 Result = TableStreamReader.Peek(8);
 		check(Result == 0xB0);
 	}
 
@@ -247,7 +263,8 @@ void BitstreamTest()
 	TableStream.Close();
 
 	{
-		FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
+		TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+		FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
 		uint32 Result = TableStreamReader.Read(4);
 		check(Result == 11);
 		Result = TableStreamReader.Read(17);
@@ -277,7 +294,7 @@ void IntegerTest()
 		IntValues[Index] = (uint32)((sf*0.5 + 0.5) * 3999);
 	}
 
-	FHuffmanTable Tab; // 12 bit numbers
+	FHuffmanEncodeTable Tab; // 12 bit numbers
 	Tab.Initialize(4000);
 	FHuffmanBitStreamWriter Writer;
 	Tab.SetPrepass(true);
@@ -292,15 +309,17 @@ void IntegerTest()
 	}
 	Writer.Close();
 
-	FHuffmanBitStreamReader Reader(Writer.GetBytes());
+	TArray<uint8> PaddedWriterData = PadData(Writer.GetBytes());
+	FHuffmanBitStreamReader Reader(PaddedWriterData.GetData(), PaddedWriterData.Num());
 
 	//Serialize and deserialize the table. This is not needed as the same instance can be used but that way
 	//we can test the table serialization also.
 	FHuffmanBitStreamWriter TableStream;
 	Tab.Serialize(TableStream);
 	TableStream.Close();
-	FHuffmanBitStreamReader TableStreamReader(TableStream.GetBytes());
-	FHuffmanTable ReadTable;
+	TArray<uint8> PaddedTableData = PadData(TableStream.GetBytes());
+	FHuffmanBitStreamReader TableStreamReader(PaddedTableData.GetData(), PaddedTableData.Num());
+	FHuffmanDecodeTable ReadTable;
 	ReadTable.Initialize(TableStreamReader);
 
 	for (int32 Index = 0; Index < NumValues; Index++)
@@ -337,7 +356,8 @@ void FloatTest()
 	FloatCoder<0> coder;
 
 	coder.Encode(Values, NumValues);
-	coder.Decode(coder.GetData(), OutValues, NumValues);
+	TArray<uint8> PaddedData = PadData(coder.GetData());
+	coder.Decode(PaddedData, OutValues, NumValues);
 
 	for (int32 Index = 0; Index < NumValues; Index++)
 	{

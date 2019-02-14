@@ -45,7 +45,8 @@ void RayTracingDynamicMeshGS(triangle FRayTracingDynamicMeshVSToGS Inputs[3], in
 }
 
 #if COMPUTESHADER
-uint NumVertices;
+uint NumMaxVertices;
+uint NumCPUVertices;
 RWBuffer<float> RWVertexPositions;
 
 [numthreads(256, 1, 1)]
@@ -55,13 +56,23 @@ void RayTracingDynamicGeometryConverterCS(uint3 DispatchThreadId : SV_DispatchTh
 
 	uint VertexIndex = DispatchThreadId.x;
 	
-	if (VertexIndex >= NumVertices) return;
+	if (VertexIndex >= NumMaxVertices) return;
 
-	FVertexFactoryInput Input = LoadVertexFactoryInput(VertexIndex / 3, VertexIndex % 3);
-	FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
-	float3 WorldPosition = (VertexFactoryGetWorldPosition(Input, VFIntermediates) - float4(ResolvedView.PreViewTranslation, 0.0f)).xyz;
-	RWVertexPositions[VertexIndex * 3 + 0] = WorldPosition.x;
-	RWVertexPositions[VertexIndex * 3 + 1] = WorldPosition.y;
-	RWVertexPositions[VertexIndex * 3 + 2] = WorldPosition.z;
+	uint NumActualVertices = NumCPUVertices > 0 ? NumCPUVertices : GetNumRayTracingDynamicMeshVerticesIndirect();
+	if (VertexIndex < NumActualVertices)
+	{
+		FVertexFactoryInput Input = LoadVertexFactoryInput(VertexIndex / 3, VertexIndex % 3);
+		FVertexFactoryIntermediates VFIntermediates = GetVertexFactoryIntermediates(Input);
+		float3 WorldPosition = (VertexFactoryGetWorldPosition(Input, VFIntermediates) - float4(ResolvedView.PreViewTranslation, 0.0f)).xyz;
+		RWVertexPositions[VertexIndex * 3 + 0] = WorldPosition.x;
+		RWVertexPositions[VertexIndex * 3 + 1] = WorldPosition.y;
+		RWVertexPositions[VertexIndex * 3 + 2] = WorldPosition.z;
+	}
+	else
+	{
+		RWVertexPositions[VertexIndex * 3 + 0] = asfloat(0xFFFFFFFF);
+		RWVertexPositions[VertexIndex * 3 + 1] = 0;
+		RWVertexPositions[VertexIndex * 3 + 2] = 0;
+	}
 }
 #endif

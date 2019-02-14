@@ -113,7 +113,7 @@ struct FRayTracingShaderBindings
 	FTextureRHIParamRef Textures[32] = {};
 	FShaderResourceViewRHIParamRef SRVs[32] = {};
 	FUniformBufferRHIParamRef UniformBuffers[8] = {};
-	FSamplerStateRHIParamRef Samplers[8] = {};
+	FSamplerStateRHIParamRef Samplers[16] = {};
 	FUnorderedAccessViewRHIParamRef UAVs[8] = {};
 };
 
@@ -1881,23 +1881,24 @@ struct FRHICommandRayTraceDispatch final : public FRHICommand<FRHICommandRayTrac
 	FRayTracingPipelineStateRHIParamRef Pipeline;
 	FRayTracingSceneRHIParamRef Scene;
 	FRayTracingShaderBindings GlobalResourceBindings;
+	uint32 RayGenShaderIndex;
 	uint32 Width;
 	uint32 Height;
 
-	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
+	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InRayGenShaderIndex, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
 		: Pipeline(InPipeline)
 		, Scene(nullptr)
 		, GlobalResourceBindings(InGlobalResourceBindings)
+		, RayGenShaderIndex(InRayGenShaderIndex)
 		, Width(InWidth)
 		, Height(InHeight)
 	{}
 
-	
-
-	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, FRayTracingSceneRHIParamRef InScene, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
+	FRHICommandRayTraceDispatch(FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InRayGenShaderIndex, FRayTracingSceneRHIParamRef InScene, const FRayTracingShaderBindings& InGlobalResourceBindings, uint32 InWidth, uint32 InHeight)
 		: Pipeline(InPipeline)
 		, Scene(InScene)
 		, GlobalResourceBindings(InGlobalResourceBindings)
+		, RayGenShaderIndex(InRayGenShaderIndex)
 		, Width(InWidth)
 		, Height(InHeight)
 	{}
@@ -1910,19 +1911,25 @@ struct FRHICommandSetRayTracingHitGroup final : public FRHICommand<FRHICommandSe
 	FRayTracingSceneRHIParamRef Scene;
 	uint32 InstanceIndex;
 	uint32 SegmentIndex;
+	uint32 ShaderSlot;
 	FRayTracingPipelineStateRHIParamRef Pipeline;
 	uint32 HitGroupIndex;
 	uint32 NumUniformBuffers;
-	const FUniformBufferRHIParamRef* UniformBuffers; // Pointer to an array of uniform buffers, allocated inline with the command list
+	const FUniformBufferRHIParamRef* UniformBuffers; // Pointer to an array of uniform buffers, allocated inline within the command list
+	uint32 UserData;
 
-	FRHICommandSetRayTracingHitGroup(FRayTracingSceneRHIParamRef InScene, uint32 InInstanceIndex, uint32 InSegmentIndex, FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InHitGroupIndex, uint32 InNumUniformBuffers, const FUniformBufferRHIParamRef* InUniformBuffers)
+	FRHICommandSetRayTracingHitGroup(FRayTracingSceneRHIParamRef InScene, uint32 InInstanceIndex, uint32 InSegmentIndex, uint32 InShaderSlot,
+		FRayTracingPipelineStateRHIParamRef InPipeline, uint32 InHitGroupIndex, uint32 InNumUniformBuffers, const FUniformBufferRHIParamRef* InUniformBuffers,
+		uint32 InUserData)
 		: Scene(InScene)
 		, InstanceIndex(InInstanceIndex)
 		, SegmentIndex(InSegmentIndex)
+		, ShaderSlot(InShaderSlot)
 		, Pipeline(InPipeline)
 		, HitGroupIndex(InHitGroupIndex)
 		, NumUniformBuffers(InNumUniformBuffers)
 		, UniformBuffers(InUniformBuffers)
+		, UserData(InUserData)
 	{
 	}
 
@@ -3018,38 +3025,39 @@ public:
 		}
 	}
 
-	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
+	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, uint32 RayGenShaderIndex, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
 	{
 		if (Bypass())
 		{
-			GetContext().RHIRayTraceDispatch(Pipeline, GlobalResourceBindings, Width, Height);
+			GetContext().RHIRayTraceDispatch(Pipeline, RayGenShaderIndex, GlobalResourceBindings, Width, Height);
 		}
 		else
 		{
-			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, GlobalResourceBindings, Width, Height);
+			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, RayGenShaderIndex, GlobalResourceBindings, Width, Height);
 		}
 	}
 
-	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, FRayTracingSceneRHIParamRef Scene, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
+	FORCEINLINE_DEBUGGABLE void RayTraceDispatch(FRayTracingPipelineStateRHIParamRef Pipeline, uint32 RayGenShaderIndex, FRayTracingSceneRHIParamRef Scene, const FRayTracingShaderBindings& GlobalResourceBindings, uint32 Width, uint32 Height)
 	{
 		if (Bypass())
 		{
-			GetContext().RHIRayTraceDispatch(Pipeline, Scene, GlobalResourceBindings, Width, Height);
+			GetContext().RHIRayTraceDispatch(Pipeline, RayGenShaderIndex, Scene, GlobalResourceBindings, Width, Height);
 		}
 		else
 		{
-			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, Scene, GlobalResourceBindings, Width, Height);
+			ALLOC_COMMAND(FRHICommandRayTraceDispatch)(Pipeline, RayGenShaderIndex, Scene, GlobalResourceBindings, Width, Height);
 		}
 	}
 
 	FORCEINLINE_DEBUGGABLE void SetRayTracingHitGroup(
-		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex,
+		FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, uint32 ShaderSlot,
 		FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex,
-		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers)
+		uint32 NumUniformBuffers, const FUniformBufferRHIParamRef* UniformBuffers,
+		uint32 UserData)
 	{
 		if (Bypass())
 		{
-			GetContext().RHISetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, NumUniformBuffers, UniformBuffers);
+			GetContext().RHISetRayTracingHitGroup(Scene, InstanceIndex, SegmentIndex, ShaderSlot, Pipeline, HitGroupIndex, NumUniformBuffers, UniformBuffers, UserData);
 		}
 		else
 		{
@@ -3063,7 +3071,7 @@ public:
 				}
 			}
 
-			ALLOC_COMMAND(FRHICommandSetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, Pipeline, HitGroupIndex, NumUniformBuffers, InlineUniformBuffers);
+			ALLOC_COMMAND(FRHICommandSetRayTracingHitGroup)(Scene, InstanceIndex, SegmentIndex, ShaderSlot, Pipeline, HitGroupIndex, NumUniformBuffers, InlineUniformBuffers, UserData);
 		}
 	}
 

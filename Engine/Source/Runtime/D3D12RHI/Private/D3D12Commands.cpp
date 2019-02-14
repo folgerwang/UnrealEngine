@@ -410,11 +410,9 @@ void FD3D12CommandContext::RHICopyToStagingBuffer(FVertexBufferRHIParamRef Sourc
 	{
 		// @todo-mattc I feel like we should allocate more than NumBytes to handle small reads without blowing tons of space. Need to pool this.
 		// Hopefully d3d12 will do smart pooling out of an internal heap.
-		if (StagingBuffer->StagedRead)
-		{
-			StagingBuffer->StagedRead.SafeRelease();
-		}
-		VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), NumBytes, StagingBuffer->StagedRead.GetInitReference()));
+		StagingBuffer->SafeRelease();
+
+		VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), NumBytes, &StagingBuffer->StagedRead));
 		StagingBuffer->ShadowBufferSize = NumBytes;
 	}
 

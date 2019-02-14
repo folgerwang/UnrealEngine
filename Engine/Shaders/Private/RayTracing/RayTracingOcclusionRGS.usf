@@ -20,6 +20,7 @@ RWTexture2D<float4> RWOcclusionMaskUAV;
 RWTexture2D<float> RWRayDistanceUAV;
 
 uint SamplesPerPixel;
+float NormalBias;
 
 float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 {
@@ -47,7 +48,7 @@ bool GeneratePointLightOcclusionRay(
 	LightDirection /= RayLength;
 
 	// Apply normal perturbation when defining ray
-	RayOrigin = WorldPosition + WorldNormal * 0.01;
+	RayOrigin = WorldPosition;
 	RayDirection = LightDirection;
 	RayTMin = 0.0;
 	RayTMax = RayLength;
@@ -78,7 +79,7 @@ bool GenerateSpotLightOcclusionRay(
 		LightDirection /= RayLength;
 
 		// Apply normal perturbation when defining ray
-		RayOrigin = WorldPosition + WorldNormal * 0.01;
+		RayOrigin = WorldPosition;
 		RayDirection = LightDirection;
 		RayTMin = 0.0;
 		RayTMax = RayLength;
@@ -245,6 +246,7 @@ void OcclusionRGS()
 			/* out */ Ray.Direction,
 			/* out */ Ray.TMin,
 			/* out */ Ray.TMax);
+		ApplyPositionBias(Ray, WorldNormal, NormalBias);
 
 		BRANCH
 		if (!bIsValidRay)
@@ -254,6 +256,16 @@ void OcclusionRGS()
 		else if (dot(WorldNormal, Ray.Direction) <= 0.0)
 		{
 			continue;
+		}
+
+		// Attenuation check
+		if (LightParameters.InvRadius > 0.0)
+		{
+			float MaxAttenuationDistance = 1.0 / LightParameters.InvRadius;
+			if (Ray.TMax > MaxAttenuationDistance)
+			{
+				continue;
+			}
 		}
 
 		uint RayFlags = 0
