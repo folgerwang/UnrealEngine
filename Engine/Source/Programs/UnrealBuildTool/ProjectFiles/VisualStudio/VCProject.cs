@@ -534,6 +534,8 @@ namespace UnrealBuildTool
 		{
 			switch(ProjectFileFormat)
 			{
+				case VCProjectFileFormat.VisualStudio2019:
+					return WindowsCompiler.VisualStudio2019;
 				case VCProjectFileFormat.VisualStudio2017:
 					return WindowsCompiler.VisualStudio2017;
 				default:
