@@ -905,6 +905,7 @@ void FActiveSound::CheckOcclusion(const FVector ListenerLocation, const FVector 
 		{
 			InterpolationTime = AttenuationSettingsPtr->OcclusionInterpolationTime;
 		}
+		bHasCheckedOcclusion = true;
 	}
 
 	if (bIsOccluded)
