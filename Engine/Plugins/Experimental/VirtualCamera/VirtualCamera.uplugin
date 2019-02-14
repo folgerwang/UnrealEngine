@@ -38,11 +38,11 @@
 			"Enabled": true
 		},
 		{
-			"Name": "SteamVR",
+			"Name": "Takes",
 			"Enabled": true
 		},
 		{
-			"Name": "Takes",
+			"Name": "VirtualProductionUtilities",
 			"Enabled": true
 		}
 	]

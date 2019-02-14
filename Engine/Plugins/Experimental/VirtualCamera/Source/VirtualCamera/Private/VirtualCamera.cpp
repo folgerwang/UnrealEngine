@@ -2,19 +2,42 @@
 
 #include "VirtualCamera.h"
 
-#define LOCTEXT_NAMESPACE "FVirtualCameraModule"
 
-void FVirtualCameraModule::StartupModule()
+#include "ConcertVirtualCamera.h"
+
+DEFINE_LOG_CATEGORY(LogVirtualCamera);
+
+const IVirtualCameraModule& IVirtualCameraModule::Get()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	static const FName ModuleName = TEXT("VirtualCamera");
+	return FModuleManager::Get().GetModuleChecked<IVirtualCameraModule>(ModuleName);
 }
 
-void FVirtualCameraModule::ShutdownModule()
-{
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
-}
 
-#undef LOCTEXT_NAMESPACE
-	
-IMPLEMENT_MODULE(FVirtualCameraModule, VirtualCamera)
+/**
+ *
+ */
+class FVirtualCameraModuleImpl : public IVirtualCameraModule
+{
+public:
+	virtual FConcertVirtualCameraManager* GetConcertVirtualCameraManager() const override
+	{
+		return ConcertManager.Get();
+	}
+
+private:
+	virtual void StartupModule() override
+	{
+		ConcertManager = MakeUnique<FConcertVirtualCameraManager>();
+	}
+
+	virtual void ShutdownModule() override
+	{
+		ConcertManager.Reset();
+	}
+
+	TUniquePtr<FConcertVirtualCameraManager> ConcertManager;
+};
+
+
+IMPLEMENT_MODULE(FVirtualCameraModuleImpl, VirtualCamera)

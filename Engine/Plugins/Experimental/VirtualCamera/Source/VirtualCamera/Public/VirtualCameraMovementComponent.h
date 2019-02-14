@@ -171,6 +171,14 @@ public:
 	 */
 	void SetUseGlobalBoom(bool bShouldUseGlobalBoom) { bUseGlobalBoom = bShouldUseGlobalBoom; }
 
+
+	/**
+	 * When the input come from a physical controller, move this component instead.
+	 * This allow a proper replication when we are in a multi user setting.
+	 * This component doesn't respect the freeze and lock axis.
+	 */
+	void SetRootComponent(USceneComponent* FromController);
+
 private:
 	/** The cached axis for locking, only used if bLockRelativeToFirstLockAxis is true */
 	FQuat CachedLockingAxis;
@@ -181,11 +189,28 @@ private:
 	/** Tracks the current target location of the camera for stabilization */
 	FVector TargetLocation;
 
+	/** Tracks the current target location of the camera that came from a controller */
+	FVector FromControllerTargetLocation;
+
 	/** Tracks the previous tracker rotation to determine how much we should rotate */
 	FRotator PreviousTrackerRotation;
 
 	/** Tracks the current target rotation of the camera for stabilization */
 	FRotator TargetRotation;
+
+	/**
+	 * The component we move and update when the input is coming from the controller.
+	 * If this is null UpdatedComponent will be used instead.
+	 * @see UpdatedComponent
+	 */
+	UPROPERTY(Transient, DuplicateTransient)
+	USceneComponent* RootUpdatedComponent;
+
+	/**
+	 * RootUpdatedComponent, cast as a UPrimitiveComponent. May be invalid if RootUpdatedComponent was null or not a UPrimitiveComponent.
+	 */
+	UPROPERTY(Transient, DuplicateTransient)
+	UPrimitiveComponent* RootUpdatedPrimitive;
 
 	/**
 	 * Applies relative axis filtering based on locks for location.

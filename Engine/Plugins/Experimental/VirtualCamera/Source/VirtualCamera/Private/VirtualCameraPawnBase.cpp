@@ -23,6 +23,7 @@ AVirtualCameraPawnBase::AVirtualCameraPawnBase(const FObjectInitializer& ObjectI
 
 	MovementComponent = CreateDefaultSubobject<UVirtualCameraMovementComponent>("Movement Component");
 	MovementComponent->UpdatedComponent = CineCamera;
+	MovementComponent->SetRootComponent(DefaultSceneRoot);
 
 	// Set Default Variables
 	HomeWaypointName = "";
