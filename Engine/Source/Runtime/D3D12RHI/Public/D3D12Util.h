@@ -42,10 +42,7 @@ namespace D3D12RHI
 	 * @param	Line - The line number of Code within Filename.
 	 */
 	extern void VerifyD3D12Result(HRESULT Result, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device);
-}
 
-namespace D3D12RHI
-{
 	/**
 	* Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
 	* @param	Result - The result code to check
@@ -53,15 +50,14 @@ namespace D3D12RHI
 	* @param	Filename - The filename of the source file containing Code.
 	* @param	Line - The line number of Code within Filename.
 	*/
-	extern void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line,
-		uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 D3DFormat, uint32 NumMips, uint32 Flags);
+	extern void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, const D3D12_RESOURCE_DESC& TextureDesc);
 
 	/**
 	 * A macro for using VERIFYD3D12RESULT that automatically passes in the code and filename/line.
 	 */
-#define VERIFYD3D12RESULT_EX(x, Device)	{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, Device); }}
-#define VERIFYD3D12RESULT(x)			{HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12Result(hr,#x,__FILE__,__LINE__, 0); }}
-#define VERIFYD3D12CREATETEXTURERESULT(x,SizeX,SizeY,SizeZ,Format,NumMips,Flags) {HRESULT hr = x; if (FAILED(hr)) { VerifyD3D12CreateTextureResult(hr,#x,__FILE__,__LINE__,SizeX,SizeY,SizeZ,Format,NumMips,Flags); }}
+#define VERIFYD3D12RESULT_EX(x, Device)	{HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12Result(hres, #x, __FILE__, __LINE__, Device); }}
+#define VERIFYD3D12RESULT(x)			{HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12Result(hres, #x, __FILE__, __LINE__, nullptr); }}
+#define VERIFYD3D12CREATETEXTURERESULT(x, Desc) {HRESULT hres = x; if (FAILED(hres)) { VerifyD3D12CreateTextureResult(hres, #x, __FILE__, __LINE__, Desc); }}
 
 	/**
 	 * Checks that a COM object has the expected number of references.

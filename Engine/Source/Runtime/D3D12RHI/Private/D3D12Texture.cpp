@@ -602,15 +602,7 @@ void SafeCreateTexture2D(FD3D12Device* pDevice,
 		case D3D12_HEAP_TYPE_READBACK:
 			{
 				FD3D12Resource* Resource = nullptr;
-				VERIFYD3D12CREATETEXTURERESULT(
-					Adapter->CreateBuffer(heapType, pDevice->GetGPUMask(), pDevice->GetVisibilityMask(), MipBytesAligned, &Resource),
-					TextureDesc.Width,
-					TextureDesc.Height,
-					TextureDesc.DepthOrArraySize,
-					TextureDesc.Format,
-					TextureDesc.MipLevels,
-					TextureDesc.Flags
-					);
+				VERIFYD3D12CREATETEXTURERESULT(Adapter->CreateBuffer(heapType, pDevice->GetGPUMask(), pDevice->GetVisibilityMask(), MipBytesAligned, &Resource), TextureDesc);
 				OutTexture2D->AsStandAlone(Resource);
 
 				if (IsCPUWritable(heapType))
@@ -621,16 +613,7 @@ void SafeCreateTexture2D(FD3D12Device* pDevice,
 			break;
 
 		case D3D12_HEAP_TYPE_DEFAULT:
-			VERIFYD3D12CREATETEXTURERESULT(
-				pDevice->GetTextureAllocator().AllocateTexture(TextureDesc, ClearValue, Format, *OutTexture2D, InitialState),
-				TextureDesc.Width,
-				TextureDesc.Height,
-				TextureDesc.DepthOrArraySize,
-				TextureDesc.Format,
-				TextureDesc.MipLevels,
-				TextureDesc.Flags
-				);
-
+			VERIFYD3D12CREATETEXTURERESULT(pDevice->GetTextureAllocator().AllocateTexture(TextureDesc, ClearValue, Format, *OutTexture2D, InitialState), TextureDesc);
 			break;
 
 		default:
@@ -1059,8 +1042,7 @@ FD3D12Texture3D* FD3D12DynamicRHI::CreateD3D12Texture3D(FRHICommandListImmediate
 	{
 		FD3D12Texture3D* Texture3D = new FD3D12Texture3D(Device, SizeX, SizeY, SizeZ, NumMips, Format, Flags, CreateInfo.ClearValueBinding);
 
-		HRESULT hr = Device->GetTextureAllocator().AllocateTexture(TextureDesc, ClearValuePtr, Format, Texture3D->ResourceLocation, (CreateInfo.BulkData != nullptr) ? D3D12_RESOURCE_STATE_COPY_DEST : DestinationState);
-		check(SUCCEEDED(hr));
+		Device->GetTextureAllocator().AllocateTexture(TextureDesc, ClearValuePtr, Format, Texture3D->ResourceLocation, (CreateInfo.BulkData != nullptr) ? D3D12_RESOURCE_STATE_COPY_DEST : DestinationState);
 
 		if (bCreateRTV)
 		{

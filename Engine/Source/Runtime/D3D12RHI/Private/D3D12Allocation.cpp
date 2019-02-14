@@ -1036,16 +1036,9 @@ FD3D12DefaultBufferAllocator::FD3D12DefaultBufferAllocator(FD3D12Device* InParen
 	FMemory::Memset(DefaultBufferPools, 0);
 }
 
-// Grab a buffer from the available buffers or create a new buffer if none are available
-HRESULT FD3D12DefaultBufferAllocator::AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment)
+void FD3D12DefaultBufferAllocator::InitializeAllocator(EBufferPool PoolIndex, D3D12_RESOURCE_FLAGS Flags)
 {
 	FD3D12Device* Device = GetParentDevice();
-
-	EBufferPool PoolIndex = GetBufferPool(Desc.Flags);
-	check(PoolIndex < EBufferPool::Count);
-
-	if (DefaultBufferPools[(uint32) PoolIndex] == nullptr)
-	{
 	FD3D12AllocatorType* Allocator = nullptr;
 
 #ifdef USE_BUCKET_ALLOCATOR
@@ -1066,7 +1059,7 @@ HRESULT FD3D12DefaultBufferAllocator::AllocDefaultResource(const D3D12_RESOURCE_
 			kPlacedResourceStrategy,
 			D3D12_HEAP_TYPE_DEFAULT,
 			D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
-				Desc.Flags,
+			Flags,
 			DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE,
 			ED3D12AllocatorID::DefaultBufferAllocator,
 			DEFAULT_BUFFER_POOL_SIZE,
@@ -1080,7 +1073,7 @@ HRESULT FD3D12DefaultBufferAllocator::AllocDefaultResource(const D3D12_RESOURCE_
 			kManualSubAllocationStrategy,
 			D3D12_HEAP_TYPE_DEFAULT,
 			D3D12_HEAP_FLAG_ALLOW_ONLY_BUFFERS,
-				Desc.Flags,
+			Flags,
 			DEFAULT_BUFFER_POOL_MAX_ALLOC_SIZE,
 			ED3D12AllocatorID::DefaultBufferAllocator,
 			DEFAULT_BUFFER_POOL_SIZE,
@@ -1089,11 +1082,20 @@ HRESULT FD3D12DefaultBufferAllocator::AllocDefaultResource(const D3D12_RESOURCE_
 #endif
 
 	DefaultBufferPools[(uint32) PoolIndex] = new FD3D12DefaultBufferPool(Device, Allocator);
+}
+
+// Grab a buffer from the available buffers or create a new buffer if none are available
+void FD3D12DefaultBufferAllocator::AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment)
+{
+	EBufferPool PoolIndex = GetBufferPool(Desc.Flags);
+	check(PoolIndex < EBufferPool::Count);
+
+	if (DefaultBufferPools[(uint32) PoolIndex] == nullptr)
+	{
+		InitializeAllocator(PoolIndex, Desc.Flags);
 	}
 
 	DefaultBufferPools[(uint32) PoolIndex]->AllocDefaultResource(Desc, InUsage, ResourceLocation, Alignment);
-
-	return S_OK;
 }
 
 void FD3D12DefaultBufferAllocator::FreeDefaultBufferPools()
