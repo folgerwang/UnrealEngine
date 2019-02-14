@@ -389,7 +389,7 @@ public:
 	FD3D12DefaultBufferAllocator(FD3D12Device* InParent, FRHIGPUMask VisibleNodes);
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
-	void AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
+	HRESULT AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
 	void FreeDefaultBufferPools();
 	void CleanupFreeBlocks();
 
@@ -403,8 +403,6 @@ private:
 
 		Count,
 	};
-
-	void InitializeAllocator(EBufferPool PoolIndex, D3D12_RESOURCE_FLAGS Flags);
 	FD3D12DefaultBufferPool* DefaultBufferPools[(uint32)EBufferPool::Count];
 
 	inline EBufferPool GetBufferPool(D3D12_RESOURCE_FLAGS Flags) const

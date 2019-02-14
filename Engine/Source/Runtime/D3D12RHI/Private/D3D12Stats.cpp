@@ -443,9 +443,9 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 
 					if (Result == GFSDK_Aftermath_Result_Success)
 					{
-						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting address: 0x%016llx"), FaultInformation.faultingGpuVA);
-						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting resource dims: %d x %d x %d"), FaultInformation.resourceDesc.width, FaultInformation.resourceDesc.height, FaultInformation.resourceDesc.depth);
-						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting result size: 0x%llu"), FaultInformation.resourceDesc.size);
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting address: 0x%xI64"), FaultInformation.faultingGpuVA);
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting resournce dims: %d x %d x %d"), FaultInformation.resourceDesc.width, FaultInformation.resourceDesc.height, FaultInformation.resourceDesc.depth);
+						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting result size: 0x%dI64"), FaultInformation.resourceDesc.size);
 						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting resource mips: %d"), FaultInformation.resourceDesc.mipLevels);
 						UE_LOG(LogRHI, Error, TEXT("[Aftermath] Faulting resource format: 0x%x"), FaultInformation.resourceDesc.format);
 					}

@@ -68,8 +68,7 @@ static FString GetD3D12DeviceHungErrorString(HRESULT ErrorCode)
 		D3DERR(DXGI_ERROR_DEVICE_RESET)
 		D3DERR(DXGI_ERROR_DRIVER_INTERNAL_ERROR)
 		D3DERR(DXGI_ERROR_INVALID_CALL)
-		default:
-			ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
+	default: ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
 	}
 
 	return ErrorCodeText;
@@ -94,14 +93,13 @@ static FString GetD3D12ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
 		D3DERR(DXGI_ERROR_INVALID_CALL)
 		D3DERR(E_NOINTERFACE)
 		D3DERR(DXGI_ERROR_DEVICE_REMOVED)
-		default:
-			ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
+	default: ErrorCodeText = FString::Printf(TEXT("%08X"), (int32)ErrorCode);
 	}
 
 	if (ErrorCode == DXGI_ERROR_DEVICE_REMOVED && Device)
 	{
 		HRESULT hResDeviceRemoved = Device->GetDeviceRemovedReason();
-		ErrorCodeText += FString(TEXT(" with Reason: ")) + GetD3D12DeviceHungErrorString(hResDeviceRemoved);
+		ErrorCodeText += FString(TEXT(" ")) + GetD3D12DeviceHungErrorString(hResDeviceRemoved);
 	}
 
 	return ErrorCodeText;
@@ -247,12 +245,12 @@ namespace D3D12RHI
 		UE_LOG(LogD3D12RHI, Fatal, TEXT("%s failed \n at %s:%u \n with error %s"), ANSI_TO_TCHAR(Code), ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 	}
 
-	void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, const D3D12_RESOURCE_DESC& TextureDesc)
+	void VerifyD3D12CreateTextureResult(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, uint32 SizeX, uint32 SizeY, uint32 SizeZ, uint8 Format, uint32 NumMips, uint32 Flags)
 	{
 		check(FAILED(D3DResult));
 
 		const FString ErrorString = GetD3D12ErrorString(D3DResult, 0);
-		const TCHAR* D3DFormatString = GetD3D12TextureFormatString(TextureDesc.Format);
+		const TCHAR* D3DFormatString = GetD3D12TextureFormatString((DXGI_FORMAT)Format);
 
 		UE_LOG(LogD3D12RHI, Error,
 			TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s"),
@@ -260,13 +258,13 @@ namespace D3D12RHI
 			ANSI_TO_TCHAR(Filename),
 			Line,
 			*ErrorString,
-			TextureDesc.Width,
-			TextureDesc.Height,
-			TextureDesc.DepthOrArraySize,
+			SizeX,
+			SizeY,
+			SizeZ,
 			D3DFormatString,
-			TextureDesc.Format,
-			TextureDesc.MipLevels,
-			*GetD3D12TextureFlagString(TextureDesc.Flags));
+			Format,
+			NumMips,
+			*GetD3D12TextureFlagString(Flags));
 
 		TerminateOnDeviceRemoved(D3DResult);
 		TerminateOnOutOfMemory(D3DResult, true);
@@ -285,13 +283,13 @@ namespace D3D12RHI
 			ANSI_TO_TCHAR(Filename),
 			Line,
 			*ErrorString,
-			TextureDesc.Width,
-			TextureDesc.Height,
-			TextureDesc.DepthOrArraySize,
+			SizeX,
+			SizeY,
+			SizeZ,
 			D3DFormatString,
-			TextureDesc.Format,
-			TextureDesc.MipLevels,
-			*GetD3D12TextureFlagString(TextureDesc.Flags));
+			Format,
+			NumMips,
+			*GetD3D12TextureFlagString(Flags));
 	}
 
 	void VerifyComRefCount(IUnknown* Object, int32 ExpectedRefs, const TCHAR* Code, const TCHAR* Filename, int32 Line)
