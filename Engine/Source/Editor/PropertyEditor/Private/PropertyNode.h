@@ -528,11 +528,11 @@ public:
 	 * Propagates the property change of a container property to all instances of an archetype
 	 *
 	 * @param	ModifiedObject				Object which property has been modified
-	 * @param	OriginalContainerContent	Original content of the container before the modification ( as returned by ExportText_Direct )
+	 * @param	OriginalContainerAddr		Original address holding the container value before the modification
 	 * @param	ChangeType					In which way was the container modified
 	 * @param	Index						Index of the modified item
 	 */
-	void PropagateContainerPropertyChange(UObject* ModifiedObject, const FString& OriginalContainerContent,
+	void PropagateContainerPropertyChange(UObject* ModifiedObject, const void* OriginalContainerAddr,
 		EPropertyArrayChangeType::Type ChangeType, int32 Index, TMap<UObject*, bool>* PropagationResult = nullptr, int32 SwapIndex = INDEX_NONE);
 
 	/** Broadcasts when a property value changes */
