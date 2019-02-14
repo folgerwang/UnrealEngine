@@ -48,15 +48,40 @@ void FLateUpdateManager::Apply_RenderThread(FSceneInterface* Scene, const FTrans
 	const FTransform NewCameraTransform = NewRelativeTransform * LateUpdateParentToWorld[LateUpdateRenderReadIndex];
 	const FMatrix LateUpdateTransform = (OldCameraTransform.Inverse() * NewCameraTransform).ToMatrixWithScale();
 
-	// Apply delta to the affected scene proxies
-	for (auto PrimitiveInfo : LateUpdatePrimitives[LateUpdateRenderReadIndex])
+	bool bIndicesHaveChanged = false;
+
+	// Apply delta to the cached scene proxies
+	// Also check whether any primitive indices have changed, in case the scene has been modified in the meantime.
+	for (auto PrimitivePair : LateUpdatePrimitives[LateUpdateRenderReadIndex])
 	{
-		FPrimitiveSceneInfo* RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(*PrimitiveInfo.IndexAddress);
-		FPrimitiveSceneInfo* CachedSceneInfo = PrimitiveInfo.SceneInfo;
-		// If the retrieved scene info is different than our cached scene info then the primitive was removed from the scene
-		if (CachedSceneInfo == RetrievedSceneInfo && CachedSceneInfo->Proxy)
+		FPrimitiveSceneInfo* RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(PrimitivePair.Value);
+		FPrimitiveSceneInfo* CachedSceneInfo = PrimitivePair.Key;
+
+		// If the retrieved scene info is different than our cached scene info then the scene has changed in the meantime
+		// and we need to search through the entire scene to make sure it still exists.
+		if (CachedSceneInfo != RetrievedSceneInfo)
+		{
+			bIndicesHaveChanged = true;
+			break; // No need to continue here, as we are going to brute force the scene primitives below anyway.
+		}
+		else if (CachedSceneInfo->Proxy)
 		{
 			CachedSceneInfo->Proxy->ApplyLateUpdateTransform(LateUpdateTransform);
+			PrimitivePair.Value = -1; // Set the cached index to -1 to indicate that this primitive was already processed
+		}
+	}
+
+	// Indices have changed, so we need to scan the entire scene for primitives that might still exist
+	if (bIndicesHaveChanged)
+	{
+		int32 Index = 0;
+		FPrimitiveSceneInfo* RetrievedSceneInfo;
+		while(RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(Index++))
+		{
+			if (RetrievedSceneInfo->Proxy && LateUpdatePrimitives[LateUpdateRenderReadIndex].Contains(RetrievedSceneInfo) && LateUpdatePrimitives[LateUpdateRenderReadIndex][RetrievedSceneInfo] >= 0)
+			{
+				RetrievedSceneInfo->Proxy->ApplyLateUpdateTransform(LateUpdateTransform);
+			}
 		}
 	}
 }
@@ -77,10 +102,7 @@ void FLateUpdateManager::CacheSceneInfo(USceneComponent* Component)
 		FPrimitiveSceneInfo* PrimitiveSceneInfo = PrimitiveComponent->SceneProxy->GetPrimitiveSceneInfo();
 		if (PrimitiveSceneInfo)
 		{
-			LateUpdatePrimitiveInfo PrimitiveInfo;
-			PrimitiveInfo.IndexAddress = PrimitiveSceneInfo->GetIndexAddress();
-			PrimitiveInfo.SceneInfo = PrimitiveSceneInfo;
-			LateUpdatePrimitives[LateUpdateGameWriteIndex].Add(PrimitiveInfo);
+			LateUpdatePrimitives[LateUpdateGameWriteIndex].Emplace(PrimitiveSceneInfo, PrimitiveSceneInfo->GetIndex());
 		}
 	}
 }
