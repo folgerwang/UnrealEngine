@@ -147,7 +147,9 @@ void UWebSocketConnection::FinishDestroy()
 	Super::FinishDestroy();
 	if (WebSocket)
 	{
+#if USE_LIBWEBSOCKET
 		WebSocket->Context = NULL; // UE-68340
+#endif
 		delete WebSocket; 
 		WebSocket = NULL;
 	}
