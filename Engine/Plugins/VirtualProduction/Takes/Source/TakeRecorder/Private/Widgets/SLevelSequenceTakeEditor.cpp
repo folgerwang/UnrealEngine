@@ -259,7 +259,7 @@ TSharedRef<SWidget> SLevelSequenceTakeEditor::OnGenerateSourcesMenu()
 			TSubclassOf<UTakeRecorderSource> SubclassOf = Class;
 
 			MenuBuilder.AddMenuEntry(
-				Class->GetDisplayNameText(),
+				FText::FromString(Class->GetMetaData(TEXT("TakeRecorderDisplayName"))),
 				Class->GetToolTipText(true),
 				FSlateIconFinder::FindIconForClass(Class),
 				FUIAction(

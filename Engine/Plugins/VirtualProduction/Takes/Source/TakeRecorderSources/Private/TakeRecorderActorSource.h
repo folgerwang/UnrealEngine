@@ -31,7 +31,7 @@ enum class ETakeRecorderActorRecordType : uint8
 * Records the properties of the actor and the components on the actor and safely
 * handles new components being spawned at runtime and the actor being destroyed.
 */
-UCLASS(DisplayName="Any Actor", Category="Actors")
+UCLASS(Category="Actors", meta = (TakeRecorderDisplayName="Any Actor"))
 class UTakeRecorderActorSource : public UTakeRecorderSource, public IMovieSceneTrackRecorderHost
 {
 public:

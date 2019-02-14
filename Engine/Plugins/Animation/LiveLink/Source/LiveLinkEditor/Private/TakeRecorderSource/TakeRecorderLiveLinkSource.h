@@ -46,7 +46,7 @@ public:
 };
 
 /** A recording source that records LiveLink */
-UCLASS(DisplayName="Live Link", Category="Live Link", config=EditorSettings)
+UCLASS(Category="Live Link", config=EditorSettings, meta = (TakeRecorderDisplayName = "Live Link"))
 class UTakeRecorderLiveLinkSource : public UTakeRecorderSource
 {
 

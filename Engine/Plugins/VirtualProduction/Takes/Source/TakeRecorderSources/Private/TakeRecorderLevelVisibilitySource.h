@@ -28,7 +28,7 @@ public:
 };
 
 /** A recording source that records level visibility state */
-UCLASS(DisplayName="Level Visibility", Category="Other", config = EditorSettings)
+UCLASS(Category="Other", config = EditorSettings, meta = (TakeRecorderDisplayName = "Level Visibility"))
 class UTakeRecorderLevelVisibilitySource : public UTakeRecorderLevelVisibilitySourceSettings
 {
 public:

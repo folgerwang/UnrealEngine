@@ -34,7 +34,7 @@ public:
 
 
 /** A recording source that records world state */
-UCLASS(DisplayName="World", Category="Actors")
+UCLASS(Category="Actors", meta = (TakeRecorderDisplayName = "World"))
 class UTakeRecorderWorldSource : public UTakeRecorderWorldSourceSettings
 {
 public:

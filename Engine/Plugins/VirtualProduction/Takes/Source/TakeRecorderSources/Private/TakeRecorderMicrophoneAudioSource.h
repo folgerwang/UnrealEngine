@@ -35,7 +35,7 @@ public:
 };
 
 /** A recording source that records microphone audio */
-UCLASS(DisplayName="Microphone Audio", Category="Audio", config=EditorSettings)
+UCLASS(Category="Audio", config=EditorSettings, meta = (TakeRecorderDisplayName = "Microphone Audio"))
 class UTakeRecorderMicrophoneAudioSource : public UTakeRecorderMicrophoneAudioSourceSettings
 {
 public:
