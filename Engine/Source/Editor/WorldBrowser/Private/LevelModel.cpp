@@ -194,7 +194,18 @@ bool FLevelModel::IsVisible() const
 	else
 	{
 		ULevel* Level = GetLevelObject();
-		return Level ? FLevelUtils::IsLevelVisible(Level) :  false;
+		if (Level)
+		{
+			if (ULevelStreaming* StreamingLevel = FLevelUtils::FindStreamingLevel(Level))
+			{
+				return StreamingLevel->ShouldBeVisible();
+			}
+			else
+			{
+				return FLevelUtils::IsLevelVisible(Level);
+			}
+		}
+		return false;
 	}
 }
 
