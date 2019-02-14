@@ -76,12 +76,14 @@ void FLateUpdateManager::Apply_RenderThread(FSceneInterface* Scene, const FTrans
 	{
 		int32 Index = 0;
 		FPrimitiveSceneInfo* RetrievedSceneInfo;
-		while(RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(Index++))
+		RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(Index++);
+		while(RetrievedSceneInfo)
 		{
 			if (RetrievedSceneInfo->Proxy && LateUpdatePrimitives[LateUpdateRenderReadIndex].Contains(RetrievedSceneInfo) && LateUpdatePrimitives[LateUpdateRenderReadIndex][RetrievedSceneInfo] >= 0)
 			{
 				RetrievedSceneInfo->Proxy->ApplyLateUpdateTransform(LateUpdateTransform);
 			}
+			RetrievedSceneInfo = Scene->GetPrimitiveSceneInfo(Index++);
 		}
 	}
 }
