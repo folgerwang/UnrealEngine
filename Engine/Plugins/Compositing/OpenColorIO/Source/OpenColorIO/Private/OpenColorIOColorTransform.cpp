@@ -103,7 +103,14 @@ void UOpenColorIOColorTransform::ProcessSerializedShaderMaps(UOpenColorIOColorTr
 void UOpenColorIOColorTransform::GetOpenColorIOLUTKeyGuid(const FString& InLutIdentifier, FGuid& OutLutGuid)
 {
 #if WITH_EDITOR
-	const FString DDCKey = FDerivedDataCacheInterface::BuildCacheKey(TEXT("OCIOLUT"), OPENCOLORIO_DERIVEDDATA_VER, *InLutIdentifier);
+	FString DDCKey = FDerivedDataCacheInterface::BuildCacheKey(TEXT("OCIOLUT"), OPENCOLORIO_DERIVEDDATA_VER, *InLutIdentifier);
+
+#if WITH_OCIO
+	//Keep library version in the DDC key to invalidate it once we move to a new library
+	DDCKey += TEXT("OCIOVersion");
+	DDCKey += TEXT(OCIO_VERSION);
+#endif //WITH_OCIO
+
 	const uint32 KeyLength = DDCKey.Len() * sizeof(DDCKey[0]);
 	uint32 Hash[5];
 	FSHA1::HashBuffer(*DDCKey, KeyLength, reinterpret_cast<uint8*>(Hash));

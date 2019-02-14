@@ -18,6 +18,11 @@
 	#include "DerivedDataCacheInterface.h"
 	#include "Interfaces/ITargetPlatformManagerModule.h"
 	#include "TickableEditorObject.h"
+
+#if WITH_OCIO
+	#include "OpenColorIO/OpenColorIO.h"
+#endif //WITH_OCIO
+
 #endif
 
 
@@ -75,6 +80,7 @@ void FOpenColorIOShaderMapId::Serialize(FArchive& Ar)
 
 	Ar << ShaderCodeHash;
 	Ar << (int32&)FeatureLevel;
+	Ar << ShaderTypeDependencies;
 }
 
 /** Hashes the color transform specific part of this shader map Id. */
@@ -97,10 +103,26 @@ void FOpenColorIOShaderMapId::GetOpenColorIOHash(FSHAHash& OutHash) const
 */
 bool FOpenColorIOShaderMapId::operator==(const FOpenColorIOShaderMapId& InReferenceSet) const
 {
-	if (ShaderCodeHash != InReferenceSet.ShaderCodeHash
+	if (  ShaderCodeHash != InReferenceSet.ShaderCodeHash
 		|| FeatureLevel != InReferenceSet.FeatureLevel)
 	{
 		return false;
+	}
+
+	if (ShaderTypeDependencies.Num() != InReferenceSet.ShaderTypeDependencies.Num())
+	{
+		return false;
+	}
+
+	for (int32 ShaderIndex = 0; ShaderIndex < ShaderTypeDependencies.Num(); ShaderIndex++)
+	{
+		const FShaderTypeDependency& ShaderTypeDependency = ShaderTypeDependencies[ShaderIndex];
+
+		if (ShaderTypeDependency.ShaderType != ShaderTypeDependencies[ShaderIndex].ShaderType
+			|| ShaderTypeDependency.SourceHash != ShaderTypeDependencies[ShaderIndex].SourceHash)
+		{
+			return false;
+		}
 	}
 
 	return true;
@@ -108,12 +130,43 @@ bool FOpenColorIOShaderMapId::operator==(const FOpenColorIOShaderMapId& InRefere
 
 void FOpenColorIOShaderMapId::AppendKeyString(FString& OutKeyString) const
 {
+#if WITH_EDITOR
 	OutKeyString += ShaderCodeHash;
 	OutKeyString += TEXT("_");
 
 	FString FeatureLevelString;
 	GetFeatureLevelName(FeatureLevel, FeatureLevelString);
-	OutKeyString += FeatureLevelString + TEXT("_");
+
+	TMap<const TCHAR*, FCachedUniformBufferDeclaration> ReferencedUniformBuffers;
+
+	// Add the inputs for any shaders that are stored inline in the shader map
+	for (const FShaderTypeDependency& ShaderTypeDependency : ShaderTypeDependencies)
+	{
+		OutKeyString += TEXT("_");
+		OutKeyString += ShaderTypeDependency.ShaderType->GetName();
+		OutKeyString += ShaderTypeDependency.SourceHash.ToString();
+		ShaderTypeDependency.ShaderType->GetSerializationHistory().AppendKeyString(OutKeyString);
+
+		const TMap<const TCHAR*, FCachedUniformBufferDeclaration>& ReferencedUniformBufferStructsCache = ShaderTypeDependency.ShaderType->GetReferencedUniformBufferStructsCache();
+
+		for (TMap<const TCHAR*, FCachedUniformBufferDeclaration>::TConstIterator It(ReferencedUniformBufferStructsCache); It; ++It)
+		{
+			ReferencedUniformBuffers.Add(It.Key(), It.Value());
+		}
+	}
+
+	{
+		TArray<uint8> TempData;
+		FSerializationHistory SerializationHistory;
+		FMemoryWriter Ar(TempData, true);
+		FShaderSaveArchive SaveArchive(Ar, SerializationHistory);
+
+		// Save uniform buffer member info so we can detect when layout has changed
+		SerializeUniformBufferInfo(SaveArchive, ReferencedUniformBuffers);
+
+		SerializationHistory.AppendKeyString(OutKeyString);
+	}
+#endif //WITH_EDITOR
 }
 
 /**
@@ -212,7 +265,12 @@ FOpenColorIOShaderMap* FOpenColorIOShaderMap::FindId(const FOpenColorIOShaderMap
 
 void OpenColorIOShaderMapAppendKeyString(EShaderPlatform InPlatform, FString& OutKeyString)
 {
-	// does nothing at the moment
+#if WITH_EDITOR && WITH_OCIO
+	//Keep library version in the DDC key to invalidate it once we move to a new library
+	OutKeyString += TEXT("OCIOVersion");
+	OutKeyString += TEXT(OCIO_VERSION);
+	OutKeyString += TEXT("_");
+#endif //WITH_EDITOR && WITH_OCIO
 }
 
 /** Creates a string key for the derived data cache given a shader map id. */
@@ -222,6 +280,7 @@ static FString GetOpenColorIOShaderMapKeyString(const FOpenColorIOShaderMapId& I
 	const FName Format = LegacyShaderPlatformToShaderFormat(InPlatform);
 	FString ShaderMapKeyString = Format.ToString() + TEXT("_") + FString(FString::FromInt(GetTargetPlatformManagerRef().ShaderFormatVersion(Format))) + TEXT("_");
 	OpenColorIOShaderMapAppendKeyString(InPlatform, ShaderMapKeyString);
+	ShaderMapAppendKeyString(InPlatform, ShaderMapKeyString);
 	InShaderMapId.AppendKeyString(ShaderMapKeyString);
 	return FDerivedDataCacheInterface::BuildCacheKey(TEXT("OCIOSM"), OPENCOLORIO_DERIVEDDATA_VER, *ShaderMapKeyString);
 #else
@@ -356,6 +415,9 @@ void FOpenColorIOShaderMap::Compile(FOpenColorIOTransformResource* InColorTransf
 				FOpenColorIOShaderType* ShaderType = ShaderTypeIt->GetOpenColorIOShaderType();
 				if (ShaderType && ShouldCacheOpenColorIOShader(ShaderType, InPlatform, InColorTransform))
 				{
+					// Verify that the shader map Id contains inputs for any shaders that will be put into this shader map
+					check(InShaderMapId.ContainsShaderType(ShaderType));
+					
 					// Compile this OpenColorIO shader .
 					TArray<FString> ShaderErrors;
   
