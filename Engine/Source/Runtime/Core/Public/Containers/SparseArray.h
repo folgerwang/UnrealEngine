@@ -141,6 +141,59 @@ public:
 		return Allocation.Index;
 	}
 
+	FSparseArrayAllocationInfo AddUninitializedAtLowestFreeIndex(int32& LowestFreeIndexSearchStart)
+	{
+		int32 Index;
+		if(NumFreeIndices)
+		{
+			Index = AllocationFlags.FindAndSetFirstZeroBit(LowestFreeIndexSearchStart);
+			LowestFreeIndexSearchStart = Index + 1;
+
+			auto& IndexData = GetData(Index);
+
+			// Update FirstFreeIndex
+			if (FirstFreeIndex == Index)
+			{
+				FirstFreeIndex = IndexData.NextFreeIndex;
+			}
+
+			// Link our next and prev free nodes together
+			if (IndexData.NextFreeIndex >= 0)
+			{
+				GetData(IndexData.NextFreeIndex).PrevFreeIndex = IndexData.PrevFreeIndex;
+			}
+
+			if (IndexData.PrevFreeIndex >= 0)
+			{
+				GetData(IndexData.PrevFreeIndex).NextFreeIndex = IndexData.NextFreeIndex;
+			}
+
+			--NumFreeIndices;
+		}
+		else
+		{
+			// Add a new element.
+			Index = Data.AddUninitialized(1);
+			AllocationFlags.Add(true);
+		}
+
+		FSparseArrayAllocationInfo Result;
+		Result.Index = Index;
+		Result.Pointer = &GetData(Result.Index).ElementData;
+		return Result;
+	}
+
+	/** 
+	 * Add an element at the lowest free index, instead of the last freed index. 
+	 * This requires a search which can be accelerated with LowestFreeIndexSearchStart.
+	 */
+	int32 AddAtLowestFreeIndex(const ElementType& Element, int32& LowestFreeIndexSearchStart)
+	{
+		FSparseArrayAllocationInfo Allocation = AddUninitializedAtLowestFreeIndex(LowestFreeIndexSearchStart);
+		new(Allocation) ElementType(Element);
+		return Allocation.Index;
+	}
+
 	/**
 	 * Allocates space for an element in the array at a given index.  The element is not initialized, and you must use the corresponding placement new operator
 	 * to construct the element in the allocated memory.

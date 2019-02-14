@@ -229,7 +229,6 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 					if ((FPassProcessorManager::GetPassFlags(ShadingPath, PassType) & EMeshPassFlags::CachedMeshCommands) != EMeshPassFlags::None)
 					{
 						FCachedMeshDrawCommandInfo CommandInfo;
-						CommandInfo.CommandIndex = -1;
 						CommandInfo.MeshPass = PassType;
 
 						FCachedPassMeshDrawList& SceneDrawList = Scene->CachedDrawLists[PassType];
@@ -247,13 +246,38 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 							PassMeshProcessor->~FMeshPassProcessor();
 						}
 
-						if (CommandInfo.CommandIndex != -1)
+						if (CommandInfo.CommandIndex != -1 || CommandInfo.StateBucketId != -1)
 						{
 							static_assert(sizeof(MeshRelevance.CommandInfosMask) * 8 >= EMeshPass::Num, "CommandInfosMask is too small to contain all mesh passes.");
 
 							MeshRelevance.CommandInfosMask.Set(PassType);
 
 							StaticMeshCommandInfos.Add(CommandInfo);
+
+#if DO_GUARD_SLOW
+							if (ShadingPath == EShadingPath::Deferred)
+							{
+								FMeshDrawCommand* MeshDrawCommand = CommandInfo.StateBucketId >= 0
+									? &Scene->CachedMeshDrawCommandStateBuckets[FSetElementId::FromInteger(CommandInfo.StateBucketId)].MeshDrawCommand
+									: &SceneDrawList.MeshDrawCommands[CommandInfo.CommandIndex];
+
+								ensureMsgf(MeshDrawCommand->VertexStreams.GetAllocatedSize() == 0, TEXT("Cached Mesh Draw command overflows VertexStreams.  VertexStream inline size should be tweaked."));
+								
+								if (PassType == EMeshPass::BasePass || PassType == EMeshPass::DepthPass || PassType == EMeshPass::CSMShadowDepth)
+								{
+									TArray<EShaderFrequency, TInlineAllocator<SF_NumFrequencies>> ShaderFrequencies;
+									MeshDrawCommand->ShaderBindings.GetShaderFrequencies(ShaderFrequencies);
+
+									for (int32 i = 0; i < ShaderFrequencies.Num(); i++)
+									{
+										FMeshDrawSingleShaderBindings SingleShaderBindings = MeshDrawCommand->ShaderBindings.GetSingleShaderBindings(ShaderFrequencies[i]);
+										ensureMsgf(SingleShaderBindings.ParameterMapInfo.LooseParameterBuffers.Num() == 0, TEXT("Cached Mesh Draw command uses loose parameters.  This will break dynamic instancing in performance critical pass.  Use Uniform Buffers instead."));
+										ensureMsgf(SingleShaderBindings.ParameterMapInfo.SRVs.Num() == 0, TEXT("Cached Mesh Draw command uses individual SRVs.  This will break dynamic instancing in performance critical pass.  Use Uniform Buffers instead."));
+										ensureMsgf(SingleShaderBindings.ParameterMapInfo.TextureSamplers.Num() == 0, TEXT("Cached Mesh Draw command uses individual Texture Samplers.  This will break dynamic instancing in performance critical pass.  Use Uniform Buffers instead."));
+									}
+								}
+							}
+#endif
 						}
 					}
 				}
@@ -264,34 +288,33 @@ void FPrimitiveSceneInfo::CacheMeshDrawCommands(FRHICommandListImmediate& RHICmd
 
 void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 {
-	const bool bCanUseGPUScene = UseGPUScene(GMaxRHIShaderPlatform, GMaxRHIFeatureLevel);
-	
+	checkSlow(IsInRenderingThread());
+
 	for (int32 CommandIndex = 0; CommandIndex < StaticMeshCommandInfos.Num(); ++CommandIndex)
 	{
 		const FCachedMeshDrawCommandInfo& CachedCommand = StaticMeshCommandInfos[CommandIndex];
-		if (CachedCommand.CommandIndex != -1)
+		const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
+			
+		if (StateBucketId.IsValidId())
+		{
+			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
+
+			if (StateBucket.Num == 1)
+			{
+				Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
+			}
+			else
+			{
+				StateBucket.Num--;
+			}
+		}
+		else if (CachedCommand.CommandIndex >= 0)
 		{
 			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[CachedCommand.MeshPass];
-			
-			if (bCanUseGPUScene)
-			{
-				const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
-				checkSlow(StateBucketId.IsValidId());
-				FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
-				if (CachedCommand.StateBucketId != -1)
-				{
-					if (StateBucket.Num == 1)
-					{
-						Scene->CachedMeshDrawCommandStateBuckets.Remove(StateBucketId);
-					}
-					else
-					{
-						StateBucket.Num--;
-					}
-				}
-			}
-
 			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);
+
+			// Track the lowest index that might be free for faster AddAtLowestFreeIndex
+			PassDrawList.LowestFreeIndexSearchStart = FMath::Min(PassDrawList.LowestFreeIndexSearchStart, CachedCommand.CommandIndex);
 		}
 	}
 

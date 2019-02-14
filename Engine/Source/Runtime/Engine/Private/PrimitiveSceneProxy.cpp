@@ -232,41 +232,6 @@ FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView*
 	return FPrimitiveViewRelevance();
 }
 
-static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
-	TEXT("r.DeferUniformBufferUpdatesUntilVisible"),
-	0,
-	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible. Incompatible with the Mesh Draw Command pipeline."));
-
-void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
-{
-	//@todo MeshCommandPipeline r.DeferUniformBufferUpdatesUntilVisible isn't currently supported.
-	/*
-	if (PrimitiveSceneInfo && CVarDeferUniformBufferUpdatesUntilVisible.GetValueOnAnyThread() > 0)
-	{
-		PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);
-	}
-	else
-	{
-		UpdateUniformBuffer();
-	}
-	*/
-
-	UpdateUniformBuffer();
-}
-
-bool FPrimitiveSceneProxy::NeedsUniformBufferUpdate() const
-{
-	//@todo MeshCommandPipeline r.DeferUniformBufferUpdatesUntilVisible isn't currently supported.
-	/*
-	if (PrimitiveSceneInfo && CVarDeferUniformBufferUpdatesUntilVisible.GetValueOnAnyThread() > 0)
-	{
-		return PrimitiveSceneInfo->NeedsUniformBufferUpdate();
-	}
-	*/
-
-	return false;
-}
-
 void FPrimitiveSceneProxy::UpdateUniformBuffer()
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPrimitiveSceneProxy_UpdateUniformBuffer);
@@ -328,7 +293,7 @@ void FPrimitiveSceneProxy::SetTransform(const FMatrix& InLocalToWorld, const FBo
 	LocalBounds = InLocalBounds;
 	ActorPosition = InActorPosition;
 	
-	UpdateUniformBufferMaybeLazy();
+	UpdateUniformBuffer();
 	
 	// Notify the proxy's implementation of the change.
 	OnTransformChanged();

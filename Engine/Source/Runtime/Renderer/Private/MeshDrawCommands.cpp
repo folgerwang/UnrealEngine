@@ -669,16 +669,17 @@ void ApplyViewOverridesToMeshDrawCommands(
 				NewMeshCommand = MeshCommand;
 
 				const ERasterizerCullMode LocalCullMode = bRenderSceneTwoSided ? CM_None : bReverseCulling ? FMeshPassProcessor::InverseCullMode(VisibleMeshDrawCommand.MeshCullMode) : VisibleMeshDrawCommand.MeshCullMode;
-				NewMeshCommand.PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
+				FGraphicsMinimalPipelineStateInitializer PipelineState = MeshCommand.CachedPipelineId.GetPipelineState();
+				PipelineState.RasterizerState = GetStaticRasterizerState<true>(VisibleMeshDrawCommand.MeshFillMode, LocalCullMode);
 
 				if (BasePassDepthStencilAccess != DefaultBasePassDepthStencilAccess && PassType == EMeshPass::BasePass)
 				{
 					FMeshPassProcessorRenderState PassDrawRenderState;
 					SetupBasePassState(BasePassDepthStencilAccess, false, PassDrawRenderState);
-					NewMeshCommand.PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
+					PipelineState.DepthStencilState = PassDrawRenderState.GetDepthStencilState();
 				}
 
-				NewMeshCommand.Finalize(true);
+				NewMeshCommand.Finalize(PipelineState, nullptr, true);
 
 				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 

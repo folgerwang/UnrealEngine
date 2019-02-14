@@ -131,10 +131,8 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 	check(DispatchCmd.TargetBuffer->NumBytes >= DispatchCmd.NumVertices * sizeof(FVector));
 
 #if MESH_DRAW_COMMAND_DEBUG_DATA
-	FMeshDrawCommandDebugData DebugData;
-	DebugData.Shaders = Shaders.GetUntypedShaders();
-
-	ShaderBindings.Finalize(DebugData);
+	FMeshProcessorShaders ShadersForDebug = Shaders.GetUntypedShaders();
+	ShaderBindings.Finalize(&ShadersForDebug);
 #endif
 
 	DispatchCommands.Add(DispatchCmd);

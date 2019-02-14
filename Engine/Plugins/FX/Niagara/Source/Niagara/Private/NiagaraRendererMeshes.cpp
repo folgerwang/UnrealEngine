@@ -299,10 +299,6 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 					BatchElement.MinVertexIndex = 0;
 					BatchElement.MaxVertexIndex = 0;
 					BatchElement.NumInstances = NumInstances;
-					if (DynamicDataMesh->DataSet->GetSimTarget() == ENiagaraSimTarget::GPUComputeSim)
-					{
-						BatchElement.IndirectArgsBuffer = DynamicDataMesh->DataSet->GetCurDataSetIndices().Buffer;
-					}
 
 					if (bIsWireframe)
 					{
@@ -334,10 +330,19 @@ void NiagaraRendererMeshes::GetDynamicMeshElements(const TArray<const FSceneView
 						BatchElement.NumPrimitives = Section.NumTriangles;
 					}
 
+					if (DynamicDataMesh->DataSet->GetSimTarget() == ENiagaraSimTarget::GPUComputeSim)
+					{
+						BatchElement.NumPrimitives = 0;
+						BatchElement.IndirectArgsBuffer = DynamicDataMesh->DataSet->GetCurDataSetIndices().Buffer;
+					}
+					else
+					{
+						check(BatchElement.NumPrimitives > 0);
+					}
+
 					Mesh.bCanApplyViewModeOverrides = true;
 					Mesh.bUseWireframeSelectionColoring = SceneProxy->IsSelected();
 
-					check(BatchElement.NumPrimitives > 0);
 					Collector.AddMesh(ViewIndex, Mesh);
 				}
 			}

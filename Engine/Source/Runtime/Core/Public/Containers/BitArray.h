@@ -642,13 +642,13 @@ public:
 	 * Finds the first zero bit in the array, sets it to true, and returns the bit index.
 	 * If there is none, INDEX_NONE is returned.
 	 */
-	int32 FindAndSetFirstZeroBit()
+	int32 FindAndSetFirstZeroBit(int32 ConservativeStartIndex = 0)
 	{
 		// Iterate over the array until we see a word with a zero bit.
 		uint32* RESTRICT DwordArray = GetData();
 		const int32 LocalNumBits = NumBits;
 		const int32 DwordCount = FMath::DivideAndRoundUp(LocalNumBits, NumBitsPerDWORD);
-		int32 DwordIndex = 0;
+		int32 DwordIndex = FMath::DivideAndRoundDown(ConservativeStartIndex, NumBitsPerDWORD);
 		while (DwordIndex < DwordCount && DwordArray[DwordIndex] == (uint32)-1)
 		{
 			++DwordIndex;

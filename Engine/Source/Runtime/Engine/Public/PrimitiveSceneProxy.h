@@ -606,10 +606,6 @@ public:
 	 * Updates the primitive proxy's uniform buffer.
 	 */
 	ENGINE_API void UpdateUniformBuffer();
-	/**
-	 * Updates the primitive proxy's uniform buffer.
-	 */
-	ENGINE_API bool NeedsUniformBufferUpdate() const;
 
 #if !UE_BUILD_SHIPPING
 
@@ -1042,11 +1038,6 @@ private:
 	ENGINE_API void SetTransform(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition);
 
 	ENGINE_API bool WouldSetTransformBeRedundant(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition);
-
-	/**
-	 * Either updates the uniform buffer or defers it until it becomes visible depending on a cvar
-	 */
-	ENGINE_API void UpdateUniformBufferMaybeLazy();
 
 	/** Updates the hidden editor view visibility map on the render thread */
 	void SetHiddenEdViews_RenderThread( uint64 InHiddenEditorViews );

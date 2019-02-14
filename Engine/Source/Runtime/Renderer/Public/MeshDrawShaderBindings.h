@@ -33,21 +33,26 @@ public:
 
 	inline uint32 GetDataSizeBytes() const
 	{
-		uint32 DataSize = (ParameterMapInfo.UniformBuffers.Num() 
+		uint32 DataSize = sizeof(void*) * 
+			(ParameterMapInfo.UniformBuffers.Num() 
 			+ ParameterMapInfo.TextureSamplers.Num() 
-			// At the RHI level we don't know whether SRV's will come from FTextureRHIParamRef or FShaderResourceViewRHIParamRef so we have to store space for both
-			+ 2 * ParameterMapInfo.SRVs.Num()) * sizeof(void*);
+			+ ParameterMapInfo.SRVs.Num());
+
+		// Allocate a bit for each SRV tracking whether it is a FTextureRHIParamRef or FShaderResourceViewRHIParamRef
+		DataSize += FMath::DivideAndRoundUp(ParameterMapInfo.SRVs.Num(), 8);
 
 		for (int32 LooseBufferIndex = 0; LooseBufferIndex < ParameterMapInfo.LooseParameterBuffers.Num(); LooseBufferIndex++)
 		{
 			DataSize += ParameterMapInfo.LooseParameterBuffers[LooseBufferIndex].BufferSize;
 		}
 
-		return DataSize;
+		// Align to pointer size so subsequent packed shader bindings will have their pointers aligned
+		return Align(DataSize, sizeof(void*));
 	}
 
 protected:
 
+	// Note: pointers first in layout, so they stay aligned
 	inline uint32 GetUniformBufferOffset() const
 	{
 		return 0;
@@ -60,23 +65,20 @@ protected:
 
 	inline uint32 GetSRVOffset() const
 	{
-		return ParameterMapInfo.UniformBuffers.Num() * sizeof(FUniformBufferRHIParamRef) 
+		return GetSamplerOffset() 
 			+ ParameterMapInfo.TextureSamplers.Num() * sizeof(FSamplerStateRHIParamRef);
 	}
 
-	inline uint32 GetTextureOffset() const
+	inline uint32 GetSRVTypeOffset() const
 	{
-		return ParameterMapInfo.UniformBuffers.Num() * sizeof(FUniformBufferRHIParamRef) 
-			+ ParameterMapInfo.TextureSamplers.Num() * sizeof(FSamplerStateRHIParamRef) 
+		return GetSRVOffset() 
 			+ ParameterMapInfo.SRVs.Num() * sizeof(FShaderResourceViewRHIParamRef);
 	}
 
 	inline uint32 GetLooseDataOffset() const
 	{
-		return ParameterMapInfo.UniformBuffers.Num() * sizeof(FUniformBufferRHIParamRef) 
-			+ ParameterMapInfo.TextureSamplers.Num() * sizeof(FSamplerStateRHIParamRef) 
-			+ ParameterMapInfo.SRVs.Num() * sizeof(FShaderResourceViewRHIParamRef)
-			+ ParameterMapInfo.SRVs.Num() * sizeof(FTextureRHIParamRef);
+		return GetSRVTypeOffset()
+			+ FMath::DivideAndRoundUp(ParameterMapInfo.SRVs.Num(), 8);
 	}
 
 	friend class FMeshDrawShaderBindings;
@@ -220,16 +222,17 @@ private:
 		return (FSamplerStateRHIParamRef*)SamplerDataStart;
 	}
 
-	inline FShaderResourceViewRHIParamRef* GetSRVStart() const
+	inline FRHIResource** GetSRVStart() const
 	{
 		uint8* SRVDataStart = Data + GetSRVOffset();
-		return (FShaderResourceViewRHIParamRef*)SRVDataStart;
+		checkfSlow(Align(*SRVDataStart, sizeof(void*)) == *SRVDataStart, TEXT("FMeshDrawSingleShaderBindings should have been laid out so that stored pointers are aligned"));
+		return (FRHIResource**)SRVDataStart;
 	}
 
-	inline FTextureRHIParamRef* GetTextureStart() const
+	inline uint8* GetSRVTypeStart() const
 	{
-		uint8* TextureDataStart = Data + GetTextureOffset();
-		return (FTextureRHIParamRef*)TextureDataStart;
+		uint8* SRVTypeDataStart = Data + GetSRVTypeOffset();
+		return SRVTypeDataStart;
 	}
 
 	inline uint8* GetLooseDataStart() const
@@ -310,6 +313,9 @@ private:
 
 		if (FoundIndex >= 0)
 		{
+			uint32 TypeByteIndex = FoundIndex / 8;
+			uint32 TypeBitIndex = FoundIndex - TypeByteIndex;
+			GetSRVTypeStart()[TypeByteIndex] |= 1 << TypeBitIndex;
 			GetSRVStart()[FoundIndex] = Value;
 		}
 
@@ -333,7 +339,7 @@ private:
 
 		if (FoundIndex >= 0)
 		{
-			GetTextureStart()[FoundIndex] = Value;
+			GetSRVStart()[FoundIndex] = Value;
 		}
 
 		checkfSlow(FoundIndex >= 0, TEXT("Attempted to set Texture at BaseIndex %u which was never in the shader's parameter map."), BaseIndex);

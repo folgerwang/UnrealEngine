@@ -85,6 +85,14 @@ FAutoConsoleVariableRef CVarDumpInstancingStats(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
+int32 GDumpMeshDrawCommandMemoryStats = 0;
+FAutoConsoleVariableRef CVarDumpMeshDrawCommandMemoryStats(
+	TEXT("r.MeshDrawCommands.LogMeshDrawCommandMemoryStats"),
+	GDumpMeshDrawCommandMemoryStats,
+	TEXT("Whether to log mesh draw command memory stats on the next frame"),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
+
 extern ENGINE_API FLightMap2D* GDebugSelectedLightmap;
 extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
 
@@ -2639,6 +2647,12 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 
 	// Notify the RHI we are done rendering a scene.
 	RHICmdList.EndScene();
+
+	if (GDumpMeshDrawCommandMemoryStats)
+	{
+		GDumpMeshDrawCommandMemoryStats = 0;
+		Scene->DumpMeshDrawCommandMemoryStats();
+	}
 }
 
 void FSceneRenderer::SetupMeshPass(FViewInfo& View, FExclusiveDepthStencil::Type BasePassDepthStencilAccess, FViewCommands& ViewCommands)

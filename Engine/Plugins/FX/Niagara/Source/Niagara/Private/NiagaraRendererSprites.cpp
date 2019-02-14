@@ -332,6 +332,7 @@ void NiagaraRendererSprites::GetDynamicMeshElements(const TArray<const FSceneVie
 				if (DynamicDataSprites->DataSet->GetSimTarget() == ENiagaraSimTarget::GPUComputeSim)
 				{
 					MeshElement.IndirectArgsBuffer = DynamicDataSprites->DataSet->GetCurDataSetIndices().Buffer;
+					MeshElement.NumPrimitives = 0;
 				}
 				
 				Collector.AddMesh(ViewIndex, MeshBatch);				

@@ -1710,8 +1710,12 @@ struct FDrawCommandRelevancePacket
 
 				FVisibleMeshDrawCommand NewVisibleMeshDrawCommand;
 
+				const FMeshDrawCommand* MeshDrawCommand = CachedMeshDrawCommand.StateBucketId >= 0
+					? &Scene->CachedMeshDrawCommandStateBuckets[FSetElementId::FromInteger(CachedMeshDrawCommand.StateBucketId)].MeshDrawCommand
+					: &SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex];
+
 				NewVisibleMeshDrawCommand.Setup(
-					&SceneDrawList.MeshDrawCommands[CachedMeshDrawCommand.CommandIndex],
+					MeshDrawCommand,
 					PrimitiveIndex,
 					CachedMeshDrawCommand.StateBucketId,
 					CachedMeshDrawCommand.MeshFillMode,
@@ -2801,19 +2805,25 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 	// Notify the RHI we are beginning to render a scene.
 	RHICmdList.BeginScene();
 
-	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
-	/*
 	{
 		static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.DoLazyStaticMeshUpdate"));
-		const bool DoLazyStaticMeshUpdate = (CVar->GetInt() && !WITH_EDITOR);
+		const bool DoLazyStaticMeshUpdate = (CVar->GetInt() && !GIsEditor);
 
 		if (DoLazyStaticMeshUpdate)
 		{
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_PreVisibilityFrameSetup_EvictionForLazyStaticMeshUpdate);
 			static int32 RollingRemoveIndex = 0;
+			static int32 RollingPassShrinkIndex = 0;
 			if (RollingRemoveIndex >= Scene->Primitives.Num())
 			{
 				RollingRemoveIndex = 0;
+				RollingPassShrinkIndex++;
+				if (RollingPassShrinkIndex >= ARRAY_COUNT(Scene->CachedDrawLists))
+				{
+					RollingPassShrinkIndex = 0;
+				}
+				// Periodically shrink the SparseArray containing cached mesh draw commands which we are causing to be regenerated with UpdateStaticMeshes
+				Scene->CachedDrawLists[RollingPassShrinkIndex].MeshDrawCommands.Shrink();
 			}
 			const int32 NumRemovedPerFrame = 10;
 			for (int32 NumRemoved = 0; NumRemoved < NumRemovedPerFrame && RollingRemoveIndex < Scene->Primitives.Num(); NumRemoved++, RollingRemoveIndex++)
@@ -2821,7 +2831,7 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				Scene->Primitives[RollingRemoveIndex]->UpdateStaticMeshes(RHICmdList, false);
 			}
 		}
-	}*/
+	}
 
 	// Notify the FX system that the scene is about to perform visibility checks.
 	if (Scene->FXSystem && !Views[0].bIsPlanarReflection)

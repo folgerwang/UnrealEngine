@@ -523,14 +523,12 @@ void FScene::CheckPrimitiveArrays()
 static TAutoConsoleVariable<int32> CVarDoLazyStaticMeshUpdate(
 	TEXT("r.DoLazyStaticMeshUpdate"),
 	0,
-	TEXT("If true, then do not add meshes to the static mesh draw lists until they are visible. Experiemental option. Incompatible with the Mesh Draw Command pipeline."));
+	TEXT("If true, then do not add meshes to the static mesh draw lists until they are visible. Experiemental option."));
 
 static void DoLazyStaticMeshUpdateCVarSinkFunction()
 {
-	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
-	/*
-	static bool CachedDoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !WITH_EDITOR;
-	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !WITH_EDITOR;
+	static bool CachedDoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !GIsEditor;
+	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnGameThread() && !GIsEditor;
 
 	if (DoLazyStaticMeshUpdate != CachedDoLazyStaticMeshUpdate)
 	{
@@ -549,22 +547,129 @@ static void DoLazyStaticMeshUpdateCVarSinkFunction()
 			}
 		}
 	}
-	*/
 }
 
 static FAutoConsoleVariableSink CVarDoLazyStaticMeshUpdateSink(FConsoleCommandDelegate::CreateStatic(&DoLazyStaticMeshUpdateCVarSinkFunction));
 
 void FScene::UpdateDoLazyStaticMeshUpdate(FRHICommandListImmediate& CmdList)
 {
-	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
-	/*
-	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnRenderThread() && !WITH_EDITOR;
+	bool DoLazyStaticMeshUpdate = CVarDoLazyStaticMeshUpdate.GetValueOnRenderThread() && !GIsEditor;
 
 	for (int32 PrimitiveIndex = 0; PrimitiveIndex < Primitives.Num(); PrimitiveIndex++)
 	{
 		Primitives[PrimitiveIndex]->UpdateStaticMeshes(CmdList, !DoLazyStaticMeshUpdate);
 	}
-	*/
+}
+
+void FScene::DumpMeshDrawCommandMemoryStats()
+{
+	SIZE_T TotalCachedMeshDrawCommands = 0;
+	SIZE_T TotalStaticMeshCommandInfos = 0;
+
+	struct FPassStats
+	{
+		SIZE_T CachedMeshDrawCommandBytes = 0;
+		SIZE_T PSOBytes = 0;
+		SIZE_T ShaderBindingInlineBytes = 0;
+		SIZE_T ShaderBindingHeapBytes = 0;
+		SIZE_T VertexStreamsInlineBytes = 0;
+		SIZE_T DebugDataBytes = 0;
+		SIZE_T DrawCommandParameterBytes = 0;
+		uint32 NumCommands = 0;
+	};
+
+	FPassStats AllPassStats[EMeshPass::Num];
+	TArray<bool> StateBucketAccounted;
+	StateBucketAccounted.Empty(CachedMeshDrawCommandStateBuckets.GetMaxIndex());
+	StateBucketAccounted.AddZeroed(CachedMeshDrawCommandStateBuckets.GetMaxIndex());
+
+	for (int32 i = 0; i < Primitives.Num(); i++)
+	{
+		FPrimitiveSceneInfo* PrimitiveSceneInfo = Primitives[i];
+
+		TotalStaticMeshCommandInfos += PrimitiveSceneInfo->StaticMeshCommandInfos.GetAllocatedSize();
+
+		for (int32 CommandIndex = 0; CommandIndex < PrimitiveSceneInfo->StaticMeshCommandInfos.Num(); ++CommandIndex)
+		{
+			const FCachedMeshDrawCommandInfo& CachedCommand = PrimitiveSceneInfo->StaticMeshCommandInfos[CommandIndex];
+			const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
+			const FMeshDrawCommand* MeshDrawCommandPtr = nullptr;
+
+			if (StateBucketId.IsValidId())
+			{
+				if (!StateBucketAccounted[CachedCommand.StateBucketId])
+				{
+					StateBucketAccounted[CachedCommand.StateBucketId] = true;
+					FMeshDrawCommandStateBucket& StateBucket = CachedMeshDrawCommandStateBuckets[StateBucketId];
+					MeshDrawCommandPtr = &StateBucket.MeshDrawCommand;
+				}
+			}
+			else if (CachedCommand.CommandIndex >= 0)
+			{
+				FCachedPassMeshDrawList& PassDrawList = CachedDrawLists[CachedCommand.MeshPass];
+				MeshDrawCommandPtr = &PassDrawList.MeshDrawCommands[CachedCommand.CommandIndex];
+			}
+
+			if (MeshDrawCommandPtr)
+			{
+				const FMeshDrawCommand& MeshDrawCommand = *MeshDrawCommandPtr;
+				FPassStats& PassStats = AllPassStats[CachedCommand.MeshPass];
+				SIZE_T CommandBytes = sizeof(MeshDrawCommand) + MeshDrawCommand.GetAllocatedSize();
+				PassStats.CachedMeshDrawCommandBytes += CommandBytes;
+				TotalCachedMeshDrawCommands += MeshDrawCommand.GetAllocatedSize();
+				PassStats.PSOBytes += sizeof(MeshDrawCommand.CachedPipelineId);
+				PassStats.ShaderBindingInlineBytes += sizeof(MeshDrawCommand.ShaderBindings);
+				PassStats.ShaderBindingHeapBytes += MeshDrawCommand.ShaderBindings.GetAllocatedSize();
+				PassStats.VertexStreamsInlineBytes += sizeof(MeshDrawCommand.VertexStreams);
+				PassStats.DebugDataBytes += MeshDrawCommand.GetDebugDataSize();
+				PassStats.DrawCommandParameterBytes += sizeof(MeshDrawCommand.IndexBuffer) + sizeof(MeshDrawCommand.FirstIndex) + sizeof(MeshDrawCommand.NumPrimitives) + sizeof(MeshDrawCommand.NumInstances) + sizeof(MeshDrawCommand.VertexParams); //-V568
+				PassStats.NumCommands++;
+			}
+		}
+	}
+
+	TotalCachedMeshDrawCommands += CachedMeshDrawCommandStateBuckets.GetAllocatedSize();
+
+	for (int32 i = 0; i < EMeshPass::Num; i++)
+	{
+		TotalCachedMeshDrawCommands += CachedDrawLists[i].MeshDrawCommands.GetAllocatedSize();
+	}
+
+	for (int32 i = 0; i < EMeshPass::Num; i++)
+	{
+		const FPassStats& PassStats = AllPassStats[i];
+
+		if (PassStats.NumCommands > 0)
+		{
+			UE_LOG(LogRenderer, Log, TEXT("%s: %.1fKb for %u CachedMeshDrawCommands"), GetMeshPassName((EMeshPass::Type)i), PassStats.CachedMeshDrawCommandBytes / 1024.0f, PassStats.NumCommands);
+
+			if (PassStats.CachedMeshDrawCommandBytes > 1024 && i <= EMeshPass::BasePass)
+			{
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes PSO"), PassStats.PSOBytes / (float)PassStats.NumCommands);
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes ShaderBindingInline"), PassStats.ShaderBindingInlineBytes / (float)PassStats.NumCommands);
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes ShaderBindingHeap"), PassStats.ShaderBindingHeapBytes / (float)PassStats.NumCommands);
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes VertexStreamsInline"), PassStats.VertexStreamsInlineBytes / (float)PassStats.NumCommands);
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes DebugData"), PassStats.DebugDataBytes / (float)PassStats.NumCommands);
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes DrawCommandParameters"), PassStats.DrawCommandParameterBytes / (float)PassStats.NumCommands);
+
+				const SIZE_T Other = PassStats.CachedMeshDrawCommandBytes -
+					(PassStats.PSOBytes +
+					PassStats.ShaderBindingInlineBytes +
+					PassStats.ShaderBindingHeapBytes +
+					PassStats.VertexStreamsInlineBytes +
+					PassStats.DebugDataBytes +
+					PassStats.DrawCommandParameterBytes);
+
+				UE_LOG(LogRenderer, Log, TEXT("     avg %.1f bytes Other"), Other / (float)PassStats.NumCommands);
+			}
+		}
+	}
+
+	UE_LOG(LogRenderer, Log, TEXT("sizeof(FMeshDrawCommand) %u"), sizeof(FMeshDrawCommand));
+	UE_LOG(LogRenderer, Log, TEXT("Total cached MeshDrawCommands %.3fMb"), TotalCachedMeshDrawCommands / 1024.0f / 1024.0f);
+	UE_LOG(LogRenderer, Log, TEXT("Primitive StaticMeshCommandInfos %.1fKb"), TotalStaticMeshCommandInfos / 1024.0f);
+	UE_LOG(LogRenderer, Log, TEXT("GPUScene CPU structures %.1fKb"), GPUScene.PrimitivesToUpdate.GetAllocatedSize() / 1024.0f);
+	UE_LOG(LogRenderer, Log, TEXT("PSO Id Grow-Only Table %.1fKb"), FGraphicsMinimalPipelineStateId::GetGlobalTableSize() / 1024.0f);
 }
 
 template<typename T>
@@ -672,26 +777,23 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 	// Set lod Parent information if valid
 	PrimitiveSceneInfo->LinkLODParentComponent();
 
-	// Add the primitive to the scene.
-	PrimitiveSceneInfo->AddToScene(RHICmdList, true);
-
-	//@todo MeshCommandPipeline r.DoLazyStaticMeshUpdate isn't currently supported.
-	/*
-#if WITH_EDITOR
-	PrimitiveSceneInfo->AddToScene(RHICmdList, true);
-#else
-	const bool bAddToDrawLists = !(CVarDoLazyStaticMeshUpdate.GetValueOnRenderThread());
-	if (bAddToDrawLists)
+	if (GIsEditor)
 	{
 		PrimitiveSceneInfo->AddToScene(RHICmdList, true);
 	}
 	else
 	{
-		PrimitiveSceneInfo->AddToScene(RHICmdList, true, false);
-		PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
+		const bool bAddToDrawLists = !(CVarDoLazyStaticMeshUpdate.GetValueOnRenderThread());
+		if (bAddToDrawLists)
+		{
+			PrimitiveSceneInfo->AddToScene(RHICmdList, true);
+		}
+		else
+		{
+			PrimitiveSceneInfo->AddToScene(RHICmdList, true, false);
+			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
+		}
 	}
-#endif
-	*/
 
 	AddPrimitiveToUpdateGPU(*this, SourceIndex);
 

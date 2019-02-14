@@ -454,6 +454,11 @@ public:
 		return Elements.Num();
 	}
 
+	FORCEINLINE int32 GetMaxIndex() const
+	{
+		return Elements.GetMaxIndex();
+	}
+
 	/**
 	 * Checks whether an element id is valid.
 	 * @param Id - The element id to check.

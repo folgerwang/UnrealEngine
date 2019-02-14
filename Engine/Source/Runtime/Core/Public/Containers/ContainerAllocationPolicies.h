@@ -545,7 +545,11 @@ public:
 
 		SIZE_T GetAllocatedSize(int32 NumAllocatedElements, SIZE_T NumBytesPerElement) const
 		{
-			return SecondaryData.GetAllocatedSize(NumAllocatedElements, NumBytesPerElement);
+			if (NumAllocatedElements > NumInlineElements)
+			{
+				return SecondaryData.GetAllocatedSize(NumAllocatedElements, NumBytesPerElement);
+			}
+			return 0;
 		}
 
 		bool HasAllocation()

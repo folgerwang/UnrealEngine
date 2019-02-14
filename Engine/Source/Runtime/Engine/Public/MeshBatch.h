@@ -70,6 +70,7 @@ struct FMeshBatchElement
 	const void* UserData;
 
 	uint32 FirstIndex;
+	/** When 0, IndirectArgsBuffer will be used. */
 	uint32 NumPrimitives;
 
 	/** Number of instances to draw.  If InstanceRuns is valid, this is actually the number of runs in InstanceRuns. */
