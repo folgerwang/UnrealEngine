@@ -1,8 +1,16 @@
 #include "RayTracingCommon.ush"
 
-#ifndef NUM_ELEMENTS
-#define NUM_THREADS  512
-#define NUM_ELEMENTS  NUM_THREADS * 2
+#if DIM_SORT_SIZE == 0
+	#define NUM_ELEMENTS 256
+
+#elif DIM_SORT_SIZE == 1
+	#define NUM_ELEMENTS 512
+
+#elif DIM_SORT_SIZE == 2
+	#define NUM_ELEMENTS 1024
+
+#else
+	#error Unknown sorting size
 #endif
 
 groupshared FDeferredMaterialPayload Entries[NUM_ELEMENTS];
