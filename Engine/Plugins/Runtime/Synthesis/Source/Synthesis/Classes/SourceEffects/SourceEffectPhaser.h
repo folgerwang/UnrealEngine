@@ -49,6 +49,7 @@ struct SYNTHESIS_API FSourceEffectPhaserSettings
 		, Frequency(2.0f)
 		, Feedback(0.3f)
 		, LFOType(EPhaserLFOType::Sine)
+		, UseQuadraturePhase(false)
 	{}
 };
 

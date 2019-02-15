@@ -8,6 +8,7 @@
 #include "HAL/FileManager.h"
 
 FSynth2DSliderStyle::FSynth2DSliderStyle()
+	: BarThickness(2.0f)
 {
 }
 

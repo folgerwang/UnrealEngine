@@ -52,6 +52,7 @@ struct SYNTHESIS_API FSourceEffectStereoDelaySettings
 	FSourceEffectStereoDelaySettings()
 		: DelayMode(EStereoDelaySourceEffect::PingPong)
 		, DelayTimeMsec(500.0f)
+		, Feedback(0.1f)
 		, DelayRatio(0.2f)
 		, WetLevel(0.4f)
 	{}
