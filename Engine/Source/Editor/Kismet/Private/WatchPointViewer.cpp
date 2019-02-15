@@ -765,7 +765,10 @@ void WatchViewer::UpdateInstancedWatchDisplay()
 {
 #if DO_BLUEPRINT_GUARD
 	{
+		Private_InstanceWatchSource.Reset();
 		const TArray<const FFrame*>& ScriptStack = FBlueprintExceptionTracker::Get().ScriptStack;
+
+		TSet<const UBlueprint*> SeenBlueprints;
 
 		for (const FFrame* ScriptFrame : ScriptStack)
 		{
@@ -776,6 +779,13 @@ void WatchViewer::UpdateInstancedWatchDisplay()
 			{
 				continue;
 			}
+
+			// Only add watchpoints from each blueprint once
+			if (SeenBlueprints.Contains(BlueprintObj))
+			{
+				continue;
+			}
+			SeenBlueprints.Add(BlueprintObj);
 
 			FText BlueprintName = FText::FromString(BlueprintObj->GetName());
 
