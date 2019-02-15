@@ -192,7 +192,7 @@ public:
 		FVertexDeclarationElementList Elements;
 		uint32 Stride = sizeof(FFilterVertex);
 		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FFilterVertex,Position),VET_Float4,0,Stride));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 	
 	virtual void ReleaseRHI()

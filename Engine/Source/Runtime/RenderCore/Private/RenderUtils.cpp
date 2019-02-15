@@ -6,6 +6,7 @@
 #include "RenderResource.h"
 #include "RHIStaticStates.h"
 #include "RenderGraphUtils.h"
+#include "PipelineStateCache.h"
 
 #if WITH_EDITOR
 #include "Misc/CoreMisc.h"
@@ -821,7 +822,7 @@ public:
 	{
 		FVertexDeclarationElementList Elements;
 		Elements.Add(FVertexElement(0, 0, VET_Float4, 0, sizeof(FVector4)));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 	virtual void ReleaseRHI() override
 	{
@@ -844,7 +845,7 @@ public:
 	{
 		FVertexDeclarationElementList Elements;
 		Elements.Add(FVertexElement(0, 0, VET_Float3, 0, sizeof(FVector)));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 	virtual void ReleaseRHI() override
 	{
@@ -867,7 +868,7 @@ public:
 	{
 		FVertexDeclarationElementList Elements;
 		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D)));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 	virtual void ReleaseRHI() override
 	{

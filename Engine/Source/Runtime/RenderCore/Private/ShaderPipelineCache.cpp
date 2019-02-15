@@ -540,7 +540,7 @@ bool FShaderPipelineCache::Precompile(FRHICommandListImmediate& RHICmdList, ESha
 	{
 		FGraphicsPipelineStateInitializer GraphicsInitializer;
 		
-		auto VertexDesc = RHICmdList.CreateVertexDeclaration(PSO.GraphicsDesc.VertexDescriptor);
+		FRHIVertexDeclaration* VertexDesc = PipelineStateCache::GetOrCreateVertexDeclaration(PSO.GraphicsDesc.VertexDescriptor);
 		GraphicsInitializer.BoundShaderState.VertexDeclarationRHI = VertexDesc;
 		
 		FVertexShaderRHIRef VertexShader;

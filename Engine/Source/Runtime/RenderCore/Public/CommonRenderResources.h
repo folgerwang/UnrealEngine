@@ -9,6 +9,7 @@
 #include "RenderResource.h"
 #include "GlobalShader.h"
 #include "ShaderParameterStruct.h"
+#include "PipelineStateCache.h"
 
 
 /** The vertex data used to filter a texture. */
@@ -33,7 +34,7 @@ public:
 		uint32 Stride = sizeof(FFilterVertex);
 		Elements.Add(FVertexElement(0, STRUCT_OFFSET(FFilterVertex, Position), VET_Float4, 0, Stride));
 		Elements.Add(FVertexElement(0, STRUCT_OFFSET(FFilterVertex, UV), VET_Float2, 1, Stride));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI()
@@ -56,7 +57,7 @@ public:
 	virtual void InitRHI()
 	{
 		FVertexDeclarationElementList Elements;
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI()

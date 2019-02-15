@@ -2,6 +2,7 @@
 
 #include "SlateShaders.h"
 #include "Rendering/RenderingCommon.h"
+#include "PipelineStateCache.h"
 
 /** Flag to determine if we are running with a color vision deficiency shader on */
 EColorVisionDeficiency GSlateColorDeficiencyType = EColorVisionDeficiency::NormalVision;
@@ -62,7 +63,7 @@ void FSlateVertexDeclaration::InitRHI()
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Color), VET_Color, 3, Stride));
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, PixelSize), VET_UShort2, 4, Stride));
 
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateVertexDeclaration::ReleaseRHI()
@@ -84,7 +85,7 @@ void FSlateInstancedVertexDeclaration::InitRHI()
 	Elements.Add(FVertexElement(0, STRUCT_OFFSET(FSlateVertex, Color), VET_Color, 3, Stride));
 	Elements.Add(FVertexElement(1, 0, VET_Float4, 4, sizeof(FVector4), true));
 	
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateElementPS::ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -103,7 +104,7 @@ void FSlateMaskingVertexDeclaration::InitRHI()
 	uint32 Stride = sizeof(uint32);
 	Elements.Add(FVertexElement(0, 0, VET_UByte4, 0, Stride));
 
-	VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+	VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 }
 
 void FSlateMaskingVertexDeclaration::ReleaseRHI()

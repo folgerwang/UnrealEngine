@@ -763,7 +763,7 @@ public:
 		FVertexDeclarationElementList Elements;
 		uint32 Stride = sizeof(FVector2D);
 		Elements.Add(FVertexElement(0,0,VET_Float2,0,Stride,false));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI()

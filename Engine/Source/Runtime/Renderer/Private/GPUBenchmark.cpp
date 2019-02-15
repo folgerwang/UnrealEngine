@@ -179,7 +179,7 @@ struct FVertexThroughputDeclaration : public FRenderResource
 			{ 0, 4 * sizeof(FVector4), VET_Float4, 4, sizeof(FBenchmarkVertex) },
 		};
 
-		DeclRHI = RHICreateVertexDeclaration(Elements);
+		DeclRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI() override

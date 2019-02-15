@@ -676,7 +676,7 @@ public:
 		/** The stream to read the texture coordinates from. */
 		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D), false));
 
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	/**
@@ -1337,7 +1337,7 @@ public:
 		FVertexDeclarationElementList Elements;
 		// TexCoord.
 		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D), /*bUseInstanceIndex=*/ false));
-		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration( Elements );
 	}
 
 	virtual void ReleaseRHI() override
@@ -1366,7 +1366,7 @@ public:
 		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D), /*bUseInstanceIndex=*/ false));
 		// TileOffsets
 		Elements.Add(FVertexElement(1, 0, VET_Float2, 1, sizeof(FVector2D), /*bUseInstanceIndex=*/ true));
-		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration( Elements );
 	}
 
 	virtual void ReleaseRHI() override
@@ -1867,7 +1867,7 @@ public:
 			Offset += sizeof(FVector2D);
 		}
 
-		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration( Elements );
 	}
 
 	virtual void ReleaseRHI() override
@@ -2080,7 +2080,7 @@ public:
 	{
 		FVertexDeclarationElementList Elements;
 		Elements.Add(FVertexElement(0, 0, VET_Float2, 0, sizeof(FVector2D)));
-		VertexDeclarationRHI = RHICreateVertexDeclaration( Elements );
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration( Elements );
 	}
 
 	virtual void ReleaseRHI() override

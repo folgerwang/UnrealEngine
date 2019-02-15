@@ -8,6 +8,7 @@
 #include "ParticleHelper.h"
 #include "ShaderParameterUtils.h"
 #include "MeshMaterialShader.h"
+#include "PipelineStateCache.h"
 
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FParticleBeamTrailUniformParameters,"BeamTrailVF");
 
@@ -88,7 +89,7 @@ public:
 		// Create the vertex declaration for rendering the factory normally.
 		// This is done in InitDynamicRHI instead of InitRHI to allow FParticleBeamTrailVertexFactory::InitRHI
 		// to rely on it being initialized, since InitDynamicRHI is called before InitRHI.
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseDynamicRHI()

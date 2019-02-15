@@ -14,6 +14,7 @@
 #include "HitProxies.h"
 #include "SceneView.h"
 #include "StaticBoundShaderState.h"
+#include "PipelineStateCache.h"
 
 struct FBatchedPoint;
 struct FMeshPassProcessorRenderState;
@@ -67,7 +68,7 @@ public:
 		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FSimpleElementVertex,TextureCoordinate),VET_Float2,1,Stride));
 		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FSimpleElementVertex,Color),VET_Float4,2,Stride));
 		Elements.Add(FVertexElement(0,STRUCT_OFFSET(FSimpleElementVertex,HitProxyIdColor),VET_Color,3,Stride));
-		VertexDeclarationRHI = RHICreateVertexDeclaration(Elements);
+		VertexDeclarationRHI = PipelineStateCache::GetOrCreateVertexDeclaration(Elements);
 	}
 
 	virtual void ReleaseRHI() override
