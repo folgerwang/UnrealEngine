@@ -1146,3 +1146,26 @@ void PipelineStateCache::Shutdown()
 	}
 	FPipelineFileCache::Shutdown();
 }
+
+/** Global cache of vertex declarations. Note we don't store TRefCountPtrs, instead we AddRef() manually. */
+static TMap<uint32, FRHIVertexDeclaration*> GVertexDeclarationCache;
+static FCriticalSection GVertexDeclarationLock;
+
+FRHIVertexDeclaration*	PipelineStateCache::GetOrCreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
+{
+	// Actual locking/contention time should be close to unmeasurable
+	FScopeLock ScopeLock(&GVertexDeclarationLock);
+	uint32 Key = FCrc::MemCrc_DEPRECATED(Elements.GetData(), Elements.Num() * sizeof(FVertexElement));
+	FRHIVertexDeclaration** Found = GVertexDeclarationCache.Find(Key);
+	if (Found)
+	{
+		return *Found;
+	}
+
+	FVertexDeclarationRHIRef NewDeclaration = RHICreateVertexDeclaration(Elements);
+
+	// Add an extra reference so we don't have TRefCountPtr in the maps
+	NewDeclaration->AddRef();
+	GVertexDeclarationCache.Add(Key, NewDeclaration);
+	return NewDeclaration;
+}

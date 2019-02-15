@@ -163,11 +163,6 @@ FMetalVertexDeclaration::~FMetalVertexDeclaration()
 {
 }
 
-FVertexDeclarationRHIRef FMetalDynamicRHI::CreateVertexDeclaration_RenderThread(class FRHICommandListImmediate& RHICmdList, const FVertexDeclarationElementList& Elements)
-{
-	return GDynamicRHI->RHICreateVertexDeclaration(Elements);
-}
-
 FVertexDeclarationRHIRef FMetalDynamicRHI::RHICreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
 {
 	@autoreleasepool {

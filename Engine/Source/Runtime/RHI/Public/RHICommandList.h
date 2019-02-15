@@ -3455,10 +3455,10 @@ public:
 		return RHICreateBlendState(Initializer);
 	}
 	
+	UE_DEPRECATED(4.22, "Use PipelineStateCache::GetOrCreateVertexDeclaration() instead.")
 	FORCEINLINE FVertexDeclarationRHIRef CreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
 	{
-		LLM_SCOPE(ELLMTag::Shaders);
-		return GDynamicRHI->CreateVertexDeclaration_RenderThread(*this, Elements);
+		return GDynamicRHI->RHICreateVertexDeclaration(Elements);
 	}
 	
 	FORCEINLINE FPixelShaderRHIRef CreatePixelShader(const TArray<uint8>& Code)
@@ -4407,11 +4407,6 @@ struct FScopedCommandListWaitForTasks
 	RHI_API ~FScopedCommandListWaitForTasks();
 };
 
-
-FORCEINLINE FVertexDeclarationRHIRef RHICreateVertexDeclaration(const FVertexDeclarationElementList& Elements)
-{
-	return FRHICommandListExecutor::GetImmediateCommandList().CreateVertexDeclaration(Elements);
-}
 
 FORCEINLINE FPixelShaderRHIRef RHICreatePixelShader(const TArray<uint8>& Code)
 {

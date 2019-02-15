@@ -33,6 +33,8 @@ namespace PipelineStateCache
 
 	extern RHI_API FGraphicsPipelineState*	GetAndOrCreateGraphicsPipelineState(FRHICommandList& RHICmdList, const FGraphicsPipelineStateInitializer& OriginalInitializer, EApplyRendertargetOption ApplyFlags);
 
+	extern RHI_API FRHIVertexDeclaration*	GetOrCreateVertexDeclaration(const FVertexDeclarationElementList& Elements);
+
 #if RHI_RAYTRACING
 	extern RHI_API FRHIRayTracingPipelineState* GetAndOrCreateRayTracingPipelineState(const FRayTracingPipelineStateInitializer& Initializer);
 #endif
