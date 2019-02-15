@@ -412,6 +412,7 @@ void SStaticMeshEditorViewport::OnSetLODModel(int32 InLODSelection)
 		PreviewMeshComponent->SetForcedLodModel(LODSelection);
 		//PopulateUVChoices();
 		StaticMeshEditorPtr.Pin()->BroadcastOnSelectedLODChanged();
+		RefreshViewport();
 	}
 }
 
