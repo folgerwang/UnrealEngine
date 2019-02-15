@@ -11,7 +11,7 @@
 #include "ConcertClientPresenceActor.h"
 #include "ConcertClientPresenceMode.h"
 #include "UObject/Class.h"
-#include "UObject/StrongObjectPtr.h"
+#include "UObject/GCObject.h"
 
 #if WITH_EDITOR
 
@@ -78,11 +78,14 @@ struct FConcertClientPresencePersistentState
 	bool bPropagateToAll;
 };
 
-class FConcertClientPresenceManager : public TSharedFromThis<FConcertClientPresenceManager>
+class FConcertClientPresenceManager : public TSharedFromThis<FConcertClientPresenceManager>, public FGCObject
 {
 public:
 	FConcertClientPresenceManager(TSharedRef<IConcertClientSession> InSession);
 	~FConcertClientPresenceManager();
+
+	//~ FGCObject interfaces
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	/** Gets the container for all the assets of Concert clients. */
 	const class UConcertAssetContainer& GetAssetContainer() const;
@@ -196,12 +199,6 @@ private:
 
 	/** Updates presence avatar for remote client by invalidating current presence actor */
 	void UpdatePresenceAvatar(const FGuid& InEndpointId, bool bIsInVR);
-
-	/** Loads and returns the container for all the assets of Concert clients. */
-	static class UConcertAssetContainer& LoadAssetContainer();
-
-	/** Need to manage the GC of the asset container */
-	void AddReferencedObjects(FReferenceCollector& Collector);
 
 	/** Set presence PIE state */
 	void SetPresenceInPIE(const FGuid& InEndpointId, bool bInPIE);

@@ -11,7 +11,7 @@
 /**
   * A ConcertClientVRPresenceActor is a child of AConcertClientPresenceActor that is used to represent users in VR 
   */
-UCLASS(Transient, NotPlaceable, Blueprintable)
+UCLASS(Abstract, Transient, NotPlaceable, Blueprintable)
 class AConcertClientVRPresenceActor : public AConcertClientPresenceActor
 {
 	GENERATED_UCLASS_BODY()

@@ -57,10 +57,9 @@ bool ShowPresenceInPIE(const bool InIsPIE)
 
 }
 
-static TAutoConsoleVariable<int32> CVarEnablePresence(TEXT("concert.EnablePresence"), 1, TEXT("Enable Concert presence"));
+static TAutoConsoleVariable<int32> CVarEnablePresence(TEXT("concert.EnablePresence"), 1, TEXT("Enable Concert Presence"));
 
 const TCHAR* FConcertClientPresenceManager::AssetContainerPath = TEXT("/ConcertSyncClient/ConcertAssets");
-
 
 FConcertClientPresenceManager::FConcertClientPresenceManager(TSharedRef<IConcertClientSession> InSession)
 	: OnSessionClientChangedHandle()
@@ -70,13 +69,14 @@ FConcertClientPresenceManager::FConcertClientPresenceManager(TSharedRef<IConcert
 	, CurrentAvatarMode(nullptr)
 	, AssetContainer(nullptr)
 	, bIsPresenceEnabled(true)
+	, bInVR(false)
 	, CurrentAvatarActorClass(nullptr)
 	, DesktopAvatarActorClass(nullptr)
 	, VRAvatarActorClass(nullptr)
 {
 	// Setup the asset container.
-	AssetContainer = &LoadAssetContainer();
-	check(AssetContainer);
+	AssetContainer = LoadObject<UConcertAssetContainer>(nullptr, FConcertClientPresenceManager::AssetContainerPath);
+	checkf(AssetContainer, TEXT("Failed to load UConcertAssetContainer (%s). See log for reason."), FConcertClientPresenceManager::AssetContainerPath);
 
 	// @todo - Need to handle the situation where the avatar class might change during a session.
 	// This makes the assumption that avatar class will not change during a session 
@@ -100,6 +100,14 @@ FConcertClientPresenceManager::~FConcertClientPresenceManager()
 {
 	Unregister();
 	ClearAllPresenceState();
+}
+
+void FConcertClientPresenceManager::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(AssetContainer);
+	Collector.AddReferencedObject(CurrentAvatarActorClass);
+	Collector.AddReferencedObject(DesktopAvatarActorClass);
+	Collector.AddReferencedObject(VRAvatarActorClass);
 }
 
 const UConcertAssetContainer& FConcertClientPresenceManager::GetAssetContainer() const
@@ -557,21 +565,6 @@ void FConcertClientPresenceManager::UpdatePresenceAvatar(const FGuid& InEndpoint
 	{
 		// Presence actor will be recreated on next call to OnEndFrame
 		ClearPresenceActor(InEndpointId);
-	}
-}
-
-UConcertAssetContainer& FConcertClientPresenceManager::LoadAssetContainer()
-{
-	UConcertAssetContainer* AssetContainer = LoadObject<UConcertAssetContainer>(nullptr, FConcertClientPresenceManager::AssetContainerPath);
-	checkf(AssetContainer, TEXT("Failed to load UConcertAssetContainer (%s). See log for reason."), FConcertClientPresenceManager::AssetContainerPath);
-	return *AssetContainer;
-}
-
-void FConcertClientPresenceManager::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	if (AssetContainer)
-	{
-		Collector.AddReferencedObject(AssetContainer);
 	}
 }
 

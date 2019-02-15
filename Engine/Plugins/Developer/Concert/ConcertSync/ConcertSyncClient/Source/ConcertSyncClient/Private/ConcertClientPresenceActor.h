@@ -18,7 +18,7 @@ class FConcertClientPresenceMode;
 /**
   * A ConcertClientPresenceActor is an editor-only transient actor representing other client presences during a concert client session.
   */
-UCLASS(Transient, NotPlaceable, Blueprintable)
+UCLASS(Abstract, Transient, NotPlaceable, Blueprintable)
 class AConcertClientPresenceActor : public AActor
 {
 	GENERATED_UCLASS_BODY()

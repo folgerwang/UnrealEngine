@@ -161,8 +161,8 @@ struct FConcertClientSettings
 	FConcertClientSettings()
 		: DisplayName()
 		, AvatarColor(1.0f, 1.0f, 1.0f, 1.0f)
-		, DesktopAvatarActorClass(TEXT("/ConcertSyncClient/ConcertSyncClient.ConcertClientDesktopPresenceActor"))
-		, VRAvatarActorClass(TEXT("/ConcertSyncClient/ConcertSyncClient.ConcertClientVRPresenceActor"))
+		, DesktopAvatarActorClass(TEXT("/ConcertSyncClient/DesktopPresence.DesktopPresence_C"))
+		, VRAvatarActorClass(TEXT("/ConcertSyncClient/VRPresence.VRPresence_C"))
 		, DiscoveryTimeoutSeconds(5)
 		, SessionTickFrequencySeconds(1)
 		, LatencyCompensationMs(0)
@@ -180,11 +180,11 @@ struct FConcertClientSettings
 	FLinearColor AvatarColor;
 
 	/** The desktop representation of this editor's user to other connected users */
-	UPROPERTY(config, EditAnywhere, NoClear, Category = "Client Settings", meta = (MetaClass = "ConcertClientPresenceActor"))
+	UPROPERTY(config, EditAnywhere, NoClear, Category = "Client Settings", meta = (MetaClass = "ConcertClientDesktopPresenceActor"))
 	FSoftClassPath DesktopAvatarActorClass;
 
 	/** The VR representation of this editor's user to other connected users */
-	UPROPERTY(config, EditAnywhere, NoClear, Category = "Client Settings", meta = (MetaClass = "ConcertClientPresenceActor"))
+	UPROPERTY(config, EditAnywhere, NoClear, Category = "Client Settings", meta = (MetaClass = "ConcertClientVRPresenceActor"))
 	FSoftClassPath VRAvatarActorClass;
 
 	/** The timespan at which discovered Concert server are considered stale if they haven't answered back */

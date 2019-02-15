@@ -14,7 +14,7 @@ struct FDesktopPresenceUpdateEvent;
 /**
   * A AConcertClientDesktopPresenceActor is a child of AConcertClientPresenceActor that is used to represent users in desktop 
   */
-UCLASS(Transient, NotPlaceable, Blueprintable)
+UCLASS(Abstract, Transient, NotPlaceable, Blueprintable)
 class AConcertClientDesktopPresenceActor : public AConcertClientPresenceActor
 {
 	GENERATED_UCLASS_BODY()
