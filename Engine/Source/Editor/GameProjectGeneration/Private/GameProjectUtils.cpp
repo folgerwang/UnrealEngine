@@ -88,7 +88,7 @@ TWeakPtr<SNotificationItem> GameProjectUtils::WarningProjectNameNotification = N
 
 FString GameProjectUtils::DefaultFeaturePackExtension(TEXT(".upack"));	
 
-bool GameProjectUtils::bUseAudioMixerForAllPlatforms = true;
+bool GameProjectUtils::bUseAudioMixerForAllPlatforms = false;
 
 TArray<FString> GameProjectUtils::AudioMixerEnabledPlatforms(
 {
