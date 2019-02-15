@@ -585,22 +585,15 @@ public:
 	const FNavigationOctree* GetNavOctree() const { return NavOctree.Get(); }
 	FNavigationOctree* GetMutableNavOctree() { return NavOctree.Get(); }
 
-	// coppied from GetObjectOuterHash
-	FORCEINLINE static uint64 HashObject(const UObject& Object)
+	FORCEINLINE static uint32 HashObject(const UObject& Object)
 	{
-		//return ((Object.GetFName().GetComparisonIndex() ^ Object.GetFName().GetNumber()) ^ (PTRINT(Object.GetOuter()) >> 6));
-		// temp fix for FORT-129586, it seems like the above hashing function is not good enough.
-		return reinterpret_cast<uint64>(&Object);
+		return Object.GetUniqueID();
 	}
 	FORCEINLINE void SetObjectsNavOctreeId(const UObject& Object, FOctreeElementId Id) { ObjectToOctreeId.Add(HashObject(Object), Id); }
 	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject& Object) const { return ObjectToOctreeId.Find(HashObject(Object)); }
 	FORCEINLINE bool HasPendingObjectNavOctreeId(UObject* Object) const { return PendingOctreeUpdates.Contains(FNavigationDirtyElement(Object)); }
-	FORCEINLINE	void RemoveObjectsNavOctreeId(const UObject& Object) { ObjectToOctreeId.Remove(HashObject(Object)); }
+	FORCEINLINE void RemoveObjectsNavOctreeId(const UObject& Object) { ObjectToOctreeId.Remove(HashObject(Object)); }
 
-	/*FORCEINLINE void SetObjectsNavOctreeId(UObject* Object, FOctreeElementId Id) { ObjectToOctreeId.Add(HashObject(Object), Id); }
-	FORCEINLINE const FOctreeElementId* GetObjectsNavOctreeId(const UObject* Object) const { return ObjectToOctreeId.Find(HashObject(Object)); }
-	FORCEINLINE bool HasPendingObjectNavOctreeId(UObject* Object) const { return PendingOctreeUpdates.Contains(FNavigationDirtyElement(Object)); }
-	FORCEINLINE	void RemoveObjectsNavOctreeId(UObject* Object) { ObjectToOctreeId.Remove(HashObject(Object)); }*/
 	void RemoveNavOctreeElementId(const FOctreeElementId& ElementId, int32 UpdateFlags);
 
 	const FNavigationRelevantData* GetDataForObject(const UObject& Object) const;
@@ -813,7 +806,7 @@ protected:
 
 	TMap<FNavAgentProperties, TWeakObjectPtr<ANavigationData> > AgentToNavDataMap;
 	
-	TMap<uint64, FOctreeElementId> ObjectToOctreeId;
+	TMap<uint32, FOctreeElementId> ObjectToOctreeId;
 
 	/** Map of all objects that are tied to indexed navigation parent */
 	TMultiMap<UObject*, FWeakObjectPtr> OctreeChildNodesMap;
