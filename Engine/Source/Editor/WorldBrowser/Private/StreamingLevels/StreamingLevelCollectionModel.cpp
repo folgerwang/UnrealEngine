@@ -173,8 +173,8 @@ void FStreamingLevelCollectionModel::BindCommands()
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::RemoveInvalidSelectedLevels_Executed ));
 
 	//levels
-	ActionList.MapAction( Commands.World_CreateEmptyLevel,
-		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::CreateEmptyLevel_Executed  ) );
+	ActionList.MapAction( Commands.World_CreateNewLevel,
+		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::CreateNewLevel_Executed  ) );
 	
 	ActionList.MapAction( Commands.World_AddExistingLevel,
 		FExecuteAction::CreateSP( this, &FStreamingLevelCollectionModel::AddExistingLevel_Executed ) );
@@ -377,7 +377,7 @@ void FStreamingLevelCollectionModel::CustomizeFileMainMenu(FMenuBuilder& InMenuB
 			LOCTEXT("LevelsStreamingMethod_Tooltip", "Changes the default streaming method for a new levels"),
 			FNewMenuDelegate::CreateRaw(this, &FStreamingLevelCollectionModel::FillDefaultStreamingMethodSubMenu ) );
 		
-		InMenuBuilder.AddMenuEntry( Commands.World_CreateEmptyLevel );
+		InMenuBuilder.AddMenuEntry( Commands.World_CreateNewLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_AddExistingLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_AddSelectedActorsToNewLevel );
 		InMenuBuilder.AddMenuEntry( Commands.World_MergeSelectedLevels );
@@ -414,7 +414,7 @@ const FLevelModelList& FStreamingLevelCollectionModel::GetInvalidSelectedLevels(
 }
 
 //levels
-void FStreamingLevelCollectionModel::CreateEmptyLevel_Executed()
+void FStreamingLevelCollectionModel::CreateNewLevel_Executed()
 {
 	FString TemplateMapPackageName;
 	FNewLevelDialogModule& NewLevelDialogModule = FModuleManager::LoadModuleChecked<FNewLevelDialogModule>("NewLevelDialog");

@@ -46,7 +46,7 @@ public:
 		UI_COMMAND( World_SaveSelectedLevelAs, "Save As...", "Save the selected level as...", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_MigrateSelectedLevels, "Migrate...", "Copies the selected levels and all their dependencies to a different game", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_MergeSelectedLevels, "Merge...", "Merges the selected levels into a new level, removing the original levels from the persistent", EUserInterfaceActionType::Button, FInputChord() );
-		UI_COMMAND( World_CreateEmptyLevel, "Create New...", "Creates a new empty Level", EUserInterfaceActionType::Button, FInputChord() );
+		UI_COMMAND( World_CreateNewLevel, "Create New...", "Creates a new level, or choose a level template to start from.", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_AddExistingLevel, "Add Existing...", "Adds an existing level", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND( World_AddSelectedActorsToNewLevel, "Create New with Selected Actors...", "Adds the actors currently selected in the active viewport to a new Level", EUserInterfaceActionType::Button, FInputChord() );
 		UI_COMMAND(World_RemoveSelectedLevels, "Remove Selected", "Removes selected levels from the base streaming level", EUserInterfaceActionType::Button, FInputChord() );
@@ -167,8 +167,8 @@ public:
 	/** Merges the selected levels into a new level; prompts for save path; removes the levels that were merged */
 	TSharedPtr< FUICommandInfo > World_MergeSelectedLevels;
 
-	/** Creates a new empty level; prompts for save path */
-	TSharedPtr< FUICommandInfo > World_CreateEmptyLevel;
+	/** Creates a new level; prompts for save path */
+	TSharedPtr< FUICommandInfo > World_CreateNewLevel;
 
 	/** Adds an existing streaming level to the persistent; prompts for path */
 	TSharedPtr< FUICommandInfo > World_AddExistingLevel;

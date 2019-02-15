@@ -76,8 +76,8 @@ private:
 	/** Removes selected levels from world */
 	void RemoveInvalidSelectedLevels_Executed();
 	
-	/** Creates a new empty Level; prompts for level save location */
-	void CreateEmptyLevel_Executed();
+	/** Creates a new level; prompts for level save location */
+	void CreateNewLevel_Executed();
 
 	/** Calls AddExistingLevel which adds an existing level; prompts for path */
 	void AddExistingLevel_Executed();

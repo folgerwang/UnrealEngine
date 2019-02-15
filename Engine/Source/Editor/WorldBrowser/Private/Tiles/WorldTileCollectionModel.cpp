@@ -611,7 +611,7 @@ void FWorldTileCollectionModel::CustomizeFileMainMenu(FMenuBuilder& InMenuBuilde
 		
 	InMenuBuilder.BeginSection("LevelsAddLevel");
 	{
-		InMenuBuilder.AddMenuEntry(Commands.World_CreateEmptyLevel);
+		InMenuBuilder.AddMenuEntry(Commands.World_CreateNewLevel);
 		InMenuBuilder.AddMenuEntry(Commands.ImportTiledLandscape);
 	}
 	InMenuBuilder.EndSection();
@@ -749,8 +749,8 @@ void FWorldTileCollectionModel::BindCommands()
 	FUICommandList& ActionList = *CommandList;
 
 	//
-	ActionList.MapAction(Commands.World_CreateEmptyLevel,
-		FExecuteAction::CreateSP(this, &FWorldTileCollectionModel::CreateEmptyLevel_Executed));
+	ActionList.MapAction(Commands.World_CreateNewLevel,
+		FExecuteAction::CreateSP(this, &FWorldTileCollectionModel::CreateNewLevel_Executed));
 
 	ActionList.MapAction(Commands.ClearParentLink,
 		FExecuteAction::CreateSP(this, &FWorldTileCollectionModel::ClearParentLink_Executed),
@@ -1391,7 +1391,7 @@ bool FWorldTileCollectionModel::IsLayerSelected(const FWorldTileLayer& InLayer)
 	return SelectedLayers.Contains(InLayer);
 }
 
-void FWorldTileCollectionModel::CreateEmptyLevel_Executed()
+void FWorldTileCollectionModel::CreateNewLevel_Executed()
 {
 	CreateNewEmptyLevel();
 }
