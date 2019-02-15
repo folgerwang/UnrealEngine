@@ -143,7 +143,8 @@ public:
 		return TimestampValidBitsMask;
 	}
 
-	bool IsFormatSupported(VkFormat Format) const;
+	bool IsTextureFormatSupported(VkFormat Format) const;
+	bool IsBufferFormatSupported(VkFormat Format) const;
 
 	const VkComponentMapping& GetFormatComponentMapping(EPixelFormat UEFormat) const;
 
