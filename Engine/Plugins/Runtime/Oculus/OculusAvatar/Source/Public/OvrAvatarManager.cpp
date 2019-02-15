@@ -122,6 +122,12 @@ FOvrAvatarManager::~FOvrAvatarManager()
 		FPlatformProcess::FreeDllHandle(OVRPluginHandle);
 		OVRPluginHandle = nullptr;
 	}
+
+	if (OVRAvatarHandle)
+	{
+		FPlatformProcess::FreeDllHandle(OVRAvatarHandle);
+		OVRAvatarHandle = nullptr;
+	}
 }
 
 static const FString sTextureFormatStrings[ovrAvatarTextureFormat_Count] =
@@ -191,17 +197,25 @@ void FOvrAvatarManager::InitializeSDK()
 			OVRPluginHandle = FOculusHMDModule::GetOVRPluginHandle();
 		}
 
-		IsInitialized = true;
 
 #if PLATFORM_ANDROID
 		AVATAR_APP_ID = TCHAR_TO_ANSI(*GConfig->GetStr(TEXT("OnlineSubsystemOculus"), TEXT("GearVRAppId"), GEngineIni));
 		UE_LOG(LogAvatars, Display, TEXT("ovrAvatar_InitializeAndroid"));
 		ovrAvatar_InitializeAndroid(AVATAR_APP_ID, FAndroidApplication::GetGameActivityThis(), FAndroidApplication::GetJavaEnv());
 #else
+		OVRAvatarHandle = FPlatformProcess::GetDllHandle(TEXT("libovravatar.dll"));
+		if (OVRAvatarHandle == nullptr)
+		{
+			UE_LOG(LogAvatars, Log, TEXT("OVRAvatar DLL not found!"));
+			return;
+		}
+
 		AVATAR_APP_ID = TCHAR_TO_ANSI(*GConfig->GetStr(TEXT("OnlineSubsystemOculus"), TEXT("RiftAppId"), GEngineIni));
 		UE_LOG(LogAvatars, Display, TEXT("ovrAvatar_Initialize"));
 		ovrAvatar_Initialize(AVATAR_APP_ID);
 #endif
+
+		IsInitialized = true;
 
 		ovrAvatar_SetLoggingLevel(LogLevel);
 

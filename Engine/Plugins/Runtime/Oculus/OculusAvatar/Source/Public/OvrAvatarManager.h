@@ -75,6 +75,7 @@ private:
 	TMap<FString, AvatarPacketQueue*> AvatarPacketQueues;
 	
 	void* OVRPluginHandle = nullptr;
+	void* OVRAvatarHandle = nullptr;
 
 	ovrAvatarLogLevel LogLevel = ovrAvatarLogLevel::ovrAvatarLogLevel_Silent;
 
