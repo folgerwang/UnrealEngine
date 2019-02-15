@@ -263,6 +263,7 @@ public:
 
 	//~ Begin UNavRelevantInterface Interface
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	virtual FBox GetNavigationBounds() const override;
 	//~ End UPrimitiveComponent Interface
 
 	//~ Begin UObject Interface
