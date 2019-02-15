@@ -5214,7 +5214,7 @@ void FBlueprintEditor::OnAlignBottom()
 	TSharedPtr<SGraphEditor> FocusedGraphEd = FocusedGraphEdPtr.Pin();
 	if (FocusedGraphEd.IsValid())
 	{
-		FocusedGraphEd->OnAlignMiddle();
+		FocusedGraphEd->OnAlignBottom();
 	}
 }
 
