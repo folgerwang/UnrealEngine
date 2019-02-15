@@ -355,6 +355,7 @@ void FMacApplication::EndScopedModalEvent()
 
 void FMacApplication::CloseWindow(TSharedRef<FMacWindow> Window)
 {
+	FScopeLock Lock(&WindowsToCloseMutex);
 	if (!SlateWindowsToClose.Contains(Window))
 	{
 		SlateWindowsToClose.Add(Window);
@@ -1950,13 +1951,17 @@ TCHAR FMacApplication::TranslateCharCode(TCHAR CharCode, uint32 KeyCode) const
 
 void FMacApplication::CloseQueuedWindows()
 {
-	if (SlateWindowsToClose.Num() > 0)
 	{
-		for (TSharedRef<FMacWindow> Window : SlateWindowsToClose)
+		FScopeLock Lock(&WindowsToCloseMutex);
+
+		if (SlateWindowsToClose.Num() > 0)
 		{
-			MessageHandler->OnWindowClose(Window);
+			for (TSharedRef<FMacWindow> Window : SlateWindowsToClose)
+			{
+				MessageHandler->OnWindowClose(Window);
+			}
+			SlateWindowsToClose.Empty();
 		}
-		SlateWindowsToClose.Empty();
 	}
 
 	if (CocoaWindowsToClose.Num() > 0)

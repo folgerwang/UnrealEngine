@@ -360,6 +360,7 @@ private:
 
 	volatile int32 bIgnoreMouseMoveDelta;
 
+	FCriticalSection WindowsToCloseMutex;
 	TArray<FCocoaWindow*> CocoaWindowsToClose;
 	TArray<TSharedRef<FMacWindow>> SlateWindowsToClose;
 
