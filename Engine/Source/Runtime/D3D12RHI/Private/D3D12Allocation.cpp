@@ -31,6 +31,7 @@ static FAutoConsoleVariableRef CVarD3D12ReadOnlyTextureAllocatorMaxPoolSize(
 	GD3D12ReadOnlyTextureAllocatorMaxPoolSize,
 	TEXT("Maximum allocation granularity (in bytes) of each size list"),
 	ECVF_ReadOnly);
+#endif
 
 static int32 GD3D12DeferredDeletionQueueSize = 128;
 static FAutoConsoleVariableRef CVarGD3D12DeferredDeletionQueueSize(
@@ -38,7 +39,6 @@ static FAutoConsoleVariableRef CVarGD3D12DeferredDeletionQueueSize(
 	GD3D12DeferredDeletionQueueSize,
 	TEXT("Maximum size of the deferred deletion queue before reclaimation is attempted"),
 	ECVF_ReadOnly);
-#endif
 
 namespace ED3D12AllocatorID
 {
