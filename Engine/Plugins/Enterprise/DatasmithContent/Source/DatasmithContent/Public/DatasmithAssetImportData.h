@@ -141,6 +141,16 @@ class DATASMITHCONTENT_API UDatasmithGLTFSceneImportData : public UDatasmithScen
 };
 
 UCLASS(EditInlineNew)
+class DATASMITHCONTENT_API UDatasmithStaticMeshGLTFImportData : public UDatasmithStaticMeshImportData
+{
+	GENERATED_BODY()
+
+public:
+	UPROPERTY(VisibleAnywhere, Category = InternalProperty)
+	FString SourceMeshName;
+};
+
+UCLASS(EditInlineNew)
 class DATASMITHCONTENT_API UDatasmithDeltaGenAssetImportData : public UDatasmithAssetImportData
 {
 	GENERATED_BODY()

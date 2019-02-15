@@ -9,10 +9,12 @@
 #include "UObject/ObjectMacros.h"
 
 class UStaticMesh;
+struct FMeshDescription;
 
 namespace GLTF
 {
 	struct FAsset;
+	struct FMesh;
 	class FStaticMeshFactoryImpl;
 
 	class GLTFIMPORTER_API FStaticMeshFactory
@@ -22,6 +24,8 @@ namespace GLTF
 		~FStaticMeshFactory();
 
 		const TArray<UStaticMesh*>& CreateMeshes(const GLTF::FAsset& Asset, UObject* ParentPackage, EObjectFlags Flags, bool bApplyPostEditChange);
+
+		void FillMeshDescription(const GLTF::FMesh &Mesh, FMeshDescription* MeshDescription);
 
 		const TArray<UStaticMesh*>& GetMeshes() const;
 		const TArray<FLogMessage>&  GetLogMessages() const;
