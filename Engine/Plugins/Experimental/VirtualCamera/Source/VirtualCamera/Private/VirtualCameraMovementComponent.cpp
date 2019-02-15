@@ -1,6 +1,8 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #include "VirtualCameraMovementComponent.h"
+
+#include "Components/PrimitiveComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 
 // Used to help get stabilization to be more finely tunable
