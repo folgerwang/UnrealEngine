@@ -574,7 +574,7 @@ void FLevelEditorActionCallbacks::ToggleFeatureLevelPreview()
 
 bool FLevelEditorActionCallbacks::IsFeatureLevelPreviewEnabled()
 {
-	if (GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor)
+	if (GEditor->PlayWorld || GUnrealEd->bIsSimulatingInEditor || GUnrealEd->IsLightingBuildCurrentlyRunning())
 	{
 		return false;
 	}
