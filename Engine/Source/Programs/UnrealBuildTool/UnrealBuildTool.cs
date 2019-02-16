@@ -399,6 +399,16 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Acquire a lock for this branch
+				if((ModeOptions & ToolModeOptions.SingleInstance) != 0 && !Options.bNoMutex)
+				{
+					using(Timeline.ScopeEvent("SingleInstanceMutex.Acquire()"))
+					{
+						string MutexName = SingleInstanceMutex.GetUniqueMutexForPath("UnrealBuildTool_Mutex", Assembly.GetExecutingAssembly().CodeBase);
+						Mutex = new SingleInstanceMutex(MutexName, Options.bWaitMutex);
+					}
+				}
+
 				// Register all the build platforms
 				if((ModeOptions & ToolModeOptions.BuildPlatforms) != 0)
 				{
@@ -412,16 +422,6 @@ namespace UnrealBuildTool
 					using(Timeline.ScopeEvent("UEBuildPlatform.RegisterPlatforms()"))
 					{
 						UEBuildPlatform.RegisterPlatforms(true);
-					}
-				}
-
-				// Acquire a lock for this branch
-				if((ModeOptions & ToolModeOptions.SingleInstance) != 0 && !Options.bNoMutex)
-				{
-					using(Timeline.ScopeEvent("SingleInstanceMutex.Acquire()"))
-					{
-						string MutexName = SingleInstanceMutex.GetUniqueMutexForPath("UnrealBuildTool_Mutex", Assembly.GetExecutingAssembly().CodeBase);
-						Mutex = new SingleInstanceMutex(MutexName, Options.bWaitMutex);
 					}
 				}
 
