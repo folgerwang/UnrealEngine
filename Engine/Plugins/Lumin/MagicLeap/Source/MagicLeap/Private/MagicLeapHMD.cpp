@@ -1364,7 +1364,7 @@ void FMagicLeapHMD::InitDevice_RenderThread()
 		{
 #if PLATFORM_WINDOWS || PLATFORM_LUMIN
 			static const auto* VulkanRHIThread = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.RHIThread"));
-			UE_LOG(LogMagicLeap, Warning, TEXT("r.Vulkan.RHIThread=%d"), VulkanRHIThread->GetValueOnAnyThread());
+			UE_LOG(LogMagicLeap, Log, TEXT("RHI Thread Usage (r.Vulkan.RHIThread)=%d"), VulkanRHIThread->GetValueOnAnyThread());
 
 			bQueuedGraphicsCreateCall = true;
 
