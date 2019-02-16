@@ -154,6 +154,11 @@ const AActor* FCameraCutSection::GetCameraForFrame(FFrameNumber Time) const
 	return nullptr;
 }
 
+FText FCameraCutSection::GetSectionTitle() const
+{
+	return HandleThumbnailTextBlockText();
+}
+
 float FCameraCutSection::GetSectionHeight() const
 {
 	return FViewportThumbnailSection::GetSectionHeight() + 10.f;

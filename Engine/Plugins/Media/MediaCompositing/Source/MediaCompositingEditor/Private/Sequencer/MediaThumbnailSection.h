@@ -48,7 +48,6 @@ public:
 
 	//~ FThumbnailSection interface
 
-	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
 	virtual FMargin GetContentPadding() const override;
 	virtual float GetSectionHeight() const override;
 	virtual FText GetSectionTitle() const override;

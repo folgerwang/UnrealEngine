@@ -88,6 +88,9 @@ protected:
 	/** Get the total range that thumbnails are to be generated for in the section's time space */
 	TRange<double> GetTotalRange() const;
 
+	/** Get rename visibility */
+	EVisibility GetRenameVisibility() const;
+
 protected:
 
 	/** The section we are visualizing. */

@@ -174,6 +174,12 @@ float FSkeletalAnimationSection::GetSectionHeight() const
 }
 
 
+FMargin FSkeletalAnimationSection::GetContentPadding() const
+{
+	return FMargin(8.0f, 8.0f);
+}
+
+
 int32 FSkeletalAnimationSection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
 	const ESlateDrawEffect DrawEffects = Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;

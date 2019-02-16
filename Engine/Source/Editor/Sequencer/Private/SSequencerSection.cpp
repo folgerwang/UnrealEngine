@@ -1144,7 +1144,7 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 			LayerId,
 			SectionGeometry.MakeChild(
 				FVector2D(SectionGeometry.Size.X, GetFontHeight()),
-				FSlateLayoutTransform(TopLeft + FVector2D(0.f, GetFontHeight()) + FVector2D(1.f, 1.f))
+				FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top) + FVector2D(1.f, 1.f))
 			).ToPaintGeometry(),
 			SectionTitle,
 			FontInfo,
@@ -1157,7 +1157,7 @@ int32 SSequencerSection::OnPaint( const FPaintArgs& Args, const FGeometry& Allot
 			LayerId,
 			SectionGeometry.MakeChild(
 				FVector2D(SectionGeometry.Size.X, GetFontHeight()),
-				FSlateLayoutTransform(TopLeft + FVector2D(0.f, GetFontHeight()))
+				FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top))
 			).ToPaintGeometry(),
 			SectionTitle,
 			FontInfo,

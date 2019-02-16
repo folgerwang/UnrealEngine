@@ -85,7 +85,17 @@ TSharedRef<SWidget> FThumbnailSection::GenerateSectionWidget()
 				.ShadowOffset(FVector2D(1,1))
 				.OnTextCommitted(this, &FThumbnailSection::HandleThumbnailTextBlockTextCommitted)
 				.IsReadOnly(!CanRename())
+				.Visibility(this, &FThumbnailSection::GetRenameVisibility)
 		];
+}
+
+EVisibility FThumbnailSection::GetRenameVisibility() const
+{
+	if (NameWidget.IsValid() && NameWidget->IsInEditMode())
+	{
+		return EVisibility::Visible;
+	}
+	return EVisibility::Hidden;
 }
 
 void FThumbnailSection::EnterRename()

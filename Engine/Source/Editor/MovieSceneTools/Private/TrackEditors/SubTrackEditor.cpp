@@ -202,6 +202,8 @@ public:
 				);
 			}
 
+			FMargin ContentPadding = GetContentPadding();
+
 			int32 NumTracks = MovieScene->GetPossessableCount() + MovieScene->GetSpawnableCount() + MovieScene->GetMasterTracks().Num();
 
 			FVector2D TopLeft = InPainter.SectionGeometry.AbsoluteToLocal(InPainter.SectionClippingRect.GetTopLeft()) + FVector2D(1.f, -1.f);
@@ -224,9 +226,8 @@ public:
 				++LayerId,
 				InPainter.SectionGeometry.MakeChild(
 					FVector2D(InPainter.SectionGeometry.Size.X, GetFontHeight()),
-					FSlateLayoutTransform(TopLeft + FVector2D(0.f, GetFontHeight()) + FVector2D(11.f, GetFontHeight()*2.f))
+					FSlateLayoutTransform(TopLeft + FVector2D(ContentPadding.Left, ContentPadding.Top) + FVector2D(11.f, GetFontHeight()*2.f))
 				).ToPaintGeometry(),
-				//InPainter.SectionGeometry.ToOffsetPaintGeometry(FVector2D(11.0f, 32.0f)),
 				FText::Format(LOCTEXT("NumTracksFormat", "{0} track(s)"), FText::AsNumber(NumTracks)),
 				FontInfo,
 				DrawEffects,

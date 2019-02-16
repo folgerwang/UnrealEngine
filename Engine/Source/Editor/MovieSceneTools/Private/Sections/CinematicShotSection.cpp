@@ -61,6 +61,11 @@ FCinematicShotSection::~FCinematicShotSection()
 {
 }
 
+FText FCinematicShotSection::GetSectionTitle() const
+{
+	return GetRenameVisibility() == EVisibility::Visible ? FText::GetEmpty() : HandleThumbnailTextBlockText();
+}
+
 float FCinematicShotSection::GetSectionHeight() const
 {
 	return FViewportThumbnailSection::GetSectionHeight() + 2*9.f;
