@@ -38,12 +38,14 @@ public:
 	}
 
 	/** Gets the camera binding for this CameraCut section */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	const FMovieSceneObjectBindingID& GetCameraBindingID() const
 	{
 		return CameraBindingID;
 	}
 
 	/** Sets the camera binding for this CameraCut section */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	void SetCameraBindingID(const FMovieSceneObjectBindingID& InCameraBindingID)
 	{
 		CameraBindingID = InCameraBindingID;

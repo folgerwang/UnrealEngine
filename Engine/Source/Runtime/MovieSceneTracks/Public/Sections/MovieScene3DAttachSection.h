@@ -31,27 +31,27 @@ public:
 
 public:
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	FName AttachSocketName;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	FName AttachComponentName;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EAttachmentRule AttachmentLocationRule;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EAttachmentRule AttachmentRotationRule;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EAttachmentRule AttachmentScaleRule;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EDetachmentRule DetachmentLocationRule;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EDetachmentRule DetachmentRotationRule;
 
-	UPROPERTY(EditAnywhere, Category="Attach")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Attach")
 	EDetachmentRule DetachmentScaleRule;
 };

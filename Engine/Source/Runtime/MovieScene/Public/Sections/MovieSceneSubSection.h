@@ -142,7 +142,7 @@ public:
 
 public:
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="General", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, BlueprintReadWrite, Category="General", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSectionParameters Parameters;
 
 private:

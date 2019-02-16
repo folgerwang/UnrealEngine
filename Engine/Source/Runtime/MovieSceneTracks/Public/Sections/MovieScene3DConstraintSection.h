@@ -29,12 +29,14 @@ public:
 	virtual void SetConstraintId(const FGuid& InConstraintId, const FMovieSceneSequenceID& SequenceID);
 
 	/** Gets the constraint binding for this Constraint section */
+	UFUNCTION(BlueprintCallable, Category = "Movie Scene Section")
 	const FMovieSceneObjectBindingID& GetConstraintBindingID() const
 	{
 		return ConstraintBindingID;
 	}
 
 	/** Sets the constraint binding for this Constraint section */
+	UFUNCTION(BlueprintPure, Category = "Movie Scene Section")
 	void SetConstraintBindingID(const FMovieSceneObjectBindingID& InConstraintBindingID)
 	{
 		ConstraintBindingID = InConstraintBindingID;

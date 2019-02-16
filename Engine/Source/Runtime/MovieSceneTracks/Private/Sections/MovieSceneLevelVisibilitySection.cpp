@@ -23,12 +23,6 @@ void UMovieSceneLevelVisibilitySection::SetVisibility( ELevelVisibility InVisibi
 }
 
 
-TArray<FName>* UMovieSceneLevelVisibilitySection::GetLevelNames()
-{
-	return &LevelNames;
-}
-
-
 FMovieSceneEvalTemplatePtr UMovieSceneLevelVisibilitySection::GenerateTemplate() const
 {
 	return FMovieSceneLevelVisibilitySectionTemplate(*this);

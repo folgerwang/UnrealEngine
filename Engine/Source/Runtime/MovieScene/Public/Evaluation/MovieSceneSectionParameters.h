@@ -24,16 +24,17 @@ struct FMovieSceneSectionParameters
 
 public:
 	/** Number of frames (in display rate) to skip at the beginning of the sub-sequence. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Clipping")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, BlueprintReadWrite, Category = "Clipping")
 	FFrameNumber StartFrameOffset;
 
 	/** Playback time scaling factor. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Timing")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, BlueprintReadWrite, Category="Timing")
 	float TimeScale;
 
 	/** Hierachical bias. Higher bias will take precedence. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Sequence")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, BlueprintReadWrite, Category="Sequence")
 	int32 HierarchicalBias;
+
 	UPROPERTY()
 	float StartOffset_DEPRECATED;
 	UPROPERTY()

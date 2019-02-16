@@ -99,18 +99,12 @@ TArray<UTakeRecorderSource*> UTakeRecorderLevelVisibilitySource::PreRecording(cl
 	UMovieSceneLevelVisibilitySection* VisibleSection = NewObject<UMovieSceneLevelVisibilitySection>(CachedLevelVisibilityTrack.Get(), UMovieSceneLevelVisibilitySection::StaticClass());
 	VisibleSection->SetVisibility(ELevelVisibility::Visible);
 	VisibleSection->SetRowIndex(0);
-	for (FName VisibleLevelName : VisibleLevelNames)
-	{
-		VisibleSection->GetLevelNames()->AddUnique(VisibleLevelName);
-	}
+	VisibleSection->SetLevelNames(VisibleLevelNames);
 
 	UMovieSceneLevelVisibilitySection* HiddenSection = NewObject<UMovieSceneLevelVisibilitySection>(CachedLevelVisibilityTrack.Get(), UMovieSceneLevelVisibilitySection::StaticClass());
 	HiddenSection->SetVisibility(ELevelVisibility::Hidden);
 	HiddenSection->SetRowIndex(1);
-	for (FName HiddenLevelName : HiddenLevelNames)
-	{
-		HiddenSection->GetLevelNames()->AddUnique(HiddenLevelName);
-	}
+	HiddenSection->SetLevelNames(HiddenLevelNames);
 
 	CachedLevelVisibilityTrack->AddSection(*VisibleSection);
 	CachedLevelVisibilityTrack->AddSection(*HiddenSection);
