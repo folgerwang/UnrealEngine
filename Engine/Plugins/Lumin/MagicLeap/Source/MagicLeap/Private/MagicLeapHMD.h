@@ -210,6 +210,8 @@ public:
 
 	bool IsPerceptionEnabled() const;
 
+	bool IsVDZIEnabled() const { return bIsVDZIEnabled; }
+
 	int32 WindowMirrorMode; // how to mirror the display contents to the desktop window: 0 - no mirroring, 1 - single eye, 2 - stereo pair
 	uint32 DebugViewportWidth;
 	uint32 DebugViewportHeight;
