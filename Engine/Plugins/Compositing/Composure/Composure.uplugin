@@ -42,7 +42,7 @@
 			"Enabled": true
 		},
 		{
-			"Name": "MediaFrameworkUtilities",
+			"Name": "MediaIOFramework",
 			"Enabled": true
 		},
 		{
