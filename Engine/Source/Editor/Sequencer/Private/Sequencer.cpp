@@ -8133,7 +8133,6 @@ void FSequencer::SetMarkedFrame(FFrameNumber FrameNumber, bool bSetMark)
 			{
 				int32 MarkedFrameIndex = FocusedMovieScene->FindMarkedFrameByFrameNumber(FrameNumber);
 				if (MarkedFrameIndex != INDEX_NONE)
-				FocusedMovieScene->RemoveMarkedFrame(MarkedFrameIndex);
 				{
 					FocusedMovieScene->RemoveMarkedFrame(MarkedFrameIndex);
 				}
