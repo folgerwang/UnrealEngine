@@ -433,11 +433,7 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 			RendererModule->DrawRectangle(
 				RHICmdList,
 				0, 0, ViewportWidth, ViewportHeight,
-#if PLATFORM_ANDROID
 				U, V, USize, VSize,
-#else
-				U, 1.0 - V, USize, -VSize,
-#endif
 				TargetSize,
 				FIntPoint(1, 1),
 				*VertexShader,
@@ -472,7 +468,11 @@ void FCustomPresent::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdLi
 				RendererModule->DrawRectangle(
 					RHICmdList,
 					0, 0, ViewportWidth, ViewportHeight,
+#if PLATFORM_ANDROID
 					U, V, USize, VSize,
+#else
+					U, 1.0 - V, USize, -VSize,
+#endif
 					TargetSize,
 					FIntPoint(1, 1),
 					*VertexShader,
