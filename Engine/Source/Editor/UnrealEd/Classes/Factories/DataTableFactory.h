@@ -14,7 +14,7 @@ class UNREALED_API UDataTableFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = "Data Table Factory")
 	class UScriptStruct* Struct;
 
 	//~ Begin UFactory Interface
