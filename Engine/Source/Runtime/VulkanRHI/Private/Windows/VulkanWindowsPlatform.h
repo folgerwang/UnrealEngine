@@ -67,12 +67,8 @@ public:
 	// Some platforms only support real or non-real UBs, so this function can optimize it out
 	static bool UseRealUBsOptimization(bool bCodeHeaderUseRealUBs)
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? false : bCodeHeaderUseRealUBs;
-#else
-		return GMaxRHIFeatureLevel >= ERHIFeatureLevel::ES3_1 ? bCodeHeaderUseRealUBs : false;
-#endif
 	}
 };
 

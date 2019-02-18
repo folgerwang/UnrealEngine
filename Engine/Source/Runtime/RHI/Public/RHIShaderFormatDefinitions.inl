@@ -127,31 +127,18 @@ static FName ShaderPlatformToShaderFormatName(EShaderPlatform Platform)
 
 	case SP_VULKAN_PCES3_1:
 	{
-		// If you modify this, make sure to update FWindowsPlatform::UseRealUBsOptimization()
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_ES3_1_NOUB : NAME_VULKAN_ES3_1;
-#else
-		return NAME_VULKAN_ES3_1;
-#endif
 	}
 	case SP_VULKAN_SM4:
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_SM4_NOUB : NAME_VULKAN_SM4;
-#else
-		return NAME_VULKAN_SM4;
-#endif
 	}
 	case SP_VULKAN_SM5:
 	{
-#if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT
 		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		return (CVar && CVar->GetValueOnAnyThread() == 0) ? NAME_VULKAN_SM5_NOUB : NAME_VULKAN_SM5;
-#else
-		return NAME_VULKAN_SM5;
-#endif
 	}
 	case SP_VULKAN_SM5_LUMIN:
 		return NAME_VULKAN_SM5_LUMIN;

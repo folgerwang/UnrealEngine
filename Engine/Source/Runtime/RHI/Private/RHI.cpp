@@ -36,7 +36,7 @@ DEFINE_STAT(STAT_PixelBufferMemory);
 
 static FAutoConsoleVariable CVarUseVulkanRealUBs(
 	TEXT("r.Vulkan.UseRealUBs"),
-	1,
+	0,
 	TEXT("0: Emulate uniform buffers on Vulkan SM4/SM5 (debugging ONLY)\n")
 	TEXT("1: Use real uniform buffers [default]"),
 	ECVF_ReadOnly
