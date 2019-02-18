@@ -37,7 +37,7 @@ FCustomPresent::FCustomPresent(class FOculusHMD* InOculusHMD, ovrpRenderAPIType 
 	CheckInGameThread();
 
 	DefaultOvrpTextureFormat = GetOvrpTextureFormat(GetDefaultPixelFormat());
-	DefaultDepthOvrpTextureFormat = bSupportsDepth ? ovrpTextureFormat_D24_S8 : ovrpTextureFormat_None;
+	DefaultDepthOvrpTextureFormat = bSupportsDepth ? ovrpTextureFormat_D32_S824_FP : ovrpTextureFormat_None;
 
 	// grab a pointer to the renderer module for displaying our mirror window
 	static const FName RendererModuleName("Renderer");
