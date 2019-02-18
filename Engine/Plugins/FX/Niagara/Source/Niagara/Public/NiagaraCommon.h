@@ -6,6 +6,7 @@
 #include "UObject/ObjectMacros.h"
 #include "NiagaraTypes.h"
 #include "UObject/SoftObjectPath.h"
+#include "RHI.h"
 #include "NiagaraCommon.generated.h"
 
 class UNiagaraSystem;
@@ -533,6 +534,29 @@ namespace FNiagaraUtilities
 	FNiagaraVariable NIAGARA_API ConvertVariableToRapidIterationConstantName(FNiagaraVariable InVar, const TCHAR* InEmitterName, ENiagaraScriptUsage InUsage);
 
 	void CollectScriptDataInterfaceParameters(const UObject& Owner, const TArray<UNiagaraScript*>& Scripts, FNiagaraParameterStore& OutDataInterfaceParameters);
+
+	inline bool SupportsNiagaraRendering(ERHIFeatureLevel::Type FeatureLevel)
+	{
+		return FeatureLevel == ERHIFeatureLevel::SM4 || FeatureLevel == ERHIFeatureLevel::SM5 || FeatureLevel == ERHIFeatureLevel::ES3_1;
+	}
+
+	inline bool SupportsNiagaraRendering(EShaderPlatform ShaderPlatform)
+	{
+		// Note:
+		// IsFeatureLevelSupported does a FeatureLevel < MaxFeatureLevel(ShaderPlatform) so checking ES3.1 support will return true for SM4. I added it explicitly to be clear what we are doing.
+		return IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) || IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::ES3_1) || IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM4);
+	}
+
+	inline bool SupportsGPUParticles(ERHIFeatureLevel::Type FeatureLevel)
+	{
+		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel];
+		return RHISupportsComputeShaders(ShaderPlatform);
+	}
+
+	inline bool SupportsGPUParticles(EShaderPlatform ShaderPlatform)
+	{
+		return RHISupportsComputeShaders(ShaderPlatform);
+	}
 
 #if WITH_EDITORONLY_DATA
 	/**

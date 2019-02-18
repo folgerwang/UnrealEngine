@@ -980,7 +980,7 @@ void UNiagaraScript::BeginCacheForCookedPlatformData(const ITargetPlatform *Targ
 		for (int32 FormatIndex = 0; FormatIndex < DesiredShaderFormats.Num(); FormatIndex++)
 		{
 			const EShaderPlatform LegacyShaderPlatform = ShaderFormatToLegacyShaderPlatform(DesiredShaderFormats[FormatIndex]);
-			if (RHISupportsComputeShaders(LegacyShaderPlatform))
+			if (FNiagaraUtilities::SupportsGPUParticles(LegacyShaderPlatform))
 			{
 				CacheResourceShadersForCooking(LegacyShaderPlatform, CachedScriptResourcesForPlatform);
 			}
@@ -1070,12 +1070,9 @@ void UNiagaraScript::CacheResourceShadersForRendering(bool bRegenerateId, bool b
 
 			//if (ScriptResourcesByFeatureLevel[FeatureLevel])
 			{
-				EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[CacheFeatureLevel];
-				// SM4 is "in between" these feature levels but we do NOT support GPU particles in SM4. 
-				// So we can't use IsFeatureLevelSupported since SM4 will be seen as past ES3.1 and we do NOT support SM4 GPU particles.
-				// @todo-mattc This check should be rolled into RHISupportsComputeShaders.
-				if (GetMaxSupportedFeatureLevel(ShaderPlatform) == ERHIFeatureLevel::SM5 || GetMaxSupportedFeatureLevel(ShaderPlatform) == ERHIFeatureLevel::ES3_1)
+				if (FNiagaraUtilities::SupportsGPUParticles(CacheFeatureLevel))
 				{
+					EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[CacheFeatureLevel];
 					ResourceToCache = ScriptResourcesByFeatureLevel[CacheFeatureLevel];
 					CacheShadersForResources(ShaderPlatform, &ScriptResource, true);
 					ScriptResourcesByFeatureLevel[CacheFeatureLevel] = &ScriptResource;
