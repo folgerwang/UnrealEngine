@@ -87,16 +87,18 @@ void FSteamVRHMD::CopyTexture_RenderThread(FRHICommandListImmediate& RHICmdList,
 		{
 			TShaderMapRef<FScreenPSsRGBSource> PixelShader(ShaderMap);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 			PixelShader->SetParameters(RHICmdList, PixelSampler, SrcTexture);
 		}
 		else
 		{
 			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
 			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
+
+			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 			PixelShader->SetParameters(RHICmdList, PixelSampler, SrcTexture);
 		}
-
-		SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
 		RendererModule->DrawRectangle(
 			RHICmdList,
