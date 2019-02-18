@@ -49,34 +49,31 @@ static int32 SteamVRDevice_Impl::GetDeviceStringProperty(int32 DeviceIndex, int3
 {
 	int32 ErrorResult = -1;
 #if STEAMVR_SUPPORTED_PLATFORMS
-	if (FSteamVRHMD* SteamHMD = GetSteamHMD())
+	vr::IVRSystem* SteamVRSystem = vr::VRSystem();
+	if (SteamVRSystem)
 	{
-		vr::IVRSystem* SteamVRSystem = SteamHMD->GetVRSystem();
-		if (SteamVRSystem)
+		vr::ETrackedDeviceProperty SteamPropId = (vr::ETrackedDeviceProperty)PropertyId;
+
+		vr::TrackedPropertyError APIError;
+		TArray<char> Buffer;
+		Buffer.AddUninitialized(vr::k_unMaxPropertyStringSize);
+
+		int Size = SteamVRSystem->GetStringTrackedDeviceProperty(DeviceIndex, SteamPropId, Buffer.GetData(), Buffer.Num(), &APIError);
+		if (APIError == vr::TrackedProp_BufferTooSmall)
 		{
-			vr::ETrackedDeviceProperty SteamPropId = (vr::ETrackedDeviceProperty)PropertyId;
+			Buffer.AddUninitialized(Size - Buffer.Num());
+			Size = SteamVRSystem->GetStringTrackedDeviceProperty(DeviceIndex, SteamPropId, Buffer.GetData(), Buffer.Num(), &APIError);
+		}
 
-			vr::TrackedPropertyError APIError;
-			TArray<char> Buffer;
-			Buffer.AddUninitialized(vr::k_unMaxPropertyStringSize);
-
-			int Size = SteamVRSystem->GetStringTrackedDeviceProperty(DeviceIndex, SteamPropId, Buffer.GetData(), Buffer.Num(), &APIError);
-			if (APIError == vr::TrackedProp_BufferTooSmall)
-			{
-				Buffer.AddUninitialized(Size - Buffer.Num());
-				Size = SteamVRSystem->GetStringTrackedDeviceProperty(DeviceIndex, SteamPropId, Buffer.GetData(), Buffer.Num(), &APIError);
-			}
-
-			if (APIError == vr::TrackedProp_Success)
-			{
-				StringPropertyOut = UTF8_TO_TCHAR(Buffer.GetData());
-			}
-			else
-			{
-				StringPropertyOut = UTF8_TO_TCHAR(SteamVRSystem->GetPropErrorNameFromEnum(APIError));
-			}
-			ErrorResult = (int32)APIError;
-		}	
+		if (APIError == vr::TrackedProp_Success)
+		{
+			StringPropertyOut = UTF8_TO_TCHAR(Buffer.GetData());
+		}
+		else
+		{
+			StringPropertyOut = UTF8_TO_TCHAR(SteamVRSystem->GetPropErrorNameFromEnum(APIError));
+		}
+		ErrorResult = (int32)APIError;
 	}
 #endif 
 	return ErrorResult;
@@ -86,10 +83,7 @@ static vr::IVRRenderModels* SteamVRDevice_Impl::GetSteamVRModelManager()
 {
 	vr::IVRRenderModels* VRModelManager = nullptr;
 #if STEAMVR_SUPPORTED_PLATFORMS
-	if (FSteamVRHMD* SteamHMD = SteamVRDevice_Impl::GetSteamHMD())
-	{
-		VRModelManager = SteamHMD->GetRenderModelManager();
-	}
+	VRModelManager = vr::VRRenderModels();
 #endif
 	return VRModelManager;
 }
@@ -618,7 +612,7 @@ bool FSteamVRAssetManager::EnumerateRenderableDevices(TArray<int32>& DeviceListO
 
 #if STEAMVR_SUPPORTED_PLATFORMS
 	FSteamVRHMD* SteamHMD = SteamVRDevice_Impl::GetSteamHMD();
-	bHasActiveVRSystem = SteamHMD && SteamHMD->GetVRSystem();
+	bHasActiveVRSystem = SteamHMD && SteamHMD->IsInitialized();
 	
 	if (bHasActiveVRSystem)
 	{
@@ -642,8 +636,7 @@ int32 FSteamVRAssetManager::GetDeviceId(EControllerHand ControllerHand)
 	int32 DeviceIndexOut = INDEX_NONE;
 
 #if STEAMVR_SUPPORTED_PLATFORMS
-	FSteamVRHMD* SteamHMD = SteamVRDevice_Impl::GetSteamHMD();
-	vr::IVRSystem* SteamVRSystem = (SteamHMD) ? SteamHMD->GetVRSystem() : nullptr;
+	vr::IVRSystem* SteamVRSystem = vr::VRSystem();
 	if (SteamVRSystem)
 	{
 		vr::ETrackedDeviceClass DesiredDeviceClass = vr::ETrackedDeviceClass::TrackedDeviceClass_Invalid;
@@ -733,8 +726,7 @@ UPrimitiveComponent* FSteamVRAssetManager::CreateRenderComponent(const int32 Dev
 	FString ModelName;
 	if (SteamVRDevice_Impl::GetDeviceStringProperty(DeviceId, vr::Prop_RenderModelName_String, ModelName) == vr::TrackedProp_Success)
 	{
-		FSteamVRHMD* SteamHMD = SteamVRDevice_Impl::GetSteamHMD();
-		vr::IVRRenderModels* VRModelManager = (SteamHMD) ? SteamHMD->GetRenderModelManager() : nullptr;
+		vr::IVRRenderModels* VRModelManager = vr::VRRenderModels();
 
 		if (VRModelManager != nullptr)
 		{

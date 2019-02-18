@@ -56,11 +56,16 @@ public:
 	virtual vr::IVRSystem* GetVRSystem() const = 0;
 
 	/**
-	* Get the IVRInput* that was previously set by the HMD implemenentation.
+	* Get the IVRCompositor* that was previously set by the HMD implemenentation.
 	*
 	* @return The pointer if the HMD has been initialized, otherwise nullptr
 	*/
-	virtual vr::IVRInput* GetVRInput() const = 0;
+	virtual vr::IVRCompositor* GetVRCompositor() const = 0;
+
+	/**
+	 * Initializes the plugin, in case of VR system restart
+	 */
+	virtual bool Initialize() = 0;
 
 	/**
 	 * Resets the plugin, in case of early VR system shutdown

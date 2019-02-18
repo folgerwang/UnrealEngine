@@ -152,9 +152,9 @@ public:
 		return VRSystem;
 	}
 	
-	virtual vr::IVRInput* GetVRInput() const override
+	virtual vr::IVRCompositor* GetVRCompositor() const override
 	{
-		return vr::VRInput();
+		return VRCompositor;
 	}
 
 	bool LoadOpenVRModule()
@@ -653,7 +653,7 @@ bool FSteamVRHMD::GetCurrentPose(int32 DeviceId, FQuat& CurrentOrientation, FVec
 
 void FSteamVRHMD::UpdatePoses()
 {
-	if (VRSystem == nullptr)
+	if (!VRSystem || !VRCompositor)
 	{
 		return;
 	}
@@ -1571,12 +1571,10 @@ FSteamVRHMD::FSteamVRHMD(const FAutoRegister& AutoRegister, ISteamVRPlugin* InSt
 	bShouldCheckHMDPosition(false),
 	RendererModule(nullptr),
 	SteamVRPlugin(InSteamVRPlugin),
-	VRSystem(vr::VRSystem()),
-	VRCompositor(vr::VRCompositor()),
+	VRSystem(InSteamVRPlugin->GetVRSystem()),
+	VRCompositor(InSteamVRPlugin->GetVRCompositor()),
 	VROverlay(vr::VROverlay()),
-	VRChaperone(vr::VRChaperone()),
-	VRRenderModels(vr::VRRenderModels()),
-	VRInput(vr::VRInput())
+	VRChaperone(vr::VRChaperone())
 {
 	Startup();
 }
@@ -1588,7 +1586,7 @@ FSteamVRHMD::~FSteamVRHMD()
 
 bool FSteamVRHMD::IsInitialized() const
 {
-	return (VRSystem != nullptr);
+	return (VRSystem != nullptr) && (VRCompositor != nullptr);
 }
 
 bool FSteamVRHMD::Startup()
@@ -1597,8 +1595,17 @@ bool FSteamVRHMD::Startup()
 	static const FName RendererModuleName("Renderer");
 	RendererModule = FModuleManager::GetModulePtr<IRendererModule>(RendererModuleName);
 
-	ensure(VRSystem && VRCompositor);
-	if (VRSystem != nullptr && VRCompositor != nullptr)
+	// Re-initialize the plugin if we're canceling the shutdown
+	if (!IsInitialized())
+	{
+		SteamVRPlugin->Initialize();
+		VRSystem = SteamVRPlugin->GetVRSystem();
+		VRCompositor = SteamVRPlugin->GetVRCompositor();
+		VROverlay = vr::VROverlay();
+		VRChaperone = vr::VRChaperone();
+	}
+
+	if (ensure(IsInitialized()))
 	{
 		// grab info about the attached display
 		FString DriverId = GetFStringTrackedDeviceProperty(VRSystem, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
@@ -1717,9 +1724,7 @@ void FSteamVRHMD::Shutdown()
 		// shut down our headset
 		VRSystem = nullptr;
 		VRCompositor = nullptr;
-		VROverlay = nullptr;
 		VRChaperone = nullptr;
-		VRRenderModels = nullptr;
 
 		SteamVRPlugin->Reset();
 	}

@@ -529,7 +529,7 @@ public:
 #if STEAMVRCONTROLLER_SUPPORTED_PLATFORMS
 	void SendActionInputEvents()
 	{
-		vr::IVRInput* VRInput = GetVRInput();
+		vr::IVRInput* VRInput = vr::VRInput();
 
 		if (VRInput != nullptr)
 		{
@@ -855,16 +855,6 @@ public:
 
 	static ESteamVRTouchDPadMapping DefaultDPadMapping;
 private:
-
-	inline vr::IVRInput* GetVRInput() const
-	{
-		if (SteamVRPlugin == nullptr)
-		{
-			SteamVRPlugin = &FModuleManager::LoadModuleChecked<ISteamVRPlugin>(TEXT("SteamVR"));
-		}
-
-		return SteamVRPlugin->GetVRInput();
-	}
 
 	inline vr::IVRSystem* GetVRSystem() const
 	{
@@ -1306,7 +1296,7 @@ private:
 	{
 		vr::IVRInput* VRInput;
 
-		if (bEnableVRInput && (VRInput = GetVRInput()) != nullptr)
+		if (bEnableVRInput && (VRInput = vr::VRInput()) != nullptr)
 		{
 			Actions.Empty();
 			auto InputSettings = GetDefault<UInputSettings>();

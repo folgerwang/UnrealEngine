@@ -388,10 +388,6 @@ public:
 	/** @return	True if the API was initialized OK */
 	bool IsInitialized() const;
 
-	vr::IVRSystem* GetVRSystem() const { return VRSystem; }
-	vr::IVRInput* GetVRInput() const { return VRInput; }
-	vr::IVRRenderModels* GetRenderModelManager() const { return VRRenderModels; }
-
 protected:
 
 	virtual float GetWorldToMetersScale() const override;
@@ -590,8 +586,6 @@ private:
 	vr::IVRCompositor* VRCompositor;
 	vr::IVROverlay* VROverlay;
 	vr::IVRChaperone* VRChaperone;
-	vr::IVRRenderModels* VRRenderModels;
-	vr::IVRInput* VRInput;
 
 	FString DisplayId;
 
