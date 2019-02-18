@@ -1,6 +1,7 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved
 
 #include "IOSTargetPlatform.h"
+#include "IOSTargetDeviceOutput.h"
 #include "HAL/PlatformProcess.h"
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
@@ -13,98 +14,6 @@ struct FDeviceNotificationCallbackInformation
 	uint32 msgType;
 };
 
-class FDeviceSyslogRelay : public FRunnable
-{
-public:
-
-	FDeviceSyslogRelay(FString const& inDeviceID)
-	{
-		deviceID = inDeviceID;
-		Stopping = false;
-	}
-
-	virtual bool Init() override
-	{
-		return true;
-	}
-
-	virtual uint32 Run() override
-	{
-		// Tell DeploymentServer.exe to start collecting logs
-		FString ExecutablePath = FString::Printf(TEXT("%sBinaries/DotNET/IOS"), *FPaths::EngineDir());
-		FString Filename = TEXT("DeploymentServer.exe");
-
-		// Construct command line
-		FString CommandLine = FString::Printf(TEXT("listentodevice -device %s"), *deviceID);
-
-		// execute the command
-		void* WritePipe;
-		void* ReadPipe;
-		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
-		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*(ExecutablePath / Filename), *CommandLine, false, true, true, NULL, 0, *ExecutablePath, WritePipe);
-		FString	lastPartialLine;
-		while (FPlatformProcess::IsProcRunning(ProcessHandle) && !Stopping)
-		{
-			FString CurData = lastPartialLine + FPlatformProcess::ReadPipe(ReadPipe);
-			CurData.TrimStartInline();
-			if (CurData.Len() > 0)
-			{
-				// separate out each line
-				TArray<FString> LogLines;
-				CurData = CurData.Replace(TEXT("\r"), TEXT("\n"));
-
-				bool	endsWithNewline = CurData.EndsWith(TEXT("\n"));
-
-				CurData.ParseIntoArray(LogLines, TEXT("\n"), true);
-
-				for (int32 StringIndex = 0; StringIndex < LogLines.Num() - 1; ++StringIndex)
-				{
-					UE_LOG(LogIOS, Log, TEXT("%s"), *LogLines[StringIndex]);
-				}
-
-				if(endsWithNewline)
-				{
-					UE_LOG(LogIOS, Log, TEXT("%s"), *LogLines[LogLines.Num() - 1]);
-					lastPartialLine = "";
-				}
-				else
-				{
-					lastPartialLine = LogLines[LogLines.Num() - 1];
-				}
-			}
-			else
-			{
-				FPlatformProcess::Sleep(0.1);
-			}
-		}
-
-		FPlatformProcess::Sleep(0.25);
-		FString lastData = FPlatformProcess::ReadPipe(ReadPipe);
-		if (lastData.Len() > 0)
-		{
-			UE_LOG(LogIOS, Log, TEXT("%s"), *lastData);
-		}
-
-		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
-		FPlatformProcess::TerminateProc(ProcessHandle);
-
-		return 0;
-	}
-
-	virtual void Stop() override
-	{
-		Stopping = true;
-	}
-
-	virtual void Exit() override
-	{}
-
-
-private:
-	bool Stopping;
-	FString	deviceID;
-};
-
 class FIOSDevice
 {
 public:
@@ -112,29 +21,10 @@ public:
 		: UDID(InID)
 		, Name(InName)
     {
-		// BHP - Disabling the ios syslog relay because it depends on DeploymentServer running which makes it unwritable 
-		//	which causes problems when packaging because this library gets rebuilt but it can't overwrite it which
-		//	causes errors and other bad behavior - will probably need to move this functionality into its own dll
-		#if 1
-			syslogRelay = nullptr;
-			syslogRelayThread = nullptr;
-		#else
-			syslogRelay = new FDeviceSyslogRelay(InID);
-			syslogRelayThread = FRunnableThread::Create(syslogRelay, TEXT("FIOSDevice.syslogRelay"), 128 * 1024, TPri_Normal);
-		#endif
     }
     
 	~FIOSDevice()
 	{
-		if(syslogRelay != nullptr && syslogRelayThread != nullptr)
-		{
-			syslogRelay->Stop();
-			syslogRelayThread->WaitForCompletion();
-			delete syslogRelayThread;
-			delete syslogRelay;
-			syslogRelay = NULL;
-			syslogRelayThread = NULL;
-		}
 	}
 
 	FString SerialNumber() const
@@ -145,8 +35,6 @@ public:
 private:
     FString UDID;
 	FString Name;
-	FDeviceSyslogRelay*	syslogRelay;
-	FRunnableThread*	syslogRelayThread;
 };
 
 /**
@@ -177,7 +65,7 @@ public:
 			if (bCheckDevices)
 			{
 #if WITH_EDITOR
-				if (GIsEditor || FPlatformProperties::IsProgram())
+				if (!IsRunningCommandlet())
 				{
 					// BHP - Turning off device check to prevent it from interfering with packaging
 					QueryDevices();
@@ -210,67 +98,12 @@ public:
 	}
 
 private:
-	
-	bool ExecuteDSCommand(const FString& CommandLine, FString* OutStdOut, FString* OutStdErr) const
-	{
-		FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServer.exe"));
-		FString WorkingFoder = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/"));
-
-		// execute the command
-		int32 ReturnCode;
-		FString DefaultError;
-
-		// make sure there's a place for error output to go if the caller specified nullptr
-		if (!OutStdErr)
-		{
-			OutStdErr = &DefaultError;
-		}
-
-		void* WritePipe;
-		void* ReadPipe;
-		FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
-		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*DSFilename, *CommandLine, false, true, true, NULL, 0, *WorkingFoder, WritePipe);
-		while (FPlatformProcess::IsProcRunning(ProcessHandle))
-		{
-			FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
-			if (NewLine.Len() > 0)
-			{
-				// process the string to break it up in to lines
-				*OutStdOut += NewLine;
-			}
-
-			FPlatformProcess::Sleep(0.25);
-		}
-		FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
-		if (NewLine.Len() > 0)
-		{
-			// process the string to break it up in to lines
-			*OutStdOut += NewLine;
-		}
-
-		FPlatformProcess::Sleep(0.25);
-		FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
-
-		if (!FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode))
-		{
-			return false;
-		}
-
-		if (ReturnCode != 0)
-		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("The DeploymentServer command '%s' failed to run. Return code: %d, Error: %s\n"), *CommandLine, ReturnCode, **OutStdErr);
-
-			return false;
-		}
-
-		return true;
-	}
 
 	void QueryDevices()
 	{
 		FString StdOut;
 		// get the list of devices
-		if (!ExecuteDSCommand(TEXT("listdevices"), &StdOut, nullptr))
+		if (!FIOSTargetDeviceOutput::ExecuteDSCommand("listdevices", &StdOut))
 		{
 			return;
 		}

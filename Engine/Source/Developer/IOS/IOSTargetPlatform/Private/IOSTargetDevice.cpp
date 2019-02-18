@@ -8,7 +8,220 @@
 #include "MessageEndpoint.h"
 #include "MessageEndpointBuilder.h"
 #include "IOSTargetDeviceOutput.h"
+#if PLATFORM_WINDOWS
+// for windows mutex
+#include "Windows/AllowWindowsPlatformTypes.h"
+#endif // #if PLATFORM_WINDOWS
 
+enum
+{
+    DEFAULT_DS_COMMANDER_PORT = 41000, // default port to use when issuing DeploymentServer commands
+};
+
+FTcpDSCommander::FTcpDSCommander(const uint8* Data, int32 Count, void* WPipe)
+: bStopping(false)
+, bStoped(true)
+, bIsSuccess(false)
+, DSSocket(nullptr)
+, Thread(nullptr)
+, WritePipe(WPipe)
+, DSCommand(nullptr)
+, DSCommandLen(Count + 1)
+, LastActivity(0.0)
+{
+    if (Count > 0)
+    {
+        DSCommand = (uint8*)FMemory::Malloc(Count + 1);
+        FPlatformMemory::Memcpy(DSCommand, Data, Count);
+        DSCommand[Count] = '\n';
+        Thread = FRunnableThread::Create(this, TEXT("FTcpDSCommander"), 128 * 1024, TPri_Normal);
+    }
+}
+
+/** Virtual destructor. */
+FTcpDSCommander::~FTcpDSCommander()
+{
+    if (Thread != nullptr)
+    {
+        Thread->Kill(true);
+        delete Thread;
+    }
+    if (DSCommand)
+    {
+        FMemory::Free(DSCommand);
+    }
+}
+
+void FTcpDSCommander::Exit()
+{
+    // do nothing
+    bStoped = true;
+}
+
+bool FTcpDSCommander::Init()
+{
+    if (DSCommandLen < 1)
+    {
+        bIsSuccess = true;
+        return true;
+    }
+    // create the socket
+    ISocketSubsystem* SSS = ISocketSubsystem::Get();
+    DSSocket = SSS->CreateSocket(NAME_Stream, TEXT("DSCommander tcp"));
+    if (DSSocket == nullptr)
+    {
+        return false;
+    }
+    TSharedRef<FInternetAddr> Addr = SSS->CreateInternetAddr(0, DEFAULT_DS_COMMANDER_PORT);
+    bool bIsValid;
+    Addr->SetIp(TEXT("127.0.0.1"), bIsValid);
+    
+    
+    // try to connect to the server
+    if (DSSocket->Connect(*Addr) == false)
+    {
+        StartDSProcess();
+        if (DSSocket->Connect(*Addr) == false)
+        {
+            // on failure, shut it all down
+            SSS->DestroySocket(DSSocket);
+            DSSocket = nullptr;
+            UE_LOG(LogTemp, Error, TEXT("Failed to connect to deployment server at %s."), *Addr->ToString(true));
+            return false;
+        }
+    }
+    LastActivity = FPlatformTime::Seconds();
+    
+    return true;
+}
+
+uint32 FTcpDSCommander::Run()
+{
+    if (!DSSocket)
+    {
+        UE_LOG(LogTemp, Error, TEXT("Socket not created."));
+        return 1;
+    }
+    int32 NSent = 0;
+    bool BSent = DSSocket->Send(DSCommand, DSCommandLen, NSent);
+    if (NSent != DSCommandLen || !BSent)
+    {
+        Stop();
+        UE_LOG(LogTemp, Error, TEXT("Socket send error."));
+        return 1;
+    }
+    bStoped = false;
+    
+    static const SIZE_T CommandSize = 1024;
+    uint8 RecvBuffer[CommandSize];
+    
+    while (!bStopping)
+    {
+        uint32 Pending = 0;
+        if (DSSocket->GetConnectionState() != ESocketConnectionState::SCS_Connected)
+        {
+            Stop();
+            UE_LOG(LogTemp, Error, TEXT("Socket connection error."));
+            return 1;
+        }
+        if (DSSocket->HasPendingData(Pending))
+        {
+            NSent = 0;
+            FMemory::Memset(RecvBuffer, 0, CommandSize);
+            LastActivity = FPlatformTime::Seconds();
+            if (DSSocket->Recv(RecvBuffer, CommandSize, NSent))
+            {
+                FString Result = UTF8_TO_TCHAR(RecvBuffer);
+                TArray<FString> TagArray;
+                Result.ParseIntoArray(TagArray, TEXT("\n"), false);
+                int i;
+                for (i = 0; i < TagArray.Num() - 1; i++)
+                {
+                    if (TagArray[i].EndsWith(TEXT("CMDOK\r")))
+                    {
+                        bIsSuccess = true;
+                        UE_LOG(LogTemp, Log, TEXT("Socket command completed."));
+                        Stop();
+                        return 0;
+                    }
+                    else if (TagArray[i].StartsWith(TEXT("[DSDIR]")))
+                    {
+                        // just ignore the folder check
+                    }
+                    else if (TagArray[i].EndsWith(TEXT("CMDFAIL\r")))
+                    {
+                        Stop();
+                        UE_LOG(LogTemp, Error, TEXT("Socket command failed."));
+                        return 1;
+                    }
+                    else
+                    {
+                        FPlatformProcess::WritePipe(WritePipe, *TagArray[i]);
+                    }
+                }
+            }
+        }
+        double CurrentTime = FPlatformTime::Seconds();
+        if (CurrentTime - LastActivity > 10.0)
+        {
+            Stop();
+            return 1;
+        }
+        FPlatformProcess::Sleep(0.01f);
+    }
+    
+    return 0;
+}
+
+void FTcpDSCommander::Stop()
+{
+    if (DSSocket)
+    {
+        DSSocket->Close();
+        ISocketSubsystem::Get()->DestroySocket(DSSocket);
+    }
+    DSSocket = NULL;
+    
+    bStopping = true;
+}
+
+bool FTcpDSCommander::StartDSProcess()
+{
+    //bool bCreatedMutex = false;
+    //String MutexName = "Global\\DeploymentServer_Mutex_SERVERINSTANCE";
+    //Mutex DSBlockMutex = new Mutex(true, MutexName, out bCreatedMutex);
+    // is there a mutex we can use to connect test DS is running, also available on mac?
+    // there is also a failsafe mechanism for this, since the DeploymentServer will not start a new server if one is already running
+#if PLATFORM_WINDOWS
+    HANDLE mutex = CreateMutexA(NULL, TRUE, "Global\\DeploymentServer_Mutex_SERVERINSTANCE");
+    if (mutex == NULL)
+    {
+        // deployment server instance already runnning
+        return false;
+    }
+    CloseHandle(mutex);
+#endif // PLATFORM_WINDOWS
+    
+    FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServerLauncher.exe"));
+    FString WorkingFoder = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/"));
+    FString Params = "";
+    
+#if PLATFORM_MAC
+    // On Mac we launch UBT with Mono
+    FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
+    Params = FString::Printf(TEXT("\"%s\" \"%s\" %s"), *ScriptPath, *DSFilename, *Params);
+    DSFilename = TEXT("/bin/sh");
+#endif
+    UE_LOG(LogTemp, Warning, TEXT("DeploymentServer not running, Stating it!"));
+    FPlatformProcess::CreateProc(*DSFilename, *Params, true, true, true, NULL, 0, *WorkingFoder, (void*)nullptr);
+    FPlatformProcess::Sleep(1.0f);
+    
+    return true;
+}
+
+
+//**********************************************************************************************************************************************************
+//*
 FIOSTargetDevice::FIOSTargetDevice(const ITargetPlatform& InTargetPlatform)
 	: TargetPlatform(InTargetPlatform)
 	, DeviceEndpoint()
@@ -192,18 +405,9 @@ bool FIOSTargetDevice::GetUserCredentials(FString& OutUserName, FString& OutUser
 
 inline void FIOSTargetDevice::ExecuteConsoleCommand(const FString& ExecCommand) const
 {
-	FString DSFilename = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/DeploymentServer.exe"));
-	FString Params = FString::Printf(TEXT(" command -device %s -param \"%s\""), *DeviceId.GetDeviceName(), *ExecCommand);
-	FString WorkingFoder = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/IOS/"));
-
-#if PLATFORM_MAC
-	// On Mac we launch UBT with Mono
-	FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
-	Params = FString::Printf(TEXT("\"%s\" \"%s\" %s"), *ScriptPath, *DSFilename, *Params);
-	DSFilename = TEXT("/bin/sh");
-#endif
-
-	FPlatformProcess::CreateProc(*DSFilename, *Params, true, false, false, NULL, 0, *WorkingFoder, NULL);
+	FString StdOut;
+	FString Params = FString::Printf(TEXT("command -device %s -param \"%s\""), *DeviceId.GetDeviceName(), *ExecCommand);
+	FIOSTargetDeviceOutput::ExecuteDSCommand(TCHAR_TO_ANSI(*Params), &StdOut);
 }
 
 inline ITargetDeviceOutputPtr FIOSTargetDevice::CreateDeviceOutputRouter(FOutputDevice* Output) const
@@ -215,4 +419,41 @@ inline ITargetDeviceOutputPtr FIOSTargetDevice::CreateDeviceOutputRouter(FOutput
 	}
 
 	return nullptr;
+}
+
+bool FIOSTargetDeviceOutput::ExecuteDSCommand(const char *CommandLine, FString* OutStdOut)
+{
+	void* WritePipe;
+	void* ReadPipe;
+	FPlatformProcess::CreatePipe(ReadPipe, WritePipe);
+	FTcpDSCommander DSCommander((uint8*)CommandLine, strlen(CommandLine), WritePipe);
+	while (DSCommander.IsValid() && !DSCommander.IsStopped())
+	{
+		FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
+		if (NewLine.Len() > 0)
+		{
+			// process the string to break it up in to lines
+			*OutStdOut += NewLine;
+		}
+
+		FPlatformProcess::Sleep(0.25);
+	}
+	FString NewLine = FPlatformProcess::ReadPipe(ReadPipe);
+	if (NewLine.Len() > 0)
+	{
+		// process the string to break it up in to lines
+		*OutStdOut += NewLine;
+	}
+
+	FPlatformProcess::Sleep(0.25);
+	FPlatformProcess::ClosePipe(ReadPipe, WritePipe);
+
+	if (!DSCommander.WasSuccess())
+	{
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("The DeploymentServer command '%s' failed to run.\n"), ANSI_TO_TCHAR(CommandLine));
+
+		return false;
+	}
+
+	return true;
 }

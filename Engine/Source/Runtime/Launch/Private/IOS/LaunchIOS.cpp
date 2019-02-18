@@ -324,7 +324,8 @@ void FAppEntry::Init()
 
 	// start up the engine
 	GEngineLoop.Init();
-#ifndef UE_BUILD_SHIPPING
+#if !UE_BUILD_SHIPPING
+	UE_LOG(LogInit, Display, TEXT("Initializing TCPConsoleListener."));
 	if (ConsoleListener == nullptr)
 	{
 		FIPv4Endpoint ConsoleTCP(FIPv4Address::InternalLoopback, 8888); //TODO: @csulea read this from some .ini

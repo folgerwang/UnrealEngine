@@ -38,7 +38,6 @@ TcpConsoleListener::~TcpConsoleListener()
 
 bool TcpConsoleListener::HandleListenerConnectionAccepted(FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint)
 {
-	UE_LOG(LogTemp, Warning, TEXT("[UE4] Got new connection!\n"));
 	Connections.Add(ClientSocket);
 	
 	return true;
@@ -84,11 +83,6 @@ uint32 TcpConsoleListener::Run()
 				if (Connection->Recv(RecvBuffer, CommandSize, BytesRead))
 				{
 					UE_LOG(LogTemp, Warning, TEXT("[UE4] Got TCP console command size %i '%s'"), BytesRead, *FString(UTF8_TO_TCHAR(RecvBuffer)));
-					int i;
-					for (i = 0; i < BytesRead; i++)
-					{
-						UE_LOG(LogTemp, Warning, TEXT("[UE4] Buffer %i"), RecvBuffer[i]);
-					}
 					EnqueueConsoleCommand(RecvBuffer);
 				}
 				else

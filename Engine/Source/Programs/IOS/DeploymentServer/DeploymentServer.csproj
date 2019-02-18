@@ -95,10 +95,6 @@
       <Project>{B7C89A17-1CB7-42D7-B879-43297538C193}</Project>
       <Name>DeploymentInterface</Name>
     </ProjectReference>
-    <ProjectReference Include="..\DeploymentServerLauncher\DeploymentServerLauncher.csproj">
-      <Project>{0e71e8b6-849c-47c4-93b0-7e35971c6ac7}</Project>
-      <Name>DeploymentServerLauncher</Name>
-    </ProjectReference>
     <ProjectReference Include="..\MobileDeviceInterface\MobileDeviceInterface.csproj">
       <Project>{C28B2A4B-4083-423E-B6C0-48058C46AAFE}</Project>
       <Name>MobileDeviceInterface</Name>
@@ -106,7 +102,7 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PreBuildEvent>StopDeploymentServer.bat
+    <PreBuildEvent>
 </PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

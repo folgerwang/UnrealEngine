@@ -5,6 +5,8 @@
 #include "CoreMinimal.h"
 #include "IMessageContext.h"
 #include "Interfaces/ITargetDevice.h"
+#include "HAL/Runnable.h"
+#include "HAL/RunnableThread.h"
 
 class FMessageEndpoint;
 class ITargetPlatform;
@@ -18,6 +20,65 @@ typedef TSharedRef<class FIOSTargetDevice, ESPMode::ThreadSafe> FIOSTargetDevice
 
 /** Type definition for shared references to instances of FIOSTargetDeviceOutput. */
 typedef TSharedPtr<class FIOSTargetDeviceOutput, ESPMode::ThreadSafe> FIOSTargetDeviceOutputPtr;
+
+/**
+ * Handles the communication to the Deployment Server over TCP (will start the DeploymentServer if no instance is found running)
+ */
+class FTcpDSCommander : FRunnable
+{
+public:
+    
+    /**
+     * Creates and initializes a new instance.
+     *
+     */
+    FTcpDSCommander(const uint8* Data, int32 Count, void* WPipe);
+    
+    /** Virtual destructor. */
+    virtual ~FTcpDSCommander();
+    
+public:
+    
+    //~ FRunnable interface
+    
+    virtual void Exit() override;
+    virtual bool Init() override;
+    virtual uint32 Run() override;
+    virtual void Stop() override;
+    
+    inline bool IsValid()
+    {
+        return (Thread != nullptr);
+    }
+    inline bool IsStopped()
+    {
+        return bStoped;
+    }
+    inline bool WasSuccess()
+    {
+        return bIsSuccess;
+    }
+    
+private:
+    
+    inline bool StartDSProcess();
+    
+    /** For the thread */
+    bool bStopping;
+    bool bStoped;
+    bool bIsSuccess;
+    
+    /** */
+    class FSocket* DSSocket;
+    
+    /** Holds the thread object. */
+    FRunnableThread* Thread;
+    
+    void* WritePipe;
+    uint8* DSCommand;
+    int32 DSCommandLen;
+    double LastActivity;
+};
 
 /**
  * Implements an iOS target device.

@@ -245,7 +245,7 @@ namespace DeploymentServer
 				LastResult = true;
 				bCommandComplete = false;
 				bool bWaitForCompletion = ShouldWaitForCompletion(Command);
-				bNeedsResponse = !bWaitForCompletion;
+				bNeedsResponse = bWaitForCompletion;
 
 				runLoop = new System.Threading.Thread(delegate ()
 				{
@@ -334,10 +334,13 @@ namespace DeploymentServer
 											int Ret = targetDevice.TunnelData(Param1, TCPService);
 											targetDevice.CloseTunnel(TCPService);
 
-											Writer.WriteLine("[command] Sennt '{0}' bytes.", Ret);
+											Console.WriteLine("[UE4][command] Sent '{0}' bytes. ({1})", Ret, Param1);
+											Writer.WriteLine("[UE4][command] Sent '{0}' bytes. ({1})", Ret, Param1);
 										}
+										else
 										{
-											Writer.WriteLine("[command] Device '{0}' not detected.", Device);
+											Console.WriteLine("[UE4][command] Device '{0}' not detected. ({1})", Device, Param1);
+											Writer.WriteLine("[UE4][command] Device '{0}' not detected. ({1})", Device, Param1);
 										}
 									}
 									catch
@@ -929,7 +932,7 @@ namespace DeploymentServer
 					if (TcpClientInfo.NeedsVersionCheck(LocalCommand))
 					{
 
-						if (!Response.Equals("DIR" + GetDeploymentServerPath(), StringComparison.InvariantCultureIgnoreCase))
+						if (!Response.Equals("[DSDIR]" + GetDeploymentServerPath(), StringComparison.InvariantCultureIgnoreCase))
 						{
 							Console.WriteLine("Wrong server running, restarting the server ...");
 							clientOut.Write("stop");
@@ -1143,7 +1146,7 @@ namespace DeploymentServer
 
 					TextWriter Writer = new StreamWriter(ClStream);
 					
-					Writer.WriteLine("DIR" + TestStartPath);
+					Writer.WriteLine("[DSDIR]" + TestStartPath);
 					Writer.Flush();
 
 					Byte[] Buffer = new Byte[2048];
@@ -1155,7 +1158,6 @@ namespace DeploymentServer
 						//Console.WriteLine("Looping [{0}]", localID);
 						if (ClientInfo.HasCommand && !IsStopping)
 						{
-							//Console.WriteLine("Got command [{0}]", localID);
 							if (!IsRunningCommand && !ClientInfo.IsStillRunning)
 							{
 								ClientInfo.HasCommand = false;
@@ -1173,7 +1175,10 @@ namespace DeploymentServer
 								IsRunningCommand = false;
 								if (!ClientInfo.IsStillRunning)
 								{
-									Writer.WriteLine(ClientInfo.GetLastResult ? "\nCMDOK" : "\nCMDFAIL");
+									if (ClientInfo.NeedsResponse || !ClientInfo.GetLastResult)
+									{
+										Writer.WriteLine(ClientInfo.GetLastResult ? "\nCMDOK" : "\nCMDFAIL");
+									}
 									Writer.Flush();
 									ClStream.Flush();
 									break;
@@ -1227,13 +1232,6 @@ namespace DeploymentServer
 								Client.Client.Blocking = BlockingState;
 							}
 						}
-						else if (ClientInfo.NeedsResponse)
-						{
-							Writer.WriteLine("\nCMDOK");
-							Writer.Flush();
-							ClStream.Flush();
-							break;
-						}
 						if (IsStopping)
 						{
 							try
@@ -1285,6 +1283,13 @@ namespace DeploymentServer
 		static void ForceKillProcesses()
 		{
 			foreach (var process in Process.GetProcessesByName("DeploymentServer"))
+			{
+				if (process.Id != Process.GetCurrentProcess().Id)
+				{
+					process.Kill();
+				}
+			}
+			foreach (var process in Process.GetProcessesByName("DeploymentServerLauncher"))
 			{
 				if (process.Id != Process.GetCurrentProcess().Id)
 				{

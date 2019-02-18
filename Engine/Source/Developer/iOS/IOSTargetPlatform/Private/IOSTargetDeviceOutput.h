@@ -24,7 +24,7 @@ public:
 	virtual uint32 Run(void) override;
 
 private:
-	bool StartDSProcess(void);
+	bool StartDSCommander();
 
 private:
 	// > 0 if we've been asked to abort work in progress at the next opportunity
@@ -35,7 +35,7 @@ private:
 	
 	void*				DSReadPipe;
 	void*				DSWritePipe;
-	FProcHandle			DSProcHandle;
+	FTcpDSCommander*		DSCommander;
 };
 
 /**
@@ -45,6 +45,8 @@ class FIOSTargetDeviceOutput : public ITargetDeviceOutput
 {
 public:
 	bool Init(const FIOSTargetDevice& TargetDevice, FOutputDevice* Output);
+
+	static bool ExecuteDSCommand(const char *CommandLine, FString* OutStdOut);
 	
 private:
 	TUniquePtr<FRunnableThread>						DeviceOutputThread;

@@ -1425,9 +1425,10 @@ namespace Manzana
 			int Ret = 0;
 			try
 			{
+				Byte[] utf8Bytes = System.Text.Encoding.UTF8.GetBytes(Buffer);
 				int BufLength = Buffer.Length;
-				IntPtr intPtr_aux = Marshal.StringToHGlobalAnsi(Buffer);
-				Ret = MobileDevice.DeviceImpl.SocketSend(TCPService, intPtr_aux, BufLength);
+				Ret = TunnelBuffer(utf8Bytes, BufLength, TCPService);
+				Thread.Sleep(50);
 			}
 			catch (Exception e)
 			{

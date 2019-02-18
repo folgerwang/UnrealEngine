@@ -111,7 +111,9 @@ extern bool GShowSplashScreen;
 #endif
 	}
 }
+#endif
 
+#if !UE_BUILD_SHIPPING
 /**
  * Handles processing of an input console command
  */
@@ -127,7 +129,7 @@ extern bool GShowSplashScreen;
 			FPlatformString::CFStringToTCHAR((CFStringRef)ConsoleCommand, Ch.GetData());
 			new(GEngine->DeferredCommands) FString(Ch.GetData());
 		}
-
+#if !PLATFORM_TVOS
 		NSUInteger ExistingCommand = [self.ConsoleHistoryValues indexOfObjectPassingTest:
 			^ BOOL (id obj, NSUInteger idx, BOOL *stop)
 			{ 
@@ -146,6 +148,7 @@ extern bool GShowSplashScreen;
 		// save to local storage
 		[[NSUserDefaults standardUserDefaults] setObject:self.ConsoleHistoryValues forKey:@"ConsoleHistory"];
 		[[NSUserDefaults standardUserDefaults] synchronize];
+#endif
 	}
 }
 #endif
@@ -300,7 +303,7 @@ extern bool GShowSplashScreen;
 
 void EnqueueConsoleCommand(uint8 *Command)
 {
-#if !UE_BUILD_SHIPPING && !PLATFORM_TVOS
+#if !UE_BUILD_SHIPPING
 	if (!Command)
 	{
 		return;
