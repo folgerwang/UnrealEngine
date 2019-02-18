@@ -16,8 +16,6 @@
 
 class FPrimitiveSceneProxy;
 
-extern ENGINE_API bool GShowDebugSelectedLightmap;
-extern ENGINE_API class FLightMap2D* GDebugSelectedLightmap;
 extern bool GVisualizeMipLevels;
 
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FIndirectLightingCacheUniformParameters, )

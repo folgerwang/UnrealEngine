@@ -93,9 +93,6 @@ FAutoConsoleVariableRef CVarDumpMeshDrawCommandMemoryStats(
 	ECVF_Scalability | ECVF_RenderThreadSafe
 	);
 
-extern ENGINE_API FLightMap2D* GDebugSelectedLightmap;
-extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
-
 DECLARE_GPU_STAT_NAMED(CustomDepth, TEXT("Custom Depth"));
 
 static TAutoConsoleVariable<int32> CVarCustomDepthTemporalAAJitter(

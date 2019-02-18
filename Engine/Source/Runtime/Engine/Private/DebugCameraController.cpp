@@ -22,26 +22,15 @@
 #include "GameFramework/PlayerInput.h"
 #include "GameFramework/GameStateBase.h"
 
-/** The currently selected actor. */
-AActor* GDebugSelectedActor = NULL;
-/** The currently selected component in the actor. */
-ENGINE_API UPrimitiveComponent* GDebugSelectedComponent = NULL;
-/** The lightmap used by the currently selected component, if it's a static mesh component. */
-ENGINE_API FLightMap2D* GDebugSelectedLightmap = NULL;
-
-extern bool UntrackTexture( const FString& TextureName );
-extern bool TrackTexture( const FString& TextureName );
-
 static const float SPEED_SCALE_ADJUSTMENT = 0.5f;
-
 
 ADebugCameraController::ADebugCameraController(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	SelectedActor = NULL;
-	SelectedComponent = NULL;
-	OriginalControllerRef = NULL;
-	OriginalPlayer = NULL;
+	SelectedActor = nullptr;
+	SelectedComponent = nullptr;
+	OriginalControllerRef = nullptr;
+	OriginalPlayer = nullptr;
 
 	SpeedScale = 1.f;
 	InitialMaxSpeed = 0.f;
@@ -49,7 +38,7 @@ ADebugCameraController::ADebugCameraController(const FObjectInitializer& ObjectI
 	InitialDecel = 0.f;
 
 	bIsFrozenRendering = false;
-	DrawFrustum = NULL;
+	DrawFrustum = nullptr;
 	bHidden = false;
 #if WITH_EDITORONLY_DATA
 	bHiddenEd = false;
@@ -148,63 +137,20 @@ AActor* ADebugCameraController::GetSelectedActor() const
 
 void ADebugCameraController::Select( FHitResult const& Hit )
 {
-	// First untrack the currently tracked lightmap.
-	UTexture2D* Texture2D = GDebugSelectedLightmap ? GDebugSelectedLightmap->GetTexture(0) : NULL;
-	if ( Texture2D )
-	{
-		UntrackTexture( Texture2D->GetName() );
-	}
-
 	// store selection
-
 	SelectedActor = Hit.GetActor();
 	SelectedComponent = Hit.Component.Get();
-	GDebugSelectedActor = SelectedActor;
-	GDebugSelectedComponent = SelectedComponent;
-	
-	// figure out lightmap
-	GDebugSelectedLightmap = NULL;
-	UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>( SelectedComponent );
-	if ( StaticMeshComponent && StaticMeshComponent->LODData.Num() > 0 )
-	{
-		const FStaticMeshComponentLODInfo& LODInfo = StaticMeshComponent->LODData[0];
-		const FMeshMapBuildData* MeshMapBuildData = StaticMeshComponent->GetMeshMapBuildData(LODInfo);
-		if ( MeshMapBuildData && MeshMapBuildData->LightMap )
-		{
-			GDebugSelectedLightmap = MeshMapBuildData->LightMap->GetLightMap2D();
-			Texture2D = GDebugSelectedLightmap ? GDebugSelectedLightmap->GetTexture(0) : NULL;
-			if ( Texture2D )
-			{
-				extern bool TrackTexture( const FString& TextureName );
-				TrackTexture( Texture2D->GetName() );
-			}
-		}
-	}
-	
+
 	//BP Event
 	ReceiveOnActorSelected(SelectedActor, Hit.ImpactPoint, Hit.ImpactNormal, Hit);
 }
 
 
 void ADebugCameraController::Unselect()
-{
-	UTexture2D* Texture2D = GDebugSelectedLightmap ? GDebugSelectedLightmap->GetTexture(0) : NULL;
-	if ( Texture2D )
-	{
-		extern bool UntrackTexture( const FString& TextureName );
-		UntrackTexture( Texture2D->GetName() );
-	}
-	
-	SelectedActor = NULL;
-	SelectedComponent = NULL;
-	
-	GDebugSelectedActor = NULL;
-	GDebugSelectedComponent = NULL;
-	GDebugSelectedLightmap = NULL;
+{	
+	SelectedActor = nullptr;
+	SelectedComponent = nullptr;
 }
-
-
-
 
 FString ADebugCameraController::ConsoleCommand(const FString& Cmd,bool bWriteToLog)
 {
@@ -212,9 +158,9 @@ FString ADebugCameraController::ConsoleCommand(const FString& Cmd,bool bWriteToL
 	 * This is the same as PlayerController::ConsoleCommand(), except with some extra code to 
 	 * give our regular PC a crack at handling the command.
 	 */
-	if (Player != NULL)
+	if (Player != nullptr)
 	{
-		UConsole* ViewportConsole = (GEngine->GameViewport != NULL) ? GEngine->GameViewport->ViewportConsole : NULL;
+		UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
 		FConsoleOutputDevice StrOut(ViewportConsole);
 	
 		const int32 CmdLen = Cmd.Len();
@@ -238,10 +184,10 @@ FString ADebugCameraController::ConsoleCommand(const FString& Cmd,bool bWriteToL
 
 		// Free temp arrays
 		FMemory::Free(CommandBuffer);
-		CommandBuffer=NULL;
+		CommandBuffer = nullptr;
 
 		FMemory::Free(Line);
-		Line=NULL;
+		Line = nullptr;
 
 		if (!bWriteToLog)
 		{
@@ -254,7 +200,7 @@ FString ADebugCameraController::ConsoleCommand(const FString& Cmd,bool bWriteToL
 
 void ADebugCameraController::UpdateHiddenComponents(const FVector& ViewLocation,TSet<FPrimitiveComponentId>& HiddenComponentsOut)
 {
-	if (OriginalControllerRef != NULL)
+	if (OriginalControllerRef != nullptr)
 	{
 		OriginalControllerRef->UpdateHiddenComponents(ViewLocation, HiddenComponentsOut);
 	}
@@ -262,10 +208,10 @@ void ADebugCameraController::UpdateHiddenComponents(const FVector& ViewLocation,
 
 ASpectatorPawn* ADebugCameraController::SpawnSpectatorPawn()
 {
-	ASpectatorPawn* SpawnedSpectator = NULL;
+	ASpectatorPawn* SpawnedSpectator = nullptr;
 
 	// Only spawned for the local player
-	if (GetSpectatorPawn() == NULL && IsLocalController())
+	if (GetSpectatorPawn() == nullptr && IsLocalController())
 	{
 		AGameStateBase const* const GameState = GetWorld()->GetGameState();
 		if (GameState)
@@ -298,7 +244,7 @@ ASpectatorPawn* ADebugCameraController::SpawnSpectatorPawn()
 		}
 	}
 
-	return SpawnedSpectator != NULL ? SpawnedSpectator : Super::SpawnSpectatorPawn();
+	return SpawnedSpectator != nullptr ? SpawnedSpectator : Super::SpawnSpectatorPawn();
 }
 
 void ADebugCameraController::SetSpectatorPawn(ASpectatorPawn* NewSpectatorPawn)
@@ -330,11 +276,8 @@ void ADebugCameraController::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	GDebugSelectedLightmap = nullptr;
-	GDebugSelectedActor = nullptr; 
-	
 	// if hud is existing, delete it and create new hud for debug camera
-	if ( MyHUD != NULL )
+	if ( MyHUD != nullptr )
 	{
 		MyHUD->Destroy();
 	}
@@ -371,7 +314,7 @@ void ADebugCameraController::OnActivate( APlayerController* OriginalPC )
 	}
 
 	// draw frustum of original camera (where you detached)
-	if (DrawFrustum == NULL)
+	if (DrawFrustum == nullptr)
 	{
 		DrawFrustum = NewObject<UDrawFrustumComponent>(OriginalPC->PlayerCameraManager);
 	}
@@ -406,8 +349,6 @@ void ADebugCameraController::AddCheats(bool bForce)
 #endif
 }
 
-
-
 void ADebugCameraController::OnDeactivate( APlayerController* RestoredPC )
 {
 	// restore FreezeRendering command state
@@ -423,8 +364,8 @@ void ADebugCameraController::OnDeactivate( APlayerController* RestoredPC )
 	RestoredPC->SetActorHiddenInGame(true);
 	RestoredPC->PlayerCameraManager->SetActorHiddenInGame(true);
 
-	OriginalControllerRef = NULL;
-	OriginalPlayer = NULL;
+	OriginalControllerRef = nullptr;
+	OriginalPlayer = nullptr;
 
 	ChangeState(NAME_Inactive);
 	GetWorld()->RemoveController(this);
@@ -432,7 +373,6 @@ void ADebugCameraController::OnDeactivate( APlayerController* RestoredPC )
 	//BP Event
 	ReceiveOnDeactivate(RestoredPC);
 }
-
 
 void ADebugCameraController::ToggleFreezeRendering()
 {
@@ -515,5 +455,3 @@ void ADebugCameraController::ToggleDisplay()
 		MyHUD->ShowHUD();
 	}
 }
-
-

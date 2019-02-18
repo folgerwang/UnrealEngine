@@ -593,7 +593,7 @@ void UCheatManager::EnableDebugCamera()
 void UCheatManager::DisableDebugCamera()
 {
 	ADebugCameraController* const DCC = Cast<ADebugCameraController>(GetOuter());
-	if (DCC)
+	if (DCC && DCC->OriginalPlayer && DCC->OriginalControllerRef)
 	{
 		DCC->OriginalPlayer->SwitchController(DCC->OriginalControllerRef);
 		DCC->OnDeactivate(DCC->OriginalControllerRef);

@@ -277,11 +277,6 @@ void FEngineModule::ShutdownModule()
 */
 ENGINE_API UEngine*	GEngine = NULL;
 
-/**
-* Whether to visualize the light map selected by the Debug Camera.
-*/
-ENGINE_API bool GShowDebugSelectedLightmap = false;
-
 int32 GShowMaterialDrawEvents = 0;
 
 #if WANTS_DRAW_MESH_EVENTS
@@ -1448,8 +1443,6 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 		GConfig->GetBool(TEXT("/Script/Engine.Engine"), TEXT("bEnableOnScreenDebugMessages"), bTemp, GEngineIni);
 		bEnableOnScreenDebugMessages = bTemp ? true : false;
 		bEnableOnScreenDebugMessagesDisplay = bEnableOnScreenDebugMessages;
-
-		GConfig->GetBool(TEXT("DevOptions.Debug"), TEXT("ShowSelectedLightmap"), GShowDebugSelectedLightmap, GEngineIni);
 	}
 
 	// Update Script Maximum loop iteration count
@@ -3890,10 +3883,6 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		return HandleFreezeRenderingCommand( Cmd, Ar, InWorld );
 	}
-	else if (FParse::Command(&Cmd, TEXT("ShowSelectedLightmap")))
-	{
-		return HandleShowSelectedLightmapCommand( Cmd, Ar );
-	}
 	else if( FParse::Command(&Cmd,TEXT("SHOWLOG")) )
 	{
 		return HandleShowLogCommand( Cmd, Ar );
@@ -4504,14 +4493,6 @@ bool UEngine::HandleFreezeRenderingCommand( const TCHAR* Cmd, FOutputDevice& Ar,
 
 	ToggleFreezeFoliageCulling();
 
-	return true;
-}
-
-bool UEngine::HandleShowSelectedLightmapCommand( const TCHAR* Cmd, FOutputDevice& Ar )
-{
-	GShowDebugSelectedLightmap = !GShowDebugSelectedLightmap;
-	GConfig->SetBool(TEXT("DevOptions.Debug"), TEXT("ShowSelectedLightmap"), GShowDebugSelectedLightmap, GEngineIni);
-	Ar.Logf( TEXT( "Showing the selected lightmap: %s" ), GShowDebugSelectedLightmap ? TEXT("true") : TEXT("false") );
 	return true;
 }
 

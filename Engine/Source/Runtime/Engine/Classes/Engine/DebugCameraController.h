@@ -28,15 +28,15 @@ class ENGINE_API ADebugCameraController
 	UPROPERTY(globalconfig)
 	uint32 bShowSelectedInfo:1;
 
-	/** @todo document */
+	/** Saves whether the FreezeRendering console command is active */
 	UPROPERTY()
 	uint32 bIsFrozenRendering:1;
 
-	/** @todo document */
+	/** Visualizes the frustum of the camera */
 	UPROPERTY()
 	class UDrawFrustumComponent* DrawFrustum;
 	
-	/** @todo document */
+	/** Sets whether to show information about the selected actor on the debug camera HUD.t */
 	UFUNCTION(exec)
 	virtual void ShowDebugSelectedInfo();
 
@@ -46,16 +46,16 @@ class ENGINE_API ADebugCameraController
 	/** Called when the user pressed the deselect key, just before the selected actor is cleared. */
 	void Unselect();
 
-	/** @todo document */
+	/** Speeds up camera movement */
 	void IncreaseCameraSpeed();
 
-	/** @todo document */
+	/** Slows down camera movement */
 	void DecreaseCameraSpeed();
 
-	/** @todo document */
+	/** Increases camera field of vision */
 	void IncreaseFOV();
 
-	/** @todo document */
+	/** Decreases camera field of vision */
 	void DecreaseFOV();
 
 	/** Toggles the display of debug info and input commands for the Debug Camera. */
@@ -70,19 +70,24 @@ class ENGINE_API ADebugCameraController
 
 public:
 
-	/** @todo document */
+	/** Currently selected actor, may be invalid */
+	UPROPERTY()
 	class AActor* SelectedActor;
 
+	/** Returns the currently selected actor, or null if it is invalid or not set */
 	UFUNCTION(BlueprintCallable, Category="Debug Camera")
 	AActor* GetSelectedActor() const;
 	
-	/** @todo document */
+	/** Currently selected component, may be invalid */
+	UPROPERTY()
 	class UPrimitiveComponent* SelectedComponent;
 
-	/** @todo document */
+	/** Controller that was active before this was spawned */
+	UPROPERTY()	
 	class APlayerController* OriginalControllerRef;
 
-	/** @todo document */
+	/** Player object that was active before this was spawned */
+	UPROPERTY()	
 	class UPlayer* OriginalPlayer;
 
 	/** Allows control over the speed of the spectator pawn. This scales the speed based on the InitialMaxSpeed. Use Set Pawn Movement Speed Scale during runtime */

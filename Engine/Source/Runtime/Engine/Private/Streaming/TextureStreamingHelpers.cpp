@@ -313,9 +313,6 @@ void FTextureStreamingSettings::Update()
     }
 }
 
-
-extern ENGINE_API UPrimitiveComponent* GDebugSelectedComponent;
-
 /** the float table {-1.0f,1.0f} **/
 float ENGINE_API GNegativeOneOneTable[2] = {-1.0f,1.0f};
 

@@ -52,7 +52,7 @@ void AVisualLoggerCameraController::PostInitializeComponents()
 	Super::PostInitializeComponents();
 
 	// if hud is existing, delete it and create new hud for debug camera
-	if ( MyHUD != NULL )
+	if ( MyHUD != nullptr )
 	{
 		MyHUD->Destroy();
 	}
@@ -71,10 +71,10 @@ void AVisualLoggerCameraController::PostInitializeComponents()
 AVisualLoggerCameraController* AVisualLoggerCameraController::EnableCamera(UWorld* InWorld)
 {
 	APlayerController* PC = UGameplayStatics::GetPlayerController(InWorld, 0);
-	if (PC == NULL || PC->Player == NULL || PC->IsLocalPlayerController() == false
-		|| PC->GetWorld() == NULL)
+	if (PC == nullptr || PC->Player == nullptr || PC->IsLocalPlayerController() == false
+		|| PC->GetWorld() == nullptr)
 	{
-		return NULL;
+		return nullptr;
 	}
 	
 	if (Instance.IsValid() == false)
@@ -108,7 +108,7 @@ AVisualLoggerCameraController* AVisualLoggerCameraController::EnableCamera(UWorl
 		return Instance.Get();
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 void AVisualLoggerCameraController::DisableCamera(UWorld* InWorld)
@@ -117,7 +117,7 @@ void AVisualLoggerCameraController::DisableCamera(UWorld* InWorld)
 	for (FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
 		AVisualLoggerCameraController* VLogCam = Cast<AVisualLoggerCameraController>(Iterator->Get());
-		if (VLogCam && VLogCam->OriginalPlayer)
+		if (VLogCam && VLogCam->OriginalPlayer && VLogCam->OriginalControllerRef)
 		{
 			VLogCam->OriginalPlayer->SwitchController(VLogCam->OriginalControllerRef);
 			VLogCam->OnDeactivate(VLogCam->OriginalControllerRef);
@@ -129,7 +129,7 @@ void AVisualLoggerCameraController::DisableCamera(UWorld* InWorld)
 
 bool AVisualLoggerCameraController::IsEnabled(UWorld* InWorld)
 {
-	if (InWorld != NULL)
+	if (InWorld != nullptr)
 	{
 		for (FConstPlayerControllerIterator Iterator = InWorld->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
