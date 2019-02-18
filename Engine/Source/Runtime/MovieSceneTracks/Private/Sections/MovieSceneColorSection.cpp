@@ -5,6 +5,7 @@
 #include "UObject/SequencerObjectVersion.h"
 #include "Channels/MovieSceneChannelProxy.h"
 #include "Styling/SlateColor.h"
+#include "Evaluation/MovieScenePropertyTemplate.h"
 
 #if WITH_EDITOR
 struct FColorSectionEditorData
@@ -34,6 +35,11 @@ struct FColorSectionEditorData
 		ExternalValues[1].OnGetExternalValue = ExtractChannelG;
 		ExternalValues[2].OnGetExternalValue = ExtractChannelB;
 		ExternalValues[3].OnGetExternalValue = ExtractChannelA;
+		ExternalValues[0].OnGetCurrentValueAndWeight = GetChannelRValueAndWeight;
+		ExternalValues[1].OnGetCurrentValueAndWeight = GetChannelGValueAndWeight;
+		ExternalValues[2].OnGetCurrentValueAndWeight = GetChannelBValueAndWeight;
+		ExternalValues[3].OnGetCurrentValueAndWeight = GetChannelAValueAndWeight;
+
 	}
 
 	static FLinearColor GetPropertyValue(UObject& InObject, FTrackInstancePropertyBindings& Bindings)
@@ -76,6 +82,70 @@ struct FColorSectionEditorData
 	static TOptional<float> ExtractChannelA(UObject& InObject, FTrackInstancePropertyBindings* Bindings)
 	{
 		return Bindings ? GetPropertyValue(InObject, *Bindings).A : TOptional<float>();
+	}
+
+	static void GetChannelRValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float OutWeight)
+	{
+		GetChannelValueAndWeight(0, Object, SectionToKey, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetChannelGValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float OutWeight)
+	{
+		GetChannelValueAndWeight(1, Object, SectionToKey, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetChannelBValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float OutWeight)
+	{
+		GetChannelValueAndWeight(2, Object, SectionToKey, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+	static void GetChannelAValueAndWeight(UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float OutWeight)
+	{
+		GetChannelValueAndWeight(3, Object, SectionToKey, KeyTime, TickResolution, RootTemplate, OutValue, OutWeight);
+	}
+
+	static void GetChannelValueAndWeight(int32 Index, UObject* Object, UMovieSceneSection*  SectionToKey, FFrameNumber KeyTime, FFrameRate TickResolution, FMovieSceneRootEvaluationTemplateInstance& RootTemplate,
+		float& OutValue, float& OutWeight)
+	{
+		OutValue = 0.0f;
+		OutWeight = 1.0f;
+
+		UMovieSceneTrack* Track = SectionToKey->GetTypedOuter<UMovieSceneTrack>();
+
+		if (Track)
+		{
+			FMovieSceneEvaluationTrack EvalTrack = Track->GenerateTrackTemplate();
+			FMovieSceneInterrogationData InterrogationData;
+			RootTemplate.CopyActuators(InterrogationData.GetAccumulator());
+
+			FMovieSceneContext Context(FMovieSceneEvaluationRange(KeyTime, TickResolution));
+			EvalTrack.Interrogate(Context, InterrogationData, Object);
+
+			FLinearColor Val(0.0f, 0.0f, 0.0f, 0.0f);
+			for (const FLinearColor& InColor : InterrogationData.Iterate<FLinearColor>(FMovieScenePropertySectionTemplate::GetColorInterrogationKey()))
+			{
+				Val = InColor;
+				break;
+			}
+			switch (Index)
+			{
+			case 0:
+				OutValue = Val.R;
+				break;
+			case 1:
+				OutValue = Val.G;
+				break;
+			case 2:
+				OutValue = Val.B;
+				break;
+			case 3:
+				OutValue = Val.A;
+				break;
+			}
+			
+		}
+		OutWeight = MovieSceneHelpers::CalculateWeightForBlending(SectionToKey, KeyTime);
 	}
 
 	FMovieSceneChannelMetaData      MetaData[4];

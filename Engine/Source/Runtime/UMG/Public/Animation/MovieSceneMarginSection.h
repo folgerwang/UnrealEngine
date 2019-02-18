@@ -21,7 +21,7 @@ class UMovieSceneMarginSection
 {
 	GENERATED_UCLASS_BODY()
 public:
-	const static FMovieSceneInterrogationKey GetMarginInterrogationKey();
+	UMG_API const static FMovieSceneInterrogationKey GetMarginInterrogationKey();
 
 public:
 

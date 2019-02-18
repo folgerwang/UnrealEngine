@@ -241,6 +241,7 @@ public:
 	const static FMovieSceneInterrogationKey GetVector4InterrogationKey();
 	const static FMovieSceneInterrogationKey GetVectorInterrogationKey();
 	const static FMovieSceneInterrogationKey GetVector2DInterrogationKey();
+	const static FMovieSceneInterrogationKey GetColorInterrogationKey();
 
 protected:
 

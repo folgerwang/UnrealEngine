@@ -65,3 +65,9 @@ const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetVector2
 	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
 	return TypeID;
 }
+
+const FMovieSceneInterrogationKey FMovieScenePropertySectionTemplate::GetColorInterrogationKey()
+{
+	const static FMovieSceneAnimTypeID TypeID = FMovieSceneAnimTypeID::Unique();
+	return TypeID;
+}

@@ -16,34 +16,6 @@
 
 DECLARE_CYCLE_STAT(TEXT("Color Track Token Execute"), MovieSceneEval_ColorTrack_TokenExecute, STATGROUP_MovieSceneEval);
 
-/** Access the unique runtime type identifier for a widget transform. */
-template<> FMovieSceneAnimTypeID GetBlendingDataType<FLinearColor>()
-{
-	static FMovieSceneAnimTypeID TypeId = FMovieSceneAnimTypeID::Unique();
-	return TypeId;
-}
-
-/** Inform the blending accumulator to use a 7 channel float to blend margins */
-template<> struct TBlendableTokenTraits<FLinearColor>
-{
-	typedef MovieScene::TMaskedBlendable<float, 4> WorkingDataType;
-};
-
-namespace MovieScene
-{
-	/** Convert a color into a 4 channel float */
-	inline void MultiChannelFromData(const FLinearColor& In, TMultiChannelValue<float, 4>& Out)
-	{
-		Out = { In.R, In.G, In.B, In.A };
-	}
-
-	/** Convert a 4 channel float into a color */
-	inline void ResolveChannelsToData(const TMultiChannelValue<float, 4>& In, FLinearColor& Out)
-	{
-		Out = FLinearColor(In[0], In[1], In[2], In[3]);
-	}
-}
-
 enum class EColorType : uint8
 {
 	/** FSlateColor */
@@ -228,6 +200,12 @@ struct FColorTokenActuator : TMovieSceneBlendingActuator<FLinearColor>
 			FColorToken(InFinalValue).Apply(*InObject, PropertyBindings);
 		}
 	}
+	virtual void Actuate(FMovieSceneInterrogationData& InterrogationData, typename TCallTraits<FLinearColor>::ParamType InValue, const TBlendableTokenStack<FLinearColor>& OriginalStack, const FMovieSceneContext& Context) const
+	{
+		FLinearColor Value = InValue;
+		InterrogationData.Add(Value, FMovieScenePropertySectionTemplate::GetColorInterrogationKey());
+	};
+
 };
 
 FMovieSceneColorSectionTemplate::FMovieSceneColorSectionTemplate(const UMovieSceneColorSection& Section, const UMovieSceneColorTrack& Track)
@@ -270,5 +248,37 @@ void FMovieSceneColorSectionTemplate::Evaluate(const FMovieSceneEvaluationOperan
 
 		const float Weight = EvaluateEasing(Time);
 		ExecutionTokens.BlendToken(ActuatorTypeID, TBlendableToken<FLinearColor>(AnimationData, BlendType, Weight));
+	}
+}
+
+void FMovieSceneColorSectionTemplate::Interrogate(const FMovieSceneContext& Context, FMovieSceneInterrogationData& Container, UObject* BindingOverride) const
+{
+	const FFrameTime Time = Context.GetTime();
+	MovieScene::TMultiChannelValue<float, 4> AnimationData;
+
+	for (uint8 Index = 0; Index < 4; ++Index)
+	{
+		float ChannelValue = 0.f;
+		if (Curves[Index].Evaluate(Time, ChannelValue))
+		{
+			AnimationData.Set(Index, ChannelValue);
+		}
+	}
+
+
+	FMovieSceneAnimTypeID TypeID = GetPropertyTypeID();
+	static FMovieSceneBlendingActuatorID ActuatorTypeID(TypeID);
+	if (!Container.GetAccumulator().FindActuator<FLinearColor>(ActuatorTypeID))
+	{
+		PropertyTemplate::FSectionData SectionData;
+		SectionData.Initialize(PropertyData.PropertyName, PropertyData.PropertyPath, PropertyData.FunctionName, PropertyData.NotifyFunctionName);
+		Container.GetAccumulator().DefineActuator(ActuatorTypeID, MakeShared<TPropertyActuator<FLinearColor>>(SectionData));
+	}
+
+	if (!AnimationData.IsEmpty())
+	{
+		// Add the blendable to the accumulator
+		float Weight = EvaluateEasing(Context.GetTime());
+		Container.GetAccumulator().BlendToken(FMovieSceneEvaluationOperand(), ActuatorTypeID, FMovieSceneEvaluationScope(), Context, TBlendableToken<FLinearColor>(AnimationData, BlendType, Weight));
 	}
 }

@@ -122,7 +122,7 @@ protected:
 
 	void UpdateChannelProxy();
 public:
-	const static FMovieSceneInterrogationKey GetWidgetTransformInterrogationKey();
+	UMG_API const static FMovieSceneInterrogationKey GetWidgetTransformInterrogationKey();
 
 public:
 
