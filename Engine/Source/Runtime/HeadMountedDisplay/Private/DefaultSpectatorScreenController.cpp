@@ -110,18 +110,17 @@ void FDefaultSpectatorScreenController::SetSpectatorScreenTextureRenderCommand(U
 	}
 
 	// setting the texture must be done on the thread that's executing RHI commandlists.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetSpectatorScreenTexture,
-		FDefaultSpectatorScreenController*, SpectatorScreenController, this,
-		FTexture2DRHIRef, Texture, Texture2DRHIRef,
+	FDefaultSpectatorScreenController* SpectatorScreenController = this;
+	ENQUEUE_RENDER_COMMAND(SetSpectatorScreenTexture)(
+		[SpectatorScreenController, Texture2DRHIRef](FRHICommandListImmediate& RHICmdList)
 		{
 			if (RHICmdList.Bypass())
 			{
-				FRHISetSpectatorScreenTexture Command(SpectatorScreenController, Texture);
+				FRHISetSpectatorScreenTexture Command(SpectatorScreenController, Texture2DRHIRef);
 				Command.Execute(RHICmdList);
 				return;
 			}
-			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenTexture)(SpectatorScreenController, Texture);
+			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenTexture)(SpectatorScreenController, Texture2DRHIRef);
 		}
 	);
 }
@@ -154,18 +153,17 @@ void FDefaultSpectatorScreenController::SetSpectatorScreenModeTexturePlusEyeLayo
 	check(IsInGameThread());
 
 	// setting the layout must be done on the thread that's executing RHI commandlists.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetSpectatorScreenTexture,
-		FDefaultSpectatorScreenController*, SpectatorScreenController, this,
-		FSpectatorScreenModeTexturePlusEyeLayout, Layout, NewLayout,
+	FDefaultSpectatorScreenController* SpectatorScreenController = this;
+	ENQUEUE_RENDER_COMMAND(SetSpectatorScreenTexture)(
+		[SpectatorScreenController, NewLayout](FRHICommandListImmediate& RHICmdList)
 		{
 			if (RHICmdList.Bypass())
 			{
-				FRHISetSpectatorScreenModeTexturePlusEyeLayout Command(SpectatorScreenController, Layout);
+				FRHISetSpectatorScreenModeTexturePlusEyeLayout Command(SpectatorScreenController, NewLayout);
 				Command.Execute(RHICmdList);
 				return;
 			}
-			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenModeTexturePlusEyeLayout)(SpectatorScreenController, Layout);
+			ALLOC_COMMAND_CL(RHICmdList, FRHISetSpectatorScreenModeTexturePlusEyeLayout)(SpectatorScreenController, NewLayout);
 		}
 	);
 }

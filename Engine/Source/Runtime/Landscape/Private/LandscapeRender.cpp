@@ -3674,10 +3674,10 @@ IMPLEMENT_VERTEX_FACTORY_TYPE(FLandscapeVertexFactory, "/Engine/Private/Landscap
 void FLandscapeVertexFactory::Copy(const FLandscapeVertexFactory& Other)
 {
 	//SetSceneProxy(Other.Proxy());
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FLandscapeVertexFactoryCopyData,
-		FLandscapeVertexFactory*, VertexFactory, this,
-		const FDataType*, DataCopy, &Other.Data,
+	FLandscapeVertexFactory* VertexFactory = this;
+	const FDataType* DataCopy = &Other.Data;
+	ENQUEUE_RENDER_COMMAND(FLandscapeVertexFactoryCopyData)(
+		[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
 		{
 			VertexFactory->Data = *DataCopy;
 		});

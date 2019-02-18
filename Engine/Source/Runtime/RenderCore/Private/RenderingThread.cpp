@@ -543,46 +543,42 @@ struct FConsoleRenderThreadPropagation : public IConsoleThreadPropagation
 {
 	virtual void OnCVarChange(int32& Dest, int32 NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange1,
-			int32&, Dest, Dest,
-			int32, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		int32* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange1)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 	
 	virtual void OnCVarChange(float& Dest, float NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange2,
-			float&, Dest, Dest,
-			float, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		float* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange2)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 
 	virtual void OnCVarChange(bool& Dest, bool NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange2,
-			bool&, Dest, Dest,
-			bool, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		bool* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange2)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 	
 	virtual void OnCVarChange(FString& Dest, const FString& NewValue)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			OnCVarChange3,
-			FString&, Dest, Dest,
-			const FString&, NewValue, NewValue,
-		{
-			Dest = NewValue;
-		});
+		FString* DestPtr = &Dest;
+		ENQUEUE_RENDER_COMMAND(OnCVarChange3)(
+			[DestPtr, NewValue](FRHICommandListImmediate& RHICmdList)
+			{
+				*DestPtr = NewValue;
+			});
 	}
 
 	static FConsoleRenderThreadPropagation& GetSingleton()

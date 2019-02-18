@@ -129,11 +129,11 @@ void UWebBrowserTexture::TickResource(TSharedPtr<FWebBrowserTextureSample, ESPMo
 		RenderParams.SampleSource = SampleQueue;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(UWebBrowserTextureResourceRender,
-		FWebBrowserTextureResource*, ResourceParam, (FWebBrowserTextureResource*)Resource,
-		FWebBrowserTextureResource::FRenderParams, RenderParamsParam, RenderParams,
+	FWebBrowserTextureResource* ResourceParam = (FWebBrowserTextureResource*)Resource;
+	ENQUEUE_RENDER_COMMAND(UWebBrowserTextureResourceRender)(
+		[ResourceParam, RenderParams](FRHICommandListImmediate& RHICmdList)
 		{
-			ResourceParam->Render(RenderParamsParam);
+			ResourceParam->Render(RenderParams);
 		});
 }
 
@@ -144,8 +144,9 @@ void UWebBrowserTexture::UnregisterPlayerGuid()
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UWebBrowserTextureUnregisterPlayerGuid,
-		FGuid, PlayerGuid, WebPlayerGuid,
+	FGuid PlayerGuid = WebPlayerGuid;
+	ENQUEUE_RENDER_COMMAND(UWebBrowserTextureUnregisterPlayerGuid)(
+		[PlayerGuid](FRHICommandListImmediate& RHICmdList)
 		{
 			FExternalTextureRegistry::Get().UnregisterExternalTexture(PlayerGuid);
 		});

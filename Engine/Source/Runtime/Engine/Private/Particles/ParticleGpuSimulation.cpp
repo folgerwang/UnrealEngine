@@ -4553,35 +4553,33 @@ void FFXSystem::ReleaseGPUResources()
 
 void FFXSystem::AddGPUSimulation(FParticleSimulationGPU* Simulation)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FAddGPUSimulationCommand,
-		FFXSystem*, FXSystem, this,
-		FParticleSimulationGPU*, Simulation, Simulation,
-	{
-		if (Simulation->SimulationIndex == INDEX_NONE)
+	FFXSystem* FXSystem = this;
+	ENQUEUE_RENDER_COMMAND(FAddGPUSimulationCommand)(
+		[FXSystem, Simulation](FRHICommandListImmediate& RHICmdList)
 		{
-			FSparseArrayAllocationInfo Allocation = FXSystem->GPUSimulations.AddUninitialized();
-			Simulation->SimulationIndex = Allocation.Index;
-			FXSystem->GPUSimulations[Allocation.Index] = Simulation;
-		}
-		check(FXSystem->GPUSimulations[Simulation->SimulationIndex] == Simulation);
-	});
+			if (Simulation->SimulationIndex == INDEX_NONE)
+			{
+				FSparseArrayAllocationInfo Allocation = FXSystem->GPUSimulations.AddUninitialized();
+				Simulation->SimulationIndex = Allocation.Index;
+				FXSystem->GPUSimulations[Allocation.Index] = Simulation;
+			}
+			check(FXSystem->GPUSimulations[Simulation->SimulationIndex] == Simulation);
+		});
 }
 
 void FFXSystem::RemoveGPUSimulation(FParticleSimulationGPU* Simulation)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FRemoveGPUSimulationCommand,
-		FFXSystem*, FXSystem, this,
-		FParticleSimulationGPU*, Simulation, Simulation,
-	{
-		if (Simulation->SimulationIndex != INDEX_NONE)
+	FFXSystem* FXSystem = this;
+	ENQUEUE_RENDER_COMMAND(FRemoveGPUSimulationCommand)(
+		[FXSystem, Simulation](FRHICommandListImmediate& RHICmdList)
 		{
-			check(FXSystem->GPUSimulations[Simulation->SimulationIndex] == Simulation);
-			FXSystem->GPUSimulations.RemoveAt(Simulation->SimulationIndex);
-		}
-		Simulation->SimulationIndex = INDEX_NONE;
-	});
+			if (Simulation->SimulationIndex != INDEX_NONE)
+			{
+				check(FXSystem->GPUSimulations[Simulation->SimulationIndex] == Simulation);
+				FXSystem->GPUSimulations.RemoveAt(Simulation->SimulationIndex);
+			}
+			Simulation->SimulationIndex = INDEX_NONE;
+		});
 }
 
 int32 FFXSystem::AddSortedGPUSimulation(FParticleSimulationGPU* Simulation, const FVector& ViewOrigin)

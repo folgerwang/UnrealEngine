@@ -2122,13 +2122,12 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 		// Otherwise we need to send a command to move just this volume
 		else if (!bWorldShift) 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 				ApplyWorldOffset_PLV,
- 				FPrecomputedLightVolume*, InPrecomputedLightVolume, PrecomputedLightVolume,
- 				FVector, InWorldOffset, InWorldOffset,
- 			{
-				InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
- 			});
+			FPrecomputedLightVolume* InPrecomputedLightVolume = PrecomputedLightVolume;
+			ENQUEUE_RENDER_COMMAND(ApplyWorldOffset_PLV)(
+				[InPrecomputedLightVolume, InWorldOffset](FRHICommandListImmediate& RHICmdList)
+	 			{
+					InPrecomputedLightVolume->ApplyWorldOffset(InWorldOffset);
+ 				});
 		}
 	}
 
@@ -2149,13 +2148,12 @@ void ULevel::ApplyWorldOffset(const FVector& InWorldOffset, bool bWorldShift)
 		// Otherwise we need to send a command to move just this volume
 		else if (!bWorldShift) 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
- 				ApplyWorldOffset_PLV,
- 				FPrecomputedVolumetricLightmap*, InPrecomputedVolumetricLightmap, PrecomputedVolumetricLightmap,
- 				FVector, InWorldOffset, InWorldOffset,
- 			{
-				InPrecomputedVolumetricLightmap->ApplyWorldOffset(InWorldOffset);
- 			});
+			FPrecomputedVolumetricLightmap* InPrecomputedVolumetricLightmap = PrecomputedVolumetricLightmap;
+			ENQUEUE_RENDER_COMMAND(ApplyWorldOffset_PLV)(
+				[InPrecomputedVolumetricLightmap, InWorldOffset](FRHICommandListImmediate& RHICmdList)
+	 			{
+					InPrecomputedVolumetricLightmap->ApplyWorldOffset(InWorldOffset);
+ 				});
 		}
 	}
 

@@ -281,16 +281,16 @@ bool FAndroidMediaPlayerStreamer::StartNextMovie()
 
 		uint32 FrameBytes = VideoDimensions.X * VideoDimensions.Y * GPixelFormats[PF_B8G8R8A8].BlockBytes;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(InitMovieTexture,
-			FSlateTexture2DRHIRef*, TextureRHIRef, Texture.Get(),
-			uint32, Bytes, FrameBytes,
+		FSlateTexture2DRHIRef* TextureRHIRef = Texture.Get();
+		ENQUEUE_RENDER_COMMAND(InitMovieTexture)(
+			[TextureRHIRef, FrameBytes](FRHICommandListImmediate& RHICmdList)
 			{
 				TextureRHIRef->InitResource();
 	
 				// clear texture to black
 				uint32 Stride = 0;
 				void* TextureBuffer = RHILockTexture2D(TextureRHIRef->GetTypedResource(), 0, RLM_WriteOnly, Stride, false);
-				FMemory::Memset(TextureBuffer, 0, Bytes);
+				FMemory::Memset(TextureBuffer, 0, FrameBytes);
 				RHIUnlockTexture2D(TextureRHIRef->GetTypedResource(), 0, false);
 			});
 

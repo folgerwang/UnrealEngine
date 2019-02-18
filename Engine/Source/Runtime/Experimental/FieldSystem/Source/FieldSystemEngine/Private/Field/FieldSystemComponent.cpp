@@ -44,9 +44,9 @@ void UFieldSystemComponent::CreateRenderState_Concurrent()
 		InitSampleData(SampleData);
 
 		// Enqueue command to send to render thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(FSendFieldSystemData,
-			FFieldSystemSceneProxy*, FieldSystemSceneProxy, (FFieldSystemSceneProxy*)SceneProxy,
-			FFieldSystemSampleData*, SampleData, SampleData,
+		FFieldSystemSceneProxy* FieldSystemSceneProxy = (FFieldSystemSceneProxy*)SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FSendFieldSystemData)(
+			[FieldSystemSceneProxy, SampleData](FRHICommandListImmediate& RHICmdList)
 			{
 				//FieldSystemSceneProxy->SetSampleData_RenderThread(SampleData);
 			});
@@ -103,9 +103,9 @@ void UFieldSystemComponent::SendRenderDynamicData_Concurrent()
 			InitSampleData(SampleData);
 
 			// Enqueue command to send to render thread
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(FSendFieldSystemData,
-				FFieldSystemSceneProxy*, FieldSystemSceneProxy, (FFieldSystemSceneProxy*)SceneProxy,
-				FFieldSystemSampleData*, SampleData, SampleData,
+			FFieldSystemSceneProxy* FieldSystemSceneProxy = (FFieldSystemSceneProxy*)SceneProxy;
+			ENQUEUE_RENDER_COMMAND(FSendFieldSystemData)(
+				[FieldSystemSceneProxy, SampleData](FRHICommandListImmediate& RHICmdList)
 				{
 					//FieldSystemSceneProxy->SetSampleData_RenderThread(SampleData);
 				});

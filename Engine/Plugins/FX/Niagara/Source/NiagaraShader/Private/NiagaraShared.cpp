@@ -328,11 +328,10 @@ bool FNiagaraShaderScript::CacheShaders(const FNiagaraShaderMapId& ShaderMapId, 
 		bSucceeded = true;
 	}
 
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FSetShaderMapOnScriptResources,
-		FNiagaraShaderScript*, Script, this,
-		FNiagaraShaderMap*, LoadedShaderMap, GameThreadShaderMap,
+	FNiagaraShaderScript* Script = this;
+	FNiagaraShaderMap* LoadedShaderMap = GameThreadShaderMap;
+	ENQUEUE_RENDER_COMMAND(FSetShaderMapOnScriptResources)(
+		[Script, LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
 		{
 			Script->SetRenderingThreadShaderMap(LoadedShaderMap);
 		});

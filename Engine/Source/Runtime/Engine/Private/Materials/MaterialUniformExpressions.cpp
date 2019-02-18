@@ -605,12 +605,12 @@ void FMaterialUniformExpressionTexture::Serialize(FArchive& Ar)
 void FMaterialUniformExpressionTexture::SetTransientOverrideTextureValue( UTexture* InOverrideTexture )
 {
 	TransientOverrideValue_GameThread = InOverrideTexture;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(SetTransientOverrideTextureValueCommand,
-											   FMaterialUniformExpressionTexture*, ExpressionTexture, this,
-											   UTexture*, InOverrideTexture, InOverrideTexture,
-											   {
-												   ExpressionTexture->TransientOverrideValue_RenderThread = InOverrideTexture;
-											   });
+	FMaterialUniformExpressionTexture* ExpressionTexture = this;
+	ENQUEUE_RENDER_COMMAND(SetTransientOverrideTextureValueCommand)(
+		[ExpressionTexture, InOverrideTexture](FRHICommandListImmediate& RHICmdList)
+		{
+			ExpressionTexture->TransientOverrideValue_RenderThread = InOverrideTexture;
+		});
 }
 
 void FMaterialUniformExpressionTexture::GetTextureValue(const FMaterialRenderContext& Context,const FMaterial& Material,const UTexture*& OutValue,ESamplerSourceMode& OutSamplerSource) const

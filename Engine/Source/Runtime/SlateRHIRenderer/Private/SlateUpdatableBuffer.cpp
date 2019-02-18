@@ -65,14 +65,14 @@ void FSlateUpdatableInstanceBuffer::UpdateRenderingData(int32 NumInstancesToUse)
 	NumInstances = NumInstancesToUse;
 	if (NumInstances > 0)
 	{
-		
 		// Enqueue a command to unlock the draw buffer after all windows have been drawn
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER( SlateBeginDrawingWindowsCommand, 
-			FSlateUpdatableInstanceBuffer&, Self, *this,
-			int32, BufferIndex, FreeBufferIndex,
-		{
-			Self.UpdateRenderingData_RenderThread(RHICmdList, BufferIndex);
-		});
+		FSlateUpdatableInstanceBuffer* Self = this;
+		int32 BufferIndex = FreeBufferIndex;
+		ENQUEUE_RENDER_COMMAND(SlateBeginDrawingWindowsCommand)(
+			[Self, BufferIndex](FRHICommandListImmediate& RHICmdList)
+			{
+				Self->UpdateRenderingData_RenderThread(RHICmdList, BufferIndex);
+			});
 	
 		FreeBufferIndex = (FreeBufferIndex + 1) % SlateRHIConstants::NumBuffers;
 	}

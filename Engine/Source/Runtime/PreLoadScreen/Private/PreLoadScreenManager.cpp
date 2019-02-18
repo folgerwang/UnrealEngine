@@ -328,10 +328,8 @@ void FPreLoadScreenManager::EarlyPlayRenderFrameTick()
         float SlateDeltaTime = SlateApp.GetDeltaTime();
 
         //Setup Slate Render Command
-        ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-            BeginPreLoadScreenFrame,
-            IPreLoadScreen*, ActivePreLoadScreen, ActivePreLoadScreen,
-            float, SlateDeltaTime, SlateDeltaTime,
+        ENQUEUE_RENDER_COMMAND(BeginPreLoadScreenFrame)(
+			[ActivePreLoadScreen, SlateDeltaTime](FRHICommandListImmediate& RHICmdList)
             {
                 if (FPreLoadScreenManager::ShouldRender())
                 {

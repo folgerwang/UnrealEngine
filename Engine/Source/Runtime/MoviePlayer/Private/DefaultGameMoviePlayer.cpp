@@ -488,15 +488,14 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish(bool bAllowEngineTick)
 					GEngine->Tick(DeltaTime, false);
 				}
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-					BeginLoadingMovieFrameAndTickMovieStreamer,
-					FDefaultGameMoviePlayer*, MoviePlayer, this,
-					float, DeltaTime, DeltaTime,
+				FDefaultGameMoviePlayer* InMoviePlayer = this;
+				ENQUEUE_RENDER_COMMAND(BeginLoadingMovieFrameAndTickMovieStreamer)(
+					[InMoviePlayer, DeltaTime](FRHICommandListImmediate& RHICmdList)
 					{
 						GFrameNumberRenderThread++;
 						GRHICommandList.GetImmediateCommandList().BeginFrame();
 				
-						MoviePlayer->TickStreamer(DeltaTime);
+						InMoviePlayer->TickStreamer(DeltaTime);
 					}
 				);
 				

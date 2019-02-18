@@ -50,13 +50,13 @@ public:
 	/** Copy the data from another vertex factory */
 	void Copy(const FSplineMeshVertexFactory& Other)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSplineMeshVertexFactoryCopyData,
-			FSplineMeshVertexFactory*, VertexFactory, this,
-			const FDataType*, DataCopy, &Other.Data,
+		FSplineMeshVertexFactory* VertexFactory = this;
+		const FDataType* DataCopy = &Other.Data;
+		ENQUEUE_RENDER_COMMAND(FSplineMeshVertexFactoryCopyData)(
+			[VertexFactory, DataCopy](FRHICommandListImmediate& RHICmdList)
 			{
-			VertexFactory->Data = *DataCopy;
-		});
+				VertexFactory->Data = *DataCopy;
+			});
 		BeginUpdateResourceRHI(this);
 	}
 

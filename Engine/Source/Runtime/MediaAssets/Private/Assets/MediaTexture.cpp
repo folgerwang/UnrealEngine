@@ -329,11 +329,11 @@ void UMediaTexture::TickResource(FTimespan Timecode)
 	RenderParams.SrgbOutput = SRGB;
 
 	// redraw texture resource on render thread
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(MediaTextureResourceRender,
-		FMediaTextureResource*, ResourceParam, (FMediaTextureResource*)Resource,
-		FMediaTextureResource::FRenderParams, RenderParamsParam, RenderParams,
+	FMediaTextureResource* ResourceParam = (FMediaTextureResource*)Resource;
+	ENQUEUE_RENDER_COMMAND(MediaTextureResourceRender)(
+		[ResourceParam, RenderParams](FRHICommandListImmediate& RHICmdList)
 		{
-			ResourceParam->Render(RenderParamsParam);
+			ResourceParam->Render(RenderParams);
 		});
 }
 

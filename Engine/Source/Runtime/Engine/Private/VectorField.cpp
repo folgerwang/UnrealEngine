@@ -239,25 +239,24 @@ public:
 		UpdateParams.VolumeData = NULL;
 		InVectorField->SourceData.GetCopy(&UpdateParams.VolumeData, /*bDiscardInternalCopy=*/ true);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FUpdateStaticVectorFieldCommand,
-			FVectorFieldStaticResource*, Resource, this,
-			FUpdateParams, UpdateParams, UpdateParams,
-		{
-				// Free any existing volume data on the resource.
-				FMemory::Free(Resource->VolumeData);
+		FVectorFieldStaticResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(FUpdateStaticVectorFieldCommand)(
+			[Resource, UpdateParams](FRHICommandListImmediate& RHICmdList)
+			{
+					// Free any existing volume data on the resource.
+					FMemory::Free(Resource->VolumeData);
 
-				// Update settings on this resource.
-				Resource->SizeX = UpdateParams.SizeX;
-				Resource->SizeY = UpdateParams.SizeY;
-				Resource->SizeZ = UpdateParams.SizeZ;
-				Resource->Intensity = UpdateParams.Intensity;
-				Resource->LocalBounds = UpdateParams.Bounds;
-				Resource->VolumeData = UpdateParams.VolumeData;
+					// Update settings on this resource.
+					Resource->SizeX = UpdateParams.SizeX;
+					Resource->SizeY = UpdateParams.SizeY;
+					Resource->SizeZ = UpdateParams.SizeZ;
+					Resource->Intensity = UpdateParams.Intensity;
+					Resource->LocalBounds = UpdateParams.Bounds;
+					Resource->VolumeData = UpdateParams.VolumeData;
 
-				// Update RHI resources.
-				Resource->UpdateRHI();
-		});
+					// Update RHI resources.
+					Resource->UpdateRHI();
+			});
 	}
 
 private:

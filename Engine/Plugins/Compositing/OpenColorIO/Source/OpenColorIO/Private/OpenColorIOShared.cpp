@@ -316,10 +316,10 @@ bool FOpenColorIOTransformResource::CacheShaders(const FOpenColorIOShaderMapId& 
 		bSucceeded = true;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FSetShaderMapOnColorSpaceTransformResources,
-		FOpenColorIOTransformResource*, ColorSpaceTransform, this,
-		FOpenColorIOShaderMap*, LoadedShaderMap, GameThreadShaderMap,
+	FOpenColorIOTransformResource* ColorSpaceTransform = this;
+	FOpenColorIOShaderMap* LoadedShaderMap = GameThreadShaderMap;
+	ENQUEUE_RENDER_COMMAND(FSetShaderMapOnColorSpaceTransformResources)(
+		[ColorSpaceTransform, LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
 		{
 			ColorSpaceTransform->SetRenderingThreadShaderMap(LoadedShaderMap);
 		});

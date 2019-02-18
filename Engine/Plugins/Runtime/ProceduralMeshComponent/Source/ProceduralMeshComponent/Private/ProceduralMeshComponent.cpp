@@ -571,10 +571,9 @@ void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArra
 			SectionData->NewVertexBuffer = Section.ProcVertexBuffer;
 
 			// Enqueue command to send to render thread
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FProcMeshSectionUpdate,
-				FProceduralMeshSceneProxy*, ProcMeshSceneProxy, (FProceduralMeshSceneProxy*)SceneProxy,
-				FProcMeshSectionUpdateData*, SectionData, SectionData,
+			FProceduralMeshSceneProxy* ProcMeshSceneProxy = (FProceduralMeshSceneProxy*)SceneProxy;
+			ENQUEUE_RENDER_COMMAND(FProcMeshSectionUpdate)(
+				[ProcMeshSceneProxy, SectionData](FRHICommandListImmediate& RHICmdList)
 				{
 					ProcMeshSceneProxy->UpdateSection_RenderThread(SectionData);
 				}

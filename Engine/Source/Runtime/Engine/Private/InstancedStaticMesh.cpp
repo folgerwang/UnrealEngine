@@ -672,10 +672,10 @@ void FPerInstanceRenderData::UpdateFromPreallocatedData(FStaticMeshInstanceData&
 
 	typedef TSharedPtr<FStaticMeshInstanceData, ESPMode::ThreadSafe> FStaticMeshInstanceDataPtr;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FInstanceBuffer_UpdateFromPreallocatedData,
-		FStaticMeshInstanceDataPtr, InInstanceBufferDataPtr, InstanceBuffer_GameThread,
-		FStaticMeshInstanceBuffer*, InInstanceBuffer, &InstanceBuffer,
+	FStaticMeshInstanceDataPtr InInstanceBufferDataPtr = InstanceBuffer_GameThread;
+	FStaticMeshInstanceBuffer* InInstanceBuffer = &InstanceBuffer;
+	ENQUEUE_RENDER_COMMAND(FInstanceBuffer_UpdateFromPreallocatedData)(
+		[InInstanceBufferDataPtr, InInstanceBuffer](FRHICommandListImmediate& RHICmdList)
 		{
 			InInstanceBuffer->InstanceData = InInstanceBufferDataPtr;
 			InInstanceBuffer->UpdateRHI();

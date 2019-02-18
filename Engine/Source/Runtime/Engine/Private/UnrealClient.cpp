@@ -1247,14 +1247,12 @@ void FViewport::HighResScreenshot()
 		ForceLODVar->Set(OldForceLOD, ECVF_SetByCode);
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		EndDrawingCommand,
-		FViewport*,Viewport,DummyViewport,
-		FIntPoint,InRestoreSize,RestoreSize,
-	{
-		Viewport->EndRenderFrame(RHICmdList, false, false);
-		GetRendererModule().SceneRenderTargetsSetBufferSize(InRestoreSize.X, InRestoreSize.Y);
-	});
+	ENQUEUE_RENDER_COMMAND(EndDrawingCommand)(
+		[DummyViewport, RestoreSize](FRHICommandListImmediate& RHICmdList)
+		{
+			DummyViewport->EndRenderFrame(RHICmdList, false, false);
+			GetRendererModule().SceneRenderTargetsSetBufferSize(RestoreSize.X, RestoreSize.Y);
+		});
 
 	BeginReleaseResource(DummyViewport);
 	FlushRenderingCommands();

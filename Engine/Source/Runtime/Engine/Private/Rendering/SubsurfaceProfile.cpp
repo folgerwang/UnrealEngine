@@ -383,12 +383,12 @@ void USubsurfaceProfile::BeginDestroy()
 
 void USubsurfaceProfile::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdateSubsurfaceProfile,
-		const FSubsurfaceProfileStruct, Settings, this->Settings,
-		USubsurfaceProfile*, Profile, this,
-	{
-		// any changes to the setting require an update of the texture
-		GSubsurfaceProfileTextureObject.UpdateProfile(Settings, Profile);
-	});
+	const FSubsurfaceProfileStruct SettingsLocal = this->Settings;
+	USubsurfaceProfile* Profile = this;
+	ENQUEUE_RENDER_COMMAND(UpdateSubsurfaceProfile)(
+		[SettingsLocal, Profile](FRHICommandListImmediate& RHICmdList)
+		{
+			// any changes to the setting require an update of the texture
+			GSubsurfaceProfileTextureObject.UpdateProfile(SettingsLocal, Profile);
+		});
 }

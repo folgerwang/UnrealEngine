@@ -122,7 +122,8 @@ SIZE_T FNiagaraSceneProxy::GetTypeHash() const
 	static size_t UniquePointer;
 	return reinterpret_cast<size_t>(&UniquePointer);
 }
-void FNiagaraSceneProxy::UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers)
+
+void FNiagaraSceneProxy::UpdateEmitterRenderers(const TArray<NiagaraRenderer*>& InRenderers)
 {
 	EmitterRenderers.Empty();
 	for (NiagaraRenderer* EmitterRenderer : InRenderers)
@@ -816,20 +817,18 @@ void UNiagaraComponent::SendRenderDynamicData_Concurrent()
 					if (bRendererEditorEnabled && !Emitter->IsComplete() && !SystemInstance->IsComplete())
 					{
 						FNiagaraDynamicDataBase* DynamicData = Renderer->GenerateVertexData(NiagaraProxy, Emitter->GetData(), Emitter->GetEmitterHandle().GetInstance()->SimTarget);
-
-						ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-							FSendNiagaraDynamicData,
-							NiagaraRenderer*, EmitterRenderer, Emitter->GetEmitterRenderer(EmitterIdx),
-							FNiagaraDynamicDataBase*, DynamicData, DynamicData,
+						NiagaraRenderer* EmitterRenderer = Emitter->GetEmitterRenderer(EmitterIdx);
+						ENQUEUE_RENDER_COMMAND(FSendNiagaraDynamicData)(
+							[EmitterRenderer, DynamicData](FRHICommandListImmediate& RHICmdList)
 							{
 								EmitterRenderer->SetDynamicData_RenderThread(DynamicData);
 							});
 					}
 					else
 					{
-						ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-							FSendNiagaraDynamicData,
-							NiagaraRenderer*, EmitterRenderer, Emitter->GetEmitterRenderer(EmitterIdx),
+						NiagaraRenderer* EmitterRenderer = Emitter->GetEmitterRenderer(EmitterIdx);
+						ENQUEUE_RENDER_COMMAND(FSendNiagaraDynamicData)(
+							[EmitterRenderer](FRHICommandListImmediate& RHICmdList)
 							{
 								EmitterRenderer->SetDynamicData_RenderThread(nullptr);
 							});

@@ -1659,10 +1659,10 @@ void FScene::AddLight(ULightComponent* Light)
 		++NumVisibleLights_GameThread;
 
 		// Send a command to the rendering thread to add the light to the scene.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FAddLightCommand,
-			FScene*,Scene,this,
-			FLightSceneInfo*,LightSceneInfo,Proxy->LightSceneInfo,
+		FScene* Scene = this;
+		FLightSceneInfo* LightSceneInfo = Proxy->LightSceneInfo;
+		ENQUEUE_RENDER_COMMAND(FAddLightCommand)(
+			[Scene, LightSceneInfo](FRHICommandListImmediate& RHICmdList)
 			{
 				FScopeCycleCounter Context(LightSceneInfo->Proxy->GetStatId());
 				Scene->AddLightSceneInfo_RenderThread(LightSceneInfo);
@@ -1689,14 +1689,14 @@ void FScene::AddInvisibleLight(ULightComponent* Light)
 		INC_DWORD_STAT(STAT_SceneLights);
 
 		// Send a command to the rendering thread to add the light to the scene.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FAddLightCommand,
-			FScene*,Scene,this,
-			FLightSceneInfo*,LightSceneInfo,Proxy->LightSceneInfo,
-		{
-			FScopeCycleCounter Context(LightSceneInfo->Proxy->GetStatId());
-			LightSceneInfo->Id = Scene->InvisibleLights.Add(FLightSceneInfoCompact(LightSceneInfo));
-		});
+		FScene* Scene = this;
+		FLightSceneInfo* LightSceneInfo = Proxy->LightSceneInfo;
+		ENQUEUE_RENDER_COMMAND(FAddLightCommand)(
+			[Scene, LightSceneInfo](FRHICommandListImmediate& RHICmdList)
+			{
+				FScopeCycleCounter Context(LightSceneInfo->Proxy->GetStatId());
+				LightSceneInfo->Id = Scene->InvisibleLights.Add(FLightSceneInfoCompact(LightSceneInfo));
+			});
 	}
 }
 
@@ -1709,23 +1709,23 @@ void FScene::SetSkyLight(FSkyLightSceneProxy* LightProxy)
 
 	ENQUEUE_RENDER_COMMAND(FSetSkyLightCommand)
 		([Scene, LightProxy](FRHICommandListImmediate& RHICmdList)
-	{
-		check(!Scene->SkyLightStack.Contains(LightProxy));
-		Scene->SkyLightStack.Push(LightProxy);
-		const bool bOriginalHadSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
-
-		// Use the most recently enabled skylight
-		Scene->SkyLight = LightProxy;
-
-		const bool bNewHasSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
-
-		if (bOriginalHadSkylight != bNewHasSkylight)
 		{
-			// Mark the scene as needing static draw lists to be recreated if needed
-			// The base pass chooses shaders based on whether there's a skylight in the scene, and that is cached in static draw lists
-			Scene->bScenesPrimitivesNeedStaticMeshElementUpdate = true;
-		}
-	});
+			check(!Scene->SkyLightStack.Contains(LightProxy));
+			Scene->SkyLightStack.Push(LightProxy);
+			const bool bOriginalHadSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
+
+			// Use the most recently enabled skylight
+			Scene->SkyLight = LightProxy;
+
+			const bool bNewHasSkylight = Scene->ShouldRenderSkylightInBasePass(BLEND_Opaque);
+
+			if (bOriginalHadSkylight != bNewHasSkylight)
+			{
+				// Mark the scene as needing static draw lists to be recreated if needed
+				// The base pass chooses shaders based on whether there's a skylight in the scene, and that is cached in static draw lists
+				Scene->bScenesPrimitivesNeedStaticMeshElementUpdate = true;
+			}
+		});
 }
 
 void FScene::DisableSkyLight(FSkyLightSceneProxy* LightProxy)
@@ -1795,13 +1795,13 @@ void FScene::AddDecal(UDecalComponent* Component)
 		INC_DWORD_STAT(STAT_SceneDecals);
 
 		// Send a command to the rendering thread to add the light to the scene.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FAddDecalCommand,
-			FScene*,Scene,this,
-			FDeferredDecalProxy*,Proxy,Component->SceneProxy,
-		{
-			Scene->AddOrRemoveDecal_RenderThread(Proxy, true);
-		});
+		FScene* Scene = this;
+		FDeferredDecalProxy* Proxy = Component->SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FAddDecalCommand)(
+			[Scene, Proxy](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->AddOrRemoveDecal_RenderThread(Proxy, true);
+			});
 	}
 }
 
@@ -1812,13 +1812,13 @@ void FScene::RemoveDecal(UDecalComponent* Component)
 		DEC_DWORD_STAT(STAT_SceneDecals);
 
 		// Send a command to the rendering thread to remove the light from the scene.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FRemoveDecalCommand,
-			FScene*,Scene,this,
-			FDeferredDecalProxy*,Proxy,Component->SceneProxy,
-		{
-			Scene->AddOrRemoveDecal_RenderThread(Proxy, false);
-		});
+		FScene* Scene = this;
+		FDeferredDecalProxy* Proxy = Component->SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FRemoveDecalCommand)(
+			[Scene, Proxy](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->AddOrRemoveDecal_RenderThread(Proxy, false);
+			});
 
 		// Disassociate the primitive's scene proxy.
 		Component->SceneProxy = NULL;
@@ -1830,14 +1830,14 @@ void FScene::UpdateDecalTransform(UDecalComponent* Decal)
 	if(Decal->SceneProxy)
 	{
 		//Send command to the rendering thread to update the decal's transform.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateTransformCommand,
-			FDeferredDecalProxy*,DecalSceneProxy,Decal->SceneProxy,
-			FTransform,ComponentToWorldIncludingDecalSize,Decal->GetTransformIncludingDecalSize(),
-		{
-			// Update the primitive's transform.
-			DecalSceneProxy->SetTransformIncludingDecalSize(ComponentToWorldIncludingDecalSize);
-		});
+		FDeferredDecalProxy* DecalSceneProxy = Decal->SceneProxy;
+		FTransform ComponentToWorldIncludingDecalSize = Decal->GetTransformIncludingDecalSize();
+		ENQUEUE_RENDER_COMMAND(UpdateTransformCommand)(
+			[DecalSceneProxy, ComponentToWorldIncludingDecalSize](FRHICommandListImmediate& RHICmdList)
+			{
+				// Update the primitive's transform.
+				DecalSceneProxy->SetTransformIncludingDecalSize(ComponentToWorldIncludingDecalSize);
+			});
 	}
 }
 
@@ -2008,20 +2008,19 @@ void FScene::ReleaseReflectionCubemap(UReflectionCaptureComponent* CaptureCompon
 
 	if (bRemoved)
 	{
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		RemoveCaptureCommand,
-			UReflectionCaptureComponent*, Component, CaptureComponent,
-			FScene*, Scene, this,
-		{
-			const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(Component);
-			if (ComponentStatePtr)
+		FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(RemoveCaptureCommand)(
+			[CaptureComponent, Scene](FRHICommandListImmediate& RHICmdList)
 			{
-				// We track removed captures so we can remap them when reallocating the cubemap array
-				check(ComponentStatePtr->CubemapIndex != -1);
-				Scene->ReflectionSceneData.CubemapArraySlotsUsed[ComponentStatePtr->CubemapIndex] = false;
-		}
-		Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Remove(Component);
-	});
+				const FCaptureComponentSceneState* ComponentStatePtr = Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Find(CaptureComponent);
+				if (ComponentStatePtr)
+				{
+					// We track removed captures so we can remap them when reallocating the cubemap array
+					check(ComponentStatePtr->CubemapIndex != -1);
+					Scene->ReflectionSceneData.CubemapArraySlotsUsed[ComponentStatePtr->CubemapIndex] = false;
+				}
+				Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Remove(CaptureComponent);
+			});
 	}
 }
 
@@ -2491,10 +2490,9 @@ void FScene::RemoveLight(ULightComponent* Light)
 		Light->SceneProxy = NULL;
 
 		// Send a command to the rendering thread to remove the light from the scene.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FRemoveLightCommand,
-			FScene*,Scene,this,
-			FLightSceneInfo*,LightSceneInfo,LightSceneInfo,
+		FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(FRemoveLightCommand)(
+			[Scene, LightSceneInfo](FRHICommandListImmediate& RHICmdList)
 			{
 				FScopeCycleCounter Context(LightSceneInfo->Proxy->GetStatId());
 				Scene->RemoveLightSceneInfo_RenderThread(LightSceneInfo);
@@ -2504,10 +2502,10 @@ void FScene::RemoveLight(ULightComponent* Light)
 
 void FScene::AddExponentialHeightFog(UExponentialHeightFogComponent* FogComponent)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FAddFogCommand,
-		FScene*,Scene,this,
-		FExponentialHeightFogSceneInfo,HeightFogSceneInfo,FExponentialHeightFogSceneInfo(FogComponent),
+	FScene* Scene = this;
+	FExponentialHeightFogSceneInfo HeightFogSceneInfo = FExponentialHeightFogSceneInfo(FogComponent);
+	ENQUEUE_RENDER_COMMAND(FAddFogCommand)(
+		[Scene, HeightFogSceneInfo](FRHICommandListImmediate& RHICmdList)
 		{
 			// Create a FExponentialHeightFogSceneInfo for the component in the scene's fog array.
 			new(Scene->ExponentialFogs) FExponentialHeightFogSceneInfo(HeightFogSceneInfo);
@@ -2516,10 +2514,9 @@ void FScene::AddExponentialHeightFog(UExponentialHeightFogComponent* FogComponen
 
 void FScene::RemoveExponentialHeightFog(UExponentialHeightFogComponent* FogComponent)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FRemoveFogCommand,
-		FScene*,Scene,this,
-		UExponentialHeightFogComponent*,FogComponent,FogComponent,
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FRemoveFogCommand)(
+		[Scene, FogComponent](FRHICommandListImmediate& RHICmdList)
 		{
 			// Remove the given component's FExponentialHeightFogSceneInfo from the scene's fog array.
 			for(int32 FogIndex = 0;FogIndex < Scene->ExponentialFogs.Num();FogIndex++)
@@ -2546,10 +2543,9 @@ void FScene::AddWindSource(UWindDirectionalSourceComponent* WindComponent)
 	FWindSourceSceneProxy* SceneProxy = WindComponent->CreateSceneProxy();
 	WindComponent->SceneProxy = SceneProxy;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FAddWindSourceCommand,
-		FScene*,Scene,this,
-		FWindSourceSceneProxy*,SceneProxy,SceneProxy,
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FAddWindSourceCommand)(
+		[Scene, SceneProxy](FRHICommandListImmediate& RHICmdList)
 		{
 			Scene->WindSources.Add(SceneProxy);
 		});
@@ -2564,10 +2560,9 @@ void FScene::RemoveWindSource(UWindDirectionalSourceComponent* WindComponent)
 
 	if(SceneProxy)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FRemoveWindSourceCommand,
-			FScene*,Scene,this,
-			FWindSourceSceneProxy*,SceneProxy,SceneProxy,
+		FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(FRemoveWindSourceCommand)(
+			[Scene, SceneProxy](FRHICommandListImmediate& RHICmdList)
 			{
 				Scene->WindSources.Remove(SceneProxy);
 
@@ -2875,13 +2870,12 @@ void FScene::GetRelevantLights( UPrimitiveComponent* Primitive, TArray<const ULi
 /** Sets the precomputed visibility handler for the scene, or NULL to clear the current one. */
 void FScene::SetPrecomputedVisibility(const FPrecomputedVisibilityHandler* NewPrecomputedVisibilityHandler)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		UpdatePrecomputedVisibility,
-		FScene*,Scene,this,
-		const FPrecomputedVisibilityHandler*,PrecomputedVisibilityHandler,NewPrecomputedVisibilityHandler,
-	{
-		Scene->PrecomputedVisibilityHandler = PrecomputedVisibilityHandler;
-	});
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(UpdatePrecomputedVisibility)(
+		[Scene, NewPrecomputedVisibilityHandler](FRHICommandListImmediate& RHICmdList)
+		{
+			Scene->PrecomputedVisibilityHandler = NewPrecomputedVisibilityHandler;
+		});
 }
 
 void FScene::UpdateStaticDrawLists_RenderThread(FRHICommandListImmediate& RHICmdList)
@@ -3053,13 +3047,12 @@ void FScene::Export( FArchive& Ar ) const
 void FScene::ApplyWorldOffset(FVector InOffset)
 {
 	// Send a command to the rendering thread to shift scene data
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FApplyWorldOffset,
-		FScene*,Scene,this,
-		FVector,InOffset,InOffset,
-	{
-		Scene->ApplyWorldOffset_RenderThread(InOffset);
-	});
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FApplyWorldOffset)(
+		[Scene, InOffset](FRHICommandListImmediate& RHICmdList)
+		{
+			Scene->ApplyWorldOffset_RenderThread(InOffset);
+		});
 }
 
 void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
@@ -3164,13 +3157,12 @@ void FScene::OnLevelAddedToWorld(FName LevelAddedName, UWorld* InWorld, bool bIs
 		InWorld->PropagateLightingScenarioChange();
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		FLevelAddedToWorld,
-		class FScene*, Scene, this,
-		FName, LevelName, LevelAddedName,
-	{
-		Scene->OnLevelAddedToWorld_RenderThread(LevelName);
-	});
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FLevelAddedToWorld)(
+		[Scene, LevelAddedName](FRHICommandListImmediate& RHICmdList)
+		{
+			Scene->OnLevelAddedToWorld_RenderThread(LevelAddedName);
+		});
 }
 
 void FScene::OnLevelAddedToWorld_RenderThread(FName InLevelName)

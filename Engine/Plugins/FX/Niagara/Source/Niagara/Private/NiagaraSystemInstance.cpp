@@ -1249,12 +1249,11 @@ void FNiagaraSystemInstance::UpdateProxy(TArray<NiagaraRenderer*>& InRenderers)
 		if (Component->GetWorld() != nullptr)
 		{
 			// Tell the scene proxy on the render thread to update its System renderers.
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FChangeNiagaraRenderModule,
-				FNiagaraSceneProxy*, InProxy, NiagaraProxy,
-				TArray<NiagaraRenderer*>, InRendererArray, InRenderers,
+			TArray<NiagaraRenderer*> InRendererArray = InRenderers;
+			ENQUEUE_RENDER_COMMAND(FChangeNiagaraRenderModule)(
+				[NiagaraProxy, InRendererArray](FRHICommandListImmediate& RHICmdList)
 				{
-					InProxy->UpdateEmitterRenderers(InRendererArray);
+					NiagaraProxy->UpdateEmitterRenderers(InRendererArray);
 				}
 			);
 		}

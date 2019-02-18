@@ -67,10 +67,9 @@ bool FGoogleARCoreXRCamera::IsActiveThisFrame(class FViewport* InViewport) const
 void FGoogleARCoreXRCamera::ConfigXRCamera(bool bInMatchDeviceCameraFOV, bool bInEnablePassthroughCameraRendering)
 {
 	bMatchDeviceCameraFOV = bInMatchDeviceCameraFOV;
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		ConfigXRCamera,
-		FGoogleARCoreXRCamera*, ARCoreXRCamera, this,
-		bool, bInEnablePassthroughCameraRendering, bInEnablePassthroughCameraRendering,
+	FGoogleARCoreXRCamera* ARCoreXRCamera = this;
+	ENQUEUE_RENDER_COMMAND(ConfigXRCamera)(
+		[ARCoreXRCamera, bInEnablePassthroughCameraRendering](FRHICommandListImmediate& RHICmdList)
 		{
 			ARCoreXRCamera->bEnablePassthroughCameraRendering_RT = bInEnablePassthroughCameraRendering;
 		}

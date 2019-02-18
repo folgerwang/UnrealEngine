@@ -458,13 +458,12 @@ void FPrimitiveSceneProxy::SetHovered_GameThread(const bool bInHovered)
 	check(IsInGameThread());
 
 	// Enqueue a message to the rendering thread containing the interaction to add.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetNewHovered,
-		FPrimitiveSceneProxy*,PrimitiveSceneProxy,this,
-		const bool,bNewHovered,bInHovered,
-	{
-		PrimitiveSceneProxy->SetHovered_RenderThread(bNewHovered);
-	});
+	FPrimitiveSceneProxy* PrimitiveSceneProxy = this;
+	ENQUEUE_RENDER_COMMAND(SetNewHovered)(
+		[PrimitiveSceneProxy, bInHovered](FRHICommandListImmediate& RHICmdList)
+		{
+			PrimitiveSceneProxy->SetHovered_RenderThread(bInHovered);
+		});
 }
 
 #if !UE_BUILD_SHIPPING
@@ -504,13 +503,12 @@ void FPrimitiveSceneProxy::SetHiddenEdViews_GameThread( uint64 InHiddenEditorVie
 {
 	check(IsInGameThread());
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetEditorVisibility,
-		FPrimitiveSceneProxy*,PrimitiveSceneProxy,this,
-		const uint64,NewHiddenEditorViews,InHiddenEditorViews,
-	{
-		PrimitiveSceneProxy->SetHiddenEdViews_RenderThread(NewHiddenEditorViews);
-	});
+	FPrimitiveSceneProxy* PrimitiveSceneProxy = this;
+	ENQUEUE_RENDER_COMMAND(SetEditorVisibility)(
+		[PrimitiveSceneProxy, InHiddenEditorViews](FRHICommandListImmediate& RHICmdList)
+		{
+			PrimitiveSceneProxy->SetHiddenEdViews_RenderThread(InHiddenEditorViews);
+		});
 }
 
 /**
@@ -529,13 +527,12 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_GameThread(const bool bNewEnabled
 	check(IsInGameThread());
 
 	// Enqueue a message to the rendering thread to change draw state
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetCollisionEnabled,
-		FPrimitiveSceneProxy*,PrimSceneProxy,this,
-		const bool,bEnabled,bNewEnabled,
-	{
-		PrimSceneProxy->SetCollisionEnabled_RenderThread(bEnabled);
-	});
+	FPrimitiveSceneProxy* PrimSceneProxy = this;
+	ENQUEUE_RENDER_COMMAND(SetCollisionEnabled)(
+		[PrimSceneProxy, bNewEnabled](FRHICommandListImmediate& RHICmdList)
+		{
+			PrimSceneProxy->SetCollisionEnabled_RenderThread(bNewEnabled);
+		});
 }
 
 void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabled)

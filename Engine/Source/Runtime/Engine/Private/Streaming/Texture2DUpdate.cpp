@@ -178,19 +178,19 @@ void FTexture2DUpdate::ScheduleTick(const FContext& Context, EThreadType InThrea
 		FPlatformAtomics::InterlockedIncrement(&ScheduledTaskCount);
 		PendingTaskState = TS_Scheduled;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		Texture2DUpdateCommand,
-		UTexture2D*, Texture, Context.Texture,
-		FTexture2DUpdate*, CachedPendingUpdate, this,
-		{
-			check(Texture && CachedPendingUpdate);
+		UTexture2D* Texture = Context.Texture;
+		FTexture2DUpdate* CachedPendingUpdate = this;
+		ENQUEUE_RENDER_COMMAND(Texture2DUpdateCommand)(
+			[Texture, CachedPendingUpdate](FRHICommandListImmediate& RHICmdList)
+			{
+				check(Texture && CachedPendingUpdate);
 
-			// Recompute the context has things might have changed!
-			CachedPendingUpdate->Tick(Texture, TT_Render);
+				// Recompute the context has things might have changed!
+				CachedPendingUpdate->Tick(Texture, TT_Render);
 
-			FPlatformMisc::MemoryBarrier();
-			FPlatformAtomics::InterlockedDecrement(&CachedPendingUpdate->ScheduledTaskCount);
-		});
+				FPlatformMisc::MemoryBarrier();
+				FPlatformAtomics::InterlockedDecrement(&CachedPendingUpdate->ScheduledTaskCount);
+			});
 	}
 	else // InThread == TT_Async
 	{

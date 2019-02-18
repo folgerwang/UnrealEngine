@@ -396,12 +396,10 @@ void FOpenColorIOShaderCompilationManager::ProcessCompiledOpenColorIOShaderMaps(
 
 			ColorTransform->SetGameThreadShaderMap(It.Value());
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FSetShaderMapOnColorTransformResources,
-				FOpenColorIOTransformResource*, ColorTransform, ColorTransform,
-				FOpenColorIOShaderMap*, CompiledShaderMap, ShaderMap,
+			ENQUEUE_RENDER_COMMAND(FSetShaderMapOnColorTransformResources)(
+				[ColorTransform, ShaderMap](FRHICommandListImmediate& RHICmdList)
 				{
-					ColorTransform->SetRenderingThreadShaderMap(CompiledShaderMap);
+					ColorTransform->SetRenderingThreadShaderMap(ShaderMap);
 				});
 
 

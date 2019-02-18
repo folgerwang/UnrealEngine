@@ -7069,10 +7069,9 @@ void FParticleSystemSceneProxy::ReleaseRenderThreadResourcesForEmitterData()
 
 void FParticleSystemSceneProxy::UpdateData(FParticleDynamicData* NewDynamicData)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		ParticleUpdateDataCommand,
-		FParticleSystemSceneProxy*, Proxy, this,
-		FParticleDynamicData*, NewDynamicData, NewDynamicData,
+	FParticleSystemSceneProxy* Proxy = this;
+	ENQUEUE_RENDER_COMMAND(ParticleUpdateDataCommand)(
+		[Proxy, NewDynamicData](FRHICommandListImmediate& RHICmdList)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ParticleUpdateRTTime);
 			STAT(FScopeCycleCounter Context(Proxy->GetStatId());)

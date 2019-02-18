@@ -1323,13 +1323,11 @@ void FMaterialShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sh
 							MaterialResource->SetGameThreadShaderMap(LoadedShaderMap);
 							MaterialResource->RegisterInlineShaderMap(false);
 
-							ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-								FSetShaderMapOnMaterialResources,
-								FMaterial*,MaterialResource,MaterialResource,
-								FMaterialShaderMap*,LoadedShaderMap,LoadedShaderMap,
-							{
-								MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
-							});
+							ENQUEUE_RENDER_COMMAND(FSetShaderMapOnMaterialResources)(
+								[MaterialResource, LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
+								{
+									MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
+								});
 						}
 					}
 				}

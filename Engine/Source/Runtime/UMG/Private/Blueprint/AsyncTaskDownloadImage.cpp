@@ -110,13 +110,13 @@ void UAsyncTaskDownloadImage::HandleImageRequest(FHttpRequestPtr HttpRequest, FH
 						Texture->SRGB = true;
 						Texture->UpdateResource();
 
-						ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-							FWriteRawDataToTexture,
-							FTexture2DDynamicResource*, TextureResource, static_cast<FTexture2DDynamicResource*>(Texture->Resource),
-							TArray<uint8>, RawData, *RawData,
-						{
-							WriteRawToTexture_RenderThread(TextureResource, RawData);
-						});
+						FTexture2DDynamicResource* TextureResource = static_cast<FTexture2DDynamicResource*>(Texture->Resource);
+						TArray<uint8> RawDataCopy = *RawData;
+						ENQUEUE_RENDER_COMMAND(FWriteRawDataToTexture)(
+							[TextureResource, RawDataCopy](FRHICommandListImmediate& RHICmdList)
+							{
+								WriteRawToTexture_RenderThread(TextureResource, RawDataCopy);
+							});
 						
 						OnSuccess.Broadcast(Texture);
 						return;

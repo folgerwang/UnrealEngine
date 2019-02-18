@@ -306,14 +306,13 @@ void FMaterialInstanceResource::GameThread_SetParent(UMaterialInterface* ParentM
 
 		// Set the rendering thread's parent and instance pointers.
 		check(ParentMaterialInterface != NULL);
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			InitMaterialInstanceResource,
-			FMaterialInstanceResource*, Resource, this,
-			UMaterialInterface*, Parent, ParentMaterialInterface,
+		FMaterialInstanceResource* Resource = this;
+		ENQUEUE_RENDER_COMMAND(InitMaterialInstanceResource)(
+			[Resource, ParentMaterialInterface](FRHICommandListImmediate& RHICmdList)
 			{
-			Resource->Parent = Parent;
-			Resource->InvalidateUniformExpressionCache(false);
-		});
+				Resource->Parent = ParentMaterialInterface;
+				Resource->InvalidateUniformExpressionCache(false);
+			});
 
 		if (OldParent)
 		{

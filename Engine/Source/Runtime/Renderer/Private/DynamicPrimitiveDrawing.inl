@@ -55,12 +55,12 @@ inline void FViewElementPDI::RegisterDynamicResource(FDynamicPrimitiveResource* 
 	if (IsInGameThread())
 	{
 		// Render thread might be reading the array while we are adding in the game thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(AddViewInfoDynamicResource,
-			FViewInfo*, InViewInfo, ViewInfo,
-			FDynamicPrimitiveResource*, InDynamicResource, DynamicResource,
+		FViewInfo* InViewInfo = ViewInfo;
+		ENQUEUE_RENDER_COMMAND(AddViewInfoDynamicResource)(
+			[InViewInfo, DynamicResource](FRHICommandListImmediate& RHICmdList)
 			{
-				InViewInfo->DynamicResources.Add(InDynamicResource);
-				InDynamicResource->InitPrimitiveResource();
+				InViewInfo->DynamicResources.Add(DynamicResource);
+				DynamicResource->InitPrimitiveResource();
 			});
 	}
 	else

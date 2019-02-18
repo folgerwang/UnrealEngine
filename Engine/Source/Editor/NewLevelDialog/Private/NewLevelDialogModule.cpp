@@ -43,12 +43,11 @@ public:
 	{
 		Size = FIntPoint(InTexture2D->GetSizeX(), InTexture2D->GetSizeY());
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateSTexture2DView,
-			STexture2DView*,TextureView,this,
-			UTexture2D*,Texture,InTexture2D,
+		STexture2DView* TextureView = this;
+		ENQUEUE_RENDER_COMMAND(UpdateSTexture2DView)(
+			[TextureView, InTexture2D](FRHICommandListImmediate& RHICmdList)
 			{
-				TextureView->ShaderResource = ((FTexture2DResource*)(Texture->Resource))->GetTexture2DRHI();
+				TextureView->ShaderResource = ((FTexture2DResource*)(InTexture2D->Resource))->GetTexture2DRHI();
 			});
 	}
 

@@ -1086,17 +1086,16 @@ void FAssetThumbnailPool::Tick( float DeltaTime )
 							FSlateTextureData* BulkData = new FSlateTextureData(ObjectThumbnail->GetImageWidth(),ObjectThumbnail->GetImageHeight(),GPixelFormats[PF_B8G8R8A8].BlockBytes, ObjectThumbnail->AccessImageData() );
 
 							// Update the texture RHI
-							ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-								ClearSlateTextureCommand,
-								FThumbnailInfo_RenderThread, ThumbInfo, InfoRef.Get(),
-								FSlateTextureData*, BulkData, BulkData,
+							FThumbnailInfo_RenderThread ThumbInfo = InfoRef.Get();
+							ENQUEUE_RENDER_COMMAND(ClearSlateTextureCommand)(
+								[ThumbInfo, BulkData](FRHICommandListImmediate& RHICmdList)
 							{
-								if ( ThumbInfo.ThumbnailTexture->GetTypedResource() == ThumbInfo.ThumbnailRenderTarget->GetTextureRHI() )
+								if (ThumbInfo.ThumbnailTexture->GetTypedResource() == ThumbInfo.ThumbnailRenderTarget->GetTextureRHI())
 								{
 									ThumbInfo.ThumbnailTexture->SetRHIRef(NULL, ThumbInfo.Width, ThumbInfo.Height);
 								}
 
-								ThumbInfo.ThumbnailTexture->SetTextureData( MakeShareable(BulkData) );
+								ThumbInfo.ThumbnailTexture->SetTextureData(MakeShareable(BulkData));
 								ThumbInfo.ThumbnailTexture->UpdateRHI();
 							});
 

@@ -283,17 +283,16 @@ void FFXSystem::RemoveVectorField( UVectorFieldComponent* VectorFieldComponent )
 
 		if ( Instance )
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FRemoveVectorFieldCommand,
-				FFXSystem*, FXSystem, this,
-				FVectorFieldInstance*, Instance, Instance,
-			{
-				if ( Instance->Index != INDEX_NONE )
+			FFXSystem* FXSystem = this;
+			ENQUEUE_RENDER_COMMAND(FRemoveVectorFieldCommand)(
+				[FXSystem, Instance](FRHICommandListImmediate& RHICmdList)
 				{
-					FXSystem->VectorFields.RemoveAt( Instance->Index );
-					delete Instance;
-				}
-			});
+					if ( Instance->Index != INDEX_NONE )
+					{
+						FXSystem->VectorFields.RemoveAt( Instance->Index );
+						delete Instance;
+					}
+				});
 		}
 	}
 }

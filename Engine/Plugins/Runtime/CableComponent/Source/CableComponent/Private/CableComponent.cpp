@@ -708,10 +708,9 @@ void UCableComponent::SendRenderDynamicData_Concurrent()
 		}
 
 		// Enqueue command to send to render thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			FSendCableDynamicData,
-			FCableSceneProxy*,CableSceneProxy,(FCableSceneProxy*)SceneProxy,
-			FCableDynamicData*,DynamicData,DynamicData,
+		FCableSceneProxy* CableSceneProxy = (FCableSceneProxy*)SceneProxy;
+		ENQUEUE_RENDER_COMMAND(FSendCableDynamicData)(
+			[CableSceneProxy, DynamicData](FRHICommandListImmediate& RHICmdList)
 		{
 			CableSceneProxy->SetDynamicData_RenderThread(DynamicData);
 		});

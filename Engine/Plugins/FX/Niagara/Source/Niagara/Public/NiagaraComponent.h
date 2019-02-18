@@ -403,7 +403,7 @@ public:
 	/** Called on render thread to assign new dynamic data */
 	void SetDynamicData_RenderThread(struct FNiagaraDynamicDataBase* NewDynamicData);
 	TArray<class NiagaraRenderer*>& GetEmitterRenderers() { return EmitterRenderers; }
-	void UpdateEmitterRenderers(TArray<NiagaraRenderer*>& InRenderers);
+	void UpdateEmitterRenderers(const TArray<NiagaraRenderer*>& InRenderers);
 
 	/** Gets whether or not this scene proxy should be rendered. */
 	bool GetRenderingEnabled() const;

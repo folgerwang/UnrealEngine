@@ -278,12 +278,12 @@ bool FMediaFoundationMovieStreamer::OpenNextMovie()
 
 			if( Texture->GetWidth() != VideoDimensions.X || Texture->GetHeight() != VideoDimensions.Y )
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(UpdateMovieTexture,
-					FSlateTexture2DRHIRef*, TextureRHIRef, Texture.Get(),
-					FIntPoint, InVideoDimensions, VideoDimensions,
-				{
-					TextureRHIRef->Resize( InVideoDimensions.X, InVideoDimensions.Y );
-				});
+				FSlateTexture2DRHIRef* TextureRHIRef = Texture.Get();
+				ENQUEUE_RENDER_COMMAND(UpdateMovieTexture)(
+					[TextureRHIRef, VideoDimensions](FRHICommandListImmediate& RHICmdList)
+					{
+						TextureRHIRef->Resize(VideoDimensions.X, VideoDimensions.Y);
+					});
 			}
 		}
 		else
@@ -291,11 +291,12 @@ bool FMediaFoundationMovieStreamer::OpenNextMovie()
 			const bool bCreateEmptyTexture = true;
 			Texture = MakeShareable(new FSlateTexture2DRHIRef(VideoDimensions.X, VideoDimensions.Y, PF_B8G8R8A8, NULL, TexCreate_RenderTargetable, bCreateEmptyTexture));
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(InitMovieTexture,
-				FSlateTexture2DRHIRef*, TextureRHIRef, Texture.Get(),
-			{
-				TextureRHIRef->InitResource();
-			});
+			FSlateTexture2DRHIRef* TextureRHIRef = Texture.Get();
+			ENQUEUE_RENDER_COMMAND(InitMovieTexture)(
+				[TextureRHIRef](FRHICommandListImmediate& RHICmdList)
+				{
+					TextureRHIRef->InitResource();
+				});
 		}
 
 		VideoPlayer->StartPlayback();

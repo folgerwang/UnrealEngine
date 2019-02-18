@@ -1401,10 +1401,10 @@ void USkeletalMeshComponent::SendRenderDebugPhysics(FPrimitiveSceneProxy* Overri
 			}
 		}
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			SkeletalMesh_SendRenderDebugPhysics, FPrimitiveSceneProxy*, PassedSceneProxy, UseSceneProxy, TArray<FPrimitiveSceneProxy::FDebugMassData>, UseDebugMassData, DebugMassData,
+		ENQUEUE_RENDER_COMMAND(SkeletalMesh_SendRenderDebugPhysics)(
+			[UseSceneProxy, DebugMassData](FRHICommandListImmediate& RHICmdList)
 			{
-				PassedSceneProxy->SetDebugMassData(UseDebugMassData);
+				UseSceneProxy->SetDebugMassData(DebugMassData);
 			}
 		);
 		

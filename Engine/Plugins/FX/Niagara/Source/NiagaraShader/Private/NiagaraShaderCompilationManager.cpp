@@ -398,12 +398,10 @@ void FNiagaraShaderCompilationManager::ProcessCompiledNiagaraShaderMaps(
 
 			Script->SetGameThreadShaderMap(It.Value());
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-				FSetShaderMapOnScriptResources,
-				FNiagaraShaderScript*, Script, Script,
-				FNiagaraShaderMap*, CompiledShaderMap, ShaderMap,
+			ENQUEUE_RENDER_COMMAND(FSetShaderMapOnScriptResources)(
+				[Script, ShaderMap](FRHICommandListImmediate& RHICmdList)
 				{
-					Script->SetRenderingThreadShaderMap(CompiledShaderMap);
+					Script->SetRenderingThreadShaderMap(ShaderMap);
 				});
 
 			// Can't call NotifyCompilationFinished() when post-loading. 

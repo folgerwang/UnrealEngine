@@ -220,12 +220,10 @@ void FViewportSurfaceReader::ResolveRenderTarget(FViewportSurfaceReader* RenderT
 		}
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		ResolveCaptureFrameTexture,
-		TFunction<void(FRHICommandListImmediate&, FViewportSurfaceReader* InRenderToReadback)>, InRenderCommand, RenderCommand,
-		FViewportSurfaceReader*, InRenderToReadback, RenderToReadback,
+	ENQUEUE_RENDER_COMMAND(ResolveCaptureFrameTexture)(
+		[RenderCommand, RenderToReadback](FRHICommandListImmediate& RHICmdList)
 		{
-			InRenderCommand(RHICmdList, InRenderToReadback);
+			RenderCommand(RHICmdList, RenderToReadback);
 		}
 	);
 }
