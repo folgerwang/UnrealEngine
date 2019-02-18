@@ -558,6 +558,11 @@ namespace Audio
 			return;
 		}
 
+		if (bIsStopping)
+		{
+			return;
+		}
+
 		if (MixerSourceVoice)
 		{
 			MixerSourceVoice->Pause();
