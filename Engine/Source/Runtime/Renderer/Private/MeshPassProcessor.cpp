@@ -14,8 +14,9 @@
 #include "MeshPassProcessor.inl"
 #include "PipelineStateCache.h"
 
-TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::GlobalTable;
-FCriticalSection GlobalTableCriticalSection;
+TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::PersistentIdTable;
+TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::OneFrameIdTable;
+FCriticalSection FGraphicsMinimalPipelineStateId::OneFrameIdTableCriticalSection;
 
 const FMeshDrawCommandSortKey FMeshDrawCommandSortKey::Default = { {0} };
 
@@ -297,29 +298,62 @@ void FMeshDrawShaderBindings::SetOnRayTracingStructure(FRHICommandList& RHICmdLi
 }
 #endif // RHI_RAYTRACING
 
-void FGraphicsMinimalPipelineStateId::Setup(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
+FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetPersistentId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
 {
-	// Need to lock as this is called from multiple parallel tasks during mesh draw command generation or patching.
-	FScopeLock Lock(&GlobalTableCriticalSection);
-
-	FSetElementId TableId = GlobalTable.FindId(InPipelineState);
+	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
 
 	if (!TableId.IsValidId())
 	{
-		// Note: grow-only table.  Assuming finite and small enough set of FGraphicsMinimalPipelineStateInitializer permutations.
-		TableId = GlobalTable.Add(InPipelineState);
+		// Note: grow-only table. Assuming finite and small enough set of FGraphicsMinimalPipelineStateInitializer permutations.
+		TableId = PersistentIdTable.Add(InPipelineState);
 	}
 
-	checkf(TableId.AsInteger() < MAX_int32, TEXT("FGraphicsMinimalPipelineStateId overflow!"));
+	checkf(TableId.AsInteger() < (MAX_uint32 >> 2), TEXT("Persistent FGraphicsMinimalPipelineStateId table overflow!"));
 
-	Id = TableId;
+	FGraphicsMinimalPipelineStateId Ret;
+	Ret.bValid = 1;
+	Ret.bOneFrameId = 0;
+	Ret.SetElementIndex = TableId.AsInteger();
+	return Ret;
+}
+
+FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetOneFrameId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
+{
+	// Need to lock as this is called from multiple parallel tasks during mesh draw command generation or patching.
+	FScopeLock Lock(&OneFrameIdTableCriticalSection);
+
+	FGraphicsMinimalPipelineStateId Ret;
+	Ret.bValid = 1;
+	Ret.bOneFrameId = 0;
+
+	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
+	if (!TableId.IsValidId())
+	{
+		Ret.bOneFrameId = 1;
+
+		TableId = OneFrameIdTable.FindId(InPipelineState);
+		if (!TableId.IsValidId())
+		{
+			TableId = OneFrameIdTable.Add(InPipelineState);
+		}
+	}
+
+	checkf(TableId.AsInteger() < (MAX_uint32 >> 2), TEXT("One frame FGraphicsMinimalPipelineStateId table overflow!"));
+
+	Ret.SetElementIndex = TableId.AsInteger();
+	return Ret;
+}
+
+void FGraphicsMinimalPipelineStateId::ResetOneFrameIdTable()
+{
+	OneFrameIdTable.Reset();
 }
 
 class FMeshDrawCommandStateCache
 {
 public:
 
-	int32 PipelineId;
+	uint32 PipelineId;
 	uint32 StencilRef;
 	FShaderBindingState ShaderBindings[SF_NumStandardFrequencies];
 	FVertexInputStream VertexStreams[MaxVertexElementCount];
@@ -630,9 +664,8 @@ void FMeshDrawCommand::SetRayTracingShaders(const FMeshProcessorShaders& Shaders
 void FMeshDrawCommand::SetDrawParametersAndFinalize(
 	const FMeshBatch& MeshBatch, 
 	int32 BatchElementIndex,
-	const FGraphicsMinimalPipelineStateInitializer& PipelineState, 
-	const FMeshProcessorShaders* ShadersForDebugging,
-	bool bDoSetupPsoStateForRasterization)
+	FGraphicsMinimalPipelineStateId PipelineId,
+	const FMeshProcessorShaders* ShadersForDebugging)
 {
 	const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
 
@@ -658,7 +691,7 @@ void FMeshDrawCommand::SetDrawParametersAndFinalize(
 	int32 SegmentIndex = MeshBatch.SegmentIndex + BatchElementIndex;
 	RayTracedSegmentIndex = (SegmentIndex < UINT8_MAX) ? uint8(MeshBatch.SegmentIndex + BatchElementIndex) : UINT8_MAX;
 
-	Finalize(PipelineState, ShadersForDebugging, bDoSetupPsoStateForRasterization);
+	Finalize(PipelineId, ShadersForDebugging);
 }
 
 void FMeshDrawShaderBindings::SetOnCommandList(FRHICommandList& RHICmdList, FBoundShaderStateInput Shaders, FShaderBindingState* StateCacheShaderBindings) const
@@ -1058,7 +1091,13 @@ void FCachedPassMeshDrawListContext::FinalizeCommand(
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FinalizeCachedMeshDrawCommand);
 
-	MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, PipelineState, ShadersForDebugging, bDoSetupPsoStateForRasterization);
+	FGraphicsMinimalPipelineStateId PipelineId;
+	if (bDoSetupPsoStateForRasterization)
+	{
+		PipelineId = FGraphicsMinimalPipelineStateId::GetPersistentId(PipelineState);
+	}
+
+	MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, PipelineId, ShadersForDebugging);
 
 	if (bUseStateBuckets)
 	{
