@@ -659,6 +659,13 @@ public class LuminPlatform : Platform
 		BatchLines = GenerateUninstallBatchFile(PackageName, Params);
 		File.WriteAllLines(UninstallBatchName, BatchLines);
 
+		// If needed, make the batch files able to execute
+		if (Utils.IsRunningOnMono)
+		{
+			CommandUtils.FixUnixFilePermissions(BatchName);
+			CommandUtils.FixUnixFilePermissions(UninstallBatchName);
+		}
+
 		PrintRunTime();
 	}
 
