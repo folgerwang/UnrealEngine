@@ -409,14 +409,9 @@ bool UReimportDataTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutF
 	if (DataTable)
 	{
 		DataTable->AssetImportData->ExtractFilenames(OutFilenames);
-		if (OutFilenames.Num() > 0)
-		{
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		
+		// Always allow reimporting a data table as it is common to convert from manual to CSV-driven tables
+		return true;
 	}
 	return false;
 }
