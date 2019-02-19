@@ -2449,7 +2449,7 @@ void UAssetRegistryImpl::OnDirectoryChanged(const TArray<FFileChangeData>& FileC
 			{
 			case FFileChangeData::FCA_Added:
 			{
-				if (FPaths::DirectoryExists(File))
+				if (FPaths::DirectoryExists(File) && LongPackageName != TEXT("/Game/Collections"))
 				{
 					AddPath(LongPackageName);
 					UE_LOG(LogAssetRegistry, Verbose, TEXT("Directory was added to content directory: %s"), *File);
