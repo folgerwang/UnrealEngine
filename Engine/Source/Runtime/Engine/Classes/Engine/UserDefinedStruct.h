@@ -100,7 +100,7 @@ public:
 
 	// UObject interface.
 	virtual void Serialize(FStructuredArchive::FRecord Record) override;
-	virtual void SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad=NULL) const override;
+	virtual void SerializeTaggedProperties(FStructuredArchive::FSlot Slot, uint8* Data, UStruct* DefaultsStruct, uint8* Defaults, const UObject* BreakRecursionIfFullyLoad = nullptr) const override;
 	virtual FString PropertyNameToDisplayName(FName InName) const override;
 	// End of UObject interface.
 
