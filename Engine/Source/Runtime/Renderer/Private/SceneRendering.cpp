@@ -2893,9 +2893,6 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 		RHICmdList.ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
 	}
 
-	GPrimitiveIdVertexBufferPool.DiscardAll();
-	FGraphicsMinimalPipelineStateId::ResetOneFrameIdTable();
-
 	// Destroy cached preshadow transient arrays (allocated with SceneRenderingAllocator).
 	TArray<TRefCountPtr<FProjectedShadowInfo>>& CachedPreshadows = SceneRenderer->Scene->CachedPreshadows;
 	for (int32 CachedShadowIndex = 0; CachedShadowIndex < CachedPreshadows.Num(); ++CachedShadowIndex)
@@ -2921,6 +2918,10 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_DeleteSceneRenderer);
 		delete SceneRenderer;
 	}
+
+	// Can relase only after all mesh pass tasks are finished.
+	GPrimitiveIdVertexBufferPool.DiscardAll();
+	FGraphicsMinimalPipelineStateId::ResetOneFrameIdTable();
 
 	delete LocalRootMark;
 }
