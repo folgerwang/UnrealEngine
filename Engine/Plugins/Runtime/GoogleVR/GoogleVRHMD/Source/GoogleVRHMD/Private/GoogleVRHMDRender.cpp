@@ -75,17 +75,7 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 				}
 			}
 
-			float ScreenYDirection = -1.0f;
-
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS && HAS_METAL
-			// Metal render the scene flipped, so we need to flip to back again.
-			bool bSupportsMetal = false;
-			GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetal"), bSupportsMetal, GEngineIni);
-			if(bSupportsMetal)
-			{
-				ScreenYDirection = 1.0f;
-			}
-#endif
+			const float ScreenYDirection = -1.0f;
 			const FVector2D ScreenPos = FVector2D(UnDistortedCoord.X * 2.0f - 1.0f, (UnDistortedCoord.Y * 2.0f - 1.0f) * ScreenYDirection);
 
 			const FVector2D OrigRedUV = FVector2D(DistortedCoords[0].x, DistortedCoords[0].y);
@@ -97,14 +87,6 @@ void FGoogleVRHMD::GenerateDistortionCorrectionVertexBuffer(EStereoscopicPass Ey
 			FVector2D FinalGreenUV = OrigGreenUV;
 			FVector2D FinalBlueUV = OrigBlueUV;
 
-#if GOOGLEVRHMD_SUPPORTED_IOS_PLATFORMS && HAS_METAL
-			if(bSupportsMetal)
-			{
-				FinalRedUV.Y = 1.0f - FinalRedUV.Y;
-				FinalGreenUV.Y = 1.0f - FinalGreenUV.Y;
-				FinalBlueUV.Y = 1.0f - FinalBlueUV.Y;
-			}
-#endif
 			float Vignette = FMath::Clamp(XYNorm.X * kVignetteHardness, 0.0f, 1.0f)
 				* FMath::Clamp((1 - XYNorm.X)* kVignetteHardness, 0.0f, 1.0f)
 				* FMath::Clamp(XYNorm.Y * kVignetteHardness, 0.0f, 1.0f)

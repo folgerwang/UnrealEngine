@@ -20,7 +20,7 @@ UAndroidRuntimeSettings::UAndroidRuntimeSettings(const FObjectInitializer& Objec
 	, Orientation(EAndroidScreenOrientation::Landscape)
 	, MaxAspectRatio(2.1f)
 	, bAndroidVoiceEnabled(false)
-	, GoogleVRCaps({EGoogleVRCaps::Cardboard, EGoogleVRCaps::Daydream33})
+	, GoogleVRCaps({EGoogleVRCaps::Daydream33})
 	, bEnableGooglePlaySupport(false)
 	, bUseGetAccounts(false)
 	, bSupportAdMob(true)
