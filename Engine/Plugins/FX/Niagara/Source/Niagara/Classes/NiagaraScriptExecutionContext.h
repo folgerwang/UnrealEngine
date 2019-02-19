@@ -141,9 +141,9 @@ struct FNiagaraComputeExecutionContext
 
 	void Reset()
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ResetRT,
-			FNiagaraComputeExecutionContext*, Context, this,
+		FNiagaraComputeExecutionContext* Context = this;
+		ENQUEUE_RENDER_COMMAND(ResetRT)(
+			[Context](FRHICommandListImmediate& RHICmdList)
 			{
 				Context->ResetInternal();
 			}

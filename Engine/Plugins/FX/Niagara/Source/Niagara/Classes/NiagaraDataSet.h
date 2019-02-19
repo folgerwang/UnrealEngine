@@ -518,9 +518,9 @@ public:
 		}
 		else
 		{			
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				ResetBuffersRT,
-				FNiagaraDataSet*, DataSet, this,
+			FNiagaraDataSet* DataSet = this;
+			ENQUEUE_RENDER_COMMAND(ResetBuffersRT)(
+				[DataSet](FRHICommandListImmediate& RHICmdList)
 				{
 					DataSet->ResetBuffersInternal();
 				}

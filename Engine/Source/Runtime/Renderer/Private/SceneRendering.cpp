@@ -3319,9 +3319,8 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 
 		// We need to execute the pre-render view extensions before we do any view dependent work.
 		// Anything between here and FDrawSceneCommand will add to HMD view latency
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FViewExtensionPreDrawCommand,
-			FSceneRenderer*, SceneRenderer, SceneRenderer,
+		ENQUEUE_RENDER_COMMAND(FViewExtensionPreDrawCommand)(
+			[SceneRenderer](FRHICommandListImmediate& RHICmdList)
 			{
 				ViewExtensionPreRender_RenderThread(RHICmdList, SceneRenderer);
 			});
@@ -3337,13 +3336,12 @@ void FRendererModule::BeginRenderingViewFamily(FCanvas* Canvas, FSceneViewFamily
 
 		SceneRenderer->ViewFamily.DisplayInternalsData.Setup(World);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDrawSceneCommand,
-			FSceneRenderer*,SceneRenderer,SceneRenderer,
-		{
-			RenderViewFamily_RenderThread(RHICmdList, SceneRenderer);
-			FlushPendingDeleteRHIResources_RenderThread();
-		});
+		ENQUEUE_RENDER_COMMAND(FDrawSceneCommand)(
+			[SceneRenderer](FRHICommandListImmediate& RHICmdList)
+			{
+				RenderViewFamily_RenderThread(RHICmdList, SceneRenderer);
+				FlushPendingDeleteRHIResources_RenderThread();
+			});
 	}
 }
 

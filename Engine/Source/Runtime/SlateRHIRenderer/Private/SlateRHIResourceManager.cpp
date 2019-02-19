@@ -298,13 +298,12 @@ void FSlateRHIResourceManager::Tick(float DeltaSeconds)
 		{
 			FSlateRHIResourceManager* ResourceManager;
 		};
-		FDeleteCachedRenderDataContext DeleteCachedRenderDataContext =
+		FDeleteCachedRenderDataContext Context =
 		{
 			this,
 		};
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			DeleteCachedRenderData,
-			FDeleteCachedRenderDataContext, Context, DeleteCachedRenderDataContext,
+		ENQUEUE_RENDER_COMMAND(DeleteCachedRenderData)(
+			[Context](FRHICommandListImmediate& RHICmdList)
 			{
 				// Go through the pending delete buffers and see if any of their fences has cleared
 				// the RHI thread, if so, they should be safe to delete now.
@@ -971,15 +970,14 @@ void FSlateRHIResourceManager::BeginReleasingRenderData(const FSlateRenderDataHa
 		const FSlateRenderDataHandle* RenderDataHandle;
 		const ILayoutCache* LayoutCacher;
 	};
-	FReleaseCachedRenderDataContext ReleaseCachedRenderDataContext =
+	FReleaseCachedRenderDataContext Context =
 	{
 		this,
 		RenderHandle,
 		RenderHandle->GetCacher()
 	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReleaseCachedRenderData,
-		FReleaseCachedRenderDataContext, Context, ReleaseCachedRenderDataContext,
+	ENQUEUE_RENDER_COMMAND(ReleaseCachedRenderData)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			Context.ResourceManager->ReleaseCachedRenderData(RHICmdList, Context.RenderDataHandle, Context.LayoutCacher);
 		});

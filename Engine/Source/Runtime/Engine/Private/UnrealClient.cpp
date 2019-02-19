@@ -63,7 +63,7 @@ bool FRenderTarget::ReadPixels(TArray< FColor >& OutImageData, FReadSurfaceDataF
 	};
 
 	OutImageData.Reset();
-	FReadSurfaceContext ReadSurfaceContext =
+	FReadSurfaceContext Context =
 	{
 		this,
 		&OutImageData,
@@ -71,17 +71,16 @@ bool FRenderTarget::ReadPixels(TArray< FColor >& OutImageData, FReadSurfaceDataF
 		InFlags
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReadSurfaceCommand,
-		FReadSurfaceContext,Context,ReadSurfaceContext,
-	{
-		RHICmdList.ReadSurfaceData(
-			Context.SrcRenderTarget->GetRenderTargetTexture(),
-			Context.Rect,
-			*Context.OutData,
-			Context.Flags
-			);
-	});
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceData(
+				Context.SrcRenderTarget->GetRenderTargetTexture(),
+				Context.Rect,
+				*Context.OutData,
+				Context.Flags
+				);
+		});
 	FlushRenderingCommands();
 
 	return OutImageData.Num() > 0;
@@ -124,7 +123,7 @@ bool FRenderTarget::ReadFloat16Pixels(FFloat16Color* OutImageData,ECubeFace Cube
 	};
 	
 	TArray<FFloat16Color> SurfaceData;
-	FReadSurfaceFloatContext ReadSurfaceFloatContext =
+	FReadSurfaceFloatContext Context =
 	{
 		this,
 		&SurfaceData,
@@ -132,19 +131,18 @@ bool FRenderTarget::ReadFloat16Pixels(FFloat16Color* OutImageData,ECubeFace Cube
 		CubeFace	
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReadSurfaceFloatCommand,
-		FReadSurfaceFloatContext,Context,ReadSurfaceFloatContext,
-	{
-		RHICmdList.ReadSurfaceFloatData(
-			Context.SrcRenderTarget->GetRenderTargetTexture(),
-			Context.Rect,
-			*Context.OutData,
-			Context.CubeFace,
-			0,
-			0
-			);
-	});
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceFloatCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
+		{
+			RHICmdList.ReadSurfaceFloatData(
+				Context.SrcRenderTarget->GetRenderTargetTexture(),
+				Context.Rect,
+				*Context.OutData,
+				Context.CubeFace,
+				0,
+				0
+				);
+		});
 	FlushRenderingCommands();
 
 	// Copy the surface data into the output array.
@@ -202,7 +200,7 @@ bool FRenderTarget::ReadLinearColorPixels(TArray<FLinearColor> &OutImageData, FR
 	};
 
 	OutImageData.Reset();
-	FReadSurfaceContext ReadSurfaceContext =
+	FReadSurfaceContext Context =
 	{
 		this,
 		&OutImageData,
@@ -210,9 +208,8 @@ bool FRenderTarget::ReadLinearColorPixels(TArray<FLinearColor> &OutImageData, FR
 		InFlags
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		ReadSurfaceCommand,
-		FReadSurfaceContext, Context, ReadSurfaceContext,
+	ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			RHICmdList.ReadSurfaceData(
 			Context.SrcRenderTarget->GetRenderTargetTexture(),
@@ -1293,7 +1290,7 @@ struct FEndDrawingCommandParams
 };
 
 /**
- * Helper function used in ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER below. Needed to be split out due to
+ * Helper function used in ENQUEUE_RENDER_COMMAND below. Needed to be split out due to
  * use of macro and former already being one.
  *
  * @param Parameters	Parameters passed from the gamethread to the renderthread command.
@@ -1405,23 +1402,22 @@ void UPostProcessComponent::Serialize(FArchive& Ar)
 void FViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 {
 	AdvanceFrameRenderPrerequisite();
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		BeginDrawingCommand,
-		FViewport*,Viewport,this,
-	{
-		Viewport->BeginRenderFrame(RHICmdList);
-	});
+	FViewport* Viewport = this;
+	ENQUEUE_RENDER_COMMAND(BeginDrawingCommand)(
+		[Viewport](FRHICommandListImmediate& RHICmdList)
+		{
+			Viewport->BeginRenderFrame(RHICmdList);
+		});
 }
 
 
 void FViewport::EnqueueEndRenderFrame(const bool bLockToVsync, const bool bShouldPresent)
 {
 	FEndDrawingCommandParams Params = { this, (uint32)bLockToVsync, (uint32)GInputLatencyTimer.GameThreadTrigger, (uint32)(PresentAndStopMovieDelay > 0 ? 0 : bShouldPresent) };
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		EndDrawingCommand,
-		FEndDrawingCommandParams, Parameters, Params,
+	ENQUEUE_RENDER_COMMAND(EndDrawingCommand)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
-			ViewportEndDrawing(RHICmdList, Parameters);
+			ViewportEndDrawing(RHICmdList, Params);
 		});
 }
 
@@ -1603,16 +1599,16 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 	{
 		EnqueueBeginRenderFrame(false);
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			BeginDrawingCommandHitProxy,
-			FViewport*, Viewport, this,
+		FViewport* Viewport = this;
+		ENQUEUE_RENDER_COMMAND(BeginDrawingCommandHitProxy)(
+			[Viewport](FRHICommandListImmediate& RHICmdList)
 			{
-			// Set the hit proxy map's render target.
-			// Clear the hit proxy map to white, which is overloaded to mean no hit proxy.
-			FRHIRenderPassInfo RPInfo(Viewport->HitProxyMap.GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
-			RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearHitProxyMap"));
-			RHICmdList.EndRenderPass();
-		});
+				// Set the hit proxy map's render target.
+				// Clear the hit proxy map to white, which is overloaded to mean no hit proxy.
+				FRHIRenderPassInfo RPInfo(Viewport->HitProxyMap.GetRenderTargetTexture(), ERenderTargetActions::Clear_Store);
+				RHICmdList.BeginRenderPass(RPInfo, TEXT("ClearHitProxyMap"));
+				RHICmdList.EndRenderPass();
+			});
 
 		// Let the viewport client draw its hit proxies.
 		UWorld* World = ViewportClient->GetWorld();
@@ -1623,18 +1619,17 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 		Canvas.Flush_GameThread();
 
 		//Resolve surface to texture.
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateHitProxyRTCommand,
-			FHitProxyMap*, HitProxyMap, &HitProxyMap,
-		{
-			// Copy (resolve) the rendered thumbnail from the render target to its texture
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyTexture(), FResolveParams());
-			RHICmdList.CopyToResolveTarget(HitProxyMap->GetRenderTargetTexture(), HitProxyMap->GetHitProxyCPUTexture(), FResolveParams());
-		});
+		FHitProxyMap* HitProxyMapPtr = &HitProxyMap;
+		ENQUEUE_RENDER_COMMAND(UpdateHitProxyRTCommand)(
+			[HitProxyMapPtr](FRHICommandListImmediate& RHICmdList)
+			{
+				// Copy (resolve) the rendered thumbnail from the render target to its texture
+				RHICmdList.CopyToResolveTarget(HitProxyMapPtr->GetRenderTargetTexture(), HitProxyMapPtr->GetHitProxyTexture(), FResolveParams());
+				RHICmdList.CopyToResolveTarget(HitProxyMapPtr->GetRenderTargetTexture(), HitProxyMapPtr->GetHitProxyCPUTexture(), FResolveParams());
+			});
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			EndDrawingCommand,
-			FViewport*, Viewport, this,
+		ENQUEUE_RENDER_COMMAND(EndDrawingCommand)(
+			[Viewport](FRHICommandListImmediate& RHICmdList)
 			{
 				Viewport->EndRenderFrame(RHICmdList, false, false);
 			});
@@ -1653,24 +1648,23 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 			TArray<FColor>* OutData;
 			FIntRect Rect;
 		};
-		FReadSurfaceContext ReadSurfaceContext =
+		FReadSurfaceContext Context =
 		{
 			this,
 			&CachedHitProxyData,
 			ViewportRect
 		};
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReadSurfaceCommand,
-			FReadSurfaceContext, Context, ReadSurfaceContext,
+		ENQUEUE_RENDER_COMMAND(ReadSurfaceCommand)(
+			[Context](FRHICommandListImmediate& RHICmdList)
 			{
-			RHICmdList.ReadSurfaceData(
-			Context.Viewport->HitProxyMap.GetHitProxyCPUTexture(),
-			Context.Rect,
-			*Context.OutData,
-			FReadSurfaceDataFlags()
-			);
-		});
+				RHICmdList.ReadSurfaceData(
+				Context.Viewport->HitProxyMap.GetHitProxyCPUTexture(),
+				Context.Rect,
+				*Context.OutData,
+				FReadSurfaceDataFlags()
+				);
+			});
 		FlushRenderingCommands();
 	}
 

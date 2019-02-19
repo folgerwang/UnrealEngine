@@ -538,9 +538,9 @@ static void DoLazyStaticMeshUpdateCVarSinkFunction()
 			UWorld* World = *It;
 			if (World && World->Scene)
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					UpdateDoLazyStaticMeshUpdate,
-					FScene*, Scene, (FScene*)(World->Scene),
+				FScene* Scene = (FScene*)(World->Scene);
+				ENQUEUE_RENDER_COMMAND(UpdateDoLazyStaticMeshUpdate)(
+					[Scene](FRHICommandListImmediate& RHICmdList)
 					{
 						Scene->UpdateDoLazyStaticMeshUpdate(RHICmdList);
 					});
@@ -2895,9 +2895,9 @@ void FScene::UpdateStaticDrawLists_RenderThread(FRHICommandListImmediate& RHICmd
 
 void FScene::UpdateStaticDrawLists()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FUpdateDrawLists,
-		FScene*, Scene, this,
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FUpdateDrawLists)(
+		[Scene](FRHICommandListImmediate& RHICmdList)
 		{
 			Scene->UpdateStaticDrawLists_RenderThread(RHICmdList);
 		});
@@ -2937,9 +2937,9 @@ void FScene::Release()
 	GetRendererModule().RemoveScene(this);
 
 	// Send a command to the rendering thread to release the scene.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		FReleaseCommand,
-		FScene*,Scene,this,
+	FScene* Scene = this;
+	ENQUEUE_RENDER_COMMAND(FReleaseCommand)(
+		[Scene](FRHICommandListImmediate& RHICmdList)
 		{
 			delete Scene;
 		});
@@ -3402,9 +3402,9 @@ void UpdateStaticMeshesForMaterials(const TArray<const FMaterial*>& MaterialReso
 
 				if (bPrimitiveIsDependentOnMaterial)
 				{
-					ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-						FUpdateStaticMeshesForMaterials,
-						FPrimitiveSceneProxy*, SceneProxy, PrimitiveComponent->SceneProxy,
+					FPrimitiveSceneProxy* SceneProxy = PrimitiveComponent->SceneProxy;
+					ENQUEUE_RENDER_COMMAND(FUpdateStaticMeshesForMaterials)(
+						[SceneProxy](FRHICommandListImmediate& RHICmdList)
 						{
 							SceneProxy->GetPrimitiveSceneInfo()->UpdateStaticMeshes(RHICmdList);
 						});

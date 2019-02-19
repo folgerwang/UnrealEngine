@@ -307,11 +307,11 @@ struct FLandscapeMobileRenderData
 			}
 			else
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					InitCommand,
-					FLandscapeVertexBufferMobile*, VertexBuffer, VertexBuffer,
+				FLandscapeVertexBufferMobile* InVertexBuffer = VertexBuffer;
+				ENQUEUE_RENDER_COMMAND(InitCommand)(
+					[InVertexBuffer](FRHICommandListImmediate& RHICmdList)
 					{
-						delete VertexBuffer;
+						delete InVertexBuffer;
 					});
 			}
 		}

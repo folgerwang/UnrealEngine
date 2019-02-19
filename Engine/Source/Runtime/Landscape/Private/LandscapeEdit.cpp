@@ -5883,9 +5883,8 @@ bool ALandscapeProxy::LandscapeExportHeightmapToRenderTarget(UTextureRenderTarge
 	// Tell the rendering thread to draw any remaining batched elements
 	Canvas.Flush_GameThread(true);
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		DrawHeightmapRTCommand,
-		FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+	ENQUEUE_RENDER_COMMAND(DrawHeightmapRTCommand)(
+		[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 		{
 			// Copy (resolve) the rendered image from the frame buffer to its render target texture
 			RHICmdList.CopyToResolveTarget(

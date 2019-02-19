@@ -1158,8 +1158,9 @@ void FMagicLeapHMD::Startup()
 
 void FMagicLeapHMD::Shutdown()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(ShutdownRen,
-		FMagicLeapHMD*, Plugin, this,
+	FMagicLeapHMD* Plugin = this;
+	ENQUEUE_RENDER_COMMAND(ShutdownRendering)(
+		[Plugin](FRHICommandListImmediate& RHICmdList)
 		{
 			Plugin->ShutdownRendering();
 		});
@@ -1494,8 +1495,9 @@ void FMagicLeapHMD::ReleaseDevice()
 	// save any runtime configuration changes to the .ini
 	SaveToIni();
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(ReleaseDevice_RT,
-		FMagicLeapHMD*, Plugin, this,
+	FMagicLeapHMD* Plugin = this;
+	ENQUEUE_RENDER_COMMAND(ReleaseDevice_RT)(
+		[Plugin](FRHICommandListImmediate& RHICmdList)
 		{
 			Plugin->ReleaseDevice_RenderThread();
 		}

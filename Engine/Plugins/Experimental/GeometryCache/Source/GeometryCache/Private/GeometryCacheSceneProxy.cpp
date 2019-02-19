@@ -133,19 +133,17 @@ FGeometryCacheSceneProxy::FGeometryCacheSceneProxy(UGeometryCacheComponent* Comp
 	{
 		// Update at least once after the scene proxy has been constructed
 		// Otherwise it is invisible until animation starts
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FGeometryCacheUpdateAnimation,
-			FGeometryCacheSceneProxy*, SceneProxy, this,
+		FGeometryCacheSceneProxy* SceneProxy = this;
+		ENQUEUE_RENDER_COMMAND(FGeometryCacheUpdateAnimation)(
+			[SceneProxy](FRHICommandListImmediate& RHICmdList)
 			{
 				SceneProxy->FrameUpdate();
 			});
 
-	#if RHI_RAYTRACING
-		if (IsRayTracingEnabled())
+#if RHI_RAYTRACING
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				FGeometryCacheInitRayTracingGeometry,
-				FGeometryCacheSceneProxy*, SceneProxy, this,
+			ENQUEUE_RENDER_COMMAND(FGeometryCacheInitRayTracingGeometry)(
+				[SceneProxy](FRHICommandListImmediate& RHICmdList)
 				{
 					for (FGeomCacheTrackProxy* Section : SceneProxy->Tracks)
 					{

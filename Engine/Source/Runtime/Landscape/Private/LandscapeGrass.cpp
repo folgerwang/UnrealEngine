@@ -584,9 +584,9 @@ public:
 		RenderTargetResource = RenderTargetTexture->GameThread_GetRenderTargetResource()->GetTextureRenderTarget2DResource();
 
 		// render
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FDrawSceneCommand,
-			FLandscapeGrassWeightExporter_RenderThread*, Exporter, this,
+		FLandscapeGrassWeightExporter_RenderThread* Exporter = this;
+		ENQUEUE_RENDER_COMMAND(FDrawSceneCommand)(
+			[Exporter](FRHICommandListImmediate& RHICmdList)
 			{
 				Exporter->RenderLandscapeComponentToTexture_RenderThread(RHICmdList);
 				FlushPendingDeleteRHIResources_RenderThread();

@@ -119,9 +119,9 @@ void FOpenColorIOTransformResource::ReleaseShaderMap()
 	{
 		GameThreadShaderMap = nullptr;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseShaderMap,
-			FOpenColorIOTransformResource*, ColorTransform, this,
+		FOpenColorIOTransformResource* ColorTransform = this;
+		ENQUEUE_RENDER_COMMAND(ReleaseShaderMap)(
+			[ColorTransform](FRHICommandListImmediate& RHICmdList)
 			{
 				ColorTransform->SetRenderingThreadShaderMap(nullptr);
 			});

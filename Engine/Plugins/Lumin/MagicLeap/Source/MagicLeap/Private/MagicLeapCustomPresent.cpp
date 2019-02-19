@@ -416,8 +416,9 @@ void FMagicLeapCustomPresentOpenGL::UpdateViewport(const FViewport& Viewport, FR
 	RenderTargetTexture = *(reinterpret_cast<uint32_t*>(RT->GetNativeResource()));
 	InViewportRHI->SetCustomPresent(this);
 	
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UpdateViewport_RT,
-		FMagicLeapCustomPresentOpenGL*, CustomPresent, this,
+	FMagicLeapCustomPresentOpenGL* CustomPresent = this;
+	ENQUEUE_RENDER_COMMAND(UpdateViewport_RT)(
+		[CustomPresent](FRHICommandListImmediate& RHICmdList)
 		{
 			CustomPresent->UpdateViewport_RenderThread();
 		}
@@ -641,8 +642,9 @@ void FMagicLeapCustomPresentVulkan::UpdateViewport(const FViewport& Viewport, FR
 
 	InViewportRHI->SetCustomPresent(this);
 	
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UpdateViewport_RT,
-		FMagicLeapCustomPresentVulkan*, CustomPresent, this,
+	FMagicLeapCustomPresentVulkan* CustomPresent = this;
+	ENQUEUE_RENDER_COMMAND(UpdateViewport_RT)(
+		[CustomPresent](FRHICommandListImmediate& RHICmdList)
 		{
 			CustomPresent->UpdateViewport_RenderThread();
 		}

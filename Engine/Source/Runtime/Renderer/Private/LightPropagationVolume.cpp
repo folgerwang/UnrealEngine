@@ -1512,12 +1512,11 @@ void FSceneViewState::DestroyLightPropagationVolume()
 		FLightPropagationVolume* LPV = LightPropagationVolume;
 		LightPropagationVolume = nullptr;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			DeleteLPV,
-			FLightPropagationVolume*, LPV, LPV,
-		{
-			LPV->Release();
-		}
+		ENQUEUE_RENDER_COMMAND(DeleteLPV)(
+			[LPV](FRHICommandListImmediate& RHICmdList)
+			{
+				LPV->Release();
+			}
 		);
 		bIsStereoView = false;
 	}

@@ -1592,9 +1592,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 	}
 
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateMeshPaintRTCommand1,
-			FTextureRenderTargetResource*, BrushRenderTargetResource, BrushRenderTargetResource,
+		ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand1)(
+			[BrushRenderTargetResource](FRHICommandListImmediate& RHICmdList)
 			{
 				// Copy (resolve) the rendered image from the frame buffer to its render target texture
 				RHICmdList.CopyToResolveTarget(
@@ -1610,9 +1609,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 		BrushMaskCanvas->Flush_GameThread(true);
 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				UpdateMeshPaintRTCommand2,
-				FTextureRenderTargetResource*, BrushMaskRenderTargetResource, BrushMaskRenderTargetResource,
+			ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand2)(
+				[BrushMaskRenderTargetResource](FRHICommandListImmediate& RHICmdList)
 				{
 					// Copy (resolve) the rendered image from the frame buffer to its render target texture
 					RHICmdList.CopyToResolveTarget(
@@ -1712,9 +1710,8 @@ void FPaintModePainter::PaintTexture(const FMeshPaintParameters& InParams, TArra
 		}
 
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				UpdateMeshPaintRTCommand3,
-				FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
+			ENQUEUE_RENDER_COMMAND(UpdateMeshPaintRTCommand3)(
+				[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 				{
 					// Copy (resolve) the rendered image from the frame buffer to its render target texture
 					RHICmdList.CopyToResolveTarget(

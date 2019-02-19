@@ -1546,8 +1546,9 @@ void FSlateRHIRenderer::AddWidgetRendererUpdate(const struct FRenderThreadUpdate
 	else
 	{
 		// Enqueue a command to unlock the draw buffer after all windows have been drawn
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(DrawWidgetRendererImmediate,
-			FRenderThreadUpdateContext, InContext, Context,
+		FRenderThreadUpdateContext InContext = Context;
+		ENQUEUE_RENDER_COMMAND(DrawWidgetRendererImmediate)(
+			[InContext](FRHICommandListImmediate& RHICmdList)
 			{
 				static_cast<ISlate3DRenderer*>(InContext.Renderer)->DrawWindowToTarget_RenderThread(RHICmdList, InContext);
 			});

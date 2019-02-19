@@ -467,7 +467,7 @@ void AOculusMR_CastingCameraActor::UpdateCameraColorTexture(const ovrpSizei &fra
 		FTexture2DResource* DestTextureResource;
 		uint32 FrameWidth;
 		uint32 FrameHeight;
-	} UploadCameraTextureContext =
+	} Context =
 	{
 		SrcData,
 		Pitch,
@@ -476,9 +476,8 @@ void AOculusMR_CastingCameraActor::UpdateCameraColorTexture(const ovrpSizei &fra
 		(uint32) frameSize.h
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateCameraColorTexture,
-		FUploadCameraTextureContext, Context, UploadCameraTextureContext,
+	ENQUEUE_RENDER_COMMAND(UpdateCameraColorTexture)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			const FUpdateTextureRegion2D UpdateRegion(
 				0, 0,		// Dest X, Y
@@ -523,7 +522,7 @@ void AOculusMR_CastingCameraActor::UpdateCameraDepthTexture(const ovrpSizei &fra
 		FTexture2DResource* DestTextureResource;
 		uint32 FrameWidth;
 		uint32 FrameHeight;
-	} UploadCameraTextureContext =
+	} Context =
 	{
 		SrcData,
 		Pitch,
@@ -532,9 +531,8 @@ void AOculusMR_CastingCameraActor::UpdateCameraDepthTexture(const ovrpSizei &fra
 		(uint32) frameSize.h
 	};
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		UpdateCameraDepthTexture,
-		FUploadCameraTextureContext, Context, UploadCameraTextureContext,
+	ENQUEUE_RENDER_COMMAND(UpdateCameraDepthTexture)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			const FUpdateTextureRegion2D UpdateRegion(
 				0, 0,		// Dest X, Y
@@ -543,14 +541,14 @@ void AOculusMR_CastingCameraActor::UpdateCameraDepthTexture(const ovrpSizei &fra
 				Context.FrameHeight	    // Height
 			);
 
-	RHIUpdateTexture2D(
-		Context.DestTextureResource->GetTexture2DRHI(),	// Destination GPU texture
-		0,												// Mip map index
-		UpdateRegion,									// Update region
-		Context.CameraBufferPitch,						// Source buffer pitch
-		Context.CameraBuffer);							// Source buffer pointer
+			RHIUpdateTexture2D(
+				Context.DestTextureResource->GetTexture2DRHI(),	// Destination GPU texture
+				0,												// Mip map index
+				UpdateRegion,									// Update region
+				Context.CameraBufferPitch,						// Source buffer pitch
+				Context.CameraBuffer);							// Source buffer pointer
 
-	FMemory::Free(Context.CameraBuffer);
+			FMemory::Free(Context.CameraBuffer);
 		}
 	);
 }

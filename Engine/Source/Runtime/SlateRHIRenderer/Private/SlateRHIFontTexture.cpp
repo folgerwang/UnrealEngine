@@ -108,15 +108,16 @@ void FSlateFontAtlasRHI::ConditionalUpdateTexture()
 
 			BeginInitResource( FontTexture.Get() );
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( SlateUpdateFontAtlasTextureCommand,
-				FSlateFontAtlasRHI&, Atlas, *this,
-			{
-				uint32 DestStride;
-				uint8* TempData = (uint8*)RHILockTexture2D( Atlas.FontTexture->GetTypedResource(), 0, RLM_WriteOnly, /*out*/ DestStride, false );
-				// check( DestStride == Atlas.BytesPerPixel * Atlas.AtlasWidth ); // Temporarily disabling check
-				FMemory::Memcpy( TempData, Atlas.AtlasData.GetData(), Atlas.BytesPerPixel*Atlas.AtlasWidth*Atlas.AtlasHeight );
-				RHIUnlockTexture2D( Atlas.FontTexture->GetTypedResource(),0,false );
-			});
+			FSlateFontAtlasRHI* Atlas = this;
+			ENQUEUE_RENDER_COMMAND(SlateUpdateFontAtlasTextureCommand)(
+				[Atlas](FRHICommandListImmediate& RHICmdList)
+				{
+					uint32 DestStride;
+					uint8* TempData = (uint8*)RHILockTexture2D( Atlas->FontTexture->GetTypedResource(), 0, RLM_WriteOnly, /*out*/ DestStride, false );
+					// check( DestStride == Atlas.BytesPerPixel * Atlas.AtlasWidth ); // Temporarily disabling check
+					FMemory::Memcpy( TempData, Atlas->AtlasData.GetData(), Atlas->BytesPerPixel*Atlas->AtlasWidth*Atlas->AtlasHeight );
+					RHIUnlockTexture2D( Atlas->FontTexture->GetTypedResource(),0,false );
+				});
 		}
 
 		bNeedsUpdate = false;
@@ -139,11 +140,12 @@ FSlateFontTextureRHI::FSlateFontTextureRHI(const uint32 InWidth, const uint32 In
 
 		BeginInitResource(FontTexture.Get());
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(SlateUpdateFontTextureCommand,
-			FSlateFontTextureRHI&, FontTexture, *this,
+		FSlateFontTextureRHI* This = this;
+		ENQUEUE_RENDER_COMMAND(SlateUpdateFontTextureCommand)(
+			[This](FRHICommandListImmediate& RHICmdList)
 			{
-				FontTexture.UpdateTextureFromSource(FontTexture.PendingSourceData->SourceWidth, FontTexture.PendingSourceData->SourceHeight, FontTexture.PendingSourceData->SourceData);
-				FontTexture.PendingSourceData.Reset();
+				This->UpdateTextureFromSource(This->PendingSourceData->SourceWidth, This->PendingSourceData->SourceHeight, This->PendingSourceData->SourceData);
+				This->PendingSourceData.Reset();
 			});
 	}
 }

@@ -127,10 +127,12 @@ FDefaultGameMoviePlayer::~FDefaultGameMoviePlayer()
 	else if (GIsRHIInitialized)
 	{
 		// Even when uninitialized we must safely unregister the movie player on the render thread
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UnregisterMoviePlayerTickable, FDefaultGameMoviePlayer*, MoviePlayer, this,
-		{
-			MoviePlayer->Unregister();
-		});
+		FDefaultGameMoviePlayer* InMoviePlayer = this;
+		ENQUEUE_RENDER_COMMAND(UnregisterMoviePlayerTickable)(
+			[InMoviePlayer](FRHICommandListImmediate& RHICmdList)
+			{
+				InMoviePlayer->Unregister();
+			});
 	}
 
 	FCoreDelegates::IsLoadingMovieCurrentlyPlaying.Unbind();
@@ -160,10 +162,12 @@ void FDefaultGameMoviePlayer::Initialize(FSlateRenderer& InSlateRenderer, TShare
 
 	UE_LOG(LogMoviePlayer, Log, TEXT("Initializing movie player"));
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(RegisterMoviePlayerTickable, FDefaultGameMoviePlayer*, MoviePlayer, this,
-	{
-		MoviePlayer->Register();
-	});
+	FDefaultGameMoviePlayer* InMoviePlayer = this;
+	ENQUEUE_RENDER_COMMAND(RegisterMoviePlayerTickable)(
+		[InMoviePlayer](FRHICommandListImmediate& RHICmdList)
+		{
+			InMoviePlayer->Register();
+		});
 
 	bInitialized = true;
 
@@ -262,10 +266,12 @@ void FDefaultGameMoviePlayer::Shutdown()
 	StopMovie();
 	WaitForMovieToFinish();
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UnregisterMoviePlayerTickable, FDefaultGameMoviePlayer*, MoviePlayer, this,
-	{
-		MoviePlayer->Unregister();
-	});
+	FDefaultGameMoviePlayer* InMoviePlayer = this;
+	ENQUEUE_RENDER_COMMAND(UnregisterMoviePlayerTickable)(
+		[InMoviePlayer](FRHICommandListImmediate& RHICmdList)
+		{
+			InMoviePlayer->Unregister();
+		});
 
 	bInitialized = false;
 

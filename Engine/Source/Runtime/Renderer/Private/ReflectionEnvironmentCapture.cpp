@@ -1027,13 +1027,13 @@ void FScene::UpdateAllReflectionCaptures(const TCHAR* CaptureReason, bool bVerif
 {
 	if (IsReflectionEnvironmentAvailable(GetFeatureLevel()))
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
-			CaptureCommand,
-			FScene*, Scene, this,
-		{
-			Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Empty();
-			Scene->ReflectionSceneData.CubemapArraySlotsUsed.Reset();
-		});
+		FScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(CaptureCommand)(
+			[Scene](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->ReflectionSceneData.AllocatedReflectionCaptureState.Empty();
+				Scene->ReflectionSceneData.CubemapArraySlotsUsed.Reset();
+			});
 
 		// Only display status during building reflection captures, otherwise we may interrupt a editor widget manipulation of many captures
 		const int32 NumCapturesForStatus = bVerifyOnlyCapturing ? ReflectionSceneData.AllocatedReflectionCapturesGameThread.Num() : 0;

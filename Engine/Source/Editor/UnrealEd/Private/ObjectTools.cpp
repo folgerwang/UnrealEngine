@@ -3878,16 +3878,15 @@ namespace ThumbnailTools
 
 
 			{
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-					UpdateThumbnailRTCommand,
-					FTextureRenderTargetResource*, RenderTargetResource, RenderTargetResource,
-				{
-					// Copy (resolve) the rendered thumbnail from the render target to its texture
-					RHICmdList.CopyToResolveTarget(
-						RenderTargetResource->GetRenderTargetTexture(),		// Source texture
-						RenderTargetResource->TextureRHI,					// Dest texture
-						FResolveParams() );									// Resolve parameters
-				});
+				ENQUEUE_RENDER_COMMAND(UpdateThumbnailRTCommand)(
+					[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
+					{
+						// Copy (resolve) the rendered thumbnail from the render target to its texture
+						RHICmdList.CopyToResolveTarget(
+							RenderTargetResource->GetRenderTargetTexture(),		// Source texture
+							RenderTargetResource->TextureRHI,					// Dest texture
+							FResolveParams() );									// Resolve parameters
+					});
 
 				if(OutThumbnail)
 				{

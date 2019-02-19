@@ -8134,7 +8134,12 @@ bool UEngine::PerformError(const TCHAR* Cmd, FOutputDevice& Ar)
 		{
 			Seconds = 1.0f;
 		}
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(CauseRenderThreadHitch, float, Length, Seconds, { SCOPE_CYCLE_COUNTER(STAT_IntentionalHitch); FPlatformProcess::Sleep(Length); });
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadHitch)(
+			[Seconds](FRHICommandListImmediate& RHICmdList)
+			{
+				SCOPE_CYCLE_COUNTER(STAT_IntentionalHitch);
+				FPlatformProcess::Sleep(Seconds);
+			});
 		return true;
 	}
 	else if (FParse::Command(&Cmd, TEXT("SPIN")))
@@ -8159,7 +8164,13 @@ bool UEngine::PerformError(const TCHAR* Cmd, FOutputDevice& Ar)
 		{
 			Seconds = 1.0f;
 		}
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(CauseRenderThreadHitch, float, Length, Seconds, { SCOPE_CYCLE_COUNTER(STAT_IntentionalHitch); double StartTime = FPlatformTime::Seconds(); while (FPlatformTime::Seconds() < StartTime + Length) {} });
+		ENQUEUE_RENDER_COMMAND(CauseRenderThreadHitch)(
+			[Seconds](FRHICommandListImmediate& RHICmdList)
+			{
+				SCOPE_CYCLE_COUNTER(STAT_IntentionalHitch);
+				double StartTime = FPlatformTime::Seconds();
+				while (FPlatformTime::Seconds() < StartTime + Seconds) {}
+			});
 		return true;
 	}
 	else if (FParse::Command(&Cmd, TEXT("LONGLOG")))

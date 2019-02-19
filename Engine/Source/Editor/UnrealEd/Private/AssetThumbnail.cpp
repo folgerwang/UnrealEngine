@@ -897,14 +897,14 @@ void FAssetThumbnailPool::ReleaseResources()
 		const TSharedRef<FThumbnailInfo>& Thumb = *ThumbIt;
 
 			// Release rendering resources
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
-				ReleaseThumbnailResources,
-				FThumbnailInfo_RenderThread, ThumbInfo, Thumb.Get(),
-			{
-				ThumbInfo.ThumbnailTexture->ClearTextureData();
-				ThumbInfo.ThumbnailTexture->ReleaseResource();
-				ThumbInfo.ThumbnailRenderTarget->ReleaseResource();
-			});
+			FThumbnailInfo_RenderThread ThumbInfo = Thumb.Get();
+			ENQUEUE_RENDER_COMMAND(ReleaseThumbnailResources)(
+				[ThumbInfo](FRHICommandListImmediate& RHICmdList)
+				{
+					ThumbInfo.ThumbnailTexture->ClearTextureData();
+					ThumbInfo.ThumbnailTexture->ReleaseResource();
+					ThumbInfo.ThumbnailRenderTarget->ReleaseResource();
+				});
 		}
 
 	// Wait for all resources to be released
@@ -1014,17 +1014,17 @@ void FAssetThumbnailPool::Tick( float DeltaTime )
 						FThumbnailRenderingInfo* RenderInfo = GUnrealEd->GetThumbnailManager()->GetRenderingInfo( Asset );
 						if ( RenderInfo != NULL && RenderInfo->Renderer != NULL )
 						{
-							ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-								SyncSlateTextureCommand,
-								FThumbnailInfo_RenderThread, ThumbInfo, InfoRef.Get(),
-							{
-								if ( ThumbInfo.ThumbnailTexture->GetTypedResource() != ThumbInfo.ThumbnailRenderTarget->GetTextureRHI() )
+							FThumbnailInfo_RenderThread ThumbInfo = InfoRef.Get();
+							ENQUEUE_RENDER_COMMAND(SyncSlateTextureCommand)(
+								[ThumbInfo](FRHICommandListImmediate& RHICmdList)
 								{
-									ThumbInfo.ThumbnailTexture->ClearTextureData();
-									ThumbInfo.ThumbnailTexture->ReleaseDynamicRHI();
-									ThumbInfo.ThumbnailTexture->SetRHIRef(ThumbInfo.ThumbnailRenderTarget->GetTextureRHI(), ThumbInfo.Width, ThumbInfo.Height);
-								}
-							});
+									if ( ThumbInfo.ThumbnailTexture->GetTypedResource() != ThumbInfo.ThumbnailRenderTarget->GetTextureRHI() )
+									{
+										ThumbInfo.ThumbnailTexture->ClearTextureData();
+										ThumbInfo.ThumbnailTexture->ReleaseDynamicRHI();
+										ThumbInfo.ThumbnailTexture->SetRHIRef(ThumbInfo.ThumbnailRenderTarget->GetTextureRHI(), ThumbInfo.Width, ThumbInfo.Height);
+									}
+								});
 
 							if (InfoRef->LastUpdateTime <= 0.0f || RenderInfo->Renderer->AllowsRealtimeThumbnails(Asset))
 							{
@@ -1376,12 +1376,12 @@ void FAssetThumbnailPool::FreeThumbnail( const FName& ObjectPath, uint32 Width, 
 			RealTimeThumbnails.Remove(ThumbnailInfo);
 			RealTimeThumbnailsToRender.Remove(ThumbnailInfo);
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER( 
-				ReleaseThumbnailTextureData,
-				FSlateTexture2DRHIRef*, ThumbnailTexture, ThumbnailInfo->ThumbnailTexture,
-			{
-				ThumbnailTexture->ClearTextureData();
-			});
+			FSlateTexture2DRHIRef* ThumbnailTexture = ThumbnailInfo->ThumbnailTexture;
+			ENQUEUE_RENDER_COMMAND(ReleaseThumbnailTextureData)(
+				[ThumbnailTexture](FRHICommandListImmediate& RHICmdList)
+				{
+					ThumbnailTexture->ClearTextureData();
+				});
 
 			FreeThumbnails.Add( ThumbnailInfo );
 		}

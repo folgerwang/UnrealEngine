@@ -80,9 +80,9 @@ NiagaraRenderer::~NiagaraRenderer()
 void NiagaraRenderer::Release()
 {
 	check(IsInGameThread());
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		NiagaraRendererDeletion,
-		NiagaraRenderer*, Renderer, this,
+	NiagaraRenderer* Renderer = this;
+	ENQUEUE_RENDER_COMMAND(NiagaraRendererDeletion)(
+		[Renderer](FRHICommandListImmediate& RHICmdList)
 		{
 			delete Renderer;
 		}

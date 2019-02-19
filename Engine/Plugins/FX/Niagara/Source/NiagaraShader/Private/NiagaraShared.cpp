@@ -154,9 +154,9 @@ void FNiagaraShaderScript::ReleaseShaderMap()
 	{
 		GameThreadShaderMap = nullptr;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			ReleaseShaderMap,
-			FNiagaraShaderScript*, Script, this,
+		FNiagaraShaderScript* Script = this;
+		ENQUEUE_RENDER_COMMAND(ReleaseShaderMap)(
+			[Script](FRHICommandListImmediate& RHICmdList)
 			{
 				Script->SetRenderingThreadShaderMap(nullptr);
 			});

@@ -389,29 +389,24 @@ void UMediaCapture::InitializeResolveTarget(int32 InNumberOfBuffers)
 	check(CaptureFrames.Num() == 0);
 	CaptureFrames.AddDefaulted(InNumberOfBuffers);
 
-	auto RenderCommand = [this](FRHICommandListImmediate& RHICmdList)
-	{
-		FRHIResourceCreateInfo CreateInfo;
-		for (int32 Index = 0; Index < NumberOfCaptureFrame; ++Index)
+	UMediaCapture* This = this;
+	ENQUEUE_RENDER_COMMAND(MediaOutputCaptureFrameCreateTexture)(
+		[This](FRHICommandListImmediate& RHICmdList)
 		{
-			CaptureFrames[Index].ReadbackTexture = RHICreateTexture2D(
-				DesiredOutputSize.X,
-				DesiredOutputSize.Y,
-				DesiredOutputPixelFormat,
-				1,
-				1,
-				TexCreate_CPUReadback,
-				CreateInfo
-			);
-		}
-		bResolvedTargetInitialized = true;
-	};
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		MediaOutputCaptureFrameCreateTexture,
-		decltype(RenderCommand), InRenderCommand, RenderCommand,
-		{
-			InRenderCommand(RHICmdList);
+			FRHIResourceCreateInfo CreateInfo;
+			for (int32 Index = 0; Index < This->NumberOfCaptureFrame; ++Index)
+			{
+				This->CaptureFrames[Index].ReadbackTexture = RHICreateTexture2D(
+					This->DesiredOutputSize.X,
+					This->DesiredOutputSize.Y,
+					This->DesiredOutputPixelFormat,
+					1,
+					1,
+					TexCreate_CPUReadback,
+					CreateInfo
+				);
+			}
+			This->bResolvedTargetInitialized = true;
 		});
 }
 

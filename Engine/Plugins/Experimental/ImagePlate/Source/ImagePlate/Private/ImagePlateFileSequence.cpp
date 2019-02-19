@@ -189,9 +189,8 @@ TFuture<void> FImagePlateSourceFrame::CopyTo(UTexture* DestinationTexture)
 	CommandData->SourceFrame = *this;
 	CommandData->DestinationTexture = DestinationTexture;
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		CopySourceBufferToTexture,
-		FCommandDataPtr, CommandData, CommandData,
+	ENQUEUE_RENDER_COMMAND(CopySourceBufferToTexture)(
+		[CommandData](FRHICommandListImmediate& RHICmdList)
 		{
 			if (!CommandData->DestinationTexture->Resource || !CommandData->DestinationTexture->Resource->TextureRHI)
 			{

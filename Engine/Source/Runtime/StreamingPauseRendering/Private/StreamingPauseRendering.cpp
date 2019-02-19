@@ -136,10 +136,9 @@ void FStreamingPauseRenderingModule::BeginStreamingPause( FViewport* GameViewpor
 			}
 			Canvas.Flush_GameThread();
 
-
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-				EndDrawingCommand,
-				FViewport*, Viewport, SceneViewport.Get(),
+			FViewport* Viewport = SceneViewport.Get();
+			ENQUEUE_RENDER_COMMAND(EndDrawingCommand)(
+				[Viewport](FRHICommandListImmediate& RHICmdList)
 				{
 					Viewport->EndRenderFrame(RHICmdList, false, false);
 				});

@@ -210,9 +210,9 @@ FCanvasTileRendererItem::FRenderData::FRenderData(ERHIFeatureLevel::Type InFeatu
 	, MaterialRenderProxy(InMaterialRenderProxy)
 	, Transform(InTransform)
 {
-
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FCanvasTileRendererItemFTileVertexFactoryInit,
-		FTileVertexFactory*, TileVertexFactory, &VertexFactory,
+	FTileVertexFactory* TileVertexFactory = &VertexFactory;
+	ENQUEUE_RENDER_COMMAND(FCanvasTileRendererItemFTileVertexFactoryInit)(
+		[TileVertexFactory](FRHICommandListImmediate& RHICmdList)
 		{
 			FLocalVertexFactory::FDataType VertexData;
 			VertexData.NumTexCoords = 1;
@@ -258,8 +258,9 @@ FCanvasTileRendererItem::FRenderData::FRenderData(ERHIFeatureLevel::Type InFeatu
 
 FCanvasTileRendererItem::~FCanvasTileRendererItem()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FCanvasTileRendererItemDeleteRenderData,
-		FCanvasTileRendererItem::FRenderData*, RenderData, Data,
+	FCanvasTileRendererItem::FRenderData* RenderData = Data;
+	ENQUEUE_RENDER_COMMAND(FCanvasTileRendererItemDeleteRenderData)(
+		[RenderData](FRHICommandListImmediate& RHICmdList)
 		{
 			delete RenderData;
 		});

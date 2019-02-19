@@ -82,8 +82,9 @@ FNiagaraEmitterInstance::~FNiagaraEmitterInstance()
 				Batcher->Remove(GPUExecContext);
 			}
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FDeleteComputeContextCommand,
-				FNiagaraComputeExecutionContext*, ExecContext, GPUExecContext,
+			FNiagaraComputeExecutionContext* ExecContext = GPUExecContext;
+			ENQUEUE_RENDER_COMMAND(FDeleteComputeContextCommand)(
+				[ExecContext](FRHICommandListImmediate& RHICmdList)
 				{
 					delete ExecContext;
 				});
@@ -93,8 +94,9 @@ FNiagaraEmitterInstance::~FNiagaraEmitterInstance()
 
 		if (ParticleDataSet != nullptr)
 		{
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(FDeleteParticleDataSetCommand,
-				FNiagaraDataSet*, DataSet, ParticleDataSet,
+			FNiagaraDataSet* DataSet = ParticleDataSet;
+			ENQUEUE_RENDER_COMMAND(FDeleteParticleDataSetCommand)(
+				[DataSet](FRHICommandListImmediate& RHICmdList)
 				{
 					delete DataSet;
 				});

@@ -1493,9 +1493,9 @@ void ALandscape::PrintDebugRTHeightmap(FString Context, UTextureRenderTarget2D* 
 		return;
 	}
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		HeightmapRTCanvasRenderTargetResolveCommand,
-		FTextureRenderTargetResource*, RenderTargetResource, InDebugRT->GameThread_GetRenderTargetResource(),
+	FTextureRenderTargetResource* RenderTargetResource = InDebugRT->GameThread_GetRenderTargetResource();
+	ENQUEUE_RENDER_COMMAND(HeightmapRTCanvasRenderTargetResolveCommand)(
+		[RenderTargetResource](FRHICommandListImmediate& RHICmdList)
 		{
 			// Copy (resolve) the rendered image from the frame buffer to its render target texture
 			RHICmdList.CopyToResolveTarget(RenderTargetResource->GetRenderTargetTexture(), RenderTargetResource->TextureRHI, FResolveParams());
