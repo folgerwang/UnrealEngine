@@ -233,11 +233,11 @@ namespace SteamAudio
 
 	int32 FIdentifierMap::Add(const FString& Identifier)
 	{
-		int32 Value = FMath::RandRange(0, TNumericLimits<int32>::Max());
+		int32 Value = FMath::Rand();
 
 		while (ContainsValue(Value))
 		{
-			Value = FMath::RandRange(0, TNumericLimits<int32>::Max());
+			Value = FMath::Rand();
 		}
 
 		IdentifierMapping.Add(TPair<FString, int32>(Identifier, Value));

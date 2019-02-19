@@ -80,6 +80,22 @@ namespace SteamAudio
 	void FPhononReverb::Initialize(const FAudioPluginInitializationParams InitializationParams)
 	{
 		AudioPluginInitializationParams = InitializationParams;
+
+		InputAudioFormat.channelLayout = IPL_CHANNELLAYOUT_MONO;
+		InputAudioFormat.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
+		InputAudioFormat.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
+		InputAudioFormat.numSpeakers = 1;
+		InputAudioFormat.speakerDirections = nullptr;
+		InputAudioFormat.ambisonicsOrder = -1;
+		InputAudioFormat.ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_N3D;
+		InputAudioFormat.ambisonicsOrdering = IPL_AMBISONICSORDERING_ACN;
+
+		ReverbSources.SetNum(AudioPluginInitializationParams.NumSources);
+		for (FReverbSource& ReverbSource : ReverbSources)
+		{
+			ReverbSource.InBuffer.format = InputAudioFormat;
+			ReverbSource.InBuffer.numSamples = AudioPluginInitializationParams.BufferLength;
+		}
 	}
 
 	void FPhononReverb::SetEnvironment(FEnvironment* InEnvironment)
@@ -93,15 +109,6 @@ namespace SteamAudio
 
 		const int32 IndirectImpulseResponseOrder = Environment->GetSimulationSettings().ambisonicsOrder;
 		AmbisonicsChannels = (IndirectImpulseResponseOrder + 1) * (IndirectImpulseResponseOrder + 1);
-
-		InputAudioFormat.channelLayout = IPL_CHANNELLAYOUT_MONO;
-		InputAudioFormat.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
-		InputAudioFormat.channelOrder = IPL_CHANNELORDER_INTERLEAVED;
-		InputAudioFormat.numSpeakers = 1;
-		InputAudioFormat.speakerDirections = nullptr;
-		InputAudioFormat.ambisonicsOrder = -1;
-		InputAudioFormat.ambisonicsNormalization = IPL_AMBISONICSNORMALIZATION_N3D;
-		InputAudioFormat.ambisonicsOrdering = IPL_AMBISONICSORDERING_ACN;
 
 		ReverbInputAudioFormat.channelLayout = IPL_CHANNELLAYOUT_STEREO;
 		ReverbInputAudioFormat.channelLayoutType = IPL_CHANNELLAYOUTTYPE_SPEAKERS;
@@ -168,13 +175,6 @@ namespace SteamAudio
 		IndirectOutBuffer.interleavedBuffer = IndirectOutArray.GetData();
 		IndirectOutBuffer.deinterleavedBuffer = nullptr;
 
-		ReverbSources.SetNum(AudioPluginInitializationParams.NumSources);
-		for (FReverbSource& ReverbSource : ReverbSources)
-		{
-			ReverbSource.InBuffer.format = InputAudioFormat;
-			ReverbSource.InBuffer.numSamples = AudioPluginInitializationParams.BufferLength;
-		}
-
 		ReverbIndirectContribution = 1.0f;
 
 		CachedSpatializationMethod = GetDefault<USteamAudioSettings>()->IndirectSpatializationMethod;
@@ -232,8 +232,12 @@ namespace SteamAudio
 	{
 		UE_LOG(LogSteamAudio, Log, TEXT("Destroying reverb effect."));
 
-		ReverbSources[SourceId].IndirectContribution = 1.0f;
-		iplDestroyConvolutionEffect(&ReverbSources[SourceId].ConvolutionEffect);
+		check((int32)SourceId < ReverbSources.Num());
+
+		if (ReverbSources[SourceId].ConvolutionEffect)
+		{
+			iplDestroyConvolutionEffect(&ReverbSources[SourceId].ConvolutionEffect);
+		}
 	}
 
 	void FPhononReverb::ProcessSourceAudio(const FAudioPluginSourceInputData& InputData, FAudioPluginSourceOutputData& OutputData)
