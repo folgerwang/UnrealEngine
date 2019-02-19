@@ -134,14 +134,13 @@ void FGoogleVRSplash::Hide()
 	FTickableObjectRenderThread* RenderThreadTickerLocal = RenderThreadTicker.Get();
 	FGoogleVRSplash* pGVRSplash = this;
 	ENQUEUE_RENDER_COMMAND(UnregisterAsyncTick)(
-	TSharedPtr<FGoogleVRSplashTicker>&, RenderThreadTicker, RenderThreadTicker,
-	FGoogleVRSplash*, pGVRSplash, this,
-	{
-		pGVRSplash->SubmitBlackFrame();
+		[RenderThreadTickerLocal, pGVRSplash](FRHICommandListImmediate& RHICmdList)
+		{
+			pGVRSplash->SubmitBlackFrame();
 
-		RenderThreadTicker->Unregister();
-		RenderThreadTicker = nullptr;
-	});
+			RenderThreadTicker->Unregister();
+			RenderThreadTicker = nullptr;
+		});
 	FlushRenderingCommands();
 
 	if (!SplashTexturePath.IsEmpty())
