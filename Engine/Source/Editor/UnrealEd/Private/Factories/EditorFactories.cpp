@@ -650,7 +650,7 @@ UObject* UMaterialParameterCollectionFactoryNew::FactoryCreateNew(UClass* Class,
 		for (TObjectIterator<UWorld> It; It; ++It)
 		{
 			UWorld* CurrentWorld = *It;
-			CurrentWorld->AddParameterCollectionInstance(MaterialParameterCollection, true);
+			CurrentWorld->AddParameterCollectionInstance(MaterialParameterCollection, true /* bUpdateScene */);
 		}
 	}
 

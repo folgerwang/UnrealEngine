@@ -1138,7 +1138,7 @@ private:
 	class UGameInstance*						OwningGameInstance;
 
 	/** Parameter collection instances that hold parameter overrides for this world. */
-	UPROPERTY(Transient)
+	UPROPERTY(NonPIEDuplicateTransient)
 	TArray<class UMaterialParameterCollectionInstance*> ParameterCollectionInstances;
 
 	/** 
@@ -2416,7 +2416,7 @@ public:
 	void SetupParameterCollectionInstances();
 
 	/** Adds a new instance of the given collection, or overwrites an existing instance if there is one. */
-	void AddParameterCollectionInstance(class UMaterialParameterCollection* Collection, bool bUpdateScene);
+	void AddParameterCollectionInstance(class UMaterialParameterCollection* Collection, bool bUpdateScene, bool bOverwriteIfExists = true);
 
 	/** Gets this world's instance for a given collection. */
 	UMaterialParameterCollectionInstance* GetParameterCollectionInstance(const UMaterialParameterCollection* Collection);
