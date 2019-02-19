@@ -1180,7 +1180,7 @@ void FScene::UpdatePrimitiveTransform_RenderThread(FRHICommandListImmediate& RHI
 	// (note that the octree update relies on the bounds not being modified yet).
 	PrimitiveSceneInfo->RemoveFromScene(bUpdateStaticDrawLists);
 
-	VelocityData.UpdateTransform(PrimitiveSceneInfo->PrimitiveComponentId, LocalToWorld, PrimitiveSceneProxy->GetLocalToWorld());
+	VelocityData.UpdateTransform(PrimitiveSceneInfo, LocalToWorld, PrimitiveSceneProxy->GetLocalToWorld());
 
 	if (GWarningOnRedundantTransformUpdate && PrimitiveSceneProxy->WouldSetTransformBeRedundant(LocalToWorld, WorldBounds, LocalBounds, AttachmentRootPosition))
 	{
@@ -2249,6 +2249,32 @@ void FScene::RemovePrecomputedVolumetricLightmap(const FPrecomputedVolumetricLig
 bool FScene::GetPreviousLocalToWorld(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const
 {
 	return VelocityData.GetComponentPreviousLocalToWorld(PrimitiveSceneInfo->PrimitiveComponentId, OutPreviousLocalToWorld);
+}
+
+void FSceneVelocityData::StartFrame(FScene* Scene)
+{
+	InternalFrameIndex++;
+
+	const bool bTrimOld = InternalFrameIndex % 100 == 0;
+
+	for (TMap<FPrimitiveComponentId, FComponentVelocityData>::TIterator It(ComponentData); It; ++It)
+	{
+		FComponentVelocityData& VelocityData = It.Value();
+		VelocityData.PreviousLocalToWorld = VelocityData.LocalToWorld;
+		VelocityData.bPreviousLocalToWorldValid = true;
+
+		if (InternalFrameIndex - VelocityData.LastFrameUpdated == 1)
+		{
+			// Recreate PrimitiveUniformBuffer on the frame after the primitive moved, since it contains PreviousLocalToWorld
+			VelocityData.PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);
+			AddPrimitiveToUpdateGPU(*Scene, VelocityData.PrimitiveSceneInfo->GetIndex());
+		}
+
+		if (bTrimOld && (InternalFrameIndex - VelocityData.LastFrameUsed) > 10)
+		{
+			It.RemoveCurrent();
+		}
+	}
 }
 
 void FScene::GetPrimitiveUniformShaderParameters_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool& bHasPrecomputedVolumetricLightmap, FMatrix& PreviousLocalToWorld, int32& SingleCaptureIndex) const 
