@@ -294,10 +294,12 @@ void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 	{
 		const FCachedMeshDrawCommandInfo& CachedCommand = StaticMeshCommandInfos[CommandIndex];
 		const FSetElementId StateBucketId = FSetElementId::FromInteger(CachedCommand.StateBucketId);
-			
+
 		if (StateBucketId.IsValidId())
 		{
 			FMeshDrawCommandStateBucket& StateBucket = Scene->CachedMeshDrawCommandStateBuckets[StateBucketId];
+
+			FGraphicsMinimalPipelineStateId::RemovePersistentId(StateBucket.MeshDrawCommand.CachedPipelineId);
 
 			if (StateBucket.Num == 1)
 			{
@@ -311,6 +313,8 @@ void FPrimitiveSceneInfo::RemoveCachedMeshDrawCommands()
 		else if (CachedCommand.CommandIndex >= 0)
 		{
 			FCachedPassMeshDrawList& PassDrawList = Scene->CachedDrawLists[CachedCommand.MeshPass];
+
+			FGraphicsMinimalPipelineStateId::RemovePersistentId(PassDrawList.MeshDrawCommands[CachedCommand.CommandIndex].CachedPipelineId);
 			PassDrawList.MeshDrawCommands.RemoveAt(CachedCommand.CommandIndex);
 
 			// Track the lowest index that might be free for faster AddAtLowestFreeIndex

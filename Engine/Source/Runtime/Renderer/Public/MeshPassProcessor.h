@@ -94,6 +94,45 @@ public:
 
 static_assert(sizeof(FMeshPassMask::Data) * 8 >= EMeshPass::Num, "FMeshPassMask::Data is too small to fit all mesh passes.");
 
+struct FRefCountedGraphicsMinimalPipelineStateInitializer
+{
+	FRefCountedGraphicsMinimalPipelineStateInitializer(const FGraphicsMinimalPipelineStateInitializer& InStateInitializer, int32 InRefNum = 0)
+		: StateInitializer(InStateInitializer)
+		, RefNum(InRefNum)
+	{
+	}
+
+	FGraphicsMinimalPipelineStateInitializer StateInitializer;
+	int32 RefNum = 0;
+};
+
+struct RefCountedGraphicsMinimalPipelineStateInitializerKeyFuncs : DefaultKeyFuncs<FRefCountedGraphicsMinimalPipelineStateInitializer, false>
+{
+	typedef typename TCallTraits<FGraphicsMinimalPipelineStateInitializer>::ConstReference KeyInitType;
+
+	/**
+	 * @return True if the keys match.
+	 */
+	static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
+	{
+		return A == B;
+	}
+
+	/**
+	 * @return The key used to index the given element.
+	 */
+	static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
+	{
+		return Element.StateInitializer;
+	}
+
+	/** Calculates a hash index for a key. */
+	static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+	{
+		return GetTypeHash(Key);
+	}
+};
+
 /** Uniquely represents a FGraphicsMinimalPipelineStateInitializer for fast compares. */
 class FGraphicsMinimalPipelineStateId
 {
@@ -128,16 +167,21 @@ public:
 			return OneFrameIdTable[SetElementId];
 		}
 
-		return PersistentIdTable[SetElementId];
+		return PersistentIdTable[SetElementId].StateInitializer;
 	}
 
 	/**
-	 * Get a pipeline id, which won't be ever released.
+	 * Get a ref counted persistent pipeline id, which needs to manually released.
 	 */
 	static FGraphicsMinimalPipelineStateId GetPersistentId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState);
 
 	/**
-	 * Get a pipeline id, which is valid only for a single frame.
+	 * Removes a persistent pipeline Id from the global persistent Id table.
+	 */
+	static void RemovePersistentId(FGraphicsMinimalPipelineStateId Id);
+
+	/**
+	 * Get a pipeline id, which is valid only for a single frame and doesn't need to be released manually.
 	 */
 	RENDERER_API static FGraphicsMinimalPipelineStateId GetOneFrameId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState);
 
@@ -159,7 +203,7 @@ private:
 		};
 	};
 
-	static TSet<FGraphicsMinimalPipelineStateInitializer> PersistentIdTable;
+	static TSet<FRefCountedGraphicsMinimalPipelineStateInitializer, RefCountedGraphicsMinimalPipelineStateInitializerKeyFuncs> PersistentIdTable;
 	static TSet<FGraphicsMinimalPipelineStateInitializer> OneFrameIdTable;
 	static FCriticalSection OneFrameIdTableCriticalSection;
 };

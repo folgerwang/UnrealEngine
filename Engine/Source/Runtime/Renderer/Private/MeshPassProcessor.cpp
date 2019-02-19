@@ -14,7 +14,7 @@
 #include "MeshPassProcessor.inl"
 #include "PipelineStateCache.h"
 
-TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::PersistentIdTable;
+TSet<FRefCountedGraphicsMinimalPipelineStateInitializer, RefCountedGraphicsMinimalPipelineStateInitializerKeyFuncs> FGraphicsMinimalPipelineStateId::PersistentIdTable;
 TSet<FGraphicsMinimalPipelineStateInitializer> FGraphicsMinimalPipelineStateId::OneFrameIdTable;
 FCriticalSection FGraphicsMinimalPipelineStateId::OneFrameIdTableCriticalSection;
 
@@ -302,10 +302,13 @@ FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetPersistentId
 {
 	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
 
-	if (!TableId.IsValidId())
+	if (TableId.IsValidId())
 	{
-		// Note: grow-only table. Assuming finite and small enough set of FGraphicsMinimalPipelineStateInitializer permutations.
-		TableId = PersistentIdTable.Add(InPipelineState);
+		++PersistentIdTable[TableId].RefNum;
+	}
+	else
+	{
+		TableId = PersistentIdTable.Add(FRefCountedGraphicsMinimalPipelineStateInitializer(InPipelineState, 1));
 	}
 
 	checkf(TableId.AsInteger() < (MAX_uint32 >> 2), TEXT("Persistent FGraphicsMinimalPipelineStateId table overflow!"));
@@ -315,6 +318,21 @@ FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetPersistentId
 	Ret.bOneFrameId = 0;
 	Ret.SetElementIndex = TableId.AsInteger();
 	return Ret;
+}
+
+void FGraphicsMinimalPipelineStateId::RemovePersistentId(FGraphicsMinimalPipelineStateId Id)
+{
+	check(Id.bValid && !Id.bOneFrameId);
+
+	const FSetElementId SetElementId = FSetElementId::FromInteger(Id.SetElementIndex);
+	FRefCountedGraphicsMinimalPipelineStateInitializer& RefCountedStateInitializer = PersistentIdTable[SetElementId];
+
+	check(RefCountedStateInitializer.RefNum > 0);
+	--RefCountedStateInitializer.RefNum;
+	if (RefCountedStateInitializer.RefNum <= 0)
+	{
+		PersistentIdTable.Remove(SetElementId);
+	}
 }
 
 FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetOneFrameId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
