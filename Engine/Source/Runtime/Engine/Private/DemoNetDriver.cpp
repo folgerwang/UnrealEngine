@@ -3989,10 +3989,13 @@ void UDemoNetDriver::RespawnNecessaryNetStartupActors(TArray<AActor*>& SpawnedAc
 			continue;
 		}
 
-		// skip rollback actors in streamed out levels (pending gc)
-		if (!LevelStatusesByName.Contains(GetLevelPackageName(*RollbackActor.Level)))
+		if (HasLevelStreamingFixes())
 		{
-			continue;
+			// skip rollback actors in streamed out levels (pending gc)
+			if (!LevelStatusesByName.Contains(GetLevelPackageName(*RollbackActor.Level)))
+			{
+				continue;
+			}
 		}
 
 		AActor* ExistingActor = FindObjectFast<AActor>(RollbackActor.Level, RollbackActor.Name);
