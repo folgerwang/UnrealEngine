@@ -125,7 +125,7 @@ namespace VPRootActor
 
 ACineCameraActor* AVPRootActor::GetCineCameraActor_Implementation() const
 {
-	if (CinematicCamera == nullptr)
+	if (CinematicCamera != nullptr)
 	{
 		return CinematicCamera;
 	}
