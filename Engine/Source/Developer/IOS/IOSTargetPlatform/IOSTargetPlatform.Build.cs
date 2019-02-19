@@ -19,8 +19,7 @@ public class IOSTargetPlatform : ModuleRules
 				"Projects",
 				"AudioPlatformConfiguration",
 				"Sockets",
-				"Networking",
-				"Engine"
+				"Networking"
 			}
 		);
 
