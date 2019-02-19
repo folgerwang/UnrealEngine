@@ -688,7 +688,8 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 	CheckPrimitiveArrays();
 
 	Primitives.Add(PrimitiveSceneInfo);
-	PrimitiveTransforms.Add(PrimitiveSceneInfo->Proxy->GetLocalToWorld());
+	const FMatrix LocalToWorld = PrimitiveSceneInfo->Proxy->GetLocalToWorld();
+	PrimitiveTransforms.Add(LocalToWorld);
 	PrimitiveSceneProxies.Add(PrimitiveSceneInfo->Proxy);
 	PrimitiveBounds.AddUninitialized();
 	PrimitiveFlagsCompact.AddUninitialized();
@@ -794,6 +795,13 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 			PrimitiveSceneInfo->AddToScene(RHICmdList, true, false);
 			PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshes();
 		}
+	}
+
+	if (PrimitiveSceneInfo->Proxy->IsMovable())
+	{
+		// We must register the initial LocalToWorld with the velocity state. 
+		// In the case of a moving component with MarkRenderStateDirty() called every frame, UpdateTransform will never happen.
+		VelocityData.UpdateTransform(PrimitiveSceneInfo, LocalToWorld, LocalToWorld);
 	}
 
 	AddPrimitiveToUpdateGPU(*this, SourceIndex);
@@ -1457,8 +1465,11 @@ void FScene::RemovePrimitiveSceneInfo_RenderThread(FPrimitiveSceneInfo* Primitiv
 	
 	CheckPrimitiveArrays();
 
-	// Remove primitive's motion blur information.
-	VelocityData.RemoveTransform(PrimitiveSceneInfo->PrimitiveComponentId);
+	if (PrimitiveSceneInfo->Proxy->IsMovable())
+	{
+		// Remove primitive's motion blur information.
+		VelocityData.RemoveFromScene(PrimitiveSceneInfo->PrimitiveComponentId);
+	}
 
 	// Unlink the primitive from its shadow parent.
 	PrimitiveSceneInfo->UnlinkAttachmentGroup();
@@ -2263,7 +2274,7 @@ void FSceneVelocityData::StartFrame(FScene* Scene)
 		VelocityData.PreviousLocalToWorld = VelocityData.LocalToWorld;
 		VelocityData.bPreviousLocalToWorldValid = true;
 
-		if (InternalFrameIndex - VelocityData.LastFrameUpdated == 1)
+		if ((InternalFrameIndex - VelocityData.LastFrameUpdated == 1) && VelocityData.PrimitiveSceneInfo)
 		{
 			// Recreate PrimitiveUniformBuffer on the frame after the primitive moved, since it contains PreviousLocalToWorld
 			VelocityData.PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);

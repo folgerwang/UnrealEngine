@@ -2197,12 +2197,14 @@ public:
 		}
 	}
 
-	/**
-	* Removes primitives velocity data.
-	*/
-	void RemoveTransform(FPrimitiveComponentId PrimitiveComponentId)
+	void RemoveFromScene(FPrimitiveComponentId PrimitiveComponentId)
 	{
-		ComponentData.Remove(PrimitiveComponentId);
+		FComponentVelocityData* VelocityData = ComponentData.Find(PrimitiveComponentId);
+
+		if (VelocityData)
+		{
+			VelocityData->PrimitiveSceneInfo = nullptr;
+		}
 	}
 
 	void ApplyOffset(FVector Offset)
