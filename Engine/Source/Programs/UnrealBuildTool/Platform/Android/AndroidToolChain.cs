@@ -315,7 +315,8 @@ namespace UnrealBuildTool
 			}
 
 			// verify NDK toolchain is supported
-			if (NDKDefineInt < MinimumNDKToolchain || NDKDefineInt > MaximumNDKToolchain)
+			if ((NDKDefineInt < MinimumNDKToolchain || NDKDefineInt > MaximumNDKToolchain)
+				&& !bAllowMissingNDK)
 			{
 				throw new BuildException("Android toolchain NDK " + ToolchainIntToString(NDKDefineInt) + " not supported; please use NDK " + ToolchainIntToString(MinimumNDKToolchain) + " to NDK " + ToolchainIntToString(MaximumNDKToolchain) +
 					" (NDK " + ToolchainIntToString(RecommendedNDKToolchain) + " recommended)");
