@@ -96,23 +96,29 @@ bool UGatherTextCommandletBase::GetStringFromConfig( const TCHAR* Section, const
 	return bSuccess;
 }
 
+void ResolveLocalizationPath(FString& InOutPath)
+{
+	static const bool bIsEngineTarget = FPaths::ProjectDir().IsEmpty();
+	static const FString AbsoluteEnginePath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir()) / FString();
+	static const FString AbsoluteProjectPath = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()) / FString();
+
+	InOutPath.ReplaceInline(TEXT("%LOCENGINEROOT%"), *AbsoluteEnginePath, ESearchCase::CaseSensitive);
+	InOutPath.ReplaceInline(TEXT("%LOCPROJECTROOT%"), *AbsoluteProjectPath, ESearchCase::CaseSensitive);
+
+	if (FPaths::IsRelative(InOutPath))
+	{
+		InOutPath.InsertAt(0, bIsEngineTarget ? AbsoluteEnginePath : AbsoluteProjectPath);
+	}
+
+	FPaths::CollapseRelativeDirectories(InOutPath);
+}
+
 bool UGatherTextCommandletBase::GetPathFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename )
 {
-	bool bSuccess = GetStringFromConfig( Section, Key, OutValue, Filename );
-
-	if( bSuccess )
+	const bool bSuccess = GetStringFromConfig( Section, Key, OutValue, Filename );
+	if (bSuccess)
 	{
-		if (FPaths::IsRelative(OutValue))
-		{
-			if (!FPaths::ProjectDir().IsEmpty())
-			{
-				OutValue = FPaths::Combine( *( FPaths::ProjectDir() ), *OutValue );
-			}
-			else
-			{
-				OutValue = FPaths::Combine( *( FPaths::EngineDir() ), *OutValue );
-			}
-		}
+		ResolveLocalizationPath(OutValue);
 	}
 	return bSuccess;
 }
@@ -132,16 +138,11 @@ int32 UGatherTextCommandletBase::GetPathArrayFromConfig( const TCHAR* Section, c
 {
 	int32 count = GetStringArrayFromConfig( Section, Key, OutArr, Filename );
 
-	for (int32 i = 0; i < count; ++i)
+	for (FString& Path : OutArr)
 	{
-		if (FPaths::IsRelative(OutArr[i]))
-		{
-			const FString ProjectBasePath = FPaths::ProjectDir().IsEmpty() ? FPaths::EngineDir() : FPaths::ProjectDir();
-			OutArr[i] = FPaths::Combine( *ProjectBasePath, *OutArr[i] );
-			OutArr[i] = FPaths::ConvertRelativePathToFull(OutArr[i]);
-		}
-		FPaths::CollapseRelativeDirectories(OutArr[i]);
+		ResolveLocalizationPath(Path);
 	}
+
 	return count;
 }
 

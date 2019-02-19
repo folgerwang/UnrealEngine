@@ -5,6 +5,7 @@
 #include "HAL/FileManager.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Misc/App.h"
 #include "ISourceControlOperation.h"
 #include "SourceControlOperations.h"
 #include "ISourceControlProvider.h"
@@ -15,22 +16,79 @@
 
 #define LOCTEXT_NAMESPACE "LocalizationTargetTypes"
 
-bool FGatherTextSearchDirectory::Validate(const FString& RootDirectory, FText& OutError) const
+FString FLocalizationGatherPathRootUtil::GetResolvedPathRootToken(const ELocalizationGatherPathRoot InPathRoot)
 {
-	if (Path.IsEmpty())
+	switch (InPathRoot)
+	{
+	case ELocalizationGatherPathRoot::Engine:
+		return TEXT("%LOCENGINEROOT%");
+	case ELocalizationGatherPathRoot::Project:
+		return TEXT("%LOCPROJECTROOT%");
+	}
+
+	return FString();
+}
+
+FString FLocalizationGatherPathRootUtil::GetResolvedPathRoot(const ELocalizationGatherPathRoot InPathRoot, const bool bIsEngineTarget)
+{
+	switch (InPathRoot)
+	{
+	case ELocalizationGatherPathRoot::Auto:
+		return bIsEngineTarget ? FPaths::EngineDir() : FPaths::ProjectDir();
+	case ELocalizationGatherPathRoot::Engine:
+		return FPaths::EngineDir();
+	case ELocalizationGatherPathRoot::Project:
+		return FPaths::ProjectDir();
+	}
+
+	checkf(0, TEXT("Unknown ELocalizationGatherPathRoot!"));
+	return FString();
+}
+
+FText FLocalizationGatherPathRootUtil::GetResolvedPathRootDisplayName(const ELocalizationGatherPathRoot InPathRoot, const bool bIsEngineTarget)
+{
+	auto CreateProjectRootDisplayName = []() -> FText
+	{
+		return FText::Format(LOCTEXT("ProjectRootDisplayNameFmt", "{0}/"), FText::AsCultureInvariant(FApp::GetProjectName()));
+	};
+
+	switch (InPathRoot)
+	{
+	case ELocalizationGatherPathRoot::Auto:
+		return bIsEngineTarget ? LOCTEXT("EngineRootDisplayName", "Engine/") : CreateProjectRootDisplayName();
+	case ELocalizationGatherPathRoot::Engine:
+		return LOCTEXT("EngineRootDisplayName", "Engine/");
+	case ELocalizationGatherPathRoot::Project:
+		return CreateProjectRootDisplayName();
+	}
+
+	checkf(0, TEXT("Unknown ELocalizationGatherPathRoot!"));
+	return FText();
+}
+
+bool FGatherTextSearchDirectory::Validate(const bool bIsEngineTarget, FText& OutError) const
+{
+	if (bIsEngineTarget && PathRoot == ELocalizationGatherPathRoot::Project)
+	{
+		OutError = LOCTEXT("EngineCannotUseProjectRootError", "Engine targets cannot use 'Project' as their path root.");
+		return false;
+	}
+
+	const FString ResolvedPath = FPaths::IsRelative(Path) ? FPaths::Combine(*FLocalizationGatherPathRootUtil::GetResolvedPathRoot(PathRoot, bIsEngineTarget), *Path) : Path;
+	if (ResolvedPath.IsEmpty())
 	{
 		OutError = LOCTEXT("SearchDirectoryEmptyError", "Search directory not specified. Use \".\" to specify the root directory.");
 		return false;
 	}
 
 	FText InvalidPathReason;
-	if (!FPaths::ValidatePath(Path, &InvalidPathReason))
+	if (!FPaths::ValidatePath(ResolvedPath, &InvalidPathReason))
 	{
 		OutError = InvalidPathReason;
 		return false;
 	}
 
-	if (!FPaths::DirectoryExists(FPaths::Combine(*RootDirectory, *Path)))
+	if (!FPaths::DirectoryExists(ResolvedPath))
 	{
 		OutError = LOCTEXT("SearchDirectoryNonExistentError", "Search directory does not exist.");
 		return false;
@@ -39,7 +97,7 @@ bool FGatherTextSearchDirectory::Validate(const FString& RootDirectory, FText& O
 	return true;
 }
 
-bool FGatherTextIncludePath::Validate(const FString& RootDirectory, FText& OutError) const
+bool FGatherTextIncludePath::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
 	if (Pattern.IsEmpty())
 	{
@@ -56,7 +114,7 @@ bool FGatherTextIncludePath::Validate(const FString& RootDirectory, FText& OutEr
 	return true;
 }
 
-bool FGatherTextExcludePath::Validate(FText& OutError) const
+bool FGatherTextExcludePath::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
 	if (Pattern.IsEmpty())
 	{
@@ -73,7 +131,7 @@ bool FGatherTextExcludePath::Validate(FText& OutError) const
 	return true;
 }
 
-bool FGatherTextFileExtension::Validate(FText& OutError) const
+bool FGatherTextFileExtension::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
 	if (Pattern.IsEmpty())
 	{
@@ -109,22 +167,22 @@ const TArray<FGatherTextFileExtension>& FGatherTextFromPackagesConfiguration::Ge
 	return DefaultPackageFileExtensions;
 }
 
-bool FGatherTextFromTextFilesConfiguration::Validate(const FString& RootDirectory, FText& OutError) const
+bool FGatherTextFromTextFilesConfiguration::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
-	const auto& InvalidSearchDirectoryPredicate = [RootDirectory](const FGatherTextSearchDirectory& Element) -> bool
+	const auto& InvalidSearchDirectoryPredicate = [bIsEngineTarget](const FGatherTextSearchDirectory& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(RootDirectory, ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidExcludePathPredicate = [RootDirectory](const FGatherTextExcludePath& Element) -> bool
+	const auto& InvalidExcludePathPredicate = [bIsEngineTarget](const FGatherTextExcludePath& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidFileExtensionPredicate = [RootDirectory](const FGatherTextFileExtension& Element) -> bool
+	const auto& InvalidFileExtensionPredicate = [bIsEngineTarget](const FGatherTextFileExtension& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
 
 	if (SearchDirectories.Num() > 0 && !SearchDirectories.ContainsByPredicate(InvalidSearchDirectoryPredicate) &&
@@ -138,22 +196,22 @@ bool FGatherTextFromTextFilesConfiguration::Validate(const FString& RootDirector
 	return false;
 }
 
-bool FGatherTextFromPackagesConfiguration::Validate(const FString& RootDirectory, FText& OutError) const
+bool FGatherTextFromPackagesConfiguration::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
-	const auto& InvalidIncludePathPredicate = [RootDirectory](const FGatherTextIncludePath& Element) -> bool
+	const auto& InvalidIncludePathPredicate = [bIsEngineTarget](const FGatherTextIncludePath& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(RootDirectory, ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidExcludePathPredicate = [RootDirectory](const FGatherTextExcludePath& Element) -> bool
+	const auto& InvalidExcludePathPredicate = [bIsEngineTarget](const FGatherTextExcludePath& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidFileExtensionPredicate = [RootDirectory](const FGatherTextFileExtension& Element) -> bool
+	const auto& InvalidFileExtensionPredicate = [bIsEngineTarget](const FGatherTextFileExtension& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
 
 	if (IncludePathWildcards.Num() > 0 && !IncludePathWildcards.ContainsByPredicate(InvalidIncludePathPredicate) &&
@@ -167,7 +225,7 @@ bool FGatherTextFromPackagesConfiguration::Validate(const FString& RootDirectory
 	return false;
 }
 
-bool FMetaDataTextKeyPattern::Validate(FText& OutError) const
+bool FMetaDataTextKeyPattern::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
 	for (const auto& PossiblePlaceHolder : GetPossiblePlaceHolders())
 	{
@@ -194,7 +252,7 @@ const TArray<FString>& FMetaDataTextKeyPattern::GetPossiblePlaceHolders()
 	return PossiblePlaceHolders;
 }
 
-bool FMetaDataKeyName::Validate(FText& OutError) const
+bool FMetaDataKeyName::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
 	if (Name.IsEmpty())
 	{
@@ -205,27 +263,27 @@ bool FMetaDataKeyName::Validate(FText& OutError) const
 	return true;
 }
 
-bool FMetaDataKeyGatherSpecification::Validate(FText& OutError) const
+bool FMetaDataKeyGatherSpecification::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
-	return MetaDataKey.Validate(OutError) && TextKeyPattern.Validate(OutError);
+	return MetaDataKey.Validate(bIsEngineTarget, OutError) && TextKeyPattern.Validate(bIsEngineTarget, OutError);
 }
 
-bool FGatherTextFromMetaDataConfiguration::Validate(const FString& RootDirectory, FText& OutError) const
+bool FGatherTextFromMetaDataConfiguration::Validate(const bool bIsEngineTarget, FText& OutError) const
 {
-	const auto& InvalidIncludePathPredicate = [RootDirectory](const FGatherTextIncludePath& Element) -> bool
+	const auto& InvalidIncludePathPredicate = [bIsEngineTarget](const FGatherTextIncludePath& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(RootDirectory, ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidExcludePathPredicate = [RootDirectory](const FGatherTextExcludePath& Element) -> bool
+	const auto& InvalidExcludePathPredicate = [bIsEngineTarget](const FGatherTextExcludePath& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
-	const auto& InvalidMetaDataKeySpecificationPredicate = [RootDirectory](const FMetaDataKeyGatherSpecification& Element) -> bool
+	const auto& InvalidMetaDataKeySpecificationPredicate = [bIsEngineTarget](const FMetaDataKeyGatherSpecification& Element) -> bool
 	{
 		FText ElementError;
-		return !(Element.Validate(ElementError));
+		return !(Element.Validate(bIsEngineTarget, ElementError));
 	};
 
 	if (IncludePathWildcards.Num() > 0 && !IncludePathWildcards.ContainsByPredicate(InvalidIncludePathPredicate) &&

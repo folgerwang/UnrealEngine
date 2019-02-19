@@ -80,28 +80,36 @@ namespace
 		SLATE_END_ARGS()
 
 	public:
-		void Construct(const FArguments& Args, const TSharedRef<IPropertyHandle>& PathStringPropertyHandle);
+		void Construct(const FArguments& Args, const TSharedRef<IPropertyHandle>& InPathRootPropertyHandle, const TSharedRef<IPropertyHandle>& InPathStringPropertyHandle);
 
 	private:
 		FReply PathPickerOnClicked();
+		ULocalizationTarget* GetLocalizationTarget() const;
+		ELocalizationGatherPathRoot GetPathRoot() const;
+		FString GetResolvedPathRoot() const;
+		FText GetResolvedPathRootDisplayName() const;
 
 	private:
+		TSharedPtr<IPropertyHandle> PathRootPropertyHandle;
 		TSharedPtr<IPropertyHandle> PathStringPropertyHandle;
 		bool ShouldCoercePathAsWildcardPattern;
 	};
 
-	void SGatherTextPathPicker::Construct(const FArguments& Args, const TSharedRef<IPropertyHandle>& InPathStringPropertyHandle)
+	void SGatherTextPathPicker::Construct(const FArguments& Args, const TSharedRef<IPropertyHandle>& InPathRootPropertyHandle, const TSharedRef<IPropertyHandle>& InPathStringPropertyHandle)
 	{
+		PathRootPropertyHandle = InPathRootPropertyHandle;
 		PathStringPropertyHandle = InPathStringPropertyHandle;
 		ShouldCoercePathAsWildcardPattern = Args._ShouldCoercePathAsWildcardPattern;
 
-		TArray<UObject*> OuterObjects;
-		PathStringPropertyHandle->GetOuterObjects(OuterObjects);
-		ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
-			
 		ChildSlot
 			[
 				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					PathRootPropertyHandle.IsValid() && PathRootPropertyHandle->IsValidHandle() ? PathRootPropertyHandle->CreatePropertyValueWidget() : SNullWidget::NullWidget
+				]
 				+SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign(VAlign_Center)
@@ -109,7 +117,16 @@ namespace
 				[
 					SNew(STextBlock)
 					.Font(Args._Font)
-					.Text( FText::FromString( FString::Printf( TEXT("%s/"), *(FPaths::GetBaseFilename(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir())) ) ) )
+					.Text(LOCTEXT("Colon", ":"))
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				.Padding(2.0f, 0.0f)
+				[
+					SNew(STextBlock)
+					.Font(Args._Font)
+					.Text(this, &SGatherTextPathPicker::GetResolvedPathRootDisplayName)
 				]
 				+SHorizontalBox::Slot()
 				.AutoWidth()
@@ -152,10 +169,7 @@ namespace
 		IDesktopPlatform* const DesktopPlatform = FDesktopPlatformModule::Get();
 		check(DesktopPlatform);
 
-		TArray<UObject*> OuterObjects;
-		PathStringPropertyHandle->GetOuterObjects(OuterObjects);
-		ULocalizationTarget* const LocalizationTarget = CastChecked<ULocalizationTarget>(OuterObjects.Top());
-		const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
+		const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(GetResolvedPathRoot());
 
 		const TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 		const TSharedPtr<FGenericWindow> ParentGenericWindow = ParentWindow.IsValid() ? ParentWindow->GetNativeWindow() : nullptr;
@@ -194,11 +208,48 @@ namespace
 
 		return FReply::Handled();
 	}
+
+	ULocalizationTarget* SGatherTextPathPicker::GetLocalizationTarget() const
+	{
+		if (!PathStringPropertyHandle.IsValid() || !PathStringPropertyHandle->IsValidHandle())
+		{
+			return nullptr;
+		}
+
+		TArray<UObject*> OuterObjects;
+		PathStringPropertyHandle->GetOuterObjects(OuterObjects);
+		return CastChecked<ULocalizationTarget>(OuterObjects.Top());
+	}
+
+	ELocalizationGatherPathRoot SGatherTextPathPicker::GetPathRoot() const
+	{
+		if (!PathRootPropertyHandle.IsValid() || !PathRootPropertyHandle->IsValidHandle())
+		{
+			return ELocalizationGatherPathRoot::Auto;
+		}
+
+		TArray<const void*> RawData;
+		PathRootPropertyHandle->AccessRawData(RawData);
+		return *(ELocalizationGatherPathRoot*)RawData.Top();
+	}
+
+	FString SGatherTextPathPicker::GetResolvedPathRoot() const
+	{
+		ULocalizationTarget* LocalizationTarget = GetLocalizationTarget();
+		return FLocalizationGatherPathRootUtil::GetResolvedPathRoot(GetPathRoot(), LocalizationTarget && LocalizationTarget->IsMemberOfEngineTargetSet());
+	}
+
+	FText SGatherTextPathPicker::GetResolvedPathRootDisplayName() const
+	{
+		ULocalizationTarget* LocalizationTarget = GetLocalizationTarget();
+		return FLocalizationGatherPathRootUtil::GetResolvedPathRootDisplayName(GetPathRoot(), LocalizationTarget && LocalizationTarget->IsMemberOfEngineTargetSet());
+	}
 }
 
 void FGatherTextSearchDirectoryStructCustomization::CustomizeStructHeader( TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IStructCustomizationUtils& StructCustomizationUtils )
 {
-	const TSharedPtr<IPropertyHandle> PathPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextSearchDirectory, Path));
+	const TSharedPtr<IPropertyHandle> PathRootPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextSearchDirectory, PathRoot));
+	const TSharedPtr<IPropertyHandle> PathStringPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextSearchDirectory, Path));
 
 	const auto& GetErrorText = [StructPropertyHandle]() -> FText
 	{
@@ -213,9 +264,8 @@ void FGatherTextSearchDirectoryStructCustomization::CustomizeStructHeader( TShar
 			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
 			if (LocalizationTarget)
 			{
-				const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
 				FText Error;
-				if (!Struct.Validate(DesiredRootPath, Error))
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
 				{
 					return Error;
 				}
@@ -244,13 +294,14 @@ void FGatherTextSearchDirectoryStructCustomization::CustomizeStructHeader( TShar
 		.ValueContent()
 		.MaxDesiredWidth(TOptional<float>())
 		[
-			SNew(SGatherTextPathPicker, PathPropertyHandle.ToSharedRef())
+			SNew(SGatherTextPathPicker, PathRootPropertyHandle.ToSharedRef(), PathStringPropertyHandle.ToSharedRef())
 			.Font(StructCustomizationUtils.GetRegularFont())
 		];
 }
 
 void FGatherTextIncludePathStructCustomization::CustomizeStructHeader( TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IStructCustomizationUtils& StructCustomizationUtils )
 {
+	const TSharedPtr<IPropertyHandle> PathRootPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextIncludePath, PathRoot));
 	const TSharedPtr<IPropertyHandle> PatternPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextIncludePath, Pattern));
 
 	const auto& GetErrorText = [StructPropertyHandle]() -> FText
@@ -266,9 +317,8 @@ void FGatherTextIncludePathStructCustomization::CustomizeStructHeader( TSharedRe
 			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
 			if (LocalizationTarget)
 			{
-				const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
 				FText Error;
-				if (!Struct.Validate(DesiredRootPath, Error))
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
 				{
 					return Error;
 				}
@@ -297,7 +347,7 @@ void FGatherTextIncludePathStructCustomization::CustomizeStructHeader( TSharedRe
 		.ValueContent()
 		.MaxDesiredWidth(TOptional<float>())
 		[
-			SNew(SGatherTextPathPicker, PatternPropertyHandle.ToSharedRef())
+			SNew(SGatherTextPathPicker, PathRootPropertyHandle.ToSharedRef(), PatternPropertyHandle.ToSharedRef())
 			.Font(StructCustomizationUtils.GetRegularFont())
 			.ShouldCoercePathAsWildcardPattern(true)
 		];
@@ -305,6 +355,7 @@ void FGatherTextIncludePathStructCustomization::CustomizeStructHeader( TSharedRe
 
 void FGatherTextExcludePathStructCustomization::CustomizeStructHeader( TSharedRef<IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IStructCustomizationUtils& StructCustomizationUtils )
 {
+	const TSharedPtr<IPropertyHandle> PathRootPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextExcludePath, PathRoot));
 	const TSharedPtr<IPropertyHandle> PatternPropertyHandle = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FGatherTextExcludePath, Pattern));
 
 	const auto& GetErrorText = [StructPropertyHandle]() -> FText
@@ -315,10 +366,16 @@ void FGatherTextExcludePathStructCustomization::CustomizeStructHeader( TSharedRe
 			StructPropertyHandle->AccessRawData(RawData);
 			const FGatherTextExcludePath& Struct = *(reinterpret_cast<const FGatherTextExcludePath*>(RawData.Top()));
 
-			FText Error;
-			if (!Struct.Validate(Error))
+			TArray<UObject*> OuterObjects;
+			StructPropertyHandle->GetOuterObjects(OuterObjects);
+			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
+			if (LocalizationTarget)
 			{
-				return Error;
+				FText Error;
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
+				{
+					return Error;
+				}
 			}
 		}
 
@@ -344,7 +401,7 @@ void FGatherTextExcludePathStructCustomization::CustomizeStructHeader( TSharedRe
 		.ValueContent()
 		.MaxDesiredWidth(TOptional<float>())
 		[
-			SNew(SGatherTextPathPicker, PatternPropertyHandle.ToSharedRef())
+			SNew(SGatherTextPathPicker, PathRootPropertyHandle.ToSharedRef(), PatternPropertyHandle.ToSharedRef())
 			.Font(StructCustomizationUtils.GetRegularFont())
 			.ShouldCoercePathAsWildcardPattern(true)
 		];
@@ -362,10 +419,16 @@ void FGatherTextFileExtensionStructCustomization::CustomizeStructHeader( TShared
 			StructPropertyHandle->AccessRawData(RawData);
 			const FGatherTextFileExtension& Struct = *(reinterpret_cast<const FGatherTextFileExtension*>(RawData.Top()));
 
-			FText Error;
-			if (!Struct.Validate(Error))
+			TArray<UObject*> OuterObjects;
+			StructPropertyHandle->GetOuterObjects(OuterObjects);
+			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
+			if (LocalizationTarget)
 			{
-				return Error;
+				FText Error;
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
+				{
+					return Error;
+				}
 			}
 		}
 
@@ -475,9 +538,8 @@ void FGatherTextFromTextFilesConfigurationStructCustomization::CustomizeStructHe
 		ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
 		if (LocalizationTarget)
 		{
-			const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
 			FText Error;
-			if (!Struct.Validate(DesiredRootPath, Error))
+			if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
 			{
 				return Error;
 			}
@@ -566,9 +628,8 @@ void FGatherTextFromPackagesConfigurationStructCustomization::CustomizeStructHea
 		ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
 		if (LocalizationTarget)
 		{
-			const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
 			FText Error;
-			if (!Struct.Validate(DesiredRootPath, Error))
+			if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
 			{
 				return Error;
 			}
@@ -771,10 +832,16 @@ void FMetaDataTextKeyPatternStructCustomization::CustomizeStructHeader( TSharedR
 			StructPropertyHandle->AccessRawData(RawData);
 			const FMetaDataTextKeyPattern& Struct = *(reinterpret_cast<const FMetaDataTextKeyPattern*>(RawData.Top()));
 
-			FText Error;
-			if (!Struct.Validate(Error))
+			TArray<UObject*> OuterObjects;
+			StructPropertyHandle->GetOuterObjects(OuterObjects);
+			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
+			if (LocalizationTarget)
 			{
-				return Error;
+				FText Error;
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
+				{
+					return Error;
+				}
 			}
 		}
 
@@ -816,10 +883,16 @@ void FMetaDataKeyNameStructCustomization::CustomizeStructHeader( TSharedRef<IPro
 			StructPropertyHandle->AccessRawData(RawData);
 			const FMetaDataKeyName& Struct = *(reinterpret_cast<const FMetaDataKeyName*>(RawData.Top()));
 
-			FText Error;
-			if (!Struct.Validate(Error))
+			TArray<UObject*> OuterObjects;
+			StructPropertyHandle->GetOuterObjects(OuterObjects);
+			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
+			if (LocalizationTarget)
 			{
-				return Error;
+				FText Error;
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
+				{
+					return Error;
+				}
 			}
 		}
 
@@ -858,10 +931,16 @@ void FMetaDataKeyGatherSpecificationStructCustomization::CustomizeStructHeader(T
 			StructPropertyHandle->AccessRawData(RawData);
 			const FMetaDataKeyGatherSpecification& Struct = *(reinterpret_cast<const FMetaDataKeyGatherSpecification*>(RawData.Top()));
 
-			FText Error;
-			if (!Struct.Validate(Error))
+			TArray<UObject*> OuterObjects;
+			StructPropertyHandle->GetOuterObjects(OuterObjects);
+			ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
+			if (LocalizationTarget)
 			{
-				return Error;
+				FText Error;
+				if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
+				{
+					return Error;
+				}
 			}
 		}
 
@@ -924,9 +1003,8 @@ void FGatherTextFromMetaDataConfigurationStructCustomization::CustomizeStructHea
 		ULocalizationTarget* const LocalizationTarget = Cast<ULocalizationTarget>(OuterObjects.Top());
 		if (LocalizationTarget)
 		{
-			const FString DesiredRootPath = FPaths::ConvertRelativePathToFull(LocalizationTarget->IsMemberOfEngineTargetSet() ? FPaths::EngineDir() : FPaths::ProjectDir());
 			FText Error;
-			if (!Struct.Validate(DesiredRootPath, Error))
+			if (!Struct.Validate(LocalizationTarget->IsMemberOfEngineTargetSet(), Error))
 			{
 				return Error;
 			}

@@ -23,15 +23,41 @@ enum class ELocalizationTargetConflictStatus : uint8
 	Clear,
 };
 
+UENUM()
+enum class ELocalizationGatherPathRoot : uint8
+{
+	/** Automatically select Engine or Project based on which set the target belongs to */
+	Auto,
+	/** Path is relative to the Engine directory */
+	Engine,
+	/** Path is relative to the Project directory */
+	Project,
+};
+
+struct LOCALIZATION_API FLocalizationGatherPathRootUtil
+{
+	/** Get the resolved placeholder token of the path root ("%LOCENGINEROOT%" for Engine or "%LOCPROJECTROOT%" for Project; empty for Auto) */
+	static FString GetResolvedPathRootToken(const ELocalizationGatherPathRoot InPathRoot);
+
+	/** Get the path name of the resolved path root (either FPaths::EngineDir() or FPaths::ProjectDir() depending on the setting and target type */
+	static FString GetResolvedPathRoot(const ELocalizationGatherPathRoot InPathRoot, const bool bIsEngineTarget);
+
+	/** Get the display name of the resolved path root (either "Engine/" or "{ProjectName/" depending on the setting and target type */
+	static FText GetResolvedPathRootDisplayName(const ELocalizationGatherPathRoot InPathRoot, const bool bIsEngineTarget);
+};
+
 USTRUCT()
 struct FGatherTextSearchDirectory
 {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(config, EditAnywhere, Category="Path")
+	ELocalizationGatherPathRoot PathRoot;
+
+	UPROPERTY(config, EditAnywhere, Category="Path")
 	FString Path;
 
-	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -39,10 +65,13 @@ struct FGatherTextIncludePath
 {
 	GENERATED_USTRUCT_BODY()
 
+	UPROPERTY(config, EditAnywhere, Category="Path")
+	ELocalizationGatherPathRoot PathRoot;
+
 	UPROPERTY(config, EditAnywhere, Category="Pattern")
 	FString Pattern;
 
-	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -50,10 +79,13 @@ struct FGatherTextExcludePath
 {
 	GENERATED_USTRUCT_BODY()
 
+	UPROPERTY(config, EditAnywhere, Category="Path")
+	ELocalizationGatherPathRoot PathRoot;
+
 	UPROPERTY(config, EditAnywhere, Category="Pattern")
 	FString Pattern;
 
-	LOCALIZATION_API bool Validate(FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -64,7 +96,7 @@ struct FGatherTextFileExtension
 	UPROPERTY(config, EditAnywhere, Category="Pattern")
 	FString Pattern;
 
-	LOCALIZATION_API bool Validate(FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -101,7 +133,7 @@ struct FGatherTextFromTextFilesConfiguration
 	UPROPERTY(config, EditAnywhere, Category = "Filter")
 	bool ShouldGatherFromEditorOnlyData;
 
-	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 
@@ -153,7 +185,7 @@ struct FGatherTextFromPackagesConfiguration
 	UPROPERTY(config, EditAnywhere, Category = "Gather Text", AdvancedDisplay)
 	bool SkipGatherCache;
 
-	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -164,7 +196,7 @@ struct FMetaDataTextKeyPattern
 	UPROPERTY(config, EditAnywhere, Category="Pattern")
 	FString Pattern;
 
-	LOCALIZATION_API bool Validate(FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 
 	LOCALIZATION_API static const TArray<FString>& GetPossiblePlaceHolders();
 };
@@ -177,7 +209,7 @@ struct FMetaDataKeyName
 	UPROPERTY(config, EditAnywhere, Category="Name")
 	FString Name;
 
-	LOCALIZATION_API bool Validate(FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -200,7 +232,7 @@ struct FMetaDataKeyGatherSpecification
 	UPROPERTY(config, EditAnywhere, Category = "Output")
 	FMetaDataTextKeyPattern TextKeyPattern;
 
-	LOCALIZATION_API bool Validate(FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
@@ -234,7 +266,7 @@ struct FGatherTextFromMetaDataConfiguration
 	UPROPERTY(config, EditAnywhere, Category = "Filter")
 	bool ShouldGatherFromEditorOnlyData;
 
-	LOCALIZATION_API bool Validate(const FString& RootDirectory, FText& OutError) const;
+	LOCALIZATION_API bool Validate(const bool bIsEngineTarget, FText& OutError) const;
 };
 
 USTRUCT()
