@@ -146,7 +146,12 @@ namespace FNavigationSystem
 	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultWalkableArea();
 	ENGINE_API TSubclassOf<UNavAreaBase> GetDefaultObstacleArea();
 
+	/**	Retrieves the transform the Navigation System is using to convert coords
+	 *	from FromCoordType to ToCoordType */
+	ENGINE_API const FTransform& GetCoordTransform(const ENavigationCoordSystem::Type FromCoordType, const ENavigationCoordSystem::Type ToCoordType);
+	UE_DEPRECATED(4.22, "FNavigationSystem::GetCoordTransformTo is deprecated. Use FNavigationSystem::GetCoordTransform instead")
 	ENGINE_API const FTransform& GetCoordTransformTo(const ENavigationCoordSystem::Type CoordType);
+	UE_DEPRECATED(4.22, "FNavigationSystem::GetCoordTransformFrom is deprecated. Use FNavigationSystem::GetCoordTransform instead")
 	ENGINE_API const FTransform& GetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType);
 
 	ENGINE_API bool WantsComponentChangeNotifies();
@@ -231,8 +236,14 @@ public:
 	INavigationDataInterface* GetMainNavData(int) { return nullptr; }
 
 protected:
-	
+	/**	Sets the Transform the Navigation System will use when converting from FromCoordType
+	 *	to ToCoordType
+	 *	@param bAddInverse if true (default) will also set coord transform in 
+	 *		the reverse order using Transform.Inverse() */
+	static void SetCoordTransform(const ENavigationCoordSystem::Type FromCoordType, const ENavigationCoordSystem::Type ToCoordType, const FTransform& Transform, bool bAddInverse = true);
+	UE_DEPRECATED(4.22, "FNavigationSystem::SetCoordTransformTo is deprecated. Use FNavigationSystem::SetCoordTransform instead")
 	static void SetCoordTransformTo(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
+	UE_DEPRECATED(4.22, "FNavigationSystem::SetCoordTransformFrom is deprecated. Use FNavigationSystem::SetCoordTransform instead")
 	static void SetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform);
 	static void SetWantsComponentChangeNotifies(const bool bEnable);
 	static void SetDefaultWalkableArea(TSubclassOf<UNavAreaBase> InAreaClass);

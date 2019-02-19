@@ -59,7 +59,7 @@ namespace ENavigationCoordSystem
 	enum Type
 	{
 		Unreal,
-		Recast,
+		Navigation,
 
 		MAX
 	};
@@ -142,6 +142,7 @@ protected:
 	uint8 bIsLowAreaModifier : 1;
 
 	void Init(const TSubclassOf<UNavAreaBase> InAreaClass);
+	/** @param CoordType specifies which coord system the input data is in */
 	void SetConvex(const FVector* InPoints, const int32 FirstIndex, const int32 LastIndex, ENavigationCoordSystem::Type CoordType, const FTransform& LocalToWorld);
 	void SetBox(const FBox& Box, const FTransform& LocalToWorld);
 };

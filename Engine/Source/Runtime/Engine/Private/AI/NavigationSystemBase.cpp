@@ -207,17 +207,38 @@ namespace FNavigationSystem
 	void UpdateLevelCollision(ULevel& Level) { Delegates.UpdateLevelCollision.Execute(Level); }
 #endif // WITH_EDITOR
 
-	FTransform CoordTypeTransformsTo[ENavigationCoordSystem::MAX] = { FTransform::Identity, FTransform::Identity };
-	FTransform CoordTypeTransformsFrom[ENavigationCoordSystem::MAX] = { FTransform::Identity, FTransform::Identity };
+	struct FCoordTransforms
+	{
+		FTransform& Get(const ENavigationCoordSystem::Type FromCoordType, const ENavigationCoordSystem::Type ToCoordType)
+		{
+			static FTransform CoordTypeTransforms[ENavigationCoordSystem::MAX][ENavigationCoordSystem::MAX] = {
+				{FTransform::Identity, FTransform::Identity}
+				, {FTransform::Identity, FTransform::Identity}
+			};
+
+			return CoordTypeTransforms[uint8(FromCoordType)][uint8(ToCoordType)];
+		}
+	};
+
+	FCoordTransforms& GetCoordTypeTransforms()
+	{
+		static FCoordTransforms CoordTypeTransforms;
+		return CoordTypeTransforms;
+	}
 
 	const FTransform& GetCoordTransformTo(const ENavigationCoordSystem::Type CoordType)
 	{
-		return CoordTypeTransformsTo[uint8(CoordType)];
+		return GetCoordTransform(ENavigationCoordSystem::Unreal, CoordType);
 	}
 
 	const FTransform& GetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType)
 	{
-		return CoordTypeTransformsTo[uint8(CoordType)];
+		return GetCoordTransform(CoordType, ENavigationCoordSystem::Unreal);
+	}
+
+	const FTransform& GetCoordTransform(const ENavigationCoordSystem::Type FromCoordType, const ENavigationCoordSystem::Type ToCoordType)
+	{
+		return GetCoordTypeTransforms().Get(FromCoordType, ToCoordType);
 	}
 
 	UWorld* GetWorldFromContextObject(UObject* WorldContextObject)
@@ -333,12 +354,21 @@ UNavigationSystem::UNavigationSystem(const FObjectInitializer& ObjectInitializer
 
 void UNavigationSystemBase::SetCoordTransformTo(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform)
 {
-	FNavigationSystem::CoordTypeTransformsTo[uint8(CoordType)] = Transform;
+	SetCoordTransform(ENavigationCoordSystem::Unreal, CoordType, Transform);
 }
 
 void UNavigationSystemBase::SetCoordTransformFrom(const ENavigationCoordSystem::Type CoordType, const FTransform& Transform)
 {
-	FNavigationSystem::CoordTypeTransformsTo[uint8(CoordType)] = Transform;
+	SetCoordTransform(CoordType, ENavigationCoordSystem::Unreal, Transform);
+}
+
+void UNavigationSystemBase::SetCoordTransform(const ENavigationCoordSystem::Type FromCoordType, const ENavigationCoordSystem::Type ToCoordType, const FTransform& Transform, bool bAddInverse)
+{
+	FNavigationSystem::GetCoordTypeTransforms().Get(FromCoordType, ToCoordType) = Transform;
+	if (bAddInverse)
+	{
+		FNavigationSystem::GetCoordTypeTransforms().Get(ToCoordType, FromCoordType) = Transform.Inverse();
+	}
 }
 
 void UNavigationSystemBase::SetWantsComponentChangeNotifies(const bool bEnable)

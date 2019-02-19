@@ -468,14 +468,12 @@ void FAreaNavModifier::SetConvex(const FVector* InPoints, const int32 FirstIndex
 	TArray<FVector, TInlineAllocator<MaxConvexPoints>> HullVertices;
 	HullVertices.Empty(MaxConvexPoints);
 
-	const FTransform& NavCoordTransform = FNavigationSystem::GetCoordTransformTo(CoordType);
+	// we store verts in unreal coords
+	const FTransform& TotalTransform = LocalToWorld * FNavigationSystem::GetCoordTransform(CoordType, ENavigationCoordSystem::Unreal);
 
 	for (int32 i = FirstIndex; i < LastIndex; i++)
 	{
-		//const FVector Point = (CoordType == ENavigationCoordSystem::Recast) ? Recast2UnrealPoint(InPoints[i]) : InPoints[i];
-		const FVector Point = NavCoordTransform.TransformPosition(InPoints[i]);
-
-		FVector TransformedPoint = LocalToWorld.TransformPosition(Point);
+		FVector TransformedPoint = TotalTransform.TransformPosition(InPoints[i]);
 		ConvexData.MinZ = FMath::Min( ConvexData.MinZ, TransformedPoint.Z );
 		ConvexData.MaxZ = FMath::Max( ConvexData.MaxZ, TransformedPoint.Z );
 		TransformedPoint.Z = 0.f;
