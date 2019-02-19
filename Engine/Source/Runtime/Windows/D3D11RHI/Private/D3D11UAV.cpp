@@ -52,6 +52,15 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FStruc
 	return new FD3D11UnorderedAccessView(UnorderedAccessView,StructuredBuffer);
 }
 
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FStructuredBufferRHIParamRef StructuredBuffer,
+	bool bUseUAVCounter,
+	bool bAppendBuffer)
+{
+	return RHICreateUnorderedAccessView(StructuredBuffer, bUseUAVCounter, bAppendBuffer);
+}
+
 FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
@@ -96,6 +105,14 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextu
 	return new FD3D11UnorderedAccessView(UnorderedAccessView,Texture);
 }
 
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FTextureRHIParamRef Texture,
+	uint32 MipLevel)
+{
+	return RHICreateUnorderedAccessView(Texture, MipLevel);
+}
+
 FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBufferRHI, uint8 Format)
 {
 	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
@@ -125,6 +142,14 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FVerte
 	return new FD3D11UnorderedAccessView(UnorderedAccessView,VertexBuffer);
 }
 
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FVertexBufferRHIParamRef VertexBuffer,
+	uint8 Format)
+{
+	return RHICreateUnorderedAccessView(VertexBuffer, Format);
+}
+
 FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FIndexBufferRHIParamRef IndexBufferRHI, uint8 Format)
 {
 	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
@@ -152,6 +177,14 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FIndex
 	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateUnorderedAccessView(IndexBuffer->Resource, &UAVDesc, (ID3D11UnorderedAccessView**)UnorderedAccessView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11UnorderedAccessView(UnorderedAccessView, IndexBuffer);
+}
+
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FIndexBufferRHIParamRef IndexBuffer,
+	uint8 Format)
+{
+	return RHICreateUnorderedAccessView(IndexBuffer, Format);
 }
 
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
@@ -186,6 +219,13 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FStructu
 	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(StructuredBuffer->Resource, &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,StructuredBuffer);
+}
+
+FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FStructuredBufferRHIParamRef StructuredBuffer)
+{
+	return RHICreateShaderResourceView(StructuredBuffer);
 }
 
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
@@ -223,6 +263,15 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FVertexB
 	}
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,VertexBuffer);
+}
+
+FShaderResourceViewRHIRef FD3D11DynamicRHI::CreateShaderResourceView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FVertexBufferRHIParamRef VertexBuffer,
+	uint32 Stride,
+	uint8 Format)
+{
+	return RHICreateShaderResourceView(VertexBuffer, Stride, Format);
 }
 
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FIndexBufferRHIParamRef BufferRHI)
@@ -267,6 +316,13 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FIndexBu
 	}
 
 	return new FD3D11ShaderResourceView(ShaderResourceView, Buffer);
+}
+
+FShaderResourceViewRHIRef FD3D11DynamicRHI::CreateShaderResourceView_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	FIndexBufferRHIParamRef Buffer)
+{
+	return RHICreateShaderResourceView(Buffer);
 }
 
 void FD3D11DynamicRHI::RHIClearTinyUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)

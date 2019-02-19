@@ -2155,6 +2155,18 @@ void FD3D11DynamicRHI::RHIFlushComputeShaderCache()
 	EndUAVOverlap();
 }
 
+FD3D11DynamicRHI::FD3D11LockTracker& FD3D11DynamicRHI::GetThreadLocalLockTracker()
+{
+	if (IsInRHIThread())
+	{
+		return LockTrackers[1];
+	}
+	else
+	{
+		return LockTrackers[0];
+	}
+}
+
 //*********************** StagingBuffer Implementation ***********************//
 
 FStagingBufferRHIRef FD3D11DynamicRHI::RHICreateStagingBuffer()

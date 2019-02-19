@@ -538,6 +538,7 @@ DEFINE_STAT(STAT_D3D11UpdateUniformBufferTime);
 DEFINE_STAT(STAT_D3D11TexturePoolMemory);
 DEFINE_STAT(STAT_D3D11FreeUniformBufferMemory);
 DEFINE_STAT(STAT_D3D11NumFreeUniformBuffers);
+DEFINE_STAT(STAT_D3D11NumImmutableUniformBuffers);
 DEFINE_STAT(STAT_D3D11NumBoundShaderState);
 
 #undef LOCTEXT_NAMESPACE

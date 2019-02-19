@@ -1668,6 +1668,10 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 void FD3D11DynamicRHI::RHIPerFrameRHIFlushComplete()
 {
+	extern void D3D11RHIQueryBatcherPerFrameCleanup();
+
+	D3D11RHIQueryBatcherPerFrameCleanup();
+
 #if NV_AFTERMATH
 	if (GDX11NVAfterMathEnabled)
 	{

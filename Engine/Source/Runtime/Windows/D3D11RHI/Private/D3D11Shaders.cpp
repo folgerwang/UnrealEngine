@@ -54,6 +54,13 @@ FVertexShaderRHIRef FD3D11DynamicRHI::RHICreateVertexShader(const TArray<uint8>&
 	return Shader;
 }
 
+FVertexShaderRHIRef FD3D11DynamicRHI::CreateVertexShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreateVertexShader(Code);
+}
+
 FGeometryShaderRHIRef FD3D11DynamicRHI::RHICreateGeometryShader(const TArray<uint8>& Code) 
 { 
 	FShaderCodeReader ShaderCode(Code);
@@ -71,6 +78,13 @@ FGeometryShaderRHIRef FD3D11DynamicRHI::RHICreateGeometryShader(const TArray<uin
 
 
 	return Shader;
+}
+
+FGeometryShaderRHIRef FD3D11DynamicRHI::CreateGeometryShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreateGeometryShader(Code);
 }
 
 FGeometryShaderRHIRef FD3D11DynamicRHI::RHICreateGeometryShaderWithStreamOutput(const TArray<uint8>& Code, const FStreamOutElementList& ElementList, uint32 NumStrides, const uint32* Strides, int32 RasterizedStream) 
@@ -127,6 +141,17 @@ FGeometryShaderRHIRef FD3D11DynamicRHI::RHICreateGeometryShaderWithStreamOutput(
 	return Shader;
 }
 
+FGeometryShaderRHIRef FD3D11DynamicRHI::CreateGeometryShaderWithStreamOutput_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code,
+	const FStreamOutElementList& ElementList,
+	uint32 NumStrides,
+	const uint32* Strides,
+	int32 RasterizedStream)
+{
+	return RHICreateGeometryShaderWithStreamOutput(Code, ElementList, NumStrides, Strides, RasterizedStream);
+}
+
 FHullShaderRHIRef FD3D11DynamicRHI::RHICreateHullShader(const TArray<uint8>& Code) 
 { 
 	FShaderCodeReader ShaderCode(Code);
@@ -143,6 +168,13 @@ FHullShaderRHIRef FD3D11DynamicRHI::RHICreateHullShader(const TArray<uint8>& Cod
 	VERIFYD3D11SHADERRESULT( Direct3DDevice->CreateHullShader( (void*)CodePtr, CodeSize, NULL, Shader->Resource.GetInitReference() ), Shader, Direct3DDevice);
 
 	return Shader;
+}
+
+FHullShaderRHIRef FD3D11DynamicRHI::CreateHullShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreateHullShader(Code);
 }
 
 FDomainShaderRHIRef FD3D11DynamicRHI::RHICreateDomainShader(const TArray<uint8>& Code) 
@@ -163,6 +195,13 @@ FDomainShaderRHIRef FD3D11DynamicRHI::RHICreateDomainShader(const TArray<uint8>&
 	return Shader;
 }
 
+FDomainShaderRHIRef FD3D11DynamicRHI::CreateDomainShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreateDomainShader(Code);
+}
+
 FPixelShaderRHIRef FD3D11DynamicRHI::RHICreatePixelShader(const TArray<uint8>& Code)
 {
 	FShaderCodeReader ShaderCode(Code);
@@ -181,6 +220,13 @@ FPixelShaderRHIRef FD3D11DynamicRHI::RHICreatePixelShader(const TArray<uint8>& C
 	return Shader;
 }
 
+FPixelShaderRHIRef FD3D11DynamicRHI::CreatePixelShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreatePixelShader(Code);
+}
+
 FComputeShaderRHIRef FD3D11DynamicRHI::RHICreateComputeShader(const TArray<uint8>& Code) 
 { 
 	FShaderCodeReader ShaderCode(Code);
@@ -197,6 +243,13 @@ FComputeShaderRHIRef FD3D11DynamicRHI::RHICreateComputeShader(const TArray<uint8
 	VERIFYD3D11SHADERRESULT( Direct3DDevice->CreateComputeShader( (void*)CodePtr, CodeSize, NULL, Shader->Resource.GetInitReference() ), Shader, Direct3DDevice);
 
 	return Shader;
+}
+
+FComputeShaderRHIRef FD3D11DynamicRHI::CreateComputeShader_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	const TArray<uint8>& Code)
+{
+	return RHICreateComputeShader(Code);
 }
 
 void FD3D11DynamicRHI::RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data) 
@@ -299,7 +352,7 @@ FBoundShaderStateRHIRef FD3D11DynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 {
-	check(IsInRenderingThread());
+	check(IsInRenderingThread() || IsInRHIThread());
 
 	SCOPE_CYCLE_COUNTER(STAT_D3D11CreateBoundShaderStateTime);
 

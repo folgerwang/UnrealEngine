@@ -27,6 +27,9 @@
 
 #endif
 
+#define D3D11RHI_IMMEDIATE_CONTEXT (static_cast<FD3D11DynamicRHI*>(GDynamicRHI)->GetDeviceContext())
+#define D3D11RHI_DEVICE (static_cast<FD3D11DynamicRHI*>(GDynamicRHI)->GetDevice())
+
 /**
  * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
  * @param	Result - The result code to check.
@@ -261,3 +264,56 @@ private:
 	/** The index of the currently locked sub-buffer. */
 	int32 LockedBufferIndex;
 };
+
+template <
+	typename JobType,
+	typename = TEnableIf<TOr<
+	TIsSame<JobType, TFunction<void()>>,
+	TIsSame<JobType, TFunction<void()>&>>::Value>>
+	class TD3D11RHIGenericCommand final : public FRHICommand<TD3D11RHIGenericCommand<JobType>>
+{
+public:
+	// InRHIJob is supposed to be called on RHIT (don't capture things that can become outdated here)
+	TD3D11RHIGenericCommand(JobType&& InRHIJob)
+		: RHIJob(Forward<JobType>(InRHIJob))
+	{}
+
+	void Execute(FRHICommandListBase& RHICmdList)
+	{
+		RHIJob();
+	}
+
+private:
+	JobType RHIJob;
+};
+
+template<typename JobType>
+inline void RunOnRHIThread(JobType&& InRHIJob)
+{
+	//check(IsInRenderingThread());
+	typedef TD3D11RHIGenericCommand<JobType> CmdType;
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	new (RHICmdList.AllocCommand<CmdType>()) CmdType(Forward<JobType>(InRHIJob));
+}
+
+inline bool ShouldNotEnqueueRHICommand()
+{
+	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+	return RHICmdList.Bypass() || (IsRunningRHIInSeparateThread() && IsInRHIThread()) || (!IsRunningRHIInSeparateThread() && IsInRenderingThread());
+}
+
+inline void D3D11StallRHIThread()
+{
+	if (IsRunningRHIInSeparateThread() && IsInRenderingThread() && GRHICommandList.IsRHIThreadActive())
+	{
+		FRHICommandListExecutor::GetImmediateCommandList().StallRHIThread();
+	}
+}
+
+inline void D3D11UnstallRHIThread()
+{
+	if (IsRunningRHIInSeparateThread() && IsInRenderingThread() && FRHICommandListExecutor::GetImmediateCommandList().IsStalled())
+	{
+		FRHICommandListExecutor::GetImmediateCommandList().UnStallRHIThread();
+	}
+}

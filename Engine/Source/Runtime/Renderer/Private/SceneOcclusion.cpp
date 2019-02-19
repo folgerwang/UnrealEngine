@@ -1638,6 +1638,7 @@ void FSceneRenderer::FenceOcclusionTests(FRHICommandListImmediate& RHICmdList)
 		}
 		OcclusionSubmittedFence[0] = RHICmdList.RHIThreadFence();
 		RHICmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+		RHICmdList.PollRenderQueryResults();
 	}
 }
 

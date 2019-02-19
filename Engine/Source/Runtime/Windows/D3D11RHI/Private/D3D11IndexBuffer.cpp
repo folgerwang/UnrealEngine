@@ -61,10 +61,19 @@ FIndexBufferRHIRef FD3D11DynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 S
 	return new FD3D11IndexBuffer(IndexBufferResource, Stride, Size, InUsage);
 }
 
+FIndexBufferRHIRef FD3D11DynamicRHI::CreateIndexBuffer_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	uint32 Stride,
+	uint32 Size,
+	uint32 InUsage,
+	FRHIResourceCreateInfo& CreateInfo)
+{
+	return RHICreateIndexBuffer(Stride, Size, InUsage, CreateInfo);
+}
+
 void* FD3D11DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
 	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
-	
 	// If this resource is bound to the device, unbind it
 	ConditionalClearShaderResource(IndexBuffer, true);
 
@@ -120,7 +129,7 @@ void* FD3D11DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRH
 	}
 	
 	// Add the lock to the lock map.
-	OutstandingLocks.Add(LockedKey,LockedData);
+	GetThreadLocalLockTracker().Add(LockedKey, LockedData);
 
 	// Return the offset pointer
 	return (void*)((uint8*)LockedData.GetData() + Offset);
@@ -136,9 +145,10 @@ void FD3D11DynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBufferR
 	const bool bIsDynamic = (Desc.Usage == D3D11_USAGE_DYNAMIC);
 
 	// Find the outstanding lock for this IB.
+	FD3D11LockTracker& OutstandingLocks = GetThreadLocalLockTracker();
 	FD3D11LockedKey LockedKey(IndexBuffer->Resource);
 	FD3D11LockedData* LockedData = OutstandingLocks.Find(LockedKey);
-	check(LockedData);
+	checkf(LockedData, TEXT("Index buffer is either not locked or locked on a different thread"));
 
 	if(bIsDynamic)
 	{

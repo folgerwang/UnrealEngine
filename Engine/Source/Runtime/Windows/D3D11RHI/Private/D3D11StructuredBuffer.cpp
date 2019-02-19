@@ -92,6 +92,16 @@ FStructuredBufferRHIRef FD3D11DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 	return new FD3D11StructuredBuffer(StructuredBufferResource,Stride,Size,InUsage);
 }
 
+FStructuredBufferRHIRef FD3D11DynamicRHI::CreateStructuredBuffer_RenderThread(
+	class FRHICommandListImmediate& RHICmdList,
+	uint32 Stride,
+	uint32 Size,
+	uint32 InUsage,
+	FRHIResourceCreateInfo& CreateInfo)
+{
+	return RHICreateStructuredBuffer(Stride, Size, InUsage, CreateInfo);
+}
+
 void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
 	FD3D11StructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
@@ -151,7 +161,7 @@ void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 	}
 
 	// Add the lock to the lock map.
-	OutstandingLocks.Add(LockedKey,LockedData);
+	GetThreadLocalLockTracker().Add(LockedKey,LockedData);
 
 	// Return the offset pointer
 	return (void*)((uint8*)LockedData.GetData() + Offset);
@@ -167,9 +177,10 @@ void FD3D11DynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef St
 	const bool bIsDynamic = (Desc.Usage == D3D11_USAGE_DYNAMIC);
 
 	// Find the outstanding lock for this VB.
+	FD3D11LockTracker& OutstandingLocks = GetThreadLocalLockTracker();
 	FD3D11LockedKey LockedKey(StructuredBuffer->Resource);
 	FD3D11LockedData* LockedData = OutstandingLocks.Find(LockedKey);
-	check(LockedData);
+	checkf(LockedData, TEXT("Structured buffer is either not locked or locked on a different thread"));
 
 	if(bIsDynamic)
 	{
