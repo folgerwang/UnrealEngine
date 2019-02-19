@@ -360,9 +360,8 @@ void FGoogleARCoreDevice::StartSessionWithRequestedConfig()
 	// Allocate passthrough camera texture if necessary.
 	if (PassthroughCameraTexture == nullptr)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			UpdateCameraImageUV,
-			FGoogleARCoreDevice*, ARCoreDevicePtr, this,
+		ENQUEUE_RENDER_COMMAND(UpdateCameraImageUV)(
+			[ARCoreDevicePtr = this](FRHICommandListImmediate& RHICmdList)
 			{
 				ARCoreDevicePtr->AllocatePassthroughCameraTexture_RenderThread();
 			}

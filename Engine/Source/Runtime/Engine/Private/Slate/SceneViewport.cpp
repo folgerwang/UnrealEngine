@@ -1677,14 +1677,11 @@ void FSceneViewport::EnqueueBeginRenderFrame(const bool bShouldPresent)
 
 	//set the rendertarget visible to the render thread
 	//must come before any render thread frame handling.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-		SetRenderThreadViewportTarget,
-		FSceneViewport*, Viewport, this,
-		FTexture2DRHIRef, RT, RenderTargetTextureRHI,		
+	ENQUEUE_RENDER_COMMAND(SetRenderThreadViewportTarget)(
+		[Viewport = this, RT = RenderTargetTextureRHI](FRHICommandListImmediate& RHICmdList) mutable
 		{
-
-		Viewport->SetRenderTargetTextureRenderThread(RT);			
-	});		
+			Viewport->SetRenderTargetTextureRenderThread(RT);			
+		});		
 
 	FViewport::EnqueueBeginRenderFrame(bShouldPresent);
 

@@ -579,10 +579,10 @@ void FAvfMediaTracks::ProcessVideo()
 	{
 		TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 	}
-	VideoSamplerTickParams = { VideoSampler };
+	Params = { VideoSampler };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerTick,
-		FVideoSamplerTickParams, Params, VideoSamplerTickParams,
+	ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerTick)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
 			auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 
@@ -603,10 +603,10 @@ void FAvfMediaTracks::Reset()
 	{
 		TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 	}
-	ResetOutputParams = { VideoSampler };
+	Params = { VideoSampler };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerResetOutput,
-		FResetOutputParams, Params, ResetOutputParams,
+	ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerResetOutput)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 	    {
 			auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 
@@ -1008,14 +1008,14 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 					TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 					float FrameRate;
 				}
-				SetOutputParams = {
+				Params = {
 					(AVPlayerItemVideoOutput*)VideoTracks[SelectedVideoTrack].Output,
 					VideoSampler,
 					VideoTracks[TrackIndex].FrameRate
 				};
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AvfMediaVideoSamplerSetOutput,
-					FSetOutputParams, Params, SetOutputParams,
+				ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerSetOutput)(
+					[Params](FRHICommandListImmediate& RHICmdList)
 					{
 						auto PinnedVideoSampler = Params.VideoSamplerPtr.Pin();
 

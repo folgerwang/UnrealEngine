@@ -75,10 +75,10 @@ FAndroidCameraPlayer::~FAndroidCameraPlayer()
 				FGuid PlayerGuid;
 			};
 
-			FReleaseVideoResourcesParams ReleaseVideoResourcesParams = { VideoTexture, PlayerGuid };
+			FReleaseVideoResourcesParams Params = { VideoTexture, PlayerGuid };
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
-				FReleaseVideoResourcesParams, Params, ReleaseVideoResourcesParams,
+			ENQUEUE_RENDER_COMMAND(AndroidCameraPlayerWriteVideoSample)(
+				[Params](FRHICommandListImmediate& RHICmdList)
 				{
 					#if ANDROIDCAMERAPLAYER_USE_NATIVELOGGING
 						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("~FAndroidCameraPlayer: Unregister Guid: %s"), *Params.PlayerGuid.ToString());
@@ -518,10 +518,10 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 			int32 SampleCount;
 			FTimespan SampleTime;
 		}
-		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
+		Params = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidCameraPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				auto PinnedJavaCameraPlayer = Params.JavaCameraPlayerPtr.Pin();
 				auto PinnedSamples = Params.SamplesPtr.Pin();
@@ -570,10 +570,10 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 			FGuid PlayerGuid;
 		};
 
-		FWriteVideoSampleParams WriteVideoSampleParams = { JavaCameraPlayer, PlayerGuid };
+		FWriteVideoSampleParams Params = { JavaCameraPlayer, PlayerGuid };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidCameraPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				if (IsRunningRHIInSeparateThread())
 				{
@@ -639,10 +639,10 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 			TSharedRef<FAndroidCameraTextureSample, ESPMode::ThreadSafe> VideoSample;
 			FTimespan SampleTime;
 		}
-		WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, CurrentTime };
+		Params = { JavaCameraPlayer, Samples, VideoSample, CurrentTime };
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
-			FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+		ENQUEUE_RENDER_COMMAND(AndroidCameraPlayerWriteVideoSample)(
+			[Params](FRHICommandListImmediate& RHICmdList)
 			{
 				if (IsRunningRHIInSeparateThread())
 				{
@@ -678,10 +678,10 @@ void FAndroidCameraPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 		int32 SampleCount;
 		FTimespan SampleTime;
 	}
-	WriteVideoSampleParams = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
+	Params = { JavaCameraPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)), CurrentTime };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidCameraPlayerWriteVideoSample,
-		FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+	ENQUEUE_RENDER_COMMAND(AndroidCameraPlayerWriteVideoSample)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
 			if (IsRunningRHIInSeparateThread())
 			{

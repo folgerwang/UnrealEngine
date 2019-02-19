@@ -142,53 +142,54 @@ class SIOSWebBrowserWidget : public SLeafWidget
 
 					FIntPoint viewportSize = WebBrowserWindowPtr.Pin()->GetViewportSize();
 
-					FWriteWebBrowserParams WriteWebBrowserParams = { WebViewWrapper, WebBrowserTexture->GetExternalTextureGuid(), viewportSize };
+					FWriteWebBrowserParams Params = { WebViewWrapper, WebBrowserTexture->GetExternalTextureGuid(), viewportSize };
 
-					ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(WriteWebBrowser, FWriteWebBrowserParams, Params, WriteWebBrowserParams,
-					{
-						IOSWebViewWrapper* NativeWebBrowser = Params.NativeWebBrowserPtr;
-
-					if (NativeWebBrowser == nil)
-					{
-						return;
-					}
-
-					FTextureRHIRef VideoTexture = [NativeWebBrowser GetVideoTexture];
-					if (VideoTexture == nullptr)
-					{
-						FRHIResourceCreateInfo CreateInfo;
-						FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-						FIntPoint Size = Params.Size;
-						VideoTexture = RHICmdList.CreateTextureExternal2D(Size.X, Size.Y, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
-						[NativeWebBrowser SetVideoTexture : VideoTexture];
-						//UE_LOG(LogIOS, Log, TEXT("NativeWebBrowser SetVideoTexture:VideoTexture!"));
-
-						if (VideoTexture == nullptr)
+					ENQUEUE_RENDER_COMMAND(WriteWebBrowser)(
+						[Params](FRHICommandListImmediate& RHICmdList)
 						{
-							UE_LOG(LogIOS, Warning, TEXT("CreateTextureExternal2D failed!"));
-							return;
-						}
+							IOSWebViewWrapper* NativeWebBrowser = Params.NativeWebBrowserPtr;
 
-						[NativeWebBrowser SetVideoTextureValid : false];
+							if (NativeWebBrowser == nil)
+							{
+								return;
+							}
 
-					}
+							FTextureRHIRef VideoTexture = [NativeWebBrowser GetVideoTexture];
+							if (VideoTexture == nullptr)
+							{
+								FRHIResourceCreateInfo CreateInfo;
+								FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
+								FIntPoint Size = Params.Size;
+								VideoTexture = RHICmdList.CreateTextureExternal2D(Size.X, Size.Y, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+								[NativeWebBrowser SetVideoTexture : VideoTexture];
+								//UE_LOG(LogIOS, Log, TEXT("NativeWebBrowser SetVideoTexture:VideoTexture!"));
 
-					if ([NativeWebBrowser UpdateVideoFrame : VideoTexture->GetNativeResource()])
-					{
-						// if region changed, need to reregister UV scale/offset
-						//UE_LOG(LogIOS, Log, TEXT("UpdateVideoFrame RT: %s"), *Params.PlayerGuid.ToString());
-					}
+								if (VideoTexture == nullptr)
+								{
+									UE_LOG(LogIOS, Warning, TEXT("CreateTextureExternal2D failed!"));
+									return;
+								}
 
-					if (![NativeWebBrowser IsVideoTextureValid])
-					{
-						FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
-						FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
-						FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, VideoTexture, SamplerStateRHI);
-						//UE_LOG(LogIOS, Log, TEXT("Fetch RT: Register Guid: %s"), *Params.PlayerGuid.ToString());
+								[NativeWebBrowser SetVideoTextureValid : false];
 
-						[NativeWebBrowser SetVideoTextureValid : true];
-					}
-					});
+							}
+
+							if ([NativeWebBrowser UpdateVideoFrame : VideoTexture->GetNativeResource()])
+							{
+								// if region changed, need to reregister UV scale/offset
+								//UE_LOG(LogIOS, Log, TEXT("UpdateVideoFrame RT: %s"), *Params.PlayerGuid.ToString());
+							}
+
+							if (![NativeWebBrowser IsVideoTextureValid])
+							{
+								FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
+								FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
+								FExternalTextureRegistry::Get().RegisterExternalTexture(Params.PlayerGuid, VideoTexture, SamplerStateRHI);
+								//UE_LOG(LogIOS, Log, TEXT("Fetch RT: Register Guid: %s"), *Params.PlayerGuid.ToString());
+
+								[NativeWebBrowser SetVideoTextureValid : true];
+							}
+						});
 				}
 			}
 #endif

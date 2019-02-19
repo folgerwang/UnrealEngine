@@ -809,10 +809,10 @@ void FAndroidMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan /*Timecode*/)
 		int32 SampleCount;
 	};
 
-	FWriteVideoSampleParams WriteVideoSampleParams = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
+	FWriteVideoSampleParams Params = { JavaMediaPlayer, Samples, VideoSample, (int32)(VideoTrack.Dimensions.X * VideoTrack.Dimensions.Y * sizeof(int32)) };
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(AndroidMediaPlayerWriteVideoSample,
-		FWriteVideoSampleParams, Params, WriteVideoSampleParams,
+	ENQUEUE_RENDER_COMMAND(AndroidMediaPlayerWriteVideoSample)(
+		[Params](FRHICommandListImmediate& RHICmdList)
 		{
 			if (IsRunningRHIInSeparateThread())
 			{

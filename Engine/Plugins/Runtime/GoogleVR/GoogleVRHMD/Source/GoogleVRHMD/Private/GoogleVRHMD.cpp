@@ -1162,13 +1162,12 @@ void FGoogleVRHMD::OnBeginRendering_GameThread()
 		instant_preview::ReferencePose currentPose;
 		instant_preview::ReferencePose *renderPose;
 	};
-	struct FQueueRenderPoseContext context {
+	struct FQueueRenderPoseContext Context {
 		CurrentReferencePose,
 		&RenderReferencePose,
 	};
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-		QueueRenderPose,
-		struct FQueueRenderPoseContext, Context, context,
+	ENQUEUE_RENDER_COMMAND(QueueRenderPose)(
+		[Context](FRHICommandListImmediate& RHICmdList)
 		{
 			*Context.renderPose = Context.currentPose;
 		});

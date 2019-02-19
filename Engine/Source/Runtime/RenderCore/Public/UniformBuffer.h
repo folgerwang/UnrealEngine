@@ -116,13 +116,6 @@ private:
 	uint8* Contents;
 };
 
-ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER_DECLARE_TEMPLATE(
-	SetUniformBufferContents,TBufferStruct,
-	TUniformBuffer<TBufferStruct>*,UniformBuffer,&UniformBuffer,
-	TBufferStruct,Struct,Struct,
-	{
-		UniformBuffer->SetContents(Struct);
-	});
 
 /** Sends a message to the rendering thread to set the contents of a uniform buffer.  Called by the game thread. */
 template<typename TBufferStruct>
@@ -131,8 +124,10 @@ void BeginSetUniformBufferContents(
 	const TBufferStruct& Struct
 	)
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER_CREATE_TEMPLATE(
-		SetUniformBufferContents,TBufferStruct,
-		TUniformBuffer<TBufferStruct>*,&UniformBuffer,
-		TBufferStruct,Struct);
+	TUniformBuffer<TBufferStruct>* UniformBufferPtr = &UniformBuffer;
+	ENQUEUE_RENDER_COMMAND(SetUniformBufferContents)(
+		[UniformBufferPtr, Struct](FRHICommandListImmediate& RHICmdList)
+		{
+			UniformBufferPtr->SetContents(Struct);
+		});
 }

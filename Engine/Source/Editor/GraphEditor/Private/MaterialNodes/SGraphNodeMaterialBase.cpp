@@ -97,12 +97,10 @@ FPreviewViewport::~FPreviewViewport()
 		MaterialNode->InvalidatePreviewMaterialDelegate.Unbind();
 	}
 	// Pass the preview element to the render thread so that it's deleted after it's shown for the last time
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER
-	(
-		SafeDeletePreviewElement,
-		FThreadSafePreviewPtr, PreviewElementPtr, PreviewElement,
+	ENQUEUE_RENDER_COMMAND(SafeDeletePreviewElement)(
+		[PreviewElement = PreviewElement](FRHICommandListImmediate& RHICmdList) mutable
 		{
-			PreviewElementPtr.Reset();
+			PreviewElement.Reset();
 		}
 	);
 }

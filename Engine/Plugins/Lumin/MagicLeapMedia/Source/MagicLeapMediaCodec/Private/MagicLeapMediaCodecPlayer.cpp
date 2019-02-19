@@ -244,20 +244,21 @@ void FMagicLeapMediaCodecPlayer::Close()
 					MLHandle VideoCodecHandle;
 				};
 
-				FReleaseVideoResourcesParams ReleaseVideoResourcesParams = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataVK>(TextureData), PlayerGuid, VideoCodecHandle };
+				FReleaseVideoResourcesParams Params = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataVK>(TextureData), PlayerGuid, VideoCodecHandle };
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MagicLeapMediaPlayerDestroy, FReleaseVideoResourcesParams, Params, ReleaseVideoResourcesParams,
-				{
-					FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PlayerGuid);
-					Params.TextureData->bIsVideoTextureValid = false;
-
-					if (Params.TextureData->PreviousNativeBuffer != 0 && MLHandleIsValid(Params.TextureData->PreviousNativeBuffer))
+				ENQUEUE_RENDER_COMMAND(MagicLeapMediaPlayerDestroy)(
+					[Params](FRHICommandListImmediate& RHICmdList)
 					{
-						Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, Params.TextureData->PreviousNativeBuffer);
-						Params.TextureData->PreviousNativeBuffer = 0;
-						Params.TextureData->VideoTexturePool.Empty();
-					}
-				});
+						FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PlayerGuid);
+						Params.TextureData->bIsVideoTextureValid = false;
+
+						if (Params.TextureData->PreviousNativeBuffer != 0 && MLHandleIsValid(Params.TextureData->PreviousNativeBuffer))
+						{
+							Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, Params.TextureData->PreviousNativeBuffer);
+							Params.TextureData->PreviousNativeBuffer = 0;
+							Params.TextureData->VideoTexturePool.Empty();
+						}
+					});
 			}
 			else
 			{
@@ -272,31 +273,32 @@ void FMagicLeapMediaCodecPlayer::Close()
 					MLHandle VideoCodecHandle;
 				};
 
-				FReleaseVideoResourcesParams ReleaseVideoResourcesParams = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataGL>(TextureData), PlayerGuid, VideoCodecHandle };
+				FReleaseVideoResourcesParams Params = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataGL>(TextureData), PlayerGuid, VideoCodecHandle };
 
-				ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MagicLeapMediaPlayerDestroy, FReleaseVideoResourcesParams, Params, ReleaseVideoResourcesParams,
-				{
-					FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PlayerGuid);
-					Params.TextureData->bIsVideoTextureValid = false;
-
-					// @todo: this causes a crash
-					//Params.TextureData->VideoTexture->Release();
-					Params.TextureData->SaveContext();
-					Params.TextureData->MakeCurrent();
-
-					if (Params.TextureData->Image != EGL_NO_IMAGE_KHR)
+				ENQUEUE_RENDER_COMMAND(MagicLeapMediaPlayerDestroy)(
+					[Params](FRHICommandListImmediate& RHICmdList)
 					{
-						eglDestroyImageKHR(eglGetCurrentDisplay(), Params.TextureData->Image);
-						Params.TextureData->Image = EGL_NO_IMAGE_KHR;
-					}
+						FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PlayerGuid);
+						Params.TextureData->bIsVideoTextureValid = false;
 
-					Params.TextureData->RestoreContext();
-					if (Params.TextureData->PreviousNativeBuffer != 0 && MLHandleIsValid(Params.TextureData->PreviousNativeBuffer))
-					{
-						Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, Params.TextureData->PreviousNativeBuffer);
-						Params.TextureData->PreviousNativeBuffer = 0;
-					}
-				});
+						// @todo: this causes a crash
+						//Params.TextureData->VideoTexture->Release();
+						Params.TextureData->SaveContext();
+						Params.TextureData->MakeCurrent();
+
+						if (Params.TextureData->Image != EGL_NO_IMAGE_KHR)
+						{
+							eglDestroyImageKHR(eglGetCurrentDisplay(), Params.TextureData->Image);
+							Params.TextureData->Image = EGL_NO_IMAGE_KHR;
+						}
+
+						Params.TextureData->RestoreContext();
+						if (Params.TextureData->PreviousNativeBuffer != 0 && MLHandleIsValid(Params.TextureData->PreviousNativeBuffer))
+						{
+							Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, Params.TextureData->PreviousNativeBuffer);
+							Params.TextureData->PreviousNativeBuffer = 0;
+						}
+					});
 			}
 
 			FlushRenderingCommands();
@@ -745,74 +747,75 @@ void FMagicLeapMediaCodecPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timeco
 				FTimespan FrameTimecode;
 			};
 
-			FWriteVideoSampleParams WriteVideoSampleParams = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataVK>(TextureData), PlayerGuid, VideoCodecHandle, Timecode };
+			FWriteVideoSampleParams Params = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataVK>(TextureData), PlayerGuid, VideoCodecHandle, Timecode };
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MagicLeapMediaPlayerWriteVideoSample, FWriteVideoSampleParams, Params, WriteVideoSampleParams,
-			{
-				auto TextureDataPtr = Params.TextureData.Pin();
-
-				Params.MediaPlayer->bIsBufferAvailable = Params.MediaPlayer->ProcessVideoOutputSample_RenderThread(Params.VideoCodecHandle, Params.MediaPlayer->TrackInfo[EMediaTrackType::Video][Params.MediaPlayer->SelectedTrack[EMediaTrackType::Video]], Params.FrameTimecode);
-				if (!Params.MediaPlayer->IsBufferAvailable_RenderThread(Params.VideoCodecHandle))
+			ENQUEUE_RENDER_COMMAND(MagicLeapMediaPlayerWriteVideoSample)(
+				[Params](FRHICommandListImmediate& RHICmdList)
 				{
-					// UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("No video buffer available at TickFetch!"));
-					return;
-				}
+					auto TextureDataPtr = Params.TextureData.Pin();
 
-				if (TextureDataPtr->PreviousNativeBuffer != 0 && MLHandleIsValid(TextureDataPtr->PreviousNativeBuffer))
-				{
-					Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, TextureDataPtr->PreviousNativeBuffer);
-					TextureDataPtr->PreviousNativeBuffer = 0;
-				}
-
-				MLHandle NativeBuffer = ML_INVALID_HANDLE;
-				if (!Params.MediaPlayer->GetNativeBuffer_RenderThread(Params.VideoCodecHandle, NativeBuffer))
-				{
-					return;
-				}
-
-				check(MLHandleIsValid(NativeBuffer));
-
-				if (Params.MediaPlayer->bPlaybackCompleted_RenderThread)
-				{
-					TextureDataPtr->VideoTexturePool.Empty();
-				}
-
-				if (!TextureDataPtr->VideoTexturePool.Contains((uint64)NativeBuffer))
-				{
-					FTextureRHIRef NewMediaTexture;
-					if (!FMagicLeapHelperVulkan::GetMediaTexture(NewMediaTexture, TextureDataPtr->VideoSampler, NativeBuffer))
+					Params.MediaPlayer->bIsBufferAvailable = Params.MediaPlayer->ProcessVideoOutputSample_RenderThread(Params.VideoCodecHandle, Params.MediaPlayer->TrackInfo[EMediaTrackType::Video][Params.MediaPlayer->SelectedTrack[EMediaTrackType::Video]], Params.FrameTimecode);
+					if (!Params.MediaPlayer->IsBufferAvailable_RenderThread(Params.VideoCodecHandle))
 					{
-						UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("Failed to get next media texture."));
+						// UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("No video buffer available at TickFetch!"));
 						return;
 					}
 
-					TextureDataPtr->VideoTexturePool.Add((uint64)NativeBuffer, NewMediaTexture);
-					
-					if (TextureDataPtr->VideoTexture == nullptr)
+					if (TextureDataPtr->PreviousNativeBuffer != 0 && MLHandleIsValid(TextureDataPtr->PreviousNativeBuffer))
 					{
-						FRHIResourceCreateInfo CreateInfo;
-						TextureDataPtr->VideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+						Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, TextureDataPtr->PreviousNativeBuffer);
+						TextureDataPtr->PreviousNativeBuffer = 0;
 					}
 
-					FMagicLeapHelperVulkan::AliasMediaTexture(TextureDataPtr->VideoTexture, NewMediaTexture);
-				}
-				else
-				{
-					FTextureRHIRef* const PooledMediaTexture = TextureDataPtr->VideoTexturePool.Find((uint64)NativeBuffer);
-					check(PooledMediaTexture != nullptr);
-					FMagicLeapHelperVulkan::AliasMediaTexture(TextureDataPtr->VideoTexture, *PooledMediaTexture);
-				}
+					MLHandle NativeBuffer = ML_INVALID_HANDLE;
+					if (!Params.MediaPlayer->GetNativeBuffer_RenderThread(Params.VideoCodecHandle, NativeBuffer))
+					{
+						return;
+					}
 
-				TextureDataPtr->bIsVideoTextureValid = (TextureDataPtr->bIsVideoTextureValid && !Params.MediaPlayer->UpdateTransformMatrix_RenderThread(Params.VideoCodecHandle));
+					check(MLHandleIsValid(NativeBuffer));
 
-				if (!TextureDataPtr->bIsVideoTextureValid)
-				{
-					Params.MediaPlayer->RegisterExternalTexture_RenderThread(Params.PlayerGuid, TextureDataPtr->VideoTexture, TextureDataPtr->VideoSampler);
-					TextureDataPtr->bIsVideoTextureValid = true;
-				}
+					if (Params.MediaPlayer->bPlaybackCompleted_RenderThread)
+					{
+						TextureDataPtr->VideoTexturePool.Empty();
+					}
 
-				TextureDataPtr->PreviousNativeBuffer = NativeBuffer;
-			});
+					if (!TextureDataPtr->VideoTexturePool.Contains((uint64)NativeBuffer))
+					{
+						FTextureRHIRef NewMediaTexture;
+						if (!FMagicLeapHelperVulkan::GetMediaTexture(NewMediaTexture, TextureDataPtr->VideoSampler, NativeBuffer))
+						{
+							UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("Failed to get next media texture."));
+							return;
+						}
+
+						TextureDataPtr->VideoTexturePool.Add((uint64)NativeBuffer, NewMediaTexture);
+					
+						if (TextureDataPtr->VideoTexture == nullptr)
+						{
+							FRHIResourceCreateInfo CreateInfo;
+							TextureDataPtr->VideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+						}
+
+						FMagicLeapHelperVulkan::AliasMediaTexture(TextureDataPtr->VideoTexture, NewMediaTexture);
+					}
+					else
+					{
+						FTextureRHIRef* const PooledMediaTexture = TextureDataPtr->VideoTexturePool.Find((uint64)NativeBuffer);
+						check(PooledMediaTexture != nullptr);
+						FMagicLeapHelperVulkan::AliasMediaTexture(TextureDataPtr->VideoTexture, *PooledMediaTexture);
+					}
+
+					TextureDataPtr->bIsVideoTextureValid = (TextureDataPtr->bIsVideoTextureValid && !Params.MediaPlayer->UpdateTransformMatrix_RenderThread(Params.VideoCodecHandle));
+
+					if (!TextureDataPtr->bIsVideoTextureValid)
+					{
+						Params.MediaPlayer->RegisterExternalTexture_RenderThread(Params.PlayerGuid, TextureDataPtr->VideoTexture, TextureDataPtr->VideoSampler);
+						TextureDataPtr->bIsVideoTextureValid = true;
+					}
+
+					TextureDataPtr->PreviousNativeBuffer = NativeBuffer;
+				});
 		}
 		else
 		{
@@ -825,101 +828,102 @@ void FMagicLeapMediaCodecPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timeco
 				FTimespan FrameTimecode;
 			};
 
-			FWriteVideoSampleParams WriteVideoSampleParams = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataGL>(TextureData), PlayerGuid, VideoCodecHandle, Timecode };
+			FWriteVideoSampleParams Params = { this, StaticCastSharedPtr<FMagicLeapVideoTextureDataGL>(TextureData), PlayerGuid, VideoCodecHandle, Timecode };
 
-			ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(MagicLeapMediaPlayerWriteVideoSample, FWriteVideoSampleParams, Params, WriteVideoSampleParams,
-			{
-				auto TextureDataPtr = Params.TextureData.Pin();
-
-				Params.MediaPlayer->bIsBufferAvailable = Params.MediaPlayer->ProcessVideoOutputSample_RenderThread(Params.VideoCodecHandle, Params.MediaPlayer->TrackInfo[EMediaTrackType::Video][Params.MediaPlayer->SelectedTrack[EMediaTrackType::Video]], Params.FrameTimecode);
-				if (!Params.MediaPlayer->IsBufferAvailable_RenderThread(Params.VideoCodecHandle))
+			ENQUEUE_RENDER_COMMAND(MagicLeapMediaPlayerWriteVideoSample)(
+				[Params](FRHICommandListImmediate& RHICmdList)
 				{
-					return;
-				}
+					auto TextureDataPtr = Params.TextureData.Pin();
 
-				FTextureRHIRef MediaVideoTexture = TextureDataPtr->VideoTexture;
-				if (MediaVideoTexture == nullptr)
-				{
-					FRHIResourceCreateInfo CreateInfo;
-					MediaVideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
-					TextureDataPtr->VideoTexture = MediaVideoTexture;
-
-					if (MediaVideoTexture == nullptr)
+					Params.MediaPlayer->bIsBufferAvailable = Params.MediaPlayer->ProcessVideoOutputSample_RenderThread(Params.VideoCodecHandle, Params.MediaPlayer->TrackInfo[EMediaTrackType::Video][Params.MediaPlayer->SelectedTrack[EMediaTrackType::Video]], Params.FrameTimecode);
+					if (!Params.MediaPlayer->IsBufferAvailable_RenderThread(Params.VideoCodecHandle))
 					{
-						UE_LOG(LogMagicLeapMediaCodec, Warning, TEXT("CreateTextureExternal2D failed!"));
 						return;
 					}
 
-					TextureDataPtr->bIsVideoTextureValid = false;
-				}
+					FTextureRHIRef MediaVideoTexture = TextureDataPtr->VideoTexture;
+					if (MediaVideoTexture == nullptr)
+					{
+						FRHIResourceCreateInfo CreateInfo;
+						MediaVideoTexture = RHICmdList.CreateTextureExternal2D(1, 1, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+						TextureDataPtr->VideoTexture = MediaVideoTexture;
 
-				// MLHandle because Unreal's uint64 is 'unsigned long long *' whereas uint64_t for the C-API is 'unsigned long *'
-				// TODO: Fix the Unreal types for the above comment.
-				MLHandle nativeBuffer = ML_INVALID_HANDLE;
-				if (!Params.MediaPlayer->GetNativeBuffer_RenderThread(Params.VideoCodecHandle, nativeBuffer))
-				{
-					return;
-				}
+						if (MediaVideoTexture == nullptr)
+						{
+							UE_LOG(LogMagicLeapMediaCodec, Warning, TEXT("CreateTextureExternal2D failed!"));
+							return;
+						}
 
-				int32 CurrentFramePosition = 0;
-				if (!Params.MediaPlayer->GetCurrentPosition_RenderThread(Params.VideoCodecHandle, CurrentFramePosition))
-				{
-					return;
-				}
+						TextureDataPtr->bIsVideoTextureValid = false;
+					}
 
-				// Clear gl errors as they can creep in from the UE4 renderer.
-				glGetError();
+					// MLHandle because Unreal's uint64 is 'unsigned long long *' whereas uint64_t for the C-API is 'unsigned long *'
+					// TODO: Fix the Unreal types for the above comment.
+					MLHandle nativeBuffer = ML_INVALID_HANDLE;
+					if (!Params.MediaPlayer->GetNativeBuffer_RenderThread(Params.VideoCodecHandle, nativeBuffer))
+					{
+						return;
+					}
 
-				if (!TextureDataPtr->bContextCreated)
-				{
-					TextureDataPtr->InitContext();
-					TextureDataPtr->bContextCreated = true;
-				}
-				TextureDataPtr->SaveContext();
-				TextureDataPtr->MakeCurrent();
+					int32 CurrentFramePosition = 0;
+					if (!Params.MediaPlayer->GetCurrentPosition_RenderThread(Params.VideoCodecHandle, CurrentFramePosition))
+					{
+						return;
+					}
 
-				int32 TextureID = *reinterpret_cast<int32*>(MediaVideoTexture->GetNativeResource());
-				if (TextureDataPtr->Image != EGL_NO_IMAGE_KHR)
-				{
-					eglDestroyImageKHR(eglGetCurrentDisplay(), TextureDataPtr->Image);
-					TextureDataPtr->Image = EGL_NO_IMAGE_KHR;
-				}
-				if (TextureDataPtr->PreviousNativeBuffer != 0 && MLHandleIsValid(TextureDataPtr->PreviousNativeBuffer))
-				{
-					Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, TextureDataPtr->PreviousNativeBuffer);
-				}
-				TextureDataPtr->PreviousNativeBuffer = nativeBuffer;
+					// Clear gl errors as they can creep in from the UE4 renderer.
+					glGetError();
 
-				// Wrap latest decoded frame into a new gl texture oject
-				TextureDataPtr->Image = eglCreateImageKHR(TextureDataPtr->Display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, (EGLClientBuffer)(void *)nativeBuffer, NULL);
-				if (TextureDataPtr->Image == EGL_NO_IMAGE_KHR)
-				{
-					EGLint errorcode = eglGetError();
-					UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("Failed to create EGLImage from the buffer. %d"), errorcode);
+					if (!TextureDataPtr->bContextCreated)
+					{
+						TextureDataPtr->InitContext();
+						TextureDataPtr->bContextCreated = true;
+					}
+					TextureDataPtr->SaveContext();
+					TextureDataPtr->MakeCurrent();
+
+					int32 TextureID = *reinterpret_cast<int32*>(MediaVideoTexture->GetNativeResource());
+					if (TextureDataPtr->Image != EGL_NO_IMAGE_KHR)
+					{
+						eglDestroyImageKHR(eglGetCurrentDisplay(), TextureDataPtr->Image);
+						TextureDataPtr->Image = EGL_NO_IMAGE_KHR;
+					}
+					if (TextureDataPtr->PreviousNativeBuffer != 0 && MLHandleIsValid(TextureDataPtr->PreviousNativeBuffer))
+					{
+						Params.MediaPlayer->ReleaseNativeBuffer_RenderThread(Params.VideoCodecHandle, TextureDataPtr->PreviousNativeBuffer);
+					}
+					TextureDataPtr->PreviousNativeBuffer = nativeBuffer;
+
+					// Wrap latest decoded frame into a new gl texture oject
+					TextureDataPtr->Image = eglCreateImageKHR(TextureDataPtr->Display, EGL_NO_CONTEXT, EGL_NATIVE_BUFFER_ANDROID, (EGLClientBuffer)(void *)nativeBuffer, NULL);
+					if (TextureDataPtr->Image == EGL_NO_IMAGE_KHR)
+					{
+						EGLint errorcode = eglGetError();
+						UE_LOG(LogMagicLeapMediaCodec, Error, TEXT("Failed to create EGLImage from the buffer. %d"), errorcode);
+						TextureDataPtr->RestoreContext();
+						return;
+					}
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_EXTERNAL_OES, TextureID);
+					glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, TextureDataPtr->Image);
+					glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+					glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+					glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+					glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
+
 					TextureDataPtr->RestoreContext();
-					return;
-				}
-				glActiveTexture(GL_TEXTURE0);
-				glBindTexture(GL_TEXTURE_EXTERNAL_OES, TextureID);
-				glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, TextureDataPtr->Image);
-				glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-				glTexParameteri(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-				glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
 
-				TextureDataPtr->RestoreContext();
+					TextureDataPtr->bIsVideoTextureValid = Params.MediaPlayer->UpdateTransformMatrix_RenderThread(Params.VideoCodecHandle);
 
-				TextureDataPtr->bIsVideoTextureValid = Params.MediaPlayer->UpdateTransformMatrix_RenderThread(Params.VideoCodecHandle);
-
-				if (!TextureDataPtr->bIsVideoTextureValid)
-				{
-					FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
-					FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
-					Params.MediaPlayer->RegisterExternalTexture_RenderThread(Params.PlayerGuid, MediaVideoTexture, SamplerStateRHI);
-					TextureDataPtr->bIsVideoTextureValid = true;
-				}
-			});
+					if (!TextureDataPtr->bIsVideoTextureValid)
+					{
+						FSamplerStateInitializerRHI SamplerStateInitializer(SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp);
+						FSamplerStateRHIRef SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
+						Params.MediaPlayer->RegisterExternalTexture_RenderThread(Params.PlayerGuid, MediaVideoTexture, SamplerStateRHI);
+						TextureDataPtr->bIsVideoTextureValid = true;
+					}
+				});
 		}
 	}
 }

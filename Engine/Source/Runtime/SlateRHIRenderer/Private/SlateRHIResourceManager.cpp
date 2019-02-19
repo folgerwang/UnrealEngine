@@ -619,19 +619,20 @@ TSharedPtr<FSlateDynamicTextureResource> FSlateRHIResourceManager::MakeDynamicTe
 
 
 	// Init render thread data
-	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(InitNewSlateDynamicTextureResource,
-		FSlateDynamicTextureResource*, TextureResource, TextureResource.Get(),
-		FSlateTextureDataPtr, InNewTextureData, TextureData,
-	{
-		if(InNewTextureData.IsValid())
+	FSlateDynamicTextureResource* InTextureResource = TextureResource.Get();
+	FSlateTextureDataPtr InNewTextureData = TextureData;
+	ENQUEUE_RENDER_COMMAND(InitNewSlateDynamicTextureResource)(
+		[InTextureResource, InNewTextureData](FRHICommandListImmediate& RHICmdList)
 		{
-			// Set the texture to use as the texture we just loaded
-			TextureResource->RHIRefTexture->SetTextureData(InNewTextureData, PF_B8G8R8A8, TexCreate_SRGB);
-		}
+			if (InNewTextureData.IsValid())
+			{
+				// Set the texture to use as the texture we just loaded
+				InTextureResource->RHIRefTexture->SetTextureData(InNewTextureData, PF_B8G8R8A8, TexCreate_SRGB);
+			}
 
-		// Initialize and link the rendering resource
-		TextureResource->RHIRefTexture->InitResource();
-	});
+			// Initialize and link the rendering resource
+			InTextureResource->RHIRefTexture->InitResource();
+		});
 
 	// Map the new resource so we don't have to load again
 	DynamicResourceMap.AddDynamicTextureResource( ResourceName, TextureResource.ToSharedRef() );

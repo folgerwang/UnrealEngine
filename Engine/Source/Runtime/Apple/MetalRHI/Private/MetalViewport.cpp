@@ -177,15 +177,13 @@ void FMetalViewport::Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen
 	{
 		// Really need to flush the RHI thread & GPU here...
 		AddRef();
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-									FlushPendingRHICommands,
-									FMetalViewport*, Viewport, this,
-									{
-										GRHICommandList.GetImmediateCommandList().BlockUntilGPUIdle();
-										Viewport->ReleaseDrawable();
-										Viewport->Release();
-									}
-									);
+		ENQUEUE_RENDER_COMMAND(FlushPendingRHICommands)(
+			[Viewport = this](FRHICommandListImmediate& RHICmdList)
+			{
+				GRHICommandList.GetImmediateCommandList().BlockUntilGPUIdle();
+				Viewport->ReleaseDrawable();
+				Viewport->Release();
+			});
 		
 		// Issue a fence command to the rendering thread and wait for it to complete.
 		FRenderCommandFence Fence;

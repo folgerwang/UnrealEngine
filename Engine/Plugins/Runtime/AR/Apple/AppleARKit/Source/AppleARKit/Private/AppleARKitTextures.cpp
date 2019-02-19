@@ -141,11 +141,11 @@ void UAppleARKitEnvironmentCaptureProbeTexture::Init(float InTimestamp, id<MTLTe
 	// Force an update to our external texture on the render thread
 	if (Resource != nullptr)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UpdateEnvironmentCapture,
-		   FTextureResource*, InResource, Resource,
-		   {
-			   InResource->InitRHI();
-		   });
+		ENQUEUE_RENDER_COMMAND(UpdateEnvironmentCapture)(
+			[InResource = Resource](FRHICommandListImmediate& RHICmdList)
+			{
+				InResource->InitRHI();
+			});
 	}
 }
 

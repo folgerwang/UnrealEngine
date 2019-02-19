@@ -91,12 +91,12 @@ void FPixelStreamingPlugin::OnPreResizeWindowBackbuffer(void* BackBuffer)
 {
 	if (Streamer)
 	{
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-			FPixelStreamingOnPreResizeWindowBackbuffer,
-			FPixelStreamingPlugin*, Plugin, this,
-		{
-			Plugin->OnPreResizeWindowBackbuffer_RenderThread();
-		});	
+		FPixelStreamingPlugin* Plugin = this;
+		ENQUEUE_RENDER_COMMAND(FPixelStreamingOnPreResizeWindowBackbuffer)(
+			[Plugin](FRHICommandListImmediate& RHICmdList)
+			{
+				Plugin->OnPreResizeWindowBackbuffer_RenderThread();
+			});	
 
 		// Make sure OnPreResizeWindowBackbuffer_RenderThread is executed before continuing
 		FlushRenderingCommands();

@@ -688,13 +688,11 @@ void FNiagaraShaderMap::LoadForRemoteRecompile(FArchive& Ar, EShaderPlatform Sha
 					MaterialResource->SetGameThreadShaderMap(LoadedShaderMap);
 					MaterialResource->RegisterInlineShaderMap();
 
-					ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-						FSetShaderMapOnMaterialResources,
-						FMaterial*,MaterialResource,MaterialResource,
-						FNiagaraShaderMap*,LoadedShaderMap,LoadedShaderMap,
-					{
-						MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
-					});
+					ENQUEUE_RENDER_COMMAND(FSetShaderMapOnMaterialResources)(
+						[MaterialResource,LoadedShaderMap](FRHICommandListImmediate& RHICmdList)
+						{
+							MaterialResource->SetRenderingThreadShaderMap(LoadedShaderMap);
+						});
 				}
 			}
 		}

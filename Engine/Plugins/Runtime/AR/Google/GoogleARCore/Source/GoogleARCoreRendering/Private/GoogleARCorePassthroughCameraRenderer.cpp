@@ -51,20 +51,18 @@ void FGoogleARCorePassthroughCameraRenderer::SetOverlayMaterialInstance(UMateria
 	{
 		OverrideOverlayMaterial = NewMaterialInstance;
 
-		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-        UseOverrideOverlayMaterial,
-        FGoogleARCorePassthroughCameraRenderer*, VideoOverlayRendererRHIPtr, this,
-        {
-            VideoOverlayRendererRHIPtr->RenderingOverlayMaterial = VideoOverlayRendererRHIPtr->OverrideOverlayMaterial;
-        });
+		ENQUEUE_RENDER_COMMAND(UseOverrideOverlayMaterial)(
+			[VideoOverlayRendererRHIPtr = this](FRHICommandListImmediate& RHICmdList)
+	        {
+				VideoOverlayRendererRHIPtr->RenderingOverlayMaterial = VideoOverlayRendererRHIPtr->OverrideOverlayMaterial;
+			});
 	}
 }
 
 void FGoogleARCorePassthroughCameraRenderer::ResetOverlayMaterialToDefault()
 {
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
-        UseDefaultOverlayMaterial,
-        FGoogleARCorePassthroughCameraRenderer*, VideoOverlayRendererRHIPtr, this,
+	ENQUEUE_RENDER_COMMAND(UseDefaultOverlayMaterial)(
+		[VideoOverlayRendererRHIPtr = this](FRHICommandListImmediate& RHICmdList)
         {
             VideoOverlayRendererRHIPtr->RenderingOverlayMaterial = VideoOverlayRendererRHIPtr->DefaultOverlayMaterial;
         }
