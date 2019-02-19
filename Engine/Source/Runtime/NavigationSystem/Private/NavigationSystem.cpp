@@ -416,7 +416,7 @@ UNavigationSystemV1::UNavigationSystemV1(const FObjectInitializer& ObjectInitial
 		SetDefaultObstacleArea(UNavArea_Obstacle::StaticClass());
 		
 		const FTransform RecastToUnrealTransfrom(Recast2UnrealMatrix());
-		SetCoordTransformFrom(ENavigationCoordSystem::Navigation, RecastToUnrealTransfrom);
+		SetCoordTransform(ENavigationCoordSystem::Navigation, ENavigationCoordSystem::Unreal, RecastToUnrealTransfrom);
 	}
 
 #if WITH_EDITOR
