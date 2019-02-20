@@ -44,7 +44,6 @@ static const FName MovieSceneSectionRecorderFactoryName("MovieSceneTrackRecorder
 static const FName SequencerTrackClassMetadataName("SequencerTrackClass");
 static const FName DoNotRecordTag("DoNotRecord");
 
-
 UTakeRecorderSource* UTakeRecorderActorSource::AddSourceForActor(AActor* InActor, UTakeRecorderSources* InSources)
 {
 	if (InSources == nullptr)
@@ -52,10 +51,120 @@ UTakeRecorderSource* UTakeRecorderActorSource::AddSourceForActor(AActor* InActor
 		FFrame::KismetExecutionMessage(TEXT("The Source is invalid."), ELogVerbosity::Error);
 		return nullptr;
 	}
+	
+	if (InActor == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Actor is invalid."), ELogVerbosity::Error);
+		return nullptr;
+	}
+
+	//Look through our sources and see if one actor matches the incoming one either from editor or PIE world.
+	{
+		//Cache  InputActor comparison data
+		const bool bIsAlreadyPIEActor = InActor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
+		const AActor* InputActorEditor = EditorUtilities::GetEditorWorldCounterpartActor(InActor);
+		const AActor* InputActorPIE = EditorUtilities::GetSimWorldCounterpartActor(InActor);
+
+		TArray<UTakeRecorderSource*> SourceArray = InSources->GetSourcesCopy();
+		for (UTakeRecorderSource* CurrentSource : SourceArray)
+		{
+			UTakeRecorderActorSource* CurrentActorSource = Cast<UTakeRecorderActorSource>(CurrentSource);
+			if (CurrentActorSource != nullptr)
+			{
+				AActor* CurrentActor = CurrentActorSource->Target.Get();
+				if (CurrentActor == nullptr)
+				{
+					continue;
+				}
+
+				if (InActor == CurrentActor)
+				{
+					return CurrentActorSource;
+				}
+				else 
+				{
+					if (bIsAlreadyPIEActor)
+					{
+						//The input actor is from PIE -> Bring it into Editor world and compare. 
+						if (InputActorEditor == CurrentActor)
+						{
+							return CurrentActorSource;
+						}
+					}
+					else
+					{
+						//The input actor is from Editor -> Bring it into PIE world and compare. 
+						if (InputActorPIE == CurrentActor)
+						{
+							return CurrentActorSource;
+						}
+					}
+				}
+			}
+		}
+	}
 
 	UTakeRecorderActorSource* NewSource = InSources->AddSource<UTakeRecorderActorSource>();
 	NewSource->SetSourceActor(InActor);
 	return NewSource;
+}
+
+void UTakeRecorderActorSource::RemoveActorFromSources(AActor* InActor, UTakeRecorderSources* InSources)
+{
+	if (InSources == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Source to remove from is invalid."), ELogVerbosity::Error);
+		return;
+	}
+
+	if (InActor == nullptr)
+	{
+		FFrame::KismetExecutionMessage(TEXT("The Actor to remove is invalid."), ELogVerbosity::Error);
+		return;
+	}
+
+	//Cache  InputActor comparison data
+	const bool bIsAlreadyPIEActor = InActor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
+	const AActor* InputActorEditor = EditorUtilities::GetEditorWorldCounterpartActor(InActor);
+	const AActor* InputActorPIE = EditorUtilities::GetSimWorldCounterpartActor(InActor);
+
+	TArray<UTakeRecorderSource*> SourceArray = InSources->GetSourcesCopy();
+	for (UTakeRecorderSource* CurrentSource : SourceArray)
+	{
+		UTakeRecorderActorSource* CurrentActorSource = Cast<UTakeRecorderActorSource>(CurrentSource);
+		if (CurrentActorSource != nullptr)
+		{
+			const AActor* CurrentActor = CurrentActorSource->Target.Get();
+			if (CurrentActor == nullptr)
+			{
+				continue;
+			}
+
+			if (InActor == CurrentActor)
+			{
+				InSources->RemoveSource(CurrentSource);
+			}
+			else
+			{
+				if (bIsAlreadyPIEActor)
+				{
+					//The input actor is from PIE -> Bring it into Editor world and compare. 
+					if (InputActorEditor == CurrentActor)
+					{
+						InSources->RemoveSource(CurrentSource);
+					}
+				}
+				else
+				{
+					//The input actor is from Editor -> Bring it into PIE world and compare. 
+					if (InputActorPIE == CurrentActor)
+					{
+						InSources->RemoveSource(CurrentSource);
+					}
+				}
+			}
+		}
+	}
 }
 
 UTakeRecorderActorSource::UTakeRecorderActorSource(const FObjectInitializer& ObjInit)
