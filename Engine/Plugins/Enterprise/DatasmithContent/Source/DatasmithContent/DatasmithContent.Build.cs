@@ -23,6 +23,7 @@ namespace UnrealBuildTool.Rules
 				{
 					"Landscape",
 					"LevelSequence",
+					"MeshDescription",
                     "Projects",
                 }
 			);
