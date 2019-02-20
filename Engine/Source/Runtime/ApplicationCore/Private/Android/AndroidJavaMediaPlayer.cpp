@@ -119,8 +119,8 @@ int32 FJavaAndroidMediaDataSource::ReadAt(int64 Position, uint8* Buffer, int32 C
 /* JavaAndroidMediaPlayer
 *****************************************************************************/
 
-FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkanRenderer)
-	: FJavaClassObject(GetClassName(), "(ZZ)V", swizzlePixels, vulkanRenderer)
+FJavaAndroidMediaPlayer::FJavaAndroidMediaPlayer(bool swizzlePixels, bool vulkanRenderer, bool needTrackInfo)
+	: FJavaClassObject(GetClassName(), "(ZZZ)V", swizzlePixels, vulkanRenderer, needTrackInfo)
 	, GetDurationMethod(GetClassMethod("getDuration", "()I"))
 	, ResetMethod(GetClassMethod("reset", "()V"))
 	, GetCurrentPositionMethod(GetClassMethod("getCurrentPosition", "()I"))

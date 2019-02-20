@@ -38,9 +38,9 @@ FAndroidMediaPlayer::FAndroidMediaPlayer(IMediaEventSink& InEventSink)
 	, bLooping(false)
 	, EventSink(InEventSink)
 #if WITH_ENGINE
-	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(false, FAndroidMisc::ShouldUseVulkan()))
+	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(false, FAndroidMisc::ShouldUseVulkan(), true))
 #else
-	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(true, FAndroidMisc::ShouldUseVulkan()))
+	, JavaMediaPlayer(MakeShared<FJavaAndroidMediaPlayer, ESPMode::ThreadSafe>(true, FAndroidMisc::ShouldUseVulkan(), true))
 #endif
 	, Samples(MakeShared<FMediaSamples, ESPMode::ThreadSafe>())
 	, SelectedAudioTrack(INDEX_NONE)

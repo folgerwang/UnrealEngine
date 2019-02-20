@@ -30,6 +30,7 @@ public class MediaPlayer14
 {
 	private boolean SwizzlePixels = true;
 	private boolean VulkanRenderer = false;
+	private boolean NeedTrackInfo = true;
 	private boolean Looping = false;
 	private boolean AudioEnabled = true;
 	private float AudioVolume = 1.0f;
@@ -82,10 +83,11 @@ public class MediaPlayer14
 
 	// ======================================================================================
 
-	public MediaPlayer14(boolean swizzlePixels, boolean vulkanRenderer)
+	public MediaPlayer14(boolean swizzlePixels, boolean vulkanRenderer, boolean needTrackInfo)
 	{
 		SwizzlePixels = swizzlePixels;
 		VulkanRenderer = vulkanRenderer;
+		NeedTrackInfo = needTrackInfo;
 		WaitOnBitmapRender = false;
 		AudioEnabled = true;
 		AudioVolume = 1.0f;
@@ -265,7 +267,7 @@ public class MediaPlayer14
 			setDataSource(UrlPath);
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -384,7 +386,7 @@ public class MediaPlayer14
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
 
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -432,7 +434,7 @@ public class MediaPlayer14
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
 
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -474,7 +476,7 @@ public class MediaPlayer14
 			releaseOESTextureRenderer();
 			releaseBitmapRenderer();
 
-			if (android.os.Build.VERSION.SDK_INT >= 16)
+			if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 			{
 				MediaExtractor extractor = new MediaExtractor();
 				if (extractor != null)
@@ -1846,7 +1848,7 @@ public class MediaPlayer14
 
 	public AudioTrackInfo[] GetAudioTracks()
 	{
-		if (android.os.Build.VERSION.SDK_INT >= 16)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;
@@ -1922,7 +1924,7 @@ public class MediaPlayer14
 
 	public CaptionTrackInfo[] GetCaptionTracks()
 	{
-		if (android.os.Build.VERSION.SDK_INT >= 21)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 21)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;
@@ -1974,7 +1976,7 @@ public class MediaPlayer14
 		int Width = getVideoWidth();
 		int Height = getVideoHeight();
 
-		if (android.os.Build.VERSION.SDK_INT >= 16)
+		if (NeedTrackInfo && android.os.Build.VERSION.SDK_INT >= 16)
 		{
 			TrackInfo[] trackInfo = getTrackInfo();
 			int CountTracks = 0;
