@@ -1423,8 +1423,8 @@ void DwarfCUToModule::Finish() {
       cu_context_->file_context->file_private_->origins;
     AbstractOriginByOffset::const_iterator origin = origins.find(malformed_function.unknown_abstract_origin);
 
-    if (origin != origins.end()) {
-      // overwrite the const functio name, bad but better then removing the const.
+    if (origin != origins.end() && !origin->second.name.empty()) {
+      // overwrite the const function name, bad but better then removing the const.
       *const_cast<std::string*>(&malformed_function.function->name) = origin->second.name;
     }
   }
