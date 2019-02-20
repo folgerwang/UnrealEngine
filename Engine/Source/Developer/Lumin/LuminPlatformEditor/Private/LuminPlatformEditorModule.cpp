@@ -71,7 +71,10 @@ class FLuminPlatformEditorModule
 
 			{
 				static FName NAME_SF_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
-				UShaderPlatformQualitySettings* LuminMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_SF_VULKAN_ES31_LUMIN);
+				static FName NAME_SF_VULKAN_ES31_LUMIN_NOUB(TEXT("SF_VULKAN_ES31_LUMIN_NOUB"));
+				auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+				const bool bUseNOUB = (CVar && CVar->GetValueOnAnyThread() == 0);
+				UShaderPlatformQualitySettings* LuminMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(bUseNOUB ? NAME_SF_VULKAN_ES31_LUMIN_NOUB : NAME_SF_VULKAN_ES31_LUMIN);
 				SettingsModule->RegisterSettings("Project", "Platforms", "MagicLeapVulkanQuality",
 					LOCTEXT("LuminVulkanQualitySettingsName", "Lumin Material Quality - Vulkan"),
 					LOCTEXT("LuminVulkanQualitySettingsDescription", "Settings for Lumin Vulkan material quality."),

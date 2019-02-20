@@ -19,6 +19,9 @@
 #include "Misc/EngineVersion.h"
 #include "GlobalShader.h"
 
+PRAGMA_DISABLE_OPTIMIZATION
+PRAGMA_DISABLE_INLINING
+
 extern RHI_API bool GUseTexture3DBulkDataRHI;
 
 TAtomic<uint64> GVulkanBufferHandleIdCounter{ 0 };
@@ -48,7 +51,7 @@ static_assert(VK_API_VERSION >= UE_VK_API_VERSION, "Vulkan SDK is older than the
 
 TAutoConsoleVariable<int32> GRHIThreadCvar(
 	TEXT("r.Vulkan.RHIThread"),
-	1,
+	0,
 	TEXT("0 to only use Render Thread\n")
 	TEXT("1 to use ONE RHI Thread\n")
 	TEXT("2 to use multiple RHI Thread\n")

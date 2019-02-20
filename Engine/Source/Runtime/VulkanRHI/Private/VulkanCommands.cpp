@@ -10,6 +10,9 @@
 #include "EngineGlobals.h"
 #include "VulkanLLM.h"
 
+PRAGMA_DISABLE_OPTIMIZATION
+PRAGMA_DISABLE_INLINING
+
 static TAutoConsoleVariable<int32> GCVarSubmitOnDispatch(
 	TEXT("r.Vulkan.SubmitOnDispatch"),
 	0,

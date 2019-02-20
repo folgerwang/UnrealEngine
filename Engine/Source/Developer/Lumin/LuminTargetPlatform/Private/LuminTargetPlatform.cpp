@@ -103,9 +103,11 @@ void FLuminTargetPlatform::RefreshSettings()
 
 	// If we are targeting ES 2.0/3.1, we also must cook encoded HDR reflection captures
 	static FName NAME_VULKAN_ES31(TEXT("SF_VULKAN_ES31_LUMIN"));
+	static FName NAME_VULKAN_ES31_NOUB(TEXT("SF_VULKAN_ES31_LUMIN_NOUB"));
 	static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
 	bRequiresEncodedHDRReflectionCaptures = TargetedShaderFormats.Contains(NAME_VULKAN_ES31)
+		|| TargetedShaderFormats.Contains(NAME_VULKAN_ES31_NOUB)
 		|| TargetedShaderFormats.Contains(NAME_GLSL_ES2)
 		|| TargetedShaderFormats.Contains(NAME_GLSL_SM5);
 
@@ -180,13 +182,18 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 //	static FName NAME_GLSL_SM4(TEXT("GLSL_150"));
 	static FName NAME_GLSL_SM5(TEXT("GLSL_430"));
 	static FName NAME_VULKAN_SM5_LUMIN(TEXT("SF_VULKAN_SM5_LUMIN"));
+	static FName NAME_VULKAN_SM5_LUMIN_NOUB(TEXT("SF_VULKAN_SM5_LUMIN_NOUB"));
 	static FName NAME_VULKAN_ES31_LUMIN(TEXT("SF_VULKAN_ES31_LUMIN"));
+	static FName NAME_VULKAN_ES31_LUMIN_NOUB(TEXT("SF_VULKAN_ES31_LUMIN_NOUB"));
+
+	static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+	const bool bUseNOUB = (CVar && CVar->GetValueOnAnyThread() == 0);
 
 	if (SupportsMobileRendering())
 	{
 		if (LuminSupportsVulkan(LuminEngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_ES31_LUMIN);
+			OutFormats.AddUnique(bUseNOUB ? NAME_VULKAN_ES31_LUMIN_NOUB : NAME_VULKAN_ES31_LUMIN);
 		}
 		else
 		{
@@ -198,7 +205,7 @@ void FLuminTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormat
 	{
 		if (LuminSupportsVulkan(LuminEngineSettings))
 		{
-			OutFormats.AddUnique(NAME_VULKAN_SM5_LUMIN);
+			OutFormats.AddUnique(bUseNOUB ? NAME_VULKAN_SM5_LUMIN_NOUB : NAME_VULKAN_SM5_LUMIN);
 		}
 		else
 		{

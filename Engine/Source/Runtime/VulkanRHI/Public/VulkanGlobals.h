@@ -25,5 +25,5 @@ static FORCEINLINE void ZeroVulkanStruct(T& Struct, VkStructureType Type)
 
 inline bool UseVulkanDescriptorCache()
 {
-	return PLATFORM_ANDROID || GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1;
+	return (PLATFORM_ANDROID && !PLATFORM_LUMIN)|| GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1;
 }
