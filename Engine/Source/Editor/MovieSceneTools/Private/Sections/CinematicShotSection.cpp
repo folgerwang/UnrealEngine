@@ -15,7 +15,9 @@
 #include "MovieSceneToolHelpers.h"
 #include "MovieSceneTimeHelpers.h"
 #include "Toolkits/AssetEditorManager.h"
-
+#include "Tracks/MovieSceneCameraCutTrack.h"
+#include "Sections/MovieSceneCameraCutSection.h"
+#include "Evaluation/MovieSceneEvaluationTemplateInstance.h"
 
 #define LOCTEXT_NAMESPACE "FCinematicShotSection"
 
@@ -47,7 +49,6 @@ FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieScen
 FCinematicShotSection::FCinematicShotSection(TSharedPtr<ISequencer> InSequencer, TSharedPtr<FTrackEditorThumbnailPool> InThumbnailPool, UMovieSceneSection& InSection, TSharedPtr<FCinematicShotTrackEditor> InCinematicShotTrackEditor)
 	: FViewportThumbnailSection(InSequencer, InThumbnailPool, InSection)
 	, SectionObject(*CastChecked<UMovieSceneCinematicShotSection>(&InSection))
-	, Sequencer(InSequencer)
 	, CinematicShotTrackEditor(InCinematicShotTrackEditor)
 	, InitialStartOffsetDuringResize(0)
 	, InitialStartTimeDuringResize(0)
@@ -80,6 +81,110 @@ void FCinematicShotSection::SetSingleTime(double GlobalTime)
 {
 	double ReferenceOffsetSeconds = SectionObject.HasStartFrame() ? SectionObject.GetInclusiveStartFrame() / SectionObject.GetTypedOuter<UMovieScene>()->GetTickResolution() : 0;
 	SectionObject.SetThumbnailReferenceOffset(GlobalTime - ReferenceOffsetSeconds);
+}
+
+
+UCameraComponent* FindCameraCutComponentRecursive(FFrameNumber GlobalTime, FMovieSceneSequenceID InnerSequenceID, const FMovieSceneSequenceHierarchy& Hierarchy, IMovieScenePlayer& Player)
+{
+	const FMovieSceneSequenceHierarchyNode* Node    = Hierarchy.FindNode(InnerSequenceID);
+	const FMovieSceneSubSequenceData*       SubData = Hierarchy.FindSubData(InnerSequenceID);
+	if (!ensure(SubData && Node))
+	{
+		return nullptr;
+	}
+
+	UMovieSceneSequence* InnerSequence   = SubData->GetSequence();
+	UMovieScene*         InnerMovieScene = InnerSequence ? InnerSequence->GetMovieScene() : nullptr;
+	if (!InnerMovieScene)
+	{
+		return nullptr;
+	}
+
+	FFrameNumber InnerTime = (GlobalTime * SubData->RootToSequenceTransform).FloorToFrame();
+	if (!SubData->PlayRange.Value.Contains(InnerTime))
+	{
+		return nullptr;
+	}
+
+	int32 LowestRow      = TNumericLimits<int32>::Max();
+	int32 HighestOverlap = 0;
+
+	UMovieSceneCameraCutSection* ActiveSection = nullptr;
+
+	if (UMovieSceneCameraCutTrack* CutTrack = Cast<UMovieSceneCameraCutTrack>(InnerMovieScene->GetCameraCutTrack()))
+	{
+		for (UMovieSceneSection* ItSection : CutTrack->GetAllSections())
+		{
+			UMovieSceneCameraCutSection* CutSection = Cast<UMovieSceneCameraCutSection>(ItSection);
+			if (CutSection && CutSection->GetRange().Contains(InnerTime))
+			{
+				bool bSectionWins = 
+					( CutSection->GetRowIndex() < LowestRow ) ||
+					( CutSection->GetRowIndex() == LowestRow && CutSection->GetOverlapPriority() > HighestOverlap );
+
+				if (bSectionWins)
+				{
+					HighestOverlap = CutSection->GetOverlapPriority();
+					LowestRow      = CutSection->GetRowIndex();
+					ActiveSection  = CutSection;
+				}
+			}
+		}
+	}
+	
+	if (ActiveSection)
+	{
+		return ActiveSection->GetFirstCamera(Player, InnerSequenceID);
+	}
+
+	for (FMovieSceneSequenceID Child : Node->Children)
+	{
+		UCameraComponent* CameraComponent = FindCameraCutComponentRecursive(GlobalTime, Child, Hierarchy, Player);
+		if (CameraComponent)
+		{
+			return CameraComponent;
+		}
+	}
+
+	return nullptr;
+}
+
+
+UCameraComponent* FCinematicShotSection::GetViewCamera()
+{
+	TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
+	if (!Sequencer.IsValid())
+	{
+		return nullptr;
+	}
+
+
+	const FMovieSceneSequenceID             ThisSequenceID   = Sequencer->GetFocusedTemplateID();
+	const FMovieSceneSequenceID             TargetSequenceID = SectionObject.GetSequenceID();
+	const FMovieSceneSequenceHierarchy&     Hierarchy        = Sequencer->GetEvaluationTemplate().GetHierarchy();
+	const FMovieSceneSequenceHierarchyNode* ThisSequenceNode = Hierarchy.FindNode(ThisSequenceID);
+	
+	check(ThisSequenceNode);
+	
+	// Find the TargetSequenceID by comparing deterministic sequence IDs for all children of the current node
+	const FMovieSceneSequenceID* InnerSequenceID = Algo::FindByPredicate(ThisSequenceNode->Children,
+		[&Hierarchy, TargetSequenceID](FMovieSceneSequenceID InSequenceID)
+		{
+			const FMovieSceneSubSequenceData* SubData = Hierarchy.FindSubData(InSequenceID);
+			return SubData && SubData->DeterministicSequenceID == TargetSequenceID;
+		}
+	);
+	
+	if (InnerSequenceID)
+	{
+		UCameraComponent* CameraComponent = FindCameraCutComponentRecursive(Sequencer->GetGlobalTime().Time.FrameNumber, *InnerSequenceID, Hierarchy, *Sequencer);
+		if (CameraComponent)
+		{
+			return CameraComponent;
+		}
+	}
+
+	return nullptr;
 }
 
 void FCinematicShotSection::BeginResizeSection()
@@ -390,7 +495,7 @@ FReply FCinematicShotSection::OnSectionDoubleClicked(const FGeometry& SectionGeo
 			}
 			else
 			{
-				Sequencer.Pin()->FocusSequenceInstance(SectionObject);
+				SequencerPtr.Pin()->FocusSequenceInstance(SectionObject);
 			}
 		}
 	}

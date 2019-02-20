@@ -48,6 +48,7 @@ public:
 	virtual void SetSingleTime(double GlobalTime) override;
 	virtual FText HandleThumbnailTextBlockText() const override;
 	virtual void HandleThumbnailTextBlockTextCommitted(const FText& NewThumbnailName, ETextCommit::Type CommitType) override;
+	virtual UCameraComponent* GetViewCamera() override;
 
 private:
 
@@ -58,9 +59,6 @@ private:
 
 	/** The section we are visualizing */
 	UMovieSceneCinematicShotSection& SectionObject;
-
-	/** Sequencer interface */
-	TWeakPtr<ISequencer> Sequencer;
 
 	/** The cinematic shot track editor that contains this section */
 	TWeakPtr<FCinematicShotTrackEditor> CinematicShotTrackEditor;

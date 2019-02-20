@@ -28,7 +28,8 @@ namespace UnrealBuildTool.Rules
 					"RenderCore",
 					"RHI",
 					"TimeManagement",
-				}
+                    "SlateCore",
+                }
 			);
 
 			PrivateIncludePaths.AddRange(

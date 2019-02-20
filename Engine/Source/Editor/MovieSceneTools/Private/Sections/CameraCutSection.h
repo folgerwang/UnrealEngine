@@ -38,11 +38,12 @@ public:
 
 	virtual void SetSingleTime(double GlobalTime) override;
 	virtual FText HandleThumbnailTextBlockText() const override;
+	virtual UCameraComponent* GetViewCamera() override;
 
 private:
 
 	/** Get a representative camera for the given time */
-	const AActor* GetCameraForFrame(FFrameNumber Time) const;
+	AActor* GetCameraForFrame(FFrameNumber Time) const;
 
 	/** Callback for executing a "Set Camera" menu entry in the context menu. */
 	void HandleSetCameraMenuEntryExecute(AActor* InCamera);

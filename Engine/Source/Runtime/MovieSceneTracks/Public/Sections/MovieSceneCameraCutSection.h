@@ -11,6 +11,9 @@
 #include "MovieSceneObjectBindingID.h"
 #include "MovieSceneCameraCutSection.generated.h"
 
+struct FMovieSceneSequenceID;
+class IMovieScenePlayer;
+class UCameraComponent;
 
 /**
  * Movie CameraCuts are sections on the CameraCuts track, that show what the viewer "sees"
@@ -58,6 +61,16 @@ public:
 
 	/** ~UObject interface */
 	virtual void PostLoad() override;
+
+	/**
+	 * Resolve a camera component for this cut section from the specified player and sequence ID
+	 *
+	 * @param Player     The sequence player to use to resolve the object binding for this camera
+	 * @param SequenceID The sequence ID for the specific instance that this section exists within
+	 *
+	 * @return A camera component to be used for this cut section, or nullptr if one was not found.
+	 */
+	MOVIESCENETRACKS_API UCameraComponent* GetFirstCamera(IMovieScenePlayer& Player, FMovieSceneSequenceID SequenceID) const;
 
 private:
 

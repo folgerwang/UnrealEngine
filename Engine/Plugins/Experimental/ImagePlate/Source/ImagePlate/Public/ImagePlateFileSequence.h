@@ -10,7 +10,7 @@
 
 class UTexture;
 
-
+struct FSlateTextureData;
 struct FImagePlateAsyncCache;
 namespace ImagePlateFrameCache { struct FImagePlateSequenceCache; }
 
@@ -68,6 +68,9 @@ struct IMAGEPLATE_API FImagePlateSourceFrame
 
 	/** Copy the contents of this frame to the specified texture */
 	TFuture<void> CopyTo(UTexture* DestinationTexture);
+
+	/** Copy this source frame into a slate texture data format */
+	TSharedRef<FSlateTextureData, ESPMode::ThreadSafe> AsSlateTexture() const;
 
 private:
 

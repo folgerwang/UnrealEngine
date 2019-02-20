@@ -139,6 +139,6 @@ public:
 	FViewportThumbnailSection(TSharedPtr<ISequencer> InSequencer, TSharedPtr<FTrackEditorThumbnailPool> InThumbnailPool, UMovieSceneSection& InSection);
 
 	//~ IViewportThumbnailClient interface
-	virtual void PreDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) override;
-	virtual void PostDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) override;
+	virtual void PreDraw(FTrackEditorThumbnail& Thumbnail) override;
+	virtual void PostDraw(FTrackEditorThumbnail& Thumbnail) override;
 };

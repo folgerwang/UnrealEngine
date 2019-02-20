@@ -11,13 +11,15 @@
 #include "StaticBoundShaderState.h"
 #include "EditorViewportClient.h"
 #include "LevelEditorViewport.h"
-#include "Slate/SlateTextures.h"
 #include "Slate/SceneViewport.h"
 #include "GlobalShader.h"
 #include "ScreenRendering.h"
 #include "TrackEditorThumbnail/TrackEditorThumbnailPool.h"
 #include "PipelineStateCache.h"
 #include "CommonRenderResources.h"
+#include "LegacyScreenPercentageDriver.h"
+#include "CanvasTypes.h"
+#include "EngineModule.h"
 
 namespace TrackEditorThumbnailConstants
 {
@@ -53,21 +55,23 @@ public:
 /* FTrackEditorThumbnail structors
  *****************************************************************************/
 
-FTrackEditorThumbnail::FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<double> InTimeRange, double InPosition)
+FTrackEditorThumbnail::FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InDesiredSize, TRange<double> InTimeRange, double InPosition)
 	: OnDraw(InOnDraw)
-	, Size(InSize)
-	, Texture(nullptr)
+	, DesiredSize(InDesiredSize)
+	, ThumbnailTexture(nullptr)
+	, ThumbnailRenderTarget(nullptr)
 	, TimeRange(InTimeRange)
 	, Position(InPosition)
 	, FadeInCurve(0.0f, TrackEditorThumbnailConstants::ThumbnailFadeInDuration)
 {
 	SortOrder = 0;
+	bIgnoreAlpha = false;
 }
 
 
 FTrackEditorThumbnail::~FTrackEditorThumbnail()
 {
-	if (Texture && !bHasFinishedDrawing)
+	if (ThumbnailRenderTarget && !bHasFinishedDrawing)
 	{
 		FlushRenderingCommands();
 	}
@@ -75,142 +79,94 @@ FTrackEditorThumbnail::~FTrackEditorThumbnail()
 }
 
 
+void FTrackEditorThumbnail::AssignFrom(TSharedRef<FSlateTextureData, ESPMode::ThreadSafe> InTextureData)
+{
+	if (!ThumbnailTexture)
+	{
+		EPixelFormat PixelFormat = InTextureData->GetBytesPerPixel() == 4 ? PF_B8G8R8A8 : PF_FloatRGBA;
+		ThumbnailTexture = new FSlateTexture2DRHIRef(InTextureData->GetWidth(), InTextureData->GetHeight(), PixelFormat, NULL, TexCreate_Dynamic);
+	}
+
+	FSlateTexture2DRHIRef* InThumbnailTexture = ThumbnailTexture;
+	ENQUEUE_RENDER_COMMAND(AssignTexture)(
+		[InThumbnailTexture, InTextureData](FRHICommandList& RHICmdList){
+			InThumbnailTexture->SetTextureData(InTextureData);
+			if (InThumbnailTexture->IsInitialized())
+			{
+				InThumbnailTexture->UpdateRHI();
+			}
+			else
+			{
+				InThumbnailTexture->InitResource();
+			}
+		}
+	);
+}
+
+
 void FTrackEditorThumbnail::DestroyTexture()
 {
-	if (Texture)
+	if (ThumbnailRenderTarget || ThumbnailTexture)
 	{
-		FSlateTexture2DRHIRef* InTexture = Texture;
+		FSlateTexture2DRHIRef*               InThumbnailTexture      = ThumbnailTexture;
+		FSlateTextureRenderTarget2DResource* InThumbnailRenderTarget = ThumbnailRenderTarget;
+
+		ThumbnailTexture      = nullptr;
+		ThumbnailRenderTarget = nullptr;
+
 		ENQUEUE_RENDER_COMMAND(DestroyTexture)(
-			[InTexture](FRHICommandList& RHICmdList)
+			[InThumbnailRenderTarget, InThumbnailTexture](FRHICommandList& RHICmdList)
 			{
-				InTexture->ReleaseResource();
-				delete InTexture;
-			});
+				if (InThumbnailTexture)
+				{
+					InThumbnailTexture->ReleaseResource();
+					delete InThumbnailTexture;
+				}
 
-		Texture = nullptr;
+				if (InThumbnailRenderTarget)
+				{
+					InThumbnailRenderTarget->ReleaseResource();
+					delete InThumbnailRenderTarget;
+				}
+			}
+		);
 	}
 }
 
 
-/* FTrackEditorThumbnail interface
- *****************************************************************************/
-
-void FTrackEditorThumbnail::CopyTextureIn(TSharedPtr<FSceneViewport> SceneViewport)
+void FTrackEditorThumbnail::ResizeRenderTarget(const FIntPoint& InSize)
 {
-	// Note: We explicitly capture the viewport scene here to ensure that the render target lives as long as this render command.
-	// This means we don't have to flush the rendering commands all the time
-	SceneViewportReference = SceneViewport;
-
-	FSlateRenderTargetRHI* RenderTarget = (FSlateRenderTargetRHI*)SceneViewport->GetViewportRenderTargetTexture();
-	if (RenderTarget)
+	// Delay texture creation until we actually draw the thumbnail
+	if (InSize.X <= 0 || InSize.Y <= 0)
 	{
-		CopyTextureIn(RenderTarget->GetRHIRef());
+		return;
 	}
-}
 
-void FTrackEditorThumbnail::CopyTextureIn(FTexture2DRHIRef SourceTexture)
-{
-	// This code is a little manual because CopyToResolveTarget on its own can't resolve a sub rect without offsetting it inside the destination texture
-	// So we render our own rectangle onto a render target of the right size, so we can maintain the correct aspect ratio and fov settings of the camera,
-	// but still fulfil the desired thumbnail size.
-	FSlateTexture2DRHIRef* TargetTexture = Texture;
+	if (ThumbnailTexture && ThumbnailRenderTarget && ThumbnailTexture->GetWidth() == InSize.X && ThumbnailTexture->GetHeight() == InSize.Y)
+	{
+		return;
+	}
 
-	static const FName RendererModuleName( "Renderer" );
-	IRendererModule* RendererModule = &FModuleManager::GetModuleChecked<IRendererModule>(RendererModuleName);
-	FThreadSafeBool* bHasFinishedDrawingPtr = &bHasFinishedDrawing;
+	DestroyTexture();
 
-	auto RenderCommand = [TargetTexture, RendererModule, SourceTexture, bHasFinishedDrawingPtr](FRHICommandListImmediate& RHICmdList){
+	ThumbnailTexture      = new FSlateTexture2DRHIRef(InSize.X, InSize.Y, PF_B8G8R8A8, NULL, TexCreate_Dynamic);
+	ThumbnailRenderTarget = new FSlateTextureRenderTarget2DResource(FLinearColor::Black, InSize.X, InSize.Y, PF_B8G8R8A8, SF_Point, TA_Wrap, TA_Wrap, 0.0f);
 
-		const FIntPoint TargetSize(TargetTexture->GetWidth(), TargetTexture->GetHeight());
+	FSlateTexture2DRHIRef*               InThumbnailTexture      = ThumbnailTexture;
+	FSlateTextureRenderTarget2DResource* InThumbnailRenderTarget = ThumbnailRenderTarget;
 
-		FPooledRenderTargetDesc OutputDesc = FPooledRenderTargetDesc::Create2DDesc(
-			TargetSize,
-			PF_B8G8R8A8,
-			FClearValueBinding::None,
-			TexCreate_None,
-			TexCreate_RenderTargetable,
-			false);
-
-		TRefCountPtr<IPooledRenderTarget> ResampleTexturePooledRenderTarget;
-		RendererModule->RenderTargetPoolFindFreeElement(RHICmdList, OutputDesc, ResampleTexturePooledRenderTarget, TEXT("ResampleTexture"));
-		check(ResampleTexturePooledRenderTarget);
-
-		const FSceneRenderTargetItem& DestRenderTarget = ResampleTexturePooledRenderTarget->GetRenderTargetItem();
-
-		FGraphicsPipelineStateInitializer GraphicsPSOInit;
-		FRHIRenderPassInfo RPInfo(DestRenderTarget.TargetableTexture, ERenderTargetActions::Load_Store);
-		RHICmdList.BeginRenderPass(RPInfo, TEXT("CopyTextureIn"));
+	ENQUEUE_RENDER_COMMAND(AssignRenderTarget)(
+		[InThumbnailRenderTarget, InThumbnailTexture](FRHICommandList& RHICmdList)
 		{
-			RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
-			GraphicsPSOInit.PrimitiveType = PT_TriangleList;
-
-			RHICmdList.SetViewport(0, 0, 0.0f, TargetSize.X, TargetSize.Y, 1.0f);
-			//		RHICmdList.ClearColorTexture(DestRenderTarget.TargetableTexture, FLinearColor(0.0f, 0.0f, 0.0f, 1.0f));
-
-			GraphicsPSOInit.BlendState = TStaticBlendState<>::GetRHI();
-			GraphicsPSOInit.RasterizerState = TStaticRasterizerState<>::GetRHI();
-			GraphicsPSOInit.DepthStencilState = TStaticDepthStencilState<false, CF_Always>::GetRHI();
-
-			const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
-
-			TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
-			TShaderMapRef<FScreenVS> VertexShader(ShaderMap);
-			TShaderMapRef<FScreenPS> PixelShader(ShaderMap);
-
-			GraphicsPSOInit.BoundShaderState.VertexDeclarationRHI = GFilterVertexDeclaration.VertexDeclarationRHI;
-			GraphicsPSOInit.BoundShaderState.VertexShaderRHI = GETSAFERHISHADER_VERTEX(*VertexShader);
-			GraphicsPSOInit.BoundShaderState.PixelShaderRHI = GETSAFERHISHADER_PIXEL(*PixelShader);
-
-			SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
-
-			PixelShader->SetParameters(RHICmdList, TStaticSamplerState<SF_Bilinear>::GetRHI(), SourceTexture);
-
-			const float Scale = FMath::Min(float(SourceTexture->GetSizeX()) / TargetTexture->GetWidth(), float(SourceTexture->GetSizeY()) / TargetTexture->GetHeight());
-			const float Left = (SourceTexture->GetSizeX() - TargetTexture->GetWidth()*Scale) * .5f;
-			const float Top = (SourceTexture->GetSizeY() - TargetTexture->GetHeight()*Scale) * .5f;
-
-			const float U = Left / float(SourceTexture->GetSizeX());
-			const float V = Top / float(SourceTexture->GetSizeY());
-			const float SizeU = float(TargetTexture->GetWidth() * Scale) / float(SourceTexture->GetSizeX());
-			const float SizeV = float(TargetTexture->GetHeight() * Scale) / float(SourceTexture->GetSizeY());
-
-			RendererModule->DrawRectangle(
-				RHICmdList,
-				0, 0,									// Dest X, Y
-				TargetSize.X,							// Dest Width
-				TargetSize.Y,							// Dest Height
-				U, V,									// Source U, V
-				SizeU, SizeV,							// Source USize, VSize
-				TargetSize,								// Target buffer size
-				FIntPoint(1, 1),						// Source texture size
-				*VertexShader,
-				EDRF_Default);
+			InThumbnailTexture->InitResource();
+			InThumbnailRenderTarget->InitResource();
+			InThumbnailTexture->SetRHIRef(InThumbnailRenderTarget->GetTextureRHI(), InThumbnailRenderTarget->GetSizeX(), InThumbnailRenderTarget->GetSizeY());
 		}
-		RHICmdList.EndRenderPass();
-		RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, TargetTexture->GetTypedResource(), FResolveParams());
-
-		*bHasFinishedDrawingPtr = true;
-	};
-
-	TFunction<void(FRHICommandListImmediate&)> InRenderCommand = RenderCommand;
-	ENQUEUE_RENDER_COMMAND(ResolveCaptureFrameTexture)(
-		[InRenderCommand](FRHICommandListImmediate& RHICmdList)
-		{
-			InRenderCommand(RHICmdList);
-		});
+	);
 }
-
 
 void FTrackEditorThumbnail::DrawThumbnail()
 {
-	// Delay texture creation until we actually draw the thumbnail
-	if (Size.X > 1 && Size.Y > 1)
-	{
-		DestroyTexture();
-		Texture = new FSlateTexture2DRHIRef(Size.X, Size.Y, PF_B8G8R8A8, nullptr, TexCreate_Dynamic, true);
-		BeginInitResource(Texture);
-	}
-
 	OnDraw.ExecuteIfBound(*this);
 }
 
@@ -239,13 +195,17 @@ float FTrackEditorThumbnail::GetFadeInCurve() const
 
 FIntPoint FTrackEditorThumbnail::GetSize() const
 {
-	return Size;
+	if (ThumbnailTexture)
+	{
+		return FIntPoint(ThumbnailTexture->GetWidth(), ThumbnailTexture->GetHeight());
+	}
+	return FIntPoint(0,0);
 }
 
 
 FSlateShaderResource* FTrackEditorThumbnail::GetViewportRenderTargetTexture() const
 {
-	return Texture;
+	return ThumbnailTexture;
 }
 
 
@@ -262,7 +222,6 @@ FTrackEditorThumbnailCache::FTrackEditorThumbnailCache(const TSharedPtr<FTrackEd
 {
 	check(ViewportThumbnailClient);
 
-	FrameCount = 0;
 	LastComputationTime = 0;
 	bForceRedraw = false;
 	bNeedsNewThumbnails = false;
@@ -276,7 +235,6 @@ FTrackEditorThumbnailCache::FTrackEditorThumbnailCache(const TSharedPtr<FTrackEd
 {
 	check(CustomThumbnailClient);
 
-	FrameCount = 0;
 	LastComputationTime = 0;
 	bForceRedraw = false;
 	bNeedsNewThumbnails = false;
@@ -289,11 +247,6 @@ FTrackEditorThumbnailCache::~FTrackEditorThumbnailCache()
 	if (PinnedPool.IsValid())
 	{
 		PinnedPool->RemoveThumbnailsNeedingRedraw(Thumbnails);
-	}
-
-	if (InternalViewportClient.IsValid())
-	{
-		InternalViewportClient->Viewport = nullptr;
 	}
 }
 
@@ -324,10 +277,9 @@ void FTrackEditorThumbnailCache::Update(const TRange<double>& NewRange, const TR
 }
 
 
-FIntPoint FTrackEditorThumbnailCache::CalculateTextureSize() const
+FIntPoint FTrackEditorThumbnailCache::CalculateTextureSize(const FMinimalViewInfo& ViewInfo) const
 {
-	UCameraComponent* CameraComponent = InternalViewportClient->GetCameraComponentForView();
-	float DesiredRatio = CameraComponent ? CameraComponent->AspectRatio : 1.77f;
+	float DesiredRatio = ViewInfo.AspectRatio;
 
 	if (CurrentCache.DesiredSize.X <= 0 || CurrentCache.DesiredSize.Y <= 0)
 	{
@@ -378,48 +330,99 @@ bool FTrackEditorThumbnailCache::ShouldRegenerateEverything() const
 	return PreviousCache.DesiredSize != CurrentCache.DesiredSize || !FMath::IsNearlyEqual(PreviousScale, CurrentScale, Threshold);
 }
 
-
-void FTrackEditorThumbnailCache::DrawViewportThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail)
+void FTrackEditorThumbnailCache::DrawThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail)
 {
 	if (CustomThumbnailClient)
 	{
 		CustomThumbnailClient->Draw(TrackEditorThumbnail);
 	}
-	else if (InternalViewportScene.IsValid())
+	else if (ViewportThumbnailClient)
 	{
-		check(ViewportThumbnailClient);
+		ViewportThumbnailClient->PreDraw(TrackEditorThumbnail);
 
-		// Ask the client to setup the frame
-		ViewportThumbnailClient->PreDraw(TrackEditorThumbnail, *InternalViewportClient, *InternalViewportScene);
-		
-		// Finalize the view
-		InternalViewportClient->bLockedCameraView = true;
-		InternalViewportClient->UpdateViewForLockedActor();
-		InternalViewportClient->GetWorld()->SendAllEndOfFrameUpdates();
+		DrawViewportThumbnail(TrackEditorThumbnail);
 
-		// Update the viewport RHI if necessary
-		FIntPoint Size = CalculateTextureSize();
-		if (InternalViewportScene->GetSize() != Size)
-		{
-			InternalViewportScene->UpdateViewportRHI(false, Size.X, Size.Y, EWindowMode::Windowed, PF_Unknown);
-		}
-
-		InternalViewportClient->DeltaWorldTime = TrackEditorThumbnail.GetEvalPosition() - InternalViewportClient->CurrentWorldTime;
-		InternalViewportClient->CurrentWorldTime = TrackEditorThumbnail.GetEvalPosition();
-
-		// Draw the frame. If our total frame count is < 3 we re-render some benign frames to ensure the view is correctly set up (first few frames can be black)
-		do
-		{
-			InternalViewportScene->Draw(false);
-		}
-		while (++FrameCount < 3);
-
-		// Ask the client to finalize the frame
-		ViewportThumbnailClient->PostDraw(TrackEditorThumbnail, *InternalViewportClient, *InternalViewportScene);
-
-		// Copy the render target into our texture
-		TrackEditorThumbnail.CopyTextureIn(InternalViewportScene);
+		ViewportThumbnailClient->PostDraw(TrackEditorThumbnail);
 	}
+
+	FThreadSafeBool* bHasFinishedDrawingPtr = &TrackEditorThumbnail.bHasFinishedDrawing;
+	ENQUEUE_RENDER_COMMAND(SetFinishedDrawing)(
+		[bHasFinishedDrawingPtr](FRHICommandList& RHICmdList)
+		{
+			*bHasFinishedDrawingPtr = true;
+		}
+	);
+}
+void FTrackEditorThumbnailCache::DrawViewportThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail)
+{
+	check(ViewportThumbnailClient);
+
+	UCameraComponent* PreviewCameraComponent = ViewportThumbnailClient->GetViewCamera();
+	if (!PreviewCameraComponent)
+	{
+		return;
+	}
+
+	FMinimalViewInfo ViewInfo;
+	PreviewCameraComponent->GetCameraView(FApp::GetDeltaTime(), ViewInfo);
+
+	FIntPoint RTSize = CalculateTextureSize(ViewInfo);
+	if (RTSize.X <= 0 || RTSize.Y <= 0)
+	{
+		return;
+	}
+
+	TrackEditorThumbnail.bIgnoreAlpha = true;
+	TrackEditorThumbnail.ResizeRenderTarget(RTSize);
+
+	UWorld* World = PreviewCameraComponent->GetWorld();
+
+	FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( TrackEditorThumbnail.GetRenderTarget(), World->Scene, FEngineShowFlags(ESFIM_Game) )
+		.SetWorldTimes(FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime)
+		.SetResolveScene(true));
+
+	// Screen percentage is not supported in thumbnail.
+	ViewFamily.EngineShowFlags.ScreenPercentage = false;
+
+	switch (CurrentCache.Quality)
+	{
+	case EThumbnailQuality::Draft:
+		ViewFamily.EngineShowFlags.DisableAdvancedFeatures();
+		ViewFamily.EngineShowFlags.SetPostProcessing(false);
+		break;
+
+	case EThumbnailQuality::Normal:
+	case EThumbnailQuality::Best:
+		ViewFamily.EngineShowFlags.SetMotionBlur(false);
+		break;
+	}
+
+	FSceneViewInitOptions ViewInitOptions;
+
+	ViewInitOptions.BackgroundColor = FLinearColor::Black;
+	ViewInitOptions.SetViewRectangle(FIntRect(FIntPoint::ZeroValue, RTSize));
+	ViewInitOptions.ViewFamily = &ViewFamily;
+
+	ViewInitOptions.ViewOrigin = ViewInfo.Location;
+	ViewInitOptions.ViewRotationMatrix = FInverseRotationMatrix(ViewInfo.Rotation) * FMatrix(
+		FPlane(0, 0, 1, 0),
+		FPlane(1, 0, 0, 0),
+		FPlane(0, 1, 0, 0),
+		FPlane(0, 0, 0, 1));
+
+	ViewInitOptions.ProjectionMatrix = ViewInfo.CalculateProjectionMatrix();
+
+	FSceneView* NewView = new FSceneView(ViewInitOptions);
+	ViewFamily.Views.Add(NewView);
+
+	const float GlobalResolutionFraction = 1.f;
+	const bool  AllowPostProcessSettingsScreenPercentage = false;
+	ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(ViewFamily, GlobalResolutionFraction, AllowPostProcessSettingsScreenPercentage));
+
+	FCanvas Canvas(TrackEditorThumbnail.GetRenderTarget(), nullptr, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, World->Scene->GetFeatureLevel());
+	Canvas.Clear(FLinearColor::Transparent);
+
+	GetRendererModule().BeginRenderingViewFamily(&Canvas, &ViewFamily);
 }
 
 
@@ -438,11 +441,6 @@ void FTrackEditorThumbnailCache::Revalidate(double InCurrentTime)
 		Thumbnails.Reset();
 		bNeedsNewThumbnails = false;
 		return;
-	}
-
-	if (CurrentCache.Quality != PreviousCache.Quality)
-	{
-		SetupViewportEngineFlags();
 	}
 
 	bNeedsNewThumbnails = true;
@@ -499,7 +497,7 @@ void FTrackEditorThumbnailCache::UpdateSingleThumbnail()
 	const double EvalPosition = CurrentCache.SingleReferenceFrame.GetValue();
 
 	TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
-		FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),
+		FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawThumbnail),
 		CurrentCache.DesiredSize,
 		TRange<double>(EvalPosition - HalfRange, EvalPosition + HalfRange),
 		EvalPosition
@@ -598,7 +596,7 @@ void FTrackEditorThumbnailCache::GenerateFront(const TRange<double>& Boundary)
 		double EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.0, .99)*CurrentCache.TimeRange.Size<double>();
 
 		TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
-			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),
+			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawThumbnail),
 			TextureSize,
 			TimeRange,
 			EvalPosition
@@ -637,7 +635,7 @@ void FTrackEditorThumbnailCache::GenerateBack(const TRange<double>& Boundary)
 		double EvalPosition = CurrentCache.TimeRange.GetLowerBoundValue() + FMath::Clamp(TotalLerp, 0.0, .99)*CurrentCache.TimeRange.Size<double>();
 
 		TSharedPtr<FTrackEditorThumbnail> NewThumbnail = MakeShareable(new FTrackEditorThumbnail(
-			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawViewportThumbnail),
+			FOnThumbnailDraw::CreateRaw(this, &FTrackEditorThumbnailCache::DrawThumbnail),
 			TextureSize,
 			TimeRange,
 			EvalPosition
@@ -655,58 +653,9 @@ void FTrackEditorThumbnailCache::GenerateBack(const TRange<double>& Boundary)
 
 void FTrackEditorThumbnailCache::Setup()
 {
-	// Set up the necessary viewport gubbins for viewport thumbnails
-	if (ViewportThumbnailClient)
-	{
-		if (!InternalViewportClient.IsValid())
-		{
-			InternalViewportClient = MakeShareable(new FThumbnailViewportClient());
-			InternalViewportClient->ViewportType = LVT_Perspective;
-			InternalViewportClient->bDisableInput = true;
-			InternalViewportClient->bDrawAxes = false;
-			InternalViewportClient->SetAllowCinematicControl(false);
-			InternalViewportClient->SetRealtime(false);
-
-			SetupViewportEngineFlags();
-
-			InternalViewportClient->ViewState.GetReference()->SetSequencerState(true);
-		}
-
-		if (!InternalViewportScene.IsValid())
-		{
-			InternalViewportScene = MakeShareable(new FSceneViewport(InternalViewportClient.Get(), nullptr));
-			InternalViewportClient->Viewport = InternalViewportScene.Get();
-		}
-	}
-	else if (CustomThumbnailClient)
+	if (CustomThumbnailClient)
 	{
 		CustomThumbnailClient->Setup();
 	}
 }
 
-void FTrackEditorThumbnailCache::SetupViewportEngineFlags()
-{
-	if (!ViewportThumbnailClient || !InternalViewportClient.IsValid())
-	{
-		return;
-	}
-
-	InternalViewportClient->EngineShowFlags = FEngineShowFlags(ESFIM_Game);
-
-	// Screen percentage is not supported in thumbnail.
-	InternalViewportClient->EngineShowFlags.ScreenPercentage = false;
-
-	switch (CurrentCache.Quality)
-	{
-	case EThumbnailQuality::Draft:
-		InternalViewportClient->EngineShowFlags.DisableAdvancedFeatures();
-		break;
-
-	case EThumbnailQuality::Normal:
-	case EThumbnailQuality::Best:
-		InternalViewportClient->EngineShowFlags.SetMotionBlur(false);
-		break;
-	}
-
-	InternalViewportClient->Invalidate();
-}

@@ -10,6 +10,9 @@
 #include "MovieSceneToolsUserSettings.h"
 #include "RHI.h"
 #include "Misc/FrameTime.h"
+#include "Slate/SlateTextures.h"
+
+struct FMinimalViewInfo;
 
 class FLevelEditorViewportClient;
 class FSceneViewport;
@@ -18,8 +21,11 @@ class FSlateTexture2DRHIRef;
 class FThumbnailViewportClient;
 class FTrackEditorThumbnail;
 class FTrackEditorThumbnailPool;
+class UCameraComponent;
+
 
 DECLARE_DELEGATE_OneParam(FOnThumbnailDraw, FTrackEditorThumbnail&);
+
 
 /**
  * Track Editor Thumbnail, which keeps a Texture to be displayed by a viewport.
@@ -31,18 +37,38 @@ class MOVIESCENETOOLS_API FTrackEditorThumbnail
 public:
 
 	/** Create and initialize a new instance. */
-	FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InSize, TRange<double> InTimeRange, double InPosition);
+	FTrackEditorThumbnail(const FOnThumbnailDraw& InOnDraw, const FIntPoint& InDesiredSize, TRange<double> InTimeRange, double InPosition);
 
 	/** Virtual destructor. */
 	virtual ~FTrackEditorThumbnail();
 
 public:
 
-	/** Copies the incoming render target to this thumbnails texture. */
-	void CopyTextureIn(TSharedPtr<FSceneViewport> SceneViewport);
-	
-	/** Copies the specified texture to this thumbnail's texture while maintining the correct ratios */
-	void CopyTextureIn(FTexture2DRHIRef SourceTexture);
+	/**
+	 * Assign this thumbnail from a slate texture.
+	 */
+	void AssignFrom(TSharedRef<FSlateTextureData, ESPMode::ThreadSafe> InTextureData);
+
+	/**
+	 * Ensure that this thumbnail has a render target of the specified size
+	 */
+	void ResizeRenderTarget(const FIntPoint& InSize);
+
+	/**
+	 * Access the (potentially null) render target to be used for rendering onto this thumbnail
+	 */
+	FSlateTextureRenderTarget2DResource* GetRenderTarget() const
+	{
+		return ThumbnailRenderTarget;
+	}
+
+	/**
+	 * Get the desired size for this thumbnail on the UI
+	 */
+	FIntPoint GetDesiredSize() const
+	{
+		return DesiredSize;
+	}
 
 	/** Renders the thumbnail to the texture. */
 	void DrawThumbnail();
@@ -81,16 +107,21 @@ public:
 	/** True when this thumbnail has been drawn, false otherwise */
 	FThreadSafeBool bHasFinishedDrawing;
 
+	/** True to ignore alpha on this thumbnail */
+	bool bIgnoreAlpha;
+
 private:
 
 	/** Delegate to use to draw the thumbnail. */
 	FOnThumbnailDraw OnDraw;
 
-	/** The size of the texture */
-	FIntPoint Size;
+	/** The desired size of the thumbnail on the actual UI (Not necessarily the same size as the texture) */
+	FIntPoint DesiredSize;
 
 	/** The Texture RHI that holds the thumbnail. */
-	FSlateTexture2DRHIRef* Texture;
+	FSlateTexture2DRHIRef* ThumbnailTexture;
+	/** The texture render target used for 3D rendering on to the texture. May be null. */
+	FSlateTextureRenderTarget2DResource* ThumbnailRenderTarget;
 
 	/** Where in time this thumbnail is a rendering of. */
 	TRange<double> TimeRange;
@@ -100,16 +131,14 @@ private:
 
 	/** Fade curve to display while the thumbnail is redrawing. */
 	FCurveSequence FadeInCurve;
-
-	/** Strong reference to a scene viewport we're currently copying from */
-	TSharedPtr<FSceneViewport> SceneViewportReference;
 };
 
 /** Client interface for thumbanils that render the current world from a viewport */
 struct IViewportThumbnailClient
 {
-	virtual void PreDraw(FTrackEditorThumbnail& TrackEditorThumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) { }
-	virtual void PostDraw(FTrackEditorThumbnail& TrackEditorThumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport) { }
+	virtual UCameraComponent* GetViewCamera() { return nullptr; }
+	virtual void PreDraw(FTrackEditorThumbnail& TrackEditorThumbnail) { }
+	virtual void PostDraw(FTrackEditorThumbnail& TrackEditorThumbnail) { }
 };
 
 /** Custom thumbnail drawing client interface */
@@ -177,8 +206,6 @@ public:
 
 	void Revalidate(double InCurrentTime);
 
-	void DrawViewportThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail);
-
 	const TArray<TSharedPtr<FTrackEditorThumbnail>>& GetThumbnails() const
 	{
 		return Thumbnails;
@@ -186,13 +213,17 @@ public:
 
 protected:
 
+	void DrawThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail);
+
+	void DrawViewportThumbnail(FTrackEditorThumbnail& TrackEditorThumbnail);
+
 	void ComputeNewThumbnails();
 
 	void Setup();
 
 	bool ShouldRegenerateEverything() const;
 
-	FIntPoint CalculateTextureSize() const;
+	FIntPoint CalculateTextureSize(const FMinimalViewInfo& ViewInfo) const;
 
 	void UpdateSingleThumbnail();
 
@@ -210,12 +241,6 @@ protected:
 	IViewportThumbnailClient* ViewportThumbnailClient;
 	ICustomThumbnailClient* CustomThumbnailClient;
 
-	/** An internal viewport scene we use to render the thumbnails with. */
-	TSharedPtr<FSceneViewport> InternalViewportScene;
-
-	/** An internal editor viewport client to render the thumbnails with. */
-	TSharedPtr<class FThumbnailViewportClient> InternalViewportClient;
-
 	/** The thumbnail pool that we are sending all of our thumbnails to. */
 	TWeakPtr<FTrackEditorThumbnailPool> ThumbnailPool;
 
@@ -225,9 +250,6 @@ protected:
 
 	TArray<TSharedPtr<FTrackEditorThumbnail>> Thumbnails;
 	TArray<TSharedPtr<FTrackEditorThumbnail>> ThumbnailsNeedingRedraw;
-
-	/** The number of frames we've rendered */
-	uint32 FrameCount;
 
 	double LastComputationTime;
 	bool bNeedsNewThumbnails;
