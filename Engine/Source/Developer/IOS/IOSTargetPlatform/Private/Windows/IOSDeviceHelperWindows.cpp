@@ -51,6 +51,7 @@ public:
 	FDeviceQueryTask()
 		: Stopping(false)
 		, bCheckDevices(true)
+		, RetryQuery(5)
 	{}
 
 	virtual bool Init() override
@@ -105,6 +106,11 @@ private:
 		// get the list of devices
 		if (!FIOSTargetDeviceOutput::ExecuteDSCommand("listdevices", &StdOut))
 		{
+			RetryQuery--;
+			if (RetryQuery < 0)
+			{
+				Enable(false);
+			}
 			return;
 		}
 
@@ -168,6 +174,7 @@ private:
 
 	bool Stopping;
 	bool bCheckDevices;
+	int RetryQuery;
 	TArray<FString> ConnectedDeviceIds;
 	FDeviceNotification DeviceNotification;
 };
