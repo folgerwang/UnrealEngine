@@ -1336,7 +1336,7 @@ void FEmitDefaultValueHelper::AddStaticFunctionsForDependencies(FEmitterLocalCon
 		ensure(InAsset);
 		if (InAsset && IsEditorOnlyObject(InAsset))
 		{
-			UE_LOG(LogK2Compiler, Warning, TEXT("Nativized %d depends on editor only asset: %s")
+			UE_LOG(LogK2Compiler, Warning, TEXT("Nativized %s depends on editor only asset: %s")
 				, (OriginalClass ? *OriginalClass->GetPathName() : *CppTypeName)
 				,*InAsset->GetPathName());
 			OptionalComment = TEXT("Editor Only asset");
