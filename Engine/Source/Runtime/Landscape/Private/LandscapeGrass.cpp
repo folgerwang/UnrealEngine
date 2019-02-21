@@ -507,6 +507,8 @@ public:
 			for (auto& ComponentInfo : ComponentInfos)
 			{
 				const FMeshBatch& Mesh = ComponentInfo.SceneProxy->GetGrassMeshBatch();
+				Mesh.MaterialRenderProxy->UpdateUniformExpressionCacheIfNeeded(View->GetFeatureLevel());
+
 				PassMeshProcessor.AddMeshBatch(Mesh, DefaultBatchElementMask, NumPasses, ComponentInfo.ViewOffset, PassOffsetX, ComponentInfo.SceneProxy);
 			}
 		});
