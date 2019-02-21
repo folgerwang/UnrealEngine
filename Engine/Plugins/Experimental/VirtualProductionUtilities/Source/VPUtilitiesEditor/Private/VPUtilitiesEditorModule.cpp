@@ -55,7 +55,11 @@ public:
 		UnregisterSettings();
 		SGenlockProviderTab::UnregisterNomadTabSpawner();
 
-		CustomUIHandler->Uninit();
+		if (UObjectInitialized())
+		{
+			CustomUIHandler->Uninit();
+		}
+
 		CustomUIHandler.Reset();
 
 		FVPUtilitiesEditorStyle::Unregister();
