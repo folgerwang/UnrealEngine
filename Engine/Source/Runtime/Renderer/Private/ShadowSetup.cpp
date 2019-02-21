@@ -1528,7 +1528,7 @@ void FProjectedShadowInfo::ClearTransientArrays()
 	DynamicSubjectTranslucentMeshElements.Empty();
 
 	ShadowDepthPassVisibleCommands.Empty();
-	ShadowDepthPass.Empty();
+	ShadowDepthPass.WaitForTasksAndEmpty();
 
 	SubjectMeshCommandBuildRequests.Empty();
 

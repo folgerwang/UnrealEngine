@@ -902,6 +902,11 @@ FViewInfo::~FViewInfo()
 		CustomVisibilityQuery->Release();
 	}
 
+	for (int32 MeshDrawIndex = 0; MeshDrawIndex < EMeshPass::Num; MeshDrawIndex++)
+	{
+		ParallelMeshDrawCommandPasses[MeshDrawIndex].WaitForTasksAndEmpty();
+	}
+
 	//this uses memstack allocation for strongrefs, so we need to manually empty to get the destructor called to not leak the uniformbuffers stored here.
 	TranslucentSelfShadowUniformBufferMap.Empty();
 }
@@ -1566,7 +1571,7 @@ void FViewInfo::DestroyAllSnapshots()
 
 		for (int32 Index = 0; Index < Snapshot->ParallelMeshDrawCommandPasses.Num(); ++Index)
 		{
-			Snapshot->ParallelMeshDrawCommandPasses[Index].Empty();
+			Snapshot->ParallelMeshDrawCommandPasses[Index].WaitForTasksAndEmpty();
 		}
 
 		FreeViewInfoSnapshots.Add(Snapshot);
@@ -2320,6 +2325,7 @@ FSceneRenderer::~FSceneRenderer()
 {
 	// To prevent keeping persistent references to single frame buffers, clear any such reference at this point.
 	ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
+	
 
 	if(Scene)
 	{
@@ -2333,6 +2339,7 @@ FSceneRenderer::~FSceneRenderer()
 				{
 					// FProjectedShadowInfo's in MemStackProjectedShadows were allocated on the rendering thread mem stack, 
 					// Their memory will be freed when the stack is freed with no destructor call, so invoke the destructor explicitly
+					VisibleLightInfo.MemStackProjectedShadows[ShadowIndex]->WaitForMeshDrawTasksAndEmpty();
 					VisibleLightInfo.MemStackProjectedShadows[ShadowIndex]->~FProjectedShadowInfo();
 				}
 			}

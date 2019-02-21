@@ -500,6 +500,8 @@ public:
 		return FShadowDepthType(bDirectionalLight, bOnePassPointLightShadow, bReflectiveShadowmap);
 	}
 
+	void WaitForMeshDrawTasksAndEmpty() { ShadowDepthPass.WaitForTasksAndEmpty(); }
+
 private:
 	// 0 if Setup...() wasn't called yet
 	const FLightSceneInfo* LightSceneInfo;

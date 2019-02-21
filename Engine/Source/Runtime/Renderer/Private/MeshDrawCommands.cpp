@@ -1012,7 +1012,7 @@ void FParallelMeshDrawCommandPass::WaitForMeshPassSetupTask() const
 	}
 }
 
-void FParallelMeshDrawCommandPass::Empty()
+void FParallelMeshDrawCommandPass::WaitForTasksAndEmpty()
 {
 	// Need to wait in case if someone dispatched sort and draw merge task, but didn't draw it.
 	WaitForMeshPassSetupTask();
@@ -1052,7 +1052,7 @@ void FParallelMeshDrawCommandPass::Empty()
 
 FParallelMeshDrawCommandPass::~FParallelMeshDrawCommandPass()
 {
-	Empty();
+	check(TaskEventRef == nullptr);
 }
 
 class FDrawVisibleMeshCommandsAnyThreadTask : public FRenderTask
