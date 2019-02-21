@@ -34,9 +34,9 @@ namespace Audio
 	void FFlexiverb::Init(const int32 InSampleRate, const FFlexiverbSettings Settings)
 	{
 		SampleRate = InSampleRate;
-		SetSettings(Settings);
-
 		PreDelayLine.Init(SampleRate, 2.0f);
+
+		SetSettings(Settings);
 
 		APFArray.Init(FDelayAPF(), NumberOfAPFDiffusers);
 		int32 Index = 0;
