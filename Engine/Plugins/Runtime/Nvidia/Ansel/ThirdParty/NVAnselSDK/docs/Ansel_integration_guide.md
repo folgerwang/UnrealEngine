@@ -52,7 +52,7 @@ This Ansel SDK uses three major concepts: Configuration, Session and Camera. The
 > **NOTE:** Please consult the header files in the Ansel SDK for reference style documentation.
 
 ### 2.1 CONFIGURATION
-As the first step in detecting whether a host computer can support Ansel (correct driver, Ansel enabled, etc) the following function should be called:
+As the first step in detecting whether a host computer can support Ansel (Ansel enabled, driver supports Ansel at all, etc) the following function should be called:
 
 ```cpp
 ANSEL_SDK_API bool isAnselAvailable();
@@ -137,12 +137,13 @@ The `ansel::setConfiguration` function returns its status. The possible return v
     };
 ```
 
-The integration should only continue as normal (with regard to the Ansel functionality at least) when `kSetConfigurationSuccess` is returned. In case `kSetConfigurationIncompatibleVersion` is returned, most likely the Ansel SDK binary was obtained without updating the headers, which also contain a version. Every update of the Ansel SDK requires a new build of a game. In case `kSetConfigurationIncorrectConfiguration` is returned, on of the following fields could be set incorrectly:
+The integration should only continue as normal (with regard to the Ansel functionality at least) when `kSetConfigurationSuccess` is returned. In case `kSetConfigurationIncompatibleVersion` is returned, most likely the Ansel SDK binary was obtained without updating the headers, which also contain a version. Every update of the Ansel SDK requires a new build of a game. In case `kSetConfigurationIncorrectConfiguration` is returned, one of the following fields could be set incorrectly:
 * `right`, `up`, `forward` vectors do not form an orthogonal basis
 * `startSessionCallback` or `stopSessionCallback` is nullptr
 * rotational or translational speed multipliers are zero
 * `fovType` is neither horizontal, nor vertical
 * `gameWindowHandle` field is not set
+
 In case `kSetConfigurationSdkNotLoaded` is returned, the reason is that the Ansel SDK is delay loaded and `setConfiguration` is called before loading the library via `loadAnselSDKLibrary` (see code under samples folder).
 
 ### 2.2 SESSION
@@ -181,7 +182,7 @@ struct SessionConfiguration
 	bool isRotationAllowed;
 	// FoV can be modified during session
 	bool isFovChangeAllowed;
-	// Game is paused during session
+	// Game is paused during capture
 	bool isPauseAllowed;
 	// Game allows highres capture during session
 	bool isHighresAllowed;
@@ -227,6 +228,14 @@ ansel::StartSessionStatus startAnselSessionCallback(ansel::SessionConfiguration&
 
 In a session where rendering time cannot be paused this can be communicated with the isPauseAllowed setting. This could for instance be the case in a game that offers multiplayer game modes. That being said, some multiplayer game engines still allow rendering time to be frozen - this just means that the state of the world will have advanced when the Ansel session ends. The stitcher developed for Ansel does not currently support feature detection or other methods used to handle temporal inconsistencies. This means that multipart shots (highres and 360) are not supported during sessions when pause is disallowed.
 
+> **NOTE:** A hybrid approach may be desirable during a multiplayer game mode. In this scenario the `isPauseAllowed` setting would be
+set to true during the start of the session but the game would still be updating during the Ansel session. This would allow players to 
+see what is going on in the game and end the Ansel session if circumstances require it (getting attacked, etc). When a multipart shot
+is taken (where the rendering time needs to be frozen) Ansel will always trigger the `startCaptureCallback` and the game can use this
+callback to freeze rendering time *only during the capture of the multipart shots* since `stopCaptureCallback` will be triggered at the
+end of the capture sequence. This would result in getting correct highres and 360 captures while allowing the player to be aware of how
+the game is evolving during the Ansel session.
+
 The stop session callback is called when the player requests to end the session (for instance by pressing ALT+F2). This function is only called if the previous call to start session returned `ansel::kAllowed`. The matching function to what we implemented above would look like this:
 
 ```cpp
@@ -255,12 +264,14 @@ struct Camera
 	nv::Quat rotation;
 	float fov;
 	float projectionOffsetX, projectionOffsetY;
+	float nearPlane, farPlane;
+	float aspectRatio;
 };
 
 ANSEL_SDK_API void updateCamera(Camera& camera);
 ```
 
-As noted before the header file contains documentation for each field.  Here it suffices to say that the values are all in the game's coordinate system, since this has been established via the `ansel::setConfiguration` call (see section 2.1). The field of view, fov, is in degrees and in the format specified during the previously mentioned call. The final two values are used to specify the off-center projection amount. Let's illustrate how this all works with sample code following the earlier session callbacks we had created:
+As noted before the header file contains documentation for each field.  Here it suffices to say that the values are all in the game's coordinate system, since this has been established via the `ansel::setConfiguration` call (see section 2.1). The field of view, fov, is in degrees and in the format specified during the previously mentioned call. The projection offset values are used to specify the off-center projection amount. Near and far plane values, as well as aspect ratio, need to be set to represent the projection matrix used by the game engine. Let's illustrate how this all works with sample code following the earlier session callbacks we had created:
 
 ```cpp
 if (g_isAnselSessionActive)
@@ -278,10 +289,19 @@ if (g_isAnselSessionActive)
                    game_cam_orientation.y,
                    game_cam_orientation.z,
                    game_cam_orientation.w };
+  // These values are used in the game engine to produce
+  // the projection matrix
+  cam.nearPlane = g_nearPlane;
+  cam.farPlane = g_farPlane;
+  cam.aspectRatio = g_aspectRatio;
 
   ansel::updateCamera(cam);
   // This is where a game would typically perform collision detection
   // and adjust the values requested by player in cam.position
+
+  g_nearPlane = cam.nearPlane;
+  g_farPlane = cam.farPlane;
+  g_aspectRatio = cam.aspectRatio;
 
   game_cam_position.x = cam.position.x;
   game_cam_position.y = cam.position.y;
@@ -395,7 +415,7 @@ To identify the HDR buffer for Ansel call `markBufferBind` before binding the bu
 ### 2.5 USER CONTROLS
 Sometimes a game developer is willing to expose some of the game properties in the Ansel UI. One example of this could be a checkbox allowing to hide and unhide the main character. Another example would be a slider allowing changing the amount of in-game depth of field effect or any other effect. To achieve that the Ansel SDK provides an optional User controls API.
 
-![User controls example](ImageUserControls.jpg){width=25% height=25%}
+![User controls example](ImageUserControls.jpg)
 
 The basics of the API look like this:
 
@@ -471,6 +491,28 @@ ansel::StartSessionStatus startAnselSessionCallback(
 
 ```
 
+### 2.6 HIGH QUALITY CAPTURES
+Ansel offers a new mode, [Ansel RT](https://www.nvidia.com/en-us/geforce/news/new-gfe-features-latest-games-get-ansel-and-highlights/), which allows users to take ultra ray-traced quality photos for your RTX enabled games. Here’s how it works: when users are in Ansel mode in a supported ray-traced game, they can fly around using Ansel’s free camera using in-game graphics settings. The moment movement is paused, Ansel RT provides the ability to crank up all graphics levels, including ray-tracing, to beyond real-time levels for the best possible in-game photo.
+
+![Ansel RT](AnselRTPoster.png)
+
+Ansel offers a callback function to switch into this mode. The configuration now contains a field for this callback:
+
+```
+configuration.changeQualityCallback = changeAnselQualityCallback;
+```
+
+`changeQualityCallback` is an application-provided callback function that Ansel will call when it wants to increase the quality level. When the feature is enabled in the UI, Ansel will call `changeQualityCallback(true)` when it detects that the camera has stopped moving, and `changeQualityCallback(false)` when it detects that the camera has started moving again. This way, the user is able to position the camera smoothly and only suffers the performance penalty of higher quality rendering when the camera is positioned for the shot. To ensure full compatibility with lower-end systems, this setting is disabled by default. The UI to toggle it is located under Game Specific controls, and will only be displayed when the `changeQualityCallback` has been defined in the Ansel configuration, and looks like this:
+
+![GFE High Quality UI](HighQualityUIGFE.png) ![Standalone High Quality UI](HighQualityUIStandalone.png)
+
+This mode isn’t limited to increasing ray-traced effects such as reflections, shadows, Ambient Occlusion or refractions. You can also increase Non-RT graphics settings such as:
+* Increasing texture resolution/quality
+* Increasing shadow map resolution
+* Increasing tessellation factors
+* Increasing draw distance
+* Increasing particle counts
+
 ## 3. TAKING PICTURES WITH ANSEL
 
 ### 3.1 ACTIVATING AND DEACTIVATING ANSEL
@@ -517,7 +559,7 @@ There are a number of configuration issues that can result in Ansel not activati
 5. Verify that Ansel is trying to start by setting a breakpoint on the `startSessionCallback`.
 6. Depending on which phase is blocking Ansel activation, logging can be helpful. See the beginning of this chapter on how to utilize logging.
 
-### 4.2 ARTEFACTS IN MULTIPART SHOTS
+### 4.2 ARTIFACTS IN MULTIPART SHOTS
 This is where we cover the most common errors we've seen while capturing multipart shots in games.
 #### 4.2.1 Image tiles suffer from "acne"
 This is probably best described with images. Here is a tile exhibiting the problem:

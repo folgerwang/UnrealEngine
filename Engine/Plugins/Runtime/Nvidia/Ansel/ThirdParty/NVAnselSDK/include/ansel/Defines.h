@@ -28,12 +28,17 @@
 #pragma once
 
 #ifdef ANSEL_SDK_EXPORTS
-    #define ANSEL_SDK_API extern "C" __declspec(dllexport)
+    #define ANSEL_SDK_API __declspec(dllexport)
+    #define ANSEL_SDK_INTERNAL_API extern "C" __declspec(dllexport)
     #define ANSEL_SDK_CLASS_API __declspec(dllexport)
 #elif !defined(ANSEL_SDK_DELAYLOAD)
-    #define ANSEL_SDK_API extern "C" __declspec(dllimport)
+    #define ANSEL_SDK_API __declspec(dllimport)
+    #define ANSEL_SDK_INTERNAL_API extern "C" __declspec(dllimport)
     #define ANSEL_SDK_CLASS_API __declspec(dllimport)
 #else
     #define ANSEL_SDK_API 
+    #define ANSEL_SDK_INTERNAL_API 
     #define ANSEL_SDK_CLASS_API
 #endif
+
+#define HIGH_QUALITY_CONTROL_ID 189237

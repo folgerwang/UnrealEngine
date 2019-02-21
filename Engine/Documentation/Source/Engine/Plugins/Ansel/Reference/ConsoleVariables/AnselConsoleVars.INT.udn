@@ -20,6 +20,7 @@ The following console variables are available for configuring the behavior of th
 | --- | --- | --- |
 | `r.Photography.Available` | 1 | (Read-only) If 1, the photography system is potentially available to the user.  Otherwise, a functioning back-end is not available. This is set to 1 when the plugin is enabled. |
 | `r.Photography.Allow` | 1 | If 1, allows a photography session to potentially be started by the player.  Set this dynamically to permit or forbid photography per-level, per-cutscene, etc. |
+| `r.Photography.AllowHighQuality` | 1 | If 1, Ansel is permitted to temporarily raise quality levels during photography (if also requested by the player from the Ansel UI via the 'High Quality' setting). |
 | `r.Photography.EnableMultipart` | 1 | If 1, allow the photography system to take high-resolution shots that need to be rendered in tiles which are later stitched together. |
 | `r.Photography.SettleFrames` | 10 | The number of frames to let the rendering 'settle' before taking a photo.  Useful to allow temporal AA/smoothing to work well; if not using any temporal effects, can be lowered for faster capture. |
 | `r.Photography.TranslationSpeed` | 100.0 | Normal speed (in Unreal units per second) at which to move the roaming photography camera. |
