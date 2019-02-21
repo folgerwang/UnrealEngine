@@ -133,7 +133,7 @@ FLandscapeWeightmapInfo FLandscapeWeightmapFileFormat_Raw::Validate(const TCHAR*
 	}
 	else
 	{
-		Result.PossibleResolutions = CalculatePossibleRawResolutions(ImportFileSize / 2);
+		Result.PossibleResolutions = CalculatePossibleRawResolutions(ImportFileSize);
 
 		if (Result.PossibleResolutions.Num() == 0)
 		{
