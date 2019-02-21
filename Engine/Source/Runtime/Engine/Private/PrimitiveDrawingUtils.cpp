@@ -1386,12 +1386,12 @@ void ApplyViewModeOverrides(
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 	// If debug viewmodes are not allowed, skip all of the debug viewmode handling.
-	// If material has tesselation then also skip it, as we can't just replace it with a simple material.
-	if (!AllowDebugViewmodes()
-		|| Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->MaterialModifiesMeshPosition_RenderThread())
+	if (!AllowDebugViewmodes())
 	{
 		return;
 	}
+
+	const bool bMaterialModifiesMeshPosition = Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->MaterialModifiesMeshPosition_RenderThread();
 
 	if (EngineShowFlags.Wireframe)
 	{
@@ -1407,14 +1407,29 @@ void ApplyViewModeOverrides(
 			BaseColor = PrimitiveSceneProxy->GetLevelColor();
 		}
 
-		auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-			GEngine->WireframeMaterial->GetRenderProxy(),
-			GetSelectionColor( BaseColor, bSelected, PrimitiveSceneProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
+		if (bMaterialModifiesMeshPosition)
+		{
+			// If the material is mesh-modifying, we cannot rely on substitution.
+			auto WireframeMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
+				Mesh.MaterialRenderProxy,
+				GetSelectionColor(BaseColor, bSelected, PrimitiveSceneProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
 			);
 
-		Mesh.bWireframe = true;
-		Mesh.MaterialRenderProxy = WireframeMaterialInstance;
-		Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+			Mesh.bWireframe = true;
+			Mesh.MaterialRenderProxy = WireframeMaterialInstance;
+			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+		}
+		else
+		{
+			auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
+				GEngine->WireframeMaterial->GetRenderProxy(),
+				GetSelectionColor(BaseColor, bSelected, PrimitiveSceneProxy->IsHovered(), /*bUseOverlayIntensity=*/false)
+			);
+
+			Mesh.bWireframe = true;
+			Mesh.MaterialRenderProxy = WireframeMaterialInstance;
+			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+		}
 	}
 	else if (EngineShowFlags.LODColoration)
 	{
@@ -1478,7 +1493,18 @@ void ApplyViewModeOverrides(
 				}
 			}
 
-			if (bTextureMapped == false)
+			if (bMaterialModifiesMeshPosition)
+			{
+				// If the material is mesh-modifying, we cannot rely on substitution.
+				auto LightingOnlyMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
+					Mesh.MaterialRenderProxy, 
+					GEngine->LightingOnlyBrightness
+				);
+
+				Mesh.MaterialRenderProxy = LightingOnlyMaterialInstance;
+				Collector.RegisterOneFrameMaterialProxy(LightingOnlyMaterialInstance);
+			}
+			else if (bTextureMapped == false)
 			{
 				FMaterialRenderProxy* RenderProxy = GEngine->LevelColorationLitMaterial->GetRenderProxy();
 				auto LightingOnlyMaterialInstance = new FColoredMaterialRenderProxy(
@@ -1569,17 +1595,35 @@ void ApplyViewModeOverrides(
 			// Avoid infinite recursion
 			MeshEdgeElement.bCanApplyViewModeOverrides = false;
 
+			
 			// Draw the mesh's edges in blue, on top of the base geometry.
-			auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
-				GEngine->WireframeMaterial->GetRenderProxy(),
-				PrimitiveSceneProxy->GetWireframeColor()
-			);
+			if (bMaterialModifiesMeshPosition)
+			{
+				// If the material is mesh-modifying, we cannot rely on substitution
+				auto WireframeMaterialInstance = new FOverrideSelectionColorMaterialRenderProxy(
+					MeshEdgeElement.MaterialRenderProxy,
+					PrimitiveSceneProxy->GetWireframeColor()
+				);
 
-			MeshEdgeElement.bWireframe = true;
-			MeshEdgeElement.MaterialRenderProxy = WireframeMaterialInstance;
-			Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+				MeshEdgeElement.bWireframe = true;
+				MeshEdgeElement.MaterialRenderProxy = WireframeMaterialInstance;
+				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
 
-			Collector.AddMesh(ViewIndex, MeshEdgeElement);
+				Collector.AddMesh(ViewIndex, MeshEdgeElement);
+			}
+			else
+			{
+				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
+					GEngine->WireframeMaterial->GetRenderProxy(),
+					PrimitiveSceneProxy->GetWireframeColor()
+				);
+
+				MeshEdgeElement.bWireframe = true;
+				MeshEdgeElement.MaterialRenderProxy = WireframeMaterialInstance;
+				Collector.RegisterOneFrameMaterialProxy(WireframeMaterialInstance);
+
+				Collector.AddMesh(ViewIndex, MeshEdgeElement);
+			}
 		}
 	}
 #endif

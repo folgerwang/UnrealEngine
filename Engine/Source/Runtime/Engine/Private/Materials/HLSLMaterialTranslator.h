@@ -1687,7 +1687,9 @@ protected:
 					FMaterialUniformExpressionVectorParameter* VectorParameterA = (FMaterialUniformExpressionVectorParameter*)TestExpression;
 					FMaterialUniformExpressionVectorParameter* VectorParameterB = (FMaterialUniformExpressionVectorParameter*)UniformExpression;
 
-					if (!VectorParameterA->GetParameterInfo().Name.IsNone() && VectorParameterA->GetParameterInfo() == VectorParameterB->GetParameterInfo())
+					// Note: Skipping NAME_SelectionColor here as this behavior is relied on for editor materials
+					if (!VectorParameterA->GetParameterInfo().Name.IsNone() && VectorParameterA->GetParameterInfo() == VectorParameterB->GetParameterInfo()
+						&& VectorParameterA->GetParameterInfo().Name != NAME_SelectionColor)
 					{
 						delete UniformExpression;
 						return Errorf(TEXT("Invalid vector parameter '%s' found. Identical parameters must have the same value."), *(VectorParameterA->GetParameterInfo().Name.ToString()));
@@ -5819,6 +5821,30 @@ protected:
 
 	// The compiler can run in a different state and this affects caching of sub expression, Expressions are different (e.g. View.PrevWorldViewOrigin) when using previous frame's values
 	virtual bool IsCurrentlyCompilingForPreviousFrame() const { return bCompilingPreviousFrame; }
+
+	virtual bool IsDevelopmentFeatureEnabled(const FName& FeatureName) const override
+	{
+		if (FeatureName == NAME_SelectionColor)
+		{
+			// This is an editor-only feature (see FDefaultMaterialInstance::GetVectorValue).
+
+			// Determine if we're sure the editor will never run using the target shader platform.
+			// The list below may not be comprehensive enough, but it definitely includes platforms which won't use selection color for sure.
+			const bool bEditorMayUseTargetShaderPlatform = IsPCPlatform(Platform);
+			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.CompileShadersForDevelopment"));
+			const bool bCompileShadersForDevelopment = (CVar && CVar->GetValueOnAnyThread() != 0);
+
+			return
+				// Does the material explicitly forbid development features?
+				Material->GetAllowDevelopmentShaderCompile()
+				// Can the editor run using the current shader platform?
+				&& bEditorMayUseTargetShaderPlatform
+				// Are shader development features globally disabled?
+				&& bCompileShadersForDevelopment;
+		}
+
+		return true;
+	}
 };
 
 #endif

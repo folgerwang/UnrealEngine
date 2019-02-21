@@ -113,6 +113,15 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 
 	EShaderFrequency ShaderFrequency = Compiler->GetCurrentShaderFrequency();
 	
+	int32 SelectionColorIndex = INDEX_NONE;
+
+	if (ShaderFrequency == SF_Pixel &&
+		GetMaterialDomain() != MD_Volume &&
+		Compiler->IsDevelopmentFeatureEnabled(NAME_SelectionColor))
+	{
+		SelectionColorIndex = Compiler->ComponentMask(Compiler->VectorParameter(NAME_SelectionColor, FLinearColor::Black), 1, 1, 1, 0);
+	}
+
 	//Compile the material instance if we have one.
 	UMaterialInterface* MaterialInterface = MaterialInstance ? static_cast<UMaterialInterface*>(MaterialInstance) : Material;
 
@@ -121,7 +130,14 @@ int32 FMaterialResource::CompilePropertyAndSetMaterialProperty(EMaterialProperty
 	switch(Property)
 	{
 		case MP_EmissiveColor:
-			Ret = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor);
+			if (SelectionColorIndex != INDEX_NONE)
+			{
+				Ret = Compiler->Add(MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor, MFCF_ForceCast), SelectionColorIndex);
+			}
+			else
+			{
+				Ret = MaterialInterface->CompileProperty(Compiler, MP_EmissiveColor);
+			}
 			break;
 
 		case MP_DiffuseColor: 

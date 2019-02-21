@@ -300,8 +300,9 @@ void FMeshDrawShaderBindings::SetOnRayTracingStructure(FRHICommandList& RHICmdLi
 
 FGraphicsMinimalPipelineStateId FGraphicsMinimalPipelineStateId::GetPersistentId(const FGraphicsMinimalPipelineStateInitializer& InPipelineState)
 {
-	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
+	checkSlow(IsInRenderingThread());
 
+	FSetElementId TableId = PersistentIdTable.FindId(InPipelineState);
 	if (TableId.IsValidId())
 	{
 		++PersistentIdTable[TableId].RefNum;

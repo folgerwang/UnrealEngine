@@ -2209,6 +2209,37 @@ bool FColoredMaterialRenderProxy::GetTextureValue(const FMaterialParameterInfo& 
 }
 
 /*-----------------------------------------------------------------------------
+	FOverrideSelectionColorMaterialRenderProxy
+-----------------------------------------------------------------------------*/
+const FMaterial& FOverrideSelectionColorMaterialRenderProxy::GetMaterialWithFallback(ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutFallbackMaterialRenderProxy) const
+{
+	return Parent->GetMaterialWithFallback(InFeatureLevel, OutFallbackMaterialRenderProxy);
+}
+
+bool FOverrideSelectionColorMaterialRenderProxy::GetVectorValue(const FMaterialParameterInfo& ParameterInfo, FLinearColor* OutValue, const FMaterialRenderContext& Context) const
+{
+	if (ParameterInfo.Name == NAME_SelectionColor)
+	{
+		*OutValue = SelectionColor;
+		return true;
+	}
+	else
+	{
+		return Parent->GetVectorValue(ParameterInfo, OutValue, Context);
+	}
+}
+
+bool FOverrideSelectionColorMaterialRenderProxy::GetScalarValue(const FMaterialParameterInfo& ParameterInfo, float* OutValue, const FMaterialRenderContext& Context) const
+{
+	return Parent->GetScalarValue(ParameterInfo, OutValue, Context);
+}
+
+bool FOverrideSelectionColorMaterialRenderProxy::GetTextureValue(const FMaterialParameterInfo& ParameterInfo, const UTexture** OutValue, const FMaterialRenderContext& Context) const
+{
+	return Parent->GetTextureValue(ParameterInfo, OutValue, Context);
+}
+
+/*-----------------------------------------------------------------------------
 	FLightingDensityMaterialRenderProxy
 -----------------------------------------------------------------------------*/
 static FName NAME_LightmapRes = FName(TEXT("LightmapRes"));
