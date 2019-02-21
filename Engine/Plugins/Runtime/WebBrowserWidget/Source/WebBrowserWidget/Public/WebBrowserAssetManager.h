@@ -1,7 +1,6 @@
 ﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#if WITH_EDITOR || PLATFORM_ANDROID || PLATFORM_IOS
 
 #include "UObject/SoftObjectPtr.h"
 #include "Materials/Material.h"
@@ -27,5 +26,3 @@ protected:
 	TSoftObjectPtr<UMaterial> DefaultMaterial;
 	TSoftObjectPtr<UMaterial> DefaultTranslucentMaterial;
 };
-
-#endif

@@ -15,7 +15,6 @@ class FWebBrowserWidgetModule : public IWebBrowserWidgetModule
 public:
 	virtual void StartupModule() override
 	{
-#if WITH_EDITOR || PLATFORM_ANDROID || PLATFORM_IOS
 		if (WebBrowserAssetMgr == nullptr)
 		{
 			WebBrowserAssetMgr = NewObject<UWebBrowserAssetManager>((UObject*)GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
@@ -28,16 +27,14 @@ public:
 				WebBrowserSingleton->SetDefaultTranslucentMaterial(WebBrowserAssetMgr->GetDefaultTranslucentMaterial());
 			}
 		}
-#endif
 	}
 
 	virtual void ShutdownModule() override
 	{
 	}
+	
 private:
-#if WITH_EDITOR || PLATFORM_ANDROID || PLATFORM_IOS
 	UWebBrowserAssetManager* WebBrowserAssetMgr;
-#endif
 };
 
 //////////////////////////////////////////////////////////////////////////
