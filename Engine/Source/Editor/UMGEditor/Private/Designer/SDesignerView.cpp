@@ -1580,6 +1580,7 @@ void SDesignerView::ClearDropPreviews()
 		// it will remain outered to the widget tree and end up as a property in the BP class layout as a result.
 		if (DropPreview.Widget->GetOutermost() != GetTransientPackage())
 		{
+			DropPreview.Widget->SetFlags(RF_NoFlags);
 			DropPreview.Widget->Rename(nullptr, GetTransientPackage());
 		}
 	}
@@ -2812,6 +2813,7 @@ void SDesignerView::ProcessDropAndAddWidget(const FGeometry& MyGeometry, const F
 		{
 			if (Widget->GetOutermost() != GetTransientPackage())
 			{
+				Widget->SetFlags(RF_NoFlags);
 				Widget->Rename(nullptr, GetTransientPackage());
 			}
 		}
