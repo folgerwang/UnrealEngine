@@ -427,8 +427,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 			ExistingSkelMesh->GetLODNum() == ImportedResource->LODModels.Num() )
 		{
 			int32 OffsetReductionLODIndex = 0;
-			
-			FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo(ReimportSpecificLOD);
+			FSkeletalMeshLODInfo* LODInfo = ExistingSkelMesh->GetLODInfo( ReimportLODIndex < 0 ? 0 : ReimportLODIndex);
 			ExistingMeshDataPtr->bIsReimportLODReduced = (LODInfo && LODInfo->bHasBeenSimplified);
 			if (ExistingMeshDataPtr->bIsReimportLODReduced)
 			{
