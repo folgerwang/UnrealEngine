@@ -281,7 +281,7 @@ bool FDesktopPlatformMac::OpenDirectoryDialog(const void* ParentWindowHandle, co
 
 			NSInteger Result = [Panel runModal];
 
-			if (Result == NSFileHandlingPanelOKButton)
+			if (Result == NSModalResponseOK)
 			{
 				NSURL *FolderURL = [[Panel URLs] objectAtIndex: 0];
 				TCHAR FolderPath[MAC_MAX_PATH];
@@ -425,7 +425,7 @@ bool FDesktopPlatformMac::FileDialogShared(bool bSave, const void* ParentWindowH
 			NSInteger Result = [Panel runModal];
 			[AccessoryView release];
 
-			if (Result == NSFileHandlingPanelOKButton)
+			if (Result == NSModalResponseOK)
 			{
 				if (bSave)
 				{

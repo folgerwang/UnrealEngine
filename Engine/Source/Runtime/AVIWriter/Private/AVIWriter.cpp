@@ -476,7 +476,7 @@ public:
 			if (Options.CompressionQuality.IsSet())
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecJPEG, AVVideoCodecKey,
+								 AVVideoCodecTypeJPEG, AVVideoCodecKey,
 								 [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat:Options.CompressionQuality.GetValue()], AVVideoQualityKey, nil], AVVideoCompressionPropertiesKey,
 								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
 								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
@@ -485,7 +485,7 @@ public:
 			else
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecH264, AVVideoCodecKey,
+								 AVVideoCodecTypeH264, AVVideoCodecKey,
 								 [NSNumber numberWithInt:Options.Width], AVVideoWidthKey,
 								 [NSNumber numberWithInt:Options.Height], AVVideoHeightKey,
 								 nil];
