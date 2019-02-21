@@ -336,6 +336,9 @@ namespace UnrealBuildTool
 					}
 				}
 
+				// Sort the filenames to ensure that the plugin order is deterministic; otherwise response files will change with each build.
+				FileNames = FileNames.OrderBy(x => x.FullName, StringComparer.OrdinalIgnoreCase).ToList();
+
 				PluginFileCache.Add(ParentDirectory, FileNames);
 			}
 			return FileNames;
