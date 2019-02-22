@@ -270,7 +270,7 @@ FVector USplineMeshComponent::GetEndTangent() const
 
 void USplineMeshComponent::SetEndTangent(FVector EndTangent, bool bUpdateMesh)
 {
-	SplineParams.EndTangent = EndTangent;
+	SplineParams.EndTangent = ClampVector(EndTangent, FVector(-WORLD_MAX), FVector(WORLD_MAX));
 	bMeshDirty = true;
 	if (bUpdateMesh)
 	{
@@ -283,7 +283,7 @@ void USplineMeshComponent::SetStartAndEnd(FVector StartPos, FVector StartTangent
 	SplineParams.StartPos = StartPos;
 	SplineParams.StartTangent = StartTangent;
 	SplineParams.EndPos = EndPos;
-	SplineParams.EndTangent = EndTangent;
+	SetEndTangent(EndTangent, false);
 	bMeshDirty = true;
 	if (bUpdateMesh)
 	{
@@ -1134,7 +1134,7 @@ void USplineMeshComponent::ApplyComponentInstanceData(FSplineMeshInstanceData* S
 			SplineParams.StartPos = SplineMeshInstanceData->StartPos;
 			SplineParams.EndPos = SplineMeshInstanceData->EndPos;
 			SplineParams.StartTangent = SplineMeshInstanceData->StartTangent;
-			SplineParams.EndTangent = SplineMeshInstanceData->EndTangent;
+			SetEndTangent(SplineMeshInstanceData->EndTangent, false);
 			UpdateRenderStateAndCollision();
 		}
 	}
@@ -1206,6 +1206,8 @@ void USplineMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 		// If the spline params were changed the actual geometry is, so flag the owning HLOD cluster as dirty
 		if (MemberPropertyThatChanged->GetNameCPP() == TEXT("SplineParams"))
 		{
+			SetEndTangent(SplineParams.EndTangent, false);
+
 			IHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<IHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
 			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
 			Utilities->HandleActorModified(GetOwner());

@@ -56,8 +56,13 @@ void FSplineMeshComponentVisualizer::DrawVisualization(const UActorComponent* Co
 			const FVector TangentWorldDirection = SplineMeshComp->GetComponentTransform().TransformVector(Spline.Points[PointIndex].LeaveTangent);
 
 			PDI->SetHitProxy(NULL);
-			DrawDashedLine(PDI, KeyPos, KeyPos + TangentWorldDirection, Color, 5, SDPG_Foreground);
-			DrawDashedLine(PDI, KeyPos, KeyPos - TangentWorldDirection, Color, 5, SDPG_Foreground);
+			const float DefaultDashSize = 5.f;
+			const int32 MaxDashDrawCount = 65536;
+			const float LineSize = TangentWorldDirection.Size();
+			int32 DrawCount = FMath::CeilToInt(LineSize / (2.f * DefaultDashSize));
+			float DashSize = (DrawCount > MaxDashDrawCount) ? LineSize / (2.f * MaxDashDrawCount) : DefaultDashSize;
+			DrawDashedLine(PDI, KeyPos, KeyPos + TangentWorldDirection, Color, DashSize, SDPG_Foreground);
+			DrawDashedLine(PDI, KeyPos, KeyPos - TangentWorldDirection, Color, DashSize, SDPG_Foreground);
 			PDI->SetHitProxy(new HSplineMeshTangentHandleProxy(Component, PointIndex, false));
 			PDI->DrawPoint(KeyPos + TangentWorldDirection, Color, TangentHandleSize, SDPG_Foreground);
 			PDI->SetHitProxy(new HSplineMeshTangentHandleProxy(Component, PointIndex, true));
