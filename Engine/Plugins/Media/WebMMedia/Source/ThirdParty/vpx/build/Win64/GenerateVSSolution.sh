@@ -32,6 +32,7 @@ tar xjf $TARBALL -C $SCRATCH_DIR
 cd $DIR
 echo "#######################################"
 echo "# Configuring $VER"
+patch -p1 < ../../whole_program_optimization_vs.patch
 ./configure --disable-examples --disable-unit-tests --target=x86_64-win64-vs14 > $DEST_DIR/build.log
 echo "# Building $VER"
 make -j8 >> $DEST_DIR/build.log
