@@ -436,10 +436,9 @@ FTrackInstancePropertyBindings::FPropertyAddress FTrackInstancePropertyBindings:
 void FTrackInstancePropertyBindings::CallFunctionForEnum( UObject& InRuntimeObject, int64 PropertyValue )
 {
 	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
-	if (UFunction* Setter = PropAndFunction.SetterFunction.Get())
+	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
 	{
-		// ProcessEvent should really be taking const void*
-		InRuntimeObject.ProcessEvent(Setter, (void*)&PropertyValue);
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
 	}
 	else if (UProperty* Property = PropAndFunction.PropertyAddress.GetProperty())
 	{
@@ -468,11 +467,18 @@ void FTrackInstancePropertyBindings::CacheBinding(const UObject& Object)
 {
 	FPropertyAndFunction PropAndFunction;
 	{
-		PropAndFunction.SetterFunction = Object.FindFunction(FunctionName);
 		PropAndFunction.PropertyAddress = FindProperty(Object, PropertyPath);
-		if (NotifyFunctionName != NAME_None)
+
+		UFunction* SetterFunction = Object.FindFunction(FunctionName);
+		if (SetterFunction && SetterFunction->NumParms >= 1)
 		{
-			PropAndFunction.NotifyFunction = Object.FindFunction(NotifyFunctionName);
+			PropAndFunction.SetterFunction = SetterFunction;
+		}
+		
+		UFunction* NotifyFunction = NotifyFunctionName != NAME_None ? Object.FindFunction(NotifyFunctionName) : nullptr;
+		if (NotifyFunction && NotifyFunction->NumParms == 0 && NotifyFunction->ReturnValueOffset == MAX_uint16)
+		{
+			PropAndFunction.NotifyFunction = NotifyFunction;
 		}
 	}
 
@@ -520,8 +526,7 @@ template<> void FTrackInstancePropertyBindings::CallFunction<bool>(UObject& InRu
 	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
 	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
 	{
-		// ProcessEvent should really be taking const void*
-		InRuntimeObject.ProcessEvent(SetterFunction, (void*)&PropertyValue);
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
 	}
 	else if (UProperty* Property = PropAndFunction.PropertyAddress.GetProperty())
 	{
@@ -591,8 +596,7 @@ template<> void FTrackInstancePropertyBindings::CallFunction<UObject*>(UObject& 
 	FPropertyAndFunction PropAndFunction = FindOrAdd(InRuntimeObject);
 	if (UFunction* SetterFunction = PropAndFunction.SetterFunction.Get())
 	{
-		// ProcessEvent should really be taking const void*
-		InRuntimeObject.ProcessEvent(SetterFunction, (void*)&PropertyValue);
+		InvokeSetterFunction(&InRuntimeObject, SetterFunction, PropertyValue);
 	}
 	else if (UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(PropAndFunction.PropertyAddress.GetProperty()))
 	{
