@@ -26,6 +26,5 @@ public:
 protected:
 	typedef TArray< TWeakObjectPtr<class UWidgetBlueprint> > FWeakBlueprintPointerArray;
 
-	void ExecuteEdit(FWeakBlueprintPointerArray Objects);
-
+	void ExecuteRun(FWeakBlueprintPointerArray Objects);
 };
