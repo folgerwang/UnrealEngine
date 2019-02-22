@@ -9,7 +9,7 @@
 /**
  * Function library to expose the budget allocator to Blueprints
  */
-UCLASS(meta = (ScriptName = "Animation Budget"))
+UCLASS(meta = (ScriptName = "AnimationBudgetLibrary"))
 class UAnimationBudgetBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
