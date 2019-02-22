@@ -72,6 +72,7 @@
 		{
 			"Name" : "MagicLeapHandTracking",
 			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault",
 			"WhitelistPlatforms" :
 			[
 				"Win64",
