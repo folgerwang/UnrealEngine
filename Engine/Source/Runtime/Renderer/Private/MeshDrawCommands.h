@@ -123,7 +123,8 @@ class FParallelMeshDrawCommandPass
 {
 public:
 	FParallelMeshDrawCommandPass()
-		: bPrimitiveIdBufferDataOwnedByRHIThread(false)
+		: PrimitiveIdVertexBufferRHI(nullptr)
+		, bPrimitiveIdBufferDataOwnedByRHIThread(false)
 		, MaxNumDraws(0)
 	{
 	}

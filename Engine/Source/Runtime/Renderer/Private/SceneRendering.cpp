@@ -2326,7 +2326,6 @@ FSceneRenderer::~FSceneRenderer()
 	// To prevent keeping persistent references to single frame buffers, clear any such reference at this point.
 	ClearPrimitiveSingleFrameIndirectLightingCacheBuffers();
 	
-
 	if(Scene)
 	{
 		// Destruct the projected shadow infos.
@@ -2339,7 +2338,6 @@ FSceneRenderer::~FSceneRenderer()
 				{
 					// FProjectedShadowInfo's in MemStackProjectedShadows were allocated on the rendering thread mem stack, 
 					// Their memory will be freed when the stack is freed with no destructor call, so invoke the destructor explicitly
-					VisibleLightInfo.MemStackProjectedShadows[ShadowIndex]->WaitForMeshDrawTasksAndEmpty();
 					VisibleLightInfo.MemStackProjectedShadows[ShadowIndex]->~FProjectedShadowInfo();
 				}
 			}
@@ -2900,11 +2898,10 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 		RHICmdList.ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
 	}
 
-	// Destroy cached preshadow transient arrays (allocated with SceneRenderingAllocator).
-	TArray<TRefCountPtr<FProjectedShadowInfo>>& CachedPreshadows = SceneRenderer->Scene->CachedPreshadows;
-	for (int32 CachedShadowIndex = 0; CachedShadowIndex < CachedPreshadows.Num(); ++CachedShadowIndex)
+	// Wait for all dispatched shadow mesh draw tasks.
+	for (int32 PassIndex = 0; PassIndex < SceneRenderer->DispatchedShadowDepthPasses.Num(); ++PassIndex)
 	{
-		CachedPreshadows[CachedShadowIndex]->ClearTransientArrays();
+		SceneRenderer->DispatchedShadowDepthPasses[PassIndex]->WaitForTasksAndEmpty();
 	}
 
 	FViewInfo::DestroyAllSnapshots(); // this destroys viewinfo snapshots

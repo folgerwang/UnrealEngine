@@ -1286,6 +1286,9 @@ public:
 	/** Information about the visible lights. */
 	TArray<FVisibleLightInfo,SceneRenderingAllocator> VisibleLightInfos;
 
+	/** Array of dispatched parallel shadow depth passes. */
+	TArray<FParallelMeshDrawCommandPass*, SceneRenderingAllocator> DispatchedShadowDepthPasses;
+
 	FSortedShadowMaps SortedShadowsForShadowDepthPass;
 
 	/** If a freeze request has been made */
