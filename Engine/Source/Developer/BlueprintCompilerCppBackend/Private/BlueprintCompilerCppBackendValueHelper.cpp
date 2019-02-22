@@ -786,6 +786,10 @@ FString FEmitDefaultValueHelper::HandleSpecialTypes(FEmitterLocalContext& Contex
 	{
 		Result = HandleObjectValueLambda(ObjectProperty->GetPropertyValue(ValuePtr), ObjectProperty->PropertyClass);
 	}
+	else if (const UWeakObjectProperty* WeakObjectProperty = Cast<UWeakObjectProperty>(Property))
+	{
+		Result = HandleObjectValueLambda(WeakObjectProperty->GetObjectPropertyValue(ValuePtr), WeakObjectProperty->PropertyClass);
+	}
 	else if (const UInterfaceProperty* InterfaceProperty = Cast<UInterfaceProperty>(Property))
 	{
 		Result = HandleObjectValueLambda(InterfaceProperty->GetPropertyValue(ValuePtr).GetObject(), InterfaceProperty->InterfaceClass);
