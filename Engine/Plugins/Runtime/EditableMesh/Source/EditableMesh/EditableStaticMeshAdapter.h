@@ -220,4 +220,7 @@ private:
 	/** Cached bounding box for the static mesh.  This bounds can be (temporarily) larger than the actual mesh itself as
 	    an optimization. */
 	FBoxSphereBounds CachedBoundingBoxAndSphere;
+
+	/** Flag to indicate if a modification requires regenerating collision */
+	bool bUpdateCollisionNeeded;
 };
