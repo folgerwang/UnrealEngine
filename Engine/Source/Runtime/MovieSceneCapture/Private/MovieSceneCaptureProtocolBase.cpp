@@ -6,6 +6,7 @@
 #include "Slate/SceneViewport.h"
 #include "Misc/Paths.h"
 #include "HAL/PlatformFilemanager.h"
+#include "UnrealEngine.h"
 
 #define LOCTEXT_NAMESPACE "MovieSceneCaptureProtocol"
 
@@ -186,12 +187,11 @@ FCaptureProtocolInitSettings FCaptureProtocolInitSettings::FromSlateViewport(TSh
 	Settings.SceneViewport = InSceneViewport;
 	Settings.DesiredSize = InSceneViewport->GetSize();
 
-	// hack for FORT-94554
+	// hack for FORT-94554 -- viewport not yet initialized so pull resolution settings from GSystemResolution
 	if (Settings.DesiredSize == FIntPoint::ZeroValue)
 	{
-        ensureAlwaysMsgf(false, TEXT("Invalid viewport size settings in FCaptureProtocalInitSettings::FromSlateViewport! Using default size! (1920x1080)"));
-		Settings.DesiredSize.X = 1920;
-		Settings.DesiredSize.Y = 1080;
+		Settings.DesiredSize.X = GSystemResolution.ResX;
+		Settings.DesiredSize.Y = GSystemResolution.ResY;
 		InSceneViewport->SetViewportSize(Settings.DesiredSize.X, Settings.DesiredSize.Y);
 	}
 	// end hack
