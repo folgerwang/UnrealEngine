@@ -359,6 +359,9 @@ void SSequencerPlayRateCombo::SetDisplayRate(FFrameRate InFrameRate)
 			}
 		}
 	}
+
+	// Snap the local time to the new display rate
+	Sequencer->SetLocalTime(Sequencer->GetLocalTime().Time, ESnapTimeMode::STM_Interval);
 }
 
 FFrameRate SSequencerPlayRateCombo::GetDisplayRate() const
