@@ -181,9 +181,6 @@ public:
 
 	static void UpdateDeferredCaptures(FSceneInterface* Scene);
 
-	/** Respond to visibility changes by updating Proxy Mesh visibility to match*/
-	virtual void OnVisibilityChanged() override;
-
 protected:
 	/** Update the show flags from our show flags settings (ideally, you'd be able to set this more directly, but currently unable to make FEngineShowFlags a UStruct to use it as a UProperty...) */
 	void UpdateShowFlags();
