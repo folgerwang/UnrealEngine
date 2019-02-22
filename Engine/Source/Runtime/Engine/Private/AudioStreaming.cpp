@@ -532,66 +532,63 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 {
 	LLM_SCOPE(ELLMTag::Audio);
 
-	if (CriticalSection.TryLock())
+	FScopeLock Lock(&CriticalSection);
+
+	for (auto& WavePair : StreamingSoundWaves)
 	{
-		for (auto& WavePair : StreamingSoundWaves)
-		{
-			WavePair.Value->UpdateStreamingStatus();
-		}
+		WavePair.Value->UpdateStreamingStatus();
+	}
 
-		// Process any async file requests after updating the stream status
-		ProcessPendingAsyncFileResults();
+	// Process any async file requests after updating the stream status
+	ProcessPendingAsyncFileResults();
 
-		for (auto Source : StreamingSoundSources)
+	for (auto Source : StreamingSoundSources)
+	{
+		const FWaveInstance* WaveInstance = Source->GetWaveInstance();
+		USoundWave* Wave = WaveInstance ? WaveInstance->WaveData : nullptr;
+		if (Wave)
 		{
-			const FWaveInstance* WaveInstance = Source->GetWaveInstance();
-			USoundWave* Wave = WaveInstance ? WaveInstance->WaveData : nullptr;
-			if (Wave)
+			FStreamingWaveData** WaveDataPtr = StreamingSoundWaves.Find(Wave);
+	
+			if (WaveDataPtr && (*WaveDataPtr)->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
 			{
-				FStreamingWaveData** WaveDataPtr = StreamingSoundWaves.Find(Wave);
-
-				if (WaveDataPtr && (*WaveDataPtr)->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
+				FStreamingWaveData* WaveData = *WaveDataPtr;
+				// Request the chunk the source is using and the one after that
+				FWaveRequest& WaveRequest = GetWaveRequest(Wave);
+				const FSoundBuffer* SoundBuffer = Source->GetBuffer();
+				if (SoundBuffer)
 				{
-					FStreamingWaveData* WaveData = *WaveDataPtr;
-					// Request the chunk the source is using and the one after that
-					FWaveRequest& WaveRequest = GetWaveRequest(Wave);
-					const FSoundBuffer* SoundBuffer = Source->GetBuffer();
-					if (SoundBuffer)
+					int32 SourceChunk = SoundBuffer->GetCurrentChunkIndex();
+					if (SourceChunk >= 0 && SourceChunk < Wave->RunningPlatformData->NumChunks)
 					{
-						int32 SourceChunk = SoundBuffer->GetCurrentChunkIndex();
-						if (SourceChunk >= 0 && SourceChunk < Wave->RunningPlatformData->NumChunks)
-						{
-							WaveRequest.RequiredIndices.AddUnique(SourceChunk);
-							WaveRequest.RequiredIndices.AddUnique((SourceChunk + 1) % Wave->RunningPlatformData->NumChunks);
-							WaveRequest.bPrioritiseRequest = true;
-						}
-						else
-						{
-							UE_LOG(LogAudio, Log, TEXT("Invalid chunk request curIndex=%d numChunks=%d\n"), SourceChunk, Wave->RunningPlatformData->NumChunks);
-						}
+						WaveRequest.RequiredIndices.AddUnique(SourceChunk);
+						WaveRequest.RequiredIndices.AddUnique((SourceChunk + 1) % Wave->RunningPlatformData->NumChunks);
+						WaveRequest.bPrioritiseRequest = true;
+					}
+					else
+					{
+						UE_LOG(LogAudio, Log, TEXT("Invalid chunk request curIndex=%d numChunks=%d\n"), SourceChunk, Wave->RunningPlatformData->NumChunks);
 					}
 				}
 			}
 		}
-
-		for (auto Iter = WaveRequests.CreateIterator(); Iter; ++Iter)
-		{
-			USoundWave* Wave = Iter.Key();
-			FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(Wave);
-
-			if (WaveData && WaveData->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
-			{
-				WaveData->UpdateChunkRequests(Iter.Value());
-				WaveData->UpdateStreamingStatus();
-				Iter.RemoveCurrent();
-			}
-		}
-
-		// Process any async file requests after updating the streaming wave data stream statuses
-		ProcessPendingAsyncFileResults();
-
-		CriticalSection.Unlock();
 	}
+
+	for (auto Iter = WaveRequests.CreateIterator(); Iter; ++Iter)
+	{
+		USoundWave* Wave = Iter.Key();
+		FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(Wave);
+
+		if (WaveData && WaveData->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
+		{
+			WaveData->UpdateChunkRequests(Iter.Value());
+			WaveData->UpdateStreamingStatus();
+			Iter.RemoveCurrent();
+		}
+	}
+
+	// Process any async file requests after updating the streaming wave data stream statuses
+	ProcessPendingAsyncFileResults();
 }
 
 int32 FAudioStreamingManager::BlockTillAllRequestsFinished(float TimeLimit, bool)
@@ -803,33 +800,37 @@ bool FAudioStreamingManager::IsManagedStreamingSoundSource(const FSoundSource* S
 
 const uint8* FAudioStreamingManager::GetLoadedChunk(const USoundWave* SoundWave, uint32 ChunkIndex, uint32* OutChunkSize) const
 {
-	FScopeLock Lock(&CriticalSection);
-
-	// Check for the spoof of failing to load a stream chunk
-	if (SpoofFailedStreamChunkLoad > 0)
+	if (CriticalSection.TryLock())
 	{
-		return nullptr;
-	}
-
-	const FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(SoundWave);
-	if (WaveData)
-	{
-		if (WaveData->LoadedChunkIndices.Contains(ChunkIndex))
+		// Check for the spoof of failing to load a stream chunk
+		if (SpoofFailedStreamChunkLoad > 0)
 		{
-			for (int32 Index = 0; Index < WaveData->LoadedChunks.Num(); ++Index)
+			CriticalSection.Unlock();
+			return nullptr;
+		}
+
+		const FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(SoundWave);
+		if (WaveData)
+		{
+			if (WaveData->LoadedChunkIndices.Contains(ChunkIndex))
 			{
-				if (WaveData->LoadedChunks[Index].Index == ChunkIndex)
+				for (int32 Index = 0; Index < WaveData->LoadedChunks.Num(); ++Index)
 				{
-					if(OutChunkSize != NULL)
+					if (WaveData->LoadedChunks[Index].Index == ChunkIndex)
 					{
-						// Return the size of the audio data within the chunk, not the chunk itself since this chunk could be zero-padded
-						*OutChunkSize = WaveData->LoadedChunks[Index].AudioDataSize;
+						if (OutChunkSize != NULL)
+						{
+							// Return the size of the audio data within the chunk, not the chunk itself since this chunk could be zero-padded
+							*OutChunkSize = WaveData->LoadedChunks[Index].AudioDataSize;
+						}
+
+						return WaveData->LoadedChunks[Index].Data;
 					}
-					
-					return WaveData->LoadedChunks[Index].Data;
 				}
 			}
 		}
+
+		CriticalSection.Unlock();
 	}
 	return NULL;
 }
