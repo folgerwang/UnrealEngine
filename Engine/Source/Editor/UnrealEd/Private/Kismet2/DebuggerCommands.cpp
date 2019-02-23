@@ -1226,7 +1226,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 			FSlateIcon(),
 			UIAction,
 			NAME_None,
-			EUserInterfaceActionType::Check
+			EUserInterfaceActionType::ToggleButton
 		);
 	}
 
