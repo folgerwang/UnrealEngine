@@ -5,6 +5,8 @@
 #include "HAL/PlatformProcess.h"
 #include "HAL/Runnable.h"
 #include "HAL/RunnableThread.h"
+#include "Interfaces/ITargetPlatformManagerModule.h"
+#include "Interfaces/ITargetPlatform.h"
 
 struct FDeviceNotificationCallbackInformation
 {
@@ -51,6 +53,7 @@ public:
 	FDeviceQueryTask()
 		: Stopping(false)
 		, bCheckDevices(true)
+		, NeedSDKCheck(true)
 		, RetryQuery(5)
 	{}
 
@@ -68,8 +71,32 @@ public:
 #if WITH_EDITOR
 				if (!IsRunningCommandlet())
 				{
-					// BHP - Turning off device check to prevent it from interfering with packaging
-					QueryDevices();
+					if (NeedSDKCheck)
+					{
+						if (GetTargetPlatformManager())
+						{
+							bool CanQuery = false;
+							FString OutTutorialPath;
+							const ITargetPlatform* Platform = GetTargetPlatformManager()->FindTargetPlatform(TEXT("IOS"));
+							if (Platform)
+							{
+								if (Platform->IsSdkInstalled(false, OutTutorialPath))
+								{
+									CanQuery = true;
+								}
+							}
+							NeedSDKCheck = false;
+							if (!CanQuery)
+							{
+								Enable(false);
+							}
+						}
+					}
+					else
+					{
+						// BHP - Turning off device check to prevent it from interfering with packaging
+						QueryDevices();
+					}
 				}
 #endif
 			}
@@ -104,16 +131,18 @@ private:
 	{
 		FString StdOut;
 		// get the list of devices
-		if (!FIOSTargetDeviceOutput::ExecuteDSCommand("listdevices", &StdOut))
+		int Response = FIOSTargetDeviceOutput::ExecuteDSCommand("listdevices", &StdOut);
+		if (Response <= 0)
 		{
 			RetryQuery--;
-			if (RetryQuery < 0)
+			if (RetryQuery < 0 || Response < 0)
 			{
+				UE_LOG(LogTemp, Log, TEXT("IOS device listing is disabled (to many failed attempts)!"));
 				Enable(false);
 			}
 			return;
 		}
-
+		RetryQuery = 5;
 		// separate out each line
 		TArray<FString> DeviceStrings;
 		StdOut = StdOut.Replace(TEXT("\r"), TEXT("\n"));
@@ -174,6 +203,7 @@ private:
 
 	bool Stopping;
 	bool bCheckDevices;
+	bool NeedSDKCheck;
 	int RetryQuery;
 	TArray<FString> ConnectedDeviceIds;
 	FDeviceNotification DeviceNotification;
@@ -226,7 +256,12 @@ void FIOSDeviceHelper::Initialize(bool bIsTVOS)
 		QueryTask->OnDeviceNotification().AddStatic(FIOSDeviceHelper::DeviceCallback);
 
 		static int32 QueryTaskCount = 1;
-		QueryThread = FRunnableThread::Create(QueryTask, *FString::Printf(TEXT("FIOSDeviceHelper.QueryTask_%d"), QueryTaskCount++), 128 * 1024, TPri_Normal);
+		if (QueryTaskCount == 1)
+		{
+			// create the socket subsystem (loadmodule in game thread)
+			ISocketSubsystem* SSS = ISocketSubsystem::Get();
+			QueryThread = FRunnableThread::Create(QueryTask, *FString::Printf(TEXT("FIOSDeviceHelper.QueryTask_%d"), QueryTaskCount++), 128 * 1024, TPri_Normal);
+		}
 	}
 }
 

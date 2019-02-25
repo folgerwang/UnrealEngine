@@ -36,6 +36,9 @@ public:
     
     /** Virtual destructor. */
     virtual ~FTcpDSCommander();
+
+	/** Check if DeploymentServer mutex is active*/
+	static bool IsDSRunning();
     
 public:
     
@@ -58,6 +61,10 @@ public:
     {
         return bIsSuccess;
     }
+	inline bool IsSystemError()
+	{
+		return bIsSystemError;
+	}
     
 private:
     
@@ -67,6 +74,7 @@ private:
     bool bStopping;
     bool bStoped;
     bool bIsSuccess;
+	bool bIsSystemError; ///< Deployment server was not able to start, or connection to it could not be made
     
     /** */
     class FSocket* DSSocket;

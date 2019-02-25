@@ -46,7 +46,7 @@ class FIOSTargetDeviceOutput : public ITargetDeviceOutput
 public:
 	bool Init(const FIOSTargetDevice& TargetDevice, FOutputDevice* Output);
 
-	static bool ExecuteDSCommand(const char *CommandLine, FString* OutStdOut);
+	static int ExecuteDSCommand(const char *CommandLine, FString* OutStdOut);
 	
 private:
 	TUniquePtr<FRunnableThread>						DeviceOutputThread;
