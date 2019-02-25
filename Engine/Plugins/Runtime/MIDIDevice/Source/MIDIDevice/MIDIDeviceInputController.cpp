@@ -145,7 +145,7 @@ void UMIDIDeviceInputController::ProcessIncomingMIDIEvents()
 					{
 						int32 pitchBend = (PMMessageData1 & 0x7F) << 7;
 
-						pitchBend |= static_cast<unsigned short>(PMMessageData2);
+						pitchBend |= (PMMessageData1 & 0x7F);
 
 						this->OnMIDIPitchBend.Broadcast(this, Timestamp, Channel, pitchBend);
 
