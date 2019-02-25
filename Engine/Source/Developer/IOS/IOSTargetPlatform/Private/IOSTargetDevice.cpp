@@ -222,8 +222,10 @@ bool FTcpDSCommander::IsDSRunning()
 	if (mutex == NULL || GetLastError() == ERROR_ALREADY_EXISTS)
 	{
 		// deployment server instance already runnning
-		//UE_LOG(LogTemp, Display, TEXT("Deployment server instance already runnning."));
-		CloseHandle(mutex);
+		if (mutex)
+		{
+			CloseHandle(mutex);
+		}
 		return true;
 	}
 	CloseHandle(mutex);
