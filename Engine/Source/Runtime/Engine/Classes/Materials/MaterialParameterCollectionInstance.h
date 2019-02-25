@@ -31,9 +31,6 @@ class ENGINE_API UMaterialParameterCollectionInstance : public UObject
 	/** Initializes the instance with the collection it is based off of and the world it is owned by. */
 	void SetCollection(UMaterialParameterCollection* InCollection, UWorld* InWorld);
 
-	/** Assigns new parent world instance. */
-	void SetWorld(UWorld* InWorld);
-
 	/** Sets parameter value overrides, returns false if the parameter was not found. */
 	bool SetScalarParameterValue(FName ParameterName, float ParameterValue);
 	bool SetVectorParameterValue(FName ParameterName, const FLinearColor& ParameterValue);
@@ -69,11 +66,9 @@ protected:
 	TWeakObjectPtr<UWorld> World;
 
 	/** Overrides for scalar parameter values. */
-	UPROPERTY()
 	TMap<FName, float> ScalarParameterValues;
 
 	/** Overrides for vector parameter values. */
-	UPROPERTY()
 	TMap<FName, FLinearColor> VectorParameterValues;
 
 	/** Instance resource which stores the rendering thread representation of this instance. */
