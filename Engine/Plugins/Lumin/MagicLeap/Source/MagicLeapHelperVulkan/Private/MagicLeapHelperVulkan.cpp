@@ -278,6 +278,13 @@ bool FMagicLeapHelperVulkan::GetMediaTexture(FTextureRHIRef& ResultTexture, FSam
 		SamplerResult = RHI->RHICreateSamplerState(SamplerStateInitializer, ConversionInitializer);
 	}
 
+	// Insert the RHI thread lock fence. This stops any parallel translate tasks running until the command above has completed on the RHI thread.
+	// There's an odd edge case where parallel rendering is trying to access the RHI's layout map and the command to add it hasn't completed;
+	// wait for the RHI thread while we investigate the root cause of this issue.
+	FRHICommandListImmediate& RHICmdList = GetImmediateCommandList_ForRenderCommand();
+	FGraphEventRef Fence = RHICmdList.RHIThreadFence(true);
+	FRHICommandListExecutor::WaitOnRHIThreadFence(Fence);
+
 	return true;
 #endif //PLATFORM_LUMIN
 	return false;
