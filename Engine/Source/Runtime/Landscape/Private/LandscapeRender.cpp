@@ -3835,6 +3835,8 @@ public:
 			// UE-44519, masked material with landscape layers requires FHitProxy shaders.
 			FName(TEXT("FHitProxyVS")),
 			FName(TEXT("FHitProxyPS")),
+			FName(TEXT("FVelocityVS")),
+			FName(TEXT("FVelocityPS")),
 
 			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicy")),
 			FName(TEXT("TBasePassPSFSimpleStationaryLightSingleSampleShadowsLightingPolicySkylight")),
@@ -3903,8 +3905,6 @@ public:
 			FName(TEXT("FDebugViewModeVS")),
 			FName(TEXT("FConvertToUniformMeshVS")),
 			FName(TEXT("FConvertToUniformMeshGS")),
-			FName(TEXT("FVelocityVS")),
-			FName(TEXT("FVelocityPS")),
 
 			// No lightmap on thumbnails
 			FName(TEXT("TLightMapDensityVSFDummyLightMapPolicy")),
