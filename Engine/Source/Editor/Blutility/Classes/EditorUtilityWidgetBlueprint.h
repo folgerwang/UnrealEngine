@@ -22,6 +22,8 @@ class UEditorUtilityWidgetBlueprint : public UWidgetBlueprint
 	GENERATED_UCLASS_BODY()
 
 public:
+	virtual void BeginDestroy() override;
+
 	TSharedRef<SDockTab> SpawnEditorUITab(const FSpawnTabArgs& SpawnTabArgs);
 
 	/** Creates the slate widget from the UMG widget */
@@ -40,8 +42,16 @@ public:
 		return CreatedUMGWidget;
 	}
 
+	void SetRegistrationName(FName InRegistrationName)
+	{
+		RegistrationName = InRegistrationName;
+	}
+
 private:
+	FName RegistrationName;
+
 	TWeakPtr<SDockTab> CreatedTab;
 
 	UEditorUtilityWidget* CreatedUMGWidget;
+
 };

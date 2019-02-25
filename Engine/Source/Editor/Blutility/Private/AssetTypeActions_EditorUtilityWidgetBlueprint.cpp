@@ -113,7 +113,7 @@ void FAssetTypeActions_EditorUtilityWidgetBlueprint::ExecuteRun(FWeakBlueprintPo
 					{
 						IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
 						UEditorUtilityWidgetBlueprint* WidgetBlueprint = Cast<UEditorUtilityWidgetBlueprint>(Blueprint);
-
+						WidgetBlueprint->SetRegistrationName(RegistrationName);
 						LevelEditorTabManager->RegisterTabSpawner(RegistrationName, FOnSpawnTab::CreateUObject(WidgetBlueprint, &UEditorUtilityWidgetBlueprint::SpawnEditorUITab))
 							.SetDisplayName(DisplayName)
 							.SetGroup(BlutilityModule->GetMenuGroup().ToSharedRef());

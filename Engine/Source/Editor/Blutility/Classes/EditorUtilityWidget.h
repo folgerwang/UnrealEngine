@@ -22,7 +22,7 @@ class BLUTILITY_API UEditorUtilityWidget : public UUserWidget
 	GENERATED_UCLASS_BODY()
 
 public:
-	// The default action called when the blutility is invoked if bAutoRunDefaultAction=true (it is never called otherwise)
+	// The default action called when the widget is invoked if bAutoRunDefaultAction=true (it is never called otherwise)
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnDefaultActionClicked();
 

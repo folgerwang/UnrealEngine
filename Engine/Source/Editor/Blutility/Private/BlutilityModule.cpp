@@ -93,35 +93,40 @@ public:
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 		LevelEditorModule.OnTabManagerChanged().AddRaw(this, &FBlutilityModule::ReinitializeUIs);
 		LevelEditorModule.OnMapChanged().AddRaw(this, &FBlutilityModule::OnMapChanged);
-
 		FEditorSupportDelegates::PrepareToCleanseEditorObject.AddRaw(this, &FBlutilityModule::OnPrepareToCleanseEditorObject);
 	}
 
 	void ReinitializeUIs()
 	{
-		EditorUtilityContext = NewObject<UEditorUtilityContext>();
-		if (EditorUtilityContext)
+		if (!EditorUtilityContext)
 		{
-			for (FSoftObjectPath BlueprintPath : EditorUtilityContext->LoadedUIs)
-			{ 
-				UObject* BlueprintObject = BlueprintPath.TryLoad();
-				if (BlueprintObject)
+			EditorUtilityContext = NewObject<UEditorUtilityContext>();
+		}
+		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
+		TArray<FSoftObjectPath> CorrectPaths;
+		for (FSoftObjectPath BlueprintPath : EditorUtilityContext->LoadedUIs)
+		{
+			UObject* BlueprintObject = BlueprintPath.TryLoad();
+			if (BlueprintObject && !BlueprintObject->IsPendingKillOrUnreachable())
+			{
+				UEditorUtilityWidgetBlueprint* Blueprint = Cast<UEditorUtilityWidgetBlueprint>(BlueprintObject);
+				const UEditorUtilityWidget* CDO = Blueprint->GeneratedClass->GetDefaultObject<UEditorUtilityWidget>();
+				FName RegistrationName = FName(*(CDO->GetPathName() + LOCTEXT("ActiveTabSuffix", "_ActiveTab").ToString()));
+				Blueprint->SetRegistrationName(RegistrationName);
+				FText DisplayName = FText::FromString(Blueprint->GetName());
+				if (LevelEditorTabManager && !LevelEditorTabManager->CanSpawnTab(RegistrationName))
 				{
-					UEditorUtilityWidgetBlueprint* Blueprint = Cast<UEditorUtilityWidgetBlueprint>(BlueprintObject);
-					const UEditorUtilityWidget* CDO = Blueprint->GeneratedClass->GetDefaultObject<UEditorUtilityWidget>();
-					FName RegistrationName = FName(*CDO->GetPathName());
-					FText DisplayName = FText::FromString(Blueprint->GetName());
-					FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
-					TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
-					if (LevelEditorTabManager && !LevelEditorTabManager->CanSpawnTab(RegistrationName))
-					{
-						LevelEditorTabManager->RegisterTabSpawner(RegistrationName, FOnSpawnTab::CreateUObject(Blueprint, &UEditorUtilityWidgetBlueprint::SpawnEditorUITab))
-							.SetDisplayName(DisplayName)
-							.SetGroup(GetMenuGroup().ToSharedRef());
-					}
+					LevelEditorTabManager->RegisterTabSpawner(RegistrationName, FOnSpawnTab::CreateUObject(Blueprint, &UEditorUtilityWidgetBlueprint::SpawnEditorUITab))
+						.SetDisplayName(DisplayName)
+						.SetGroup(GetMenuGroup().ToSharedRef());
+					CorrectPaths.Add(BlueprintPath);
 				}
 			}
 		}
+
+		EditorUtilityContext->LoadedUIs = CorrectPaths;
+		EditorUtilityContext->SaveConfig();
 	}
 
 	void OnMapChanged(UWorld* InWorld, EMapChangeType MapChangeType)
@@ -217,7 +222,7 @@ public:
 	{
 		if (EditorUtilityContext)
 		{
-			EditorUtilityContext->LoadedUIs.Add(InBlueprint);
+			EditorUtilityContext->LoadedUIs.AddUnique(InBlueprint);
 			EditorUtilityContext->SaveConfig();
 		}
 	}
@@ -231,7 +236,6 @@ public:
 			EditorUtilityContext->SaveConfig();
 		}
 	}
-
 protected:
 	static TSharedRef<SDockTab> SpawnBlutilityShelfTab(const FSpawnTabArgs& Args)
 	{

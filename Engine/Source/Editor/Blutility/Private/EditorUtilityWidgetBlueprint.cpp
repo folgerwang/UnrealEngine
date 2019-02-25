@@ -6,6 +6,7 @@
 #include "EditorUtilityWidget.h"
 #include "IBlutilityModule.h"
 #include "Modules/ModuleManager.h"
+#include "LevelEditor.h"
 
 
 
@@ -17,6 +18,22 @@ UEditorUtilityWidgetBlueprint::UEditorUtilityWidgetBlueprint(const FObjectInitia
 	: Super(ObjectInitializer)
 {
 }
+
+void UEditorUtilityWidgetBlueprint::BeginDestroy()
+{
+	if (CreatedTab.IsValid())
+	{
+		IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
+		BlutilityModule->RemoveLoadedScriptUI(this);
+
+		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
+		LevelEditorTabManager->UnregisterTabSpawner(RegistrationName);
+	}
+
+	Super::BeginDestroy();
+}
+
 
 TSharedRef<SDockTab> UEditorUtilityWidgetBlueprint::SpawnEditorUITab(const FSpawnTabArgs& SpawnTabArgs)
 {
