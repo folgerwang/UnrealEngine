@@ -22,8 +22,7 @@ if not exist ..\Build\BatchFiles\GenerateProjectFiles.bat goto Error_BatchFileIn
 
 rem ## Check to make sure that we have a Binaries directory with at least one dependency that we know that UnrealBuildTool will need
 rem ## in order to run.  It's possible the user acquired source but did not download and unpack the other prerequiste binaries.
-if not exist ..\Binaries\DotNET\RPCUtility.exe goto Error_MissingBinaryPrerequisites
-
+if not exist ..\Binaries\DotNET\SwarmAgent.exe goto Error_MissingBinaryPrerequisites
 
 rem ## Get the path to MSBuild
 call "%~dp0GetMSBuildPath.bat"

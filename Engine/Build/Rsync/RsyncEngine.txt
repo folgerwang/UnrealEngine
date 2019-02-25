@@ -36,8 +36,6 @@
 + /Binaries/DotNET/UnrealBuildTool.pdb
 + /Binaries/DotNET/DotNETUtilities.dll
 + /Binaries/DotNET/DotNETUtilities.pdb
-+ /Binaries/DotNET/RPCUtility.exe
-+ /Binaries/DotNET/RPCUtility.pdb
 + /Binaries/DotNET/Ionic.Zip.Reduced.dll
 + /Binaries/DotNET/IOS/
 + /Binaries/DotNET/IOS/**
