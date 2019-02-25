@@ -41,6 +41,29 @@ bool SupportsCachingMeshDrawCommands(const FVertexFactory* RESTRICT VertexFactor
 		&& !PrimitiveSceneProxy->CastsVolumetricTranslucentShadow();
 }
 
+bool SupportsCachingMeshDrawCommands(const FVertexFactory* RESTRICT VertexFactory, const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy, const FMaterialRenderProxy* MaterialRenderProxy, ERHIFeatureLevel::Type FeatureLevel)
+{
+	if (SupportsCachingMeshDrawCommands(VertexFactory, PrimitiveSceneProxy))
+	{
+		// External textures get mapped to immutable samplers (which are part of the PSO); the mesh must go through the dynamic path, as the media player might not have
+		// valid textures/samplers the first few calls; once they're available the PSO needs to get invalidated and recreated with the immutable samplers.
+		const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+		const FMaterialShaderMap* ShaderMap = Material->GetRenderingThreadShaderMap();
+		if (ShaderMap)
+		{
+			const FUniformExpressionSet& ExpressionSet = ShaderMap->GetUniformExpressionSet();
+			if (ExpressionSet.HasExternalTextureExpressions())
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
 :
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

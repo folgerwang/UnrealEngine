@@ -24,14 +24,13 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 	const FVertexFactory* RESTRICT VertexFactory = MeshBatch.VertexFactory;
 	const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo = PrimitiveSceneProxy ? PrimitiveSceneProxy->GetPrimitiveSceneInfo() : nullptr;
 
-	checkf(MaterialRenderProxy.ImmutableSamplerState.ImmutableSamplers[0] == nullptr, TEXT("Immutable samplers not yet supported in Mesh Draw Command pipeline"));
-
 	FMeshDrawCommand SharedMeshDrawCommand;
 
 	SharedMeshDrawCommand.SetStencilRef(DrawRenderState.GetStencilRef());
 
 	FGraphicsMinimalPipelineStateInitializer PipelineState;
 	PipelineState.PrimitiveType = (EPrimitiveType)MeshBatch.Type;
+	PipelineState.ImmutableSamplerState = MaterialRenderProxy.ImmutableSamplerState;
 
 	const bool bPositionOnly = (MeshPassFeatures & EMeshPassFeatures::PositionOnly) != EMeshPassFeatures::Default;
 

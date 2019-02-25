@@ -372,6 +372,11 @@ public:
 
 	ENGINE_API void FillUniformBuffer(const FMaterialRenderContext& MaterialRenderContext, void* TempBuffer) const;
 
+	inline bool HasExternalTextureExpressions() const
+	{
+		return UniformExternalTextureExpressions.Num() > 0;
+	}
+
 	uint32 GetAllocatedSize() const
 	{
 		return UniformVectorExpressions.GetAllocatedSize()
