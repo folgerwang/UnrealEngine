@@ -17,10 +17,12 @@
 UEditorUtilityWidgetBlueprint::UEditorUtilityWidgetBlueprint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+
 }
 
 void UEditorUtilityWidgetBlueprint::BeginDestroy()
 {
+	// Created tab is invalid on editor shutdown, prevents the cleanup script from running then
 	if (CreatedTab.IsValid())
 	{
 		IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");

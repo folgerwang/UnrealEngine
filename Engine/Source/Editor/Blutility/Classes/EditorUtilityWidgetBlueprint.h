@@ -15,6 +15,7 @@
 
 class UBlueprint;
 class UEditorUtilityWidget;
+enum class EAssetEditorCloseReason : uint8;
 
 UCLASS()
 class UEditorUtilityWidgetBlueprint : public UWidgetBlueprint
@@ -45,6 +46,11 @@ public:
 	void SetRegistrationName(FName InRegistrationName)
 	{
 		RegistrationName = InRegistrationName;
+	}
+
+	FName GetRegistrationName() const
+	{
+		return RegistrationName;
 	}
 
 private:
