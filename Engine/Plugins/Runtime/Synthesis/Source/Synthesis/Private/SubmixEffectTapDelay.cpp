@@ -73,9 +73,8 @@ FTapDelayInfo::FTapDelayInfo()
 	, Gain(-3.0f)
 	, OutputChannel(0)
 	, PanInDegrees(0.0f)
-	, TapId(0)
+	, TapId(TapIdCount++)
 {
-	TapId = TapIdCount++;
 }
 
 FSubmixEffectTapDelay::FSubmixEffectTapDelay()

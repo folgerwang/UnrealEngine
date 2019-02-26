@@ -69,7 +69,7 @@ struct SYNTHESIS_API FTapDelayInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Realtime, meta = (ClampMin = "-180.0", ClampMax = "180.0"))
 	float PanInDegrees;
 
-	UPROPERTY(transient)
+	UPROPERTY(Transient, meta = (IgnoreForMemberInitializationTest))
 	int32 TapId;
 
 public:
