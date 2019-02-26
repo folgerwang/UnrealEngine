@@ -9,18 +9,20 @@
 #include "MovieSceneGeometryCacheTemplate.generated.h"
 
 USTRUCT()
-struct FMovieSceneGeometryCacheSectionTemplateParameters : public FMovieSceneGeometryCacheParams
+struct FMovieSceneGeometryCacheSectionTemplateParameters
 {
 	GENERATED_BODY()
 
-	FMovieSceneGeometryCacheSectionTemplateParameters() {}
-	FMovieSceneGeometryCacheSectionTemplateParameters(const FMovieSceneGeometryCacheParams& BaseParams, FFrameNumber InSectionStartTime, FFrameNumber InSectionEndTime)
-		: FMovieSceneGeometryCacheParams(BaseParams)
+	FMovieSceneGeometryCacheSectionTemplateParameters() :SectionParams(nullptr) {}
+	FMovieSceneGeometryCacheSectionTemplateParameters(FMovieSceneGeometryCacheParams& BaseParams, FFrameNumber InSectionStartTime, FFrameNumber InSectionEndTime)
+		: SectionParams(&BaseParams)
 		, SectionStartTime(InSectionStartTime)
 		, SectionEndTime(InSectionEndTime)
 	{}
 
 	float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+
+	FMovieSceneGeometryCacheParams* SectionParams;
 
 	UPROPERTY()
 	FFrameNumber SectionStartTime;
@@ -33,7 +35,7 @@ USTRUCT()
 struct FMovieSceneGeometryCacheSectionTemplate : public FMovieSceneEvalTemplate
 {
 	GENERATED_BODY()
-	
+
 	FMovieSceneGeometryCacheSectionTemplate() {}
 	FMovieSceneGeometryCacheSectionTemplate(const UMovieSceneGeometryCacheSection& Section);
 

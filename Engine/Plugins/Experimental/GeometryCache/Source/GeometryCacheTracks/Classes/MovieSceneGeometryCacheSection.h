@@ -18,42 +18,40 @@ struct FMovieSceneGeometryCacheParams
 	FMovieSceneGeometryCacheParams();
 
 	/** Gets the animation duration, modified by play rate */
-	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache.ResolveObject() == nullptr ? 0.f : Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() / PlayRate; }
+	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache.Get() == nullptr ? 0.f : Cast<UGeometryCacheComponent>(GeometryCache.Get())->GetDuration() / PlayRate; }
 
 	/** Gets the animation sequence length, not modified by play rate */
-	float GetSequenceLength() const { return GeometryCache.ResolveObject() != nullptr ? Cast<UGeometryCacheComponent>(GeometryCache.ResolveObject())->GetDuration() : 0.f; }
-
-	/** The animation this section plays */
-	UPROPERTY(EditAnywhere, Category="GeometryCache", meta=(AllowedClasses = "GeometryCacheComponent"))
-	FSoftObjectPath GeometryCache;
+	float GetSequenceLength() const { return GeometryCache.Get() != nullptr ? Cast<UGeometryCacheComponent>(GeometryCache.Get())->GetDuration() : 0.f; }
 
 	/** The offset into the beginning of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
 	FFrameNumber StartFrameOffset;
-	
+
 	/** The offset into the end of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
 	FFrameNumber EndFrameOffset;
-	
+
 	/** The playback rate of the animation clip */
-	UPROPERTY(EditAnywhere, Category="GeometryCache")
+	UPROPERTY(EditAnywhere, Category = "GeometryCache")
 	float PlayRate;
 
 	/** Reverse the playback of the animation clip */
-	UPROPERTY(EditAnywhere, Category="Animation")
-	uint32 bReverse:1;
+	UPROPERTY(EditAnywhere, Category = "Animation")
+	uint32 bReverse : 1;
 
 	UPROPERTY()
 	float StartOffset_DEPRECATED;
-	
+
 	UPROPERTY()
 	float EndOffset_DEPRECATED;
+
+	TWeakObjectPtr<UGeometryCacheComponent> GeometryCache;
 };
 
 /**
  * Movie scene section that control geometry cache playback
  */
-UCLASS( MinimalAPI )
+UCLASS(MinimalAPI)
 class UMovieSceneGeometryCacheSection
 	: public UMovieSceneSection
 {
@@ -61,11 +59,11 @@ class UMovieSceneGeometryCacheSection
 
 public:
 
-	UPROPERTY(EditAnywhere, Category = "Animation", meta=(ShowOnlyInnerProperties))
+	UPROPERTY(EditAnywhere, Category = "Animation", meta = (ShowOnlyInnerProperties))
 	FMovieSceneGeometryCacheParams Params;
 
 	/** Get Frame Time as Animation Time*/
-    virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+	virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
 
 protected:
 	//~ UMovieSceneSection interface
@@ -91,6 +89,5 @@ private:
 	float PreviousPlayRate;
 
 #endif
-
 
 };

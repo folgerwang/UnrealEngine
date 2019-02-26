@@ -52,7 +52,7 @@ static UGeometryCacheComponent* AcquireGeometryCacheFromObjectGuid(const FGuid& 
 			}
 		}
 	}
-	else if(UGeometryCacheComponent* GeometryMeshComp = Cast<UGeometryCacheComponent>(BoundObject))
+	else if (UGeometryCacheComponent* GeometryMeshComp = Cast<UGeometryCacheComponent>(BoundObject))
 	{
 		if (GeometryMeshComp->GetGeometryCache())
 		{
@@ -64,7 +64,7 @@ static UGeometryCacheComponent* AcquireGeometryCacheFromObjectGuid(const FGuid& 
 }
 
 
-FGeometryCacheSection::FGeometryCacheSection( UMovieSceneSection& InSection, TWeakPtr<ISequencer> InSequencer)
+FGeometryCacheSection::FGeometryCacheSection(UMovieSceneSection& InSection, TWeakPtr<ISequencer> InSequencer)
 	: Section(*CastChecked<UMovieSceneGeometryCacheSection>(&InSection))
 	, Sequencer(InSequencer)
 	, InitialStartOffsetDuringResize(0)
@@ -73,18 +73,18 @@ FGeometryCacheSection::FGeometryCacheSection( UMovieSceneSection& InSection, TWe
 
 
 UMovieSceneSection* FGeometryCacheSection::GetSectionObject()
-{ 
+{
 	return &Section;
 }
 
 
 FText FGeometryCacheSection::GetSectionTitle() const
 {
-	if (Section.Params.GeometryCache.ResolveObject() != nullptr )
+	if (Section.Params.GeometryCache.Get() != nullptr)
 	{
-		UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.ResolveObject());
+		UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.Get());
 		if (GeometryCache && GeometryCache->GetOwner() != nullptr)
-		{	
+		{
 			return FText::FromString(GeometryCache->GetOwner()->GetName());
 		}
 	}
@@ -98,10 +98,10 @@ float FGeometryCacheSection::GetSectionHeight() const
 }
 
 
-int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter ) const
+int32 FGeometryCacheSection::OnPaintSection(FSequencerSectionPainter& Painter) const
 {
 	const ESlateDrawEffect DrawEffects = Painter.bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
-	
+
 	const FTimeToPixel& TimeToPixelConverter = Painter.GetTimeConverter();
 
 	int32 LayerId = Painter.PaintSectionBackground();
@@ -121,9 +121,9 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 
 	if (!FMath::IsNearlyZero(SeqLength, KINDA_SMALL_NUMBER) && SeqLength > 0)
 	{
-		float MaxOffset  = Section.GetRange().Size<FFrameTime>() / TickResolution;
+		float MaxOffset = Section.GetRange().Size<FFrameTime>() / TickResolution;
 		float OffsetTime = SeqLength;
-		float StartTime  = Section.GetInclusiveStartFrame() / TickResolution;
+		float StartTime = Section.GetInclusiveStartFrame() / TickResolution;
 
 		while (OffsetTime < MaxOffset)
 		{
@@ -133,7 +133,7 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 				Painter.DrawElements,
 				LayerId,
 				Painter.SectionGeometry.MakeChild(
-					FVector2D(2.f, Painter.SectionGeometry.Size.Y-2.f),
+					FVector2D(2.f, Painter.SectionGeometry.Size.Y - 2.f),
 					FSlateLayoutTransform(FVector2D(OffsetPixel, 1.f))
 				).ToPaintGeometry(),
 				GenericDivider,
@@ -148,14 +148,14 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 	if (Painter.bIsSelected && SequencerPtr.IsValid())
 	{
 		FFrameTime CurrentTime = SequencerPtr->GetLocalTime().Time;
-		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCache.ResolveObject() != nullptr)
+		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCache.Get() != nullptr)
 		{
-			const float Time = TimeToPixelConverter.FrameToPixel(CurrentTime); 
+			const float Time = TimeToPixelConverter.FrameToPixel(CurrentTime);
 
-			UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.ResolveObject());
+			UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.Get());
 
 			// Draw the current time next to the scrub handle
-			const float AnimTime = Section.MapTimeToAnimation(CurrentTime, TickResolution);			
+			const float AnimTime = Section.MapTimeToAnimation(CurrentTime, TickResolution);
 			int32 FrameTime = GeometryCache->GetFrameAtTime(AnimTime);
 			FString FrameString = FString::FromInt(FrameTime);
 
@@ -168,13 +168,13 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 			bool  bDrawLeft = (Painter.SectionGeometry.Size.X - Time) < (TextSize.X + 22.f) - TextOffsetPx;
 			float TextPosition = bDrawLeft ? Time - TextSize.X - TextOffsetPx : Time + TextOffsetPx;
 			//handle mirrored labels
-			const float MajorTickHeight = 9.0f; 
+			const float MajorTickHeight = 9.0f;
 			FVector2D TextOffset(TextPosition, Painter.SectionGeometry.Size.Y - (MajorTickHeight + TextSize.Y));
 
 			const FLinearColor DrawColor = FEditorStyle::GetSlateColor("SelectionColor").GetColor(FWidgetStyle());
 			const FVector2D BoxPadding = FVector2D(4.0f, 2.0f);
 			// draw time string
-	
+
 			FSlateDrawElement::MakeBox(
 				Painter.DrawElements,
 				LayerId + 5,
@@ -196,14 +196,14 @@ int32 FGeometryCacheSection::OnPaintSection( FSequencerSectionPainter& Painter )
 
 		}
 	}
-	
+
 	return LayerId;
 }
 
 void FGeometryCacheSection::BeginResizeSection()
 {
 	InitialStartOffsetDuringResize = Section.Params.StartFrameOffset;
-	InitialStartTimeDuringResize   = Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0;
+	InitialStartTimeDuringResize = Section.HasStartFrame() ? Section.GetInclusiveStartFrame() : 0;
 }
 
 void FGeometryCacheSection::ResizeSection(ESequencerSectionResizeMode ResizeMode, FFrameNumber ResizeTime)
@@ -256,28 +256,28 @@ void FGeometryCacheSection::SlipSection(FFrameNumber SlipTime)
 }
 
 
-FGeometryCacheTrackEditor::FGeometryCacheTrackEditor( TSharedRef<ISequencer> InSequencer )
-	: FMovieSceneTrackEditor( InSequencer ) 
+FGeometryCacheTrackEditor::FGeometryCacheTrackEditor(TSharedRef<ISequencer> InSequencer)
+	: FMovieSceneTrackEditor(InSequencer)
 { }
 
 
-TSharedRef<ISequencerTrackEditor> FGeometryCacheTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
+TSharedRef<ISequencerTrackEditor> FGeometryCacheTrackEditor::CreateTrackEditor(TSharedRef<ISequencer> InSequencer)
 {
-	return MakeShareable( new FGeometryCacheTrackEditor( InSequencer ) );
+	return MakeShareable(new FGeometryCacheTrackEditor(InSequencer));
 }
 
 
-bool FGeometryCacheTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const
+bool FGeometryCacheTrackEditor::SupportsType(TSubclassOf<UMovieSceneTrack> Type) const
 {
 	return Type == UMovieSceneGeometryCacheTrack::StaticClass();
 }
 
 
-TSharedRef<ISequencerSection> FGeometryCacheTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding )
+TSharedRef<ISequencerSection> FGeometryCacheTrackEditor::MakeSectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track, FGuid ObjectBinding)
 {
-	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
-	
-	return MakeShareable( new FGeometryCacheSection(SectionObject, GetSequencer()) );
+	check(SupportsType(SectionObject.GetOuter()->GetClass()));
+
+	return MakeShareable(new FGeometryCacheSection(SectionObject, GetSequencer()));
 }
 
 void FGeometryCacheTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass)
@@ -317,11 +317,11 @@ void FGeometryCacheTrackEditor::BuildGeometryCacheTrack(FGuid ObjectBinding, UGe
 	}
 }
 
-FKeyPropertyResult FGeometryCacheTrackEditor::AddKeyInternal( FFrameNumber KeyTime, UObject* Object, UGeometryCacheComponent* GeomCacheComp, UMovieSceneTrack* Track)
+FKeyPropertyResult FGeometryCacheTrackEditor::AddKeyInternal(FFrameNumber KeyTime, UObject* Object, UGeometryCacheComponent* GeomCacheComp, UMovieSceneTrack* Track)
 {
 	FKeyPropertyResult KeyPropertyResult;
 
-	FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject( Object );
+	FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject(Object);
 	FGuid ObjectHandle = HandleResult.Handle;
 	KeyPropertyResult.bHandleCreated |= HandleResult.bWasCreated;
 	if (ObjectHandle.IsValid())
@@ -336,7 +336,7 @@ FKeyPropertyResult FGeometryCacheTrackEditor::AddKeyInternal( FFrameNumber KeyTi
 		{
 			Track->Modify();
 
-			UMovieSceneSection* NewSection = Cast<UMovieSceneGeometryCacheTrack>(Track)->AddNewAnimation( KeyTime, GeomCacheComp );
+			UMovieSceneSection* NewSection = Cast<UMovieSceneGeometryCacheTrack>(Track)->AddNewAnimation(KeyTime, GeomCacheComp);
 			KeyPropertyResult.bTrackModified = true;
 
 			GetSequencer()->EmptySelection();
@@ -362,7 +362,7 @@ TSharedPtr<SWidget> FGeometryCacheTrackEditor::BuildOutlinerEditWidget(const FGu
 			FMenuBuilder MenuBuilder(true, nullptr);
 
 			BuildGeometryCacheTrack(ObjectBinding, GeomMeshComp, Track);
-			
+
 			return MenuBuilder.MakeWidget();
 		};
 
@@ -378,7 +378,7 @@ TSharedPtr<SWidget> FGeometryCacheTrackEditor::BuildOutlinerEditWidget(const FGu
 	{
 		return TSharedPtr<SWidget>();
 	}
-	
+
 }
 
 const FSlateBrush* FGeometryCacheTrackEditor::GetIconBrush() const
