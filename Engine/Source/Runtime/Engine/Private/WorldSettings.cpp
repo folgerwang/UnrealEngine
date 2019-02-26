@@ -491,6 +491,12 @@ void AWorldSettings::CheckForErrors()
 	Super::CheckForErrors();
 
 	UWorld* World = GetWorld();
+	// World is nullptr if save is done from a derived AWorldSettings blueprint
+	if (World == nullptr)
+	{
+		return;
+	}
+
 	if ( World->GetWorldSettings() != this )
 	{
 		FMessageLog("MapCheck").Warning()
