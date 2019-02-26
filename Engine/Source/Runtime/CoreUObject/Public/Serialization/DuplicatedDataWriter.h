@@ -34,6 +34,9 @@ private:
 	 */
 	struct FObjectInstancingGraph*			InstanceGraph;
 
+	/** Context for duplication */
+	TRefCountPtr<FUObjectSerializeContext> DuplicateContext;
+
 	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
@@ -78,6 +81,16 @@ public:
 	virtual int64 TotalSize()
 	{
 		return ObjectData.GetSize();
+	}
+
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override
+	{
+		DuplicateContext = InLoadContext;
+	}
+
+	virtual FUObjectSerializeContext* GetSerializeContext() override
+	{
+		return DuplicateContext;
 	}
 
 	TArray<UObject*>	UnserializedObjects;

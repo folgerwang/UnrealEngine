@@ -23,6 +23,9 @@ private:
 	const FLargeMemoryData&					ObjectData;
 	int64									Offset;
 
+	/** Context for duplication */
+	TRefCountPtr<FUObjectSerializeContext> DuplicateContext;
+
 	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
@@ -65,6 +68,16 @@ public:
 	virtual int64 TotalSize()
 	{
 		return ObjectData.GetSize();
+	}
+
+	virtual void SetSerializeContext(FUObjectSerializeContext* InLoadContext) override
+	{
+		DuplicateContext = InLoadContext;
+	}
+
+	virtual FUObjectSerializeContext* GetSerializeContext() override
+	{
+		return DuplicateContext;
 	}
 
 	/**
