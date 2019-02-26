@@ -267,6 +267,98 @@ void UMovieSceneSequenceExtensions::SetPlaybackEndSeconds(UMovieSceneSequence* S
 	}
 }
 
+void UMovieSceneSequenceExtensions::SetViewRangeStart(UMovieSceneSequence* Sequence, float StartTimeInSeconds)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		MovieScene->SetViewRange(StartTimeInSeconds, MovieScene->GetEditorData().ViewEnd);
+#endif
+	}
+}
+
+float UMovieSceneSequenceExtensions::GetViewRangeStart(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		return MovieScene->GetEditorData().ViewStart;
+#endif
+	}
+	return 0.f;
+}
+
+void UMovieSceneSequenceExtensions::SetViewRangeEnd(UMovieSceneSequence* Sequence, float EndTimeInSeconds)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		MovieScene->SetViewRange(MovieScene->GetEditorData().ViewStart, EndTimeInSeconds);
+#endif
+	}
+}
+
+float UMovieSceneSequenceExtensions::GetViewRangeEnd(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		return MovieScene->GetEditorData().ViewEnd;
+#endif
+	}
+	return 0.f;
+}
+
+void UMovieSceneSequenceExtensions::SetWorkRangeStart(UMovieSceneSequence* Sequence, float StartTimeInSeconds)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		MovieScene->SetWorkingRange(StartTimeInSeconds, MovieScene->GetEditorData().WorkEnd);
+#endif
+	}
+}
+
+float UMovieSceneSequenceExtensions::GetWorkRangeStart(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		return MovieScene->GetEditorData().WorkStart;
+#endif
+	}
+	return 0.f;
+}
+
+void UMovieSceneSequenceExtensions::SetWorkRangeEnd(UMovieSceneSequence* Sequence, float EndTimeInSeconds)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		MovieScene->SetWorkingRange(MovieScene->GetEditorData().WorkStart, EndTimeInSeconds);
+#endif
+	}
+}
+
+float UMovieSceneSequenceExtensions::GetWorkRangeEnd(UMovieSceneSequence* Sequence)
+{
+	UMovieScene* MovieScene = GetMovieScene(Sequence);
+	if (MovieScene)
+	{
+#if WITH_EDITORONLY_DATA
+		return MovieScene->GetEditorData().WorkEnd;
+#endif
+	}
+	return 0.f;
+}
+
 FTimecode UMovieSceneSequenceExtensions::GetTimecodeSource(UMovieSceneSequence* Sequence)
 {
 	UMovieScene* MovieScene = GetMovieScene(Sequence);
