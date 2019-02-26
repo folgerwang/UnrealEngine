@@ -51,6 +51,16 @@ void SetupDistortionPassUniformBuffer(FRHICommandListImmediate& RHICmdList, cons
 	DistortionPassParameters.DistortionParams.Y = Ratio;
 	DistortionPassParameters.DistortionParams.Z = (float)View.UnscaledViewRect.Width();
 	DistortionPassParameters.DistortionParams.W = (float)View.UnscaledViewRect.Height();
+
+	// When ISR is enabled we store two FOVs in the distortion parameters and compute the aspect ratio in the shader instead.
+	if ((View.IsInstancedStereoPass() || View.bIsMobileMultiViewEnabled) && View.Family->Views.Num() > 0)
+	{
+		// When drawing the left eye in a stereo scene, copy the right eye view values into the instanced view uniform buffer.
+		const EStereoscopicPass StereoPassIndex = (View.StereoPass != eSSP_FULL) ? eSSP_RIGHT_EYE : eSSP_FULL;
+
+		const FViewInfo& InstancedView = static_cast<const FViewInfo&>(View.Family->GetStereoEyeView(StereoPassIndex));
+		DistortionPassParameters.DistortionParams.Y = InstancedView.ViewMatrices.GetProjectionMatrix().M[0][0];
+	}
 }
 
 void SetupMobileDistortionPassUniformBuffer(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, FMobileDistortionPassUniformParameters& DistortionPassParameters)
@@ -63,6 +73,16 @@ void SetupMobileDistortionPassUniformBuffer(FRHICommandListImmediate& RHICmdList
 	DistortionPassParameters.DistortionParams.Y = Ratio;
 	DistortionPassParameters.DistortionParams.Z = (float)View.UnscaledViewRect.Width();
 	DistortionPassParameters.DistortionParams.W = (float)View.UnscaledViewRect.Height();
+
+	// When ISR is enabled we store two FOVs in the distortion parameters and compute the aspect ratio in the shader instead.
+	if ((View.IsInstancedStereoPass() || View.bIsMobileMultiViewEnabled) && View.Family->Views.Num() > 0)
+	{
+		// When drawing the left eye in a stereo scene, copy the right eye view values into the instanced view uniform buffer.
+		const EStereoscopicPass StereoPassIndex = (View.StereoPass != eSSP_FULL) ? eSSP_RIGHT_EYE : eSSP_FULL;
+
+		const FViewInfo& InstancedView = static_cast<const FViewInfo&>(View.Family->GetStereoEyeView(StereoPassIndex));
+		DistortionPassParameters.DistortionParams.Y = InstancedView.ViewMatrices.GetProjectionMatrix().M[0][0];
+	}
 }
 
 /**
@@ -494,6 +514,33 @@ bool SubmitDistortionMeshDrawCommands(FRHICommandListImmediate& RHICmdList, cons
 	return bDirty;
 }
 
+static void SetupDistortionPassView(FRHICommandList& RHICmdList, const FViewInfo& View, const FSceneRenderer* SceneRenderer)
+{
+	if (!View.IsInstancedStereoPass())
+	{
+		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+	}
+	else
+	{
+		if (View.bIsMultiViewEnabled)
+		{
+			const uint32 LeftMinX = SceneRenderer->Views[0].ViewRect.Min.X;
+			const uint32 LeftMaxX = SceneRenderer->Views[0].ViewRect.Max.X;
+			const uint32 RightMinX = SceneRenderer->Views[1].ViewRect.Min.X;
+			const uint32 RightMaxX = SceneRenderer->Views[1].ViewRect.Max.X;
+
+			const uint32 LeftMaxY = SceneRenderer->Views[0].ViewRect.Max.Y;
+			const uint32 RightMaxY = SceneRenderer->Views[1].ViewRect.Max.Y;
+
+			RHICmdList.SetStereoViewport(LeftMinX, RightMinX, 0, 0, 0.0f, LeftMaxX, RightMaxX, LeftMaxY, RightMaxY, 1.0f);
+		}
+		else
+		{
+			RHICmdList.SetViewport(0, 0, 0, SceneRenderer->InstancedStereoWidth, View.ViewRect.Max.Y, 1);
+		}
+	}
+}
+
 /**
  * Renders the scene's distortion
  */
@@ -508,7 +555,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 	for(int32 ViewIndex = 0;ViewIndex < Views.Num();ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
-		if (View.bHasDistortionPrimitives)
+		if (View.bHasDistortionPrimitives && View.ShouldRenderView())
 		{
 			bRender=true;
 			break;
@@ -560,8 +607,13 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 					SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("View%d"), ViewIndex);
 
 					FViewInfo& View = Views[ViewIndex];
+					if (!View.ShouldRenderView())
+					{
+						continue;
+					}
+
 					// viewport to match view size
-					RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+					SetupDistortionPassView(RHICmdList, View, this);
 
 					Scene->UniformBuffers.UpdateViewUniformBuffer(View);
 
@@ -570,6 +622,7 @@ void FSceneRenderer::RenderDistortion(FRHICommandListImmediate& RHICmdList)
 					Scene->UniformBuffers.DistortionPassUniformBuffer.UpdateUniformBufferImmediate(DistortionPassParameters);
 
 					FMeshPassProcessorRenderState DrawRenderState(View, Scene->UniformBuffers.DistortionPassUniformBuffer);
+					DrawRenderState.SetInstancedViewUniformBuffer(Scene->UniformBuffers.InstancedViewUniformBuffer);
 
 					// test against depth and write stencil mask
 					DrawRenderState.SetDepthStencilState(TStaticDepthStencilState<

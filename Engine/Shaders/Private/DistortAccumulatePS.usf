@@ -33,7 +33,11 @@ void Main(
 	out float4 OutColor		: SV_Target0
 	)
 {
+#if INSTANCED_STEREO
+	ResolvedView = ResolveView(Interpolants.EyeIndex);
+#else
 	ResolvedView = ResolveView();
+#endif
 
 	// material parameter inputs
 	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Interpolants, SvPosition);
@@ -81,9 +85,16 @@ void Main(
 	float2 NDC = (MaterialParameters.ScreenPosition.xy / MaterialParameters.ScreenPosition.w);
 	float2 ScreenUV = NDC * ResolvedView.ScreenPositionScaleBias.xy + ResolvedView.ScreenPositionScaleBias.wz;
 
-	//Fix for Fov and aspect.
+	// When ISR is enabled we store two FOVs in the DistortionParams and compute the aspect ratio here
+#if INSTANCED_STEREO
+	float InvTanHalfFov = DistortionParams[Interpolants.EyeIndex];
+    float Ratio = DistortionParams.z / DistortionParams.w;
+#else
 	float InvTanHalfFov = DistortionParams.x;
     float Ratio = DistortionParams.y;
+#endif
+
+	// Fix for Fov and aspect.
  	float2 FovFix = float2(InvTanHalfFov,Ratio*InvTanHalfFov);
 	BufferUVDistortion *= DistortionParams.zw * float2(OffsetFudgeFactor,-OffsetFudgeFactor) * FovFix;
 
