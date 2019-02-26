@@ -486,7 +486,7 @@ void FAudioStreamingManager::OnAsyncFileCallback(FStreamingWaveData* StreamingWa
 
 		// Grab the loaded chunk memory ptr since it will be invalid as soon as this callback finishes
 		NewAudioChunkLoadResult->DataResults = Mem;
-
+		
 		// The chunk index to load the results into
 		NewAudioChunkLoadResult->LoadedAudioChunkIndex = LoadedAudioChunkIndex;
 
@@ -549,7 +549,7 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 		if (Wave)
 		{
 			FStreamingWaveData** WaveDataPtr = StreamingSoundWaves.Find(Wave);
-	
+
 			if (WaveDataPtr && (*WaveDataPtr)->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
 			{
 				FStreamingWaveData* WaveData = *WaveDataPtr;
@@ -573,7 +573,6 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 			}
 		}
 	}
-
 	for (auto Iter = WaveRequests.CreateIterator(); Iter; ++Iter)
 	{
 		USoundWave* Wave = Iter.Key();
@@ -586,7 +585,7 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 			Iter.RemoveCurrent();
 		}
 	}
-
+ 
 	// Process any async file requests after updating the streaming wave data stream statuses
 	ProcessPendingAsyncFileResults();
 }
@@ -800,38 +799,42 @@ bool FAudioStreamingManager::IsManagedStreamingSoundSource(const FSoundSource* S
 
 const uint8* FAudioStreamingManager::GetLoadedChunk(const USoundWave* SoundWave, uint32 ChunkIndex, uint32* OutChunkSize) const
 {
-	if (CriticalSection.TryLock())
+	// Check for the spoof of failing to load a stream chunk
+	if (SpoofFailedStreamChunkLoad > 0)
 	{
-		// Check for the spoof of failing to load a stream chunk
-		if (SpoofFailedStreamChunkLoad > 0)
-		{
-			CriticalSection.Unlock();
-			return nullptr;
-		}
+		return nullptr;
+	}
 
-		const FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(SoundWave);
-		if (WaveData)
+	// Get a critical section lock, but don't block others. This avoids rare conditions of deadlocking in this streaming manager with UpdateStreamingResources.
+	// But allows us to make sure we can get the requested loaded chunk. Most of the time, this function is called in an async task.
+	while (!CriticalSection.TryLock())
+	{
+		FPlatformProcess::Sleep(0.001f);
+	}
+
+	const FStreamingWaveData* WaveData = StreamingSoundWaves.FindRef(SoundWave);
+	if (WaveData)
+	{
+		if (WaveData->LoadedChunkIndices.Contains(ChunkIndex))
 		{
-			if (WaveData->LoadedChunkIndices.Contains(ChunkIndex))
+			for (int32 Index = 0; Index < WaveData->LoadedChunks.Num(); ++Index)
 			{
-				for (int32 Index = 0; Index < WaveData->LoadedChunks.Num(); ++Index)
+				if (WaveData->LoadedChunks[Index].Index == ChunkIndex)
 				{
-					if (WaveData->LoadedChunks[Index].Index == ChunkIndex)
+					if (OutChunkSize != NULL)
 					{
-						if (OutChunkSize != NULL)
-						{
-							// Return the size of the audio data within the chunk, not the chunk itself since this chunk could be zero-padded
-							*OutChunkSize = WaveData->LoadedChunks[Index].AudioDataSize;
-						}
-
-						return WaveData->LoadedChunks[Index].Data;
+						// Return the size of the audio data within the chunk, not the chunk itself since this chunk could be zero-padded
+						*OutChunkSize = WaveData->LoadedChunks[Index].AudioDataSize;
 					}
+
+					CriticalSection.Unlock();
+					return WaveData->LoadedChunks[Index].Data;
 				}
 			}
 		}
-
-		CriticalSection.Unlock();
 	}
+
+	CriticalSection.Unlock();
 	return NULL;
 }
 
