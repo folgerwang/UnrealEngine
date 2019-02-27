@@ -50,12 +50,12 @@ namespace SteamAudio
 			FString PathToDll = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Phonon/Win32/");
 #else
 			FString PathToDll = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Phonon/Win64/");
-			FSteamAudioModule::TANDllHandle = LoadDll(PathToDll + TEXT("tanrt64.dll"));
-			FSteamAudioModule::TANUtilsDllHandle = LoadDll(PathToDll + TEXT("GPUUtilities.dll"));
+			FSteamAudioModule::TANDllHandle = LoadDll(PathToDll + TEXT("tanrt64.dll"), false);
+			FSteamAudioModule::TANUtilsDllHandle = LoadDll(PathToDll + TEXT("GPUUtilities.dll"), false);
 #endif
 
 			FString DLLToLoad = PathToDll + TEXT("phonon.dll");
-			FSteamAudioModule::PhononDllHandle = LoadDll(DLLToLoad);
+			FSteamAudioModule::PhononDllHandle = LoadDll(DLLToLoad, true);
 		}
 #endif
 		iplCreateContext(UnrealLog, nullptr, nullptr, &GlobalContext);
