@@ -201,9 +201,6 @@ void FD3D11DynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef St
 			// Copy the contents of the temporary memory buffer allocated for writing into the VB.
 			Direct3DDeviceIMContext->UpdateSubresource(StructuredBuffer->Resource,LockedKey.Subresource,NULL,LockedData->GetData(),LockedData->Pitch,0);
 
-			// Check the copy is finished before freeing...
-			Direct3DDeviceIMContext->Flush();
-
 			// Free the temporary memory buffer.
 			LockedData->FreeData();
 		}
