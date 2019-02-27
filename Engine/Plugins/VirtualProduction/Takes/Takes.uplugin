@@ -42,10 +42,5 @@
 			"Type" : "Developer",
 			"LoadingPhase" : "PostEngineInit"
 		},
-		{
-			"Name" : "TakeViewer",
-			"Type" : "Developer",
-			"LoadingPhase" : "PostEngineInit"
-		}
 	]
 }
