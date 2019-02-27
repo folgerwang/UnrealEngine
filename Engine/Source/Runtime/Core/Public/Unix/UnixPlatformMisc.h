@@ -132,6 +132,7 @@ struct CORE_API FUnixPlatformMisc : public FGenericPlatformMisc
 	 */
 	static bool HasOverriddenReturnCode(uint8 * OverriddenReturnCodeToUsePtr);
 	static FString GetOSVersion();
+	static FString GetLoginId();
 
 #if STATS || ENABLE_STATNAMEDEVENTS
 	static void BeginNamedEventFrame();
