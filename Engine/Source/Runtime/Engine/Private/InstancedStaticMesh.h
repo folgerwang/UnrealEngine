@@ -152,6 +152,7 @@ struct FInstancingUserData
 
 	bool bRenderSelected;
 	bool bRenderUnselected;
+	FVector AverageInstancesScale;
 };
 
 struct FInstancedStaticMeshDataType
@@ -624,48 +625,7 @@ protected:
 
 private:
 
-	void SetupProxy(UInstancedStaticMeshComponent* InComponent)
-	{
-#if WITH_EDITOR
-		if( bHasSelectedInstances )
-		{
-			// if we have selected indices, mark scene proxy as selected.
-			SetSelection_GameThread(true);
-		}
-#endif
-		// Make sure all the materials are okay to be rendered as an instanced mesh.
-		for (int32 LODIndex = 0; LODIndex < LODs.Num(); LODIndex++)
-		{
-			FStaticMeshSceneProxy::FLODInfo& LODInfo = LODs[LODIndex];
-			for (int32 SectionIndex = 0; SectionIndex < LODInfo.Sections.Num(); SectionIndex++)
-			{
-				FStaticMeshSceneProxy::FLODInfo::FSectionInfo& Section = LODInfo.Sections[SectionIndex];
-				if (!Section.Material->CheckMaterialUsage_Concurrent(MATUSAGE_InstancedStaticMeshes))
-				{
-					Section.Material = UMaterial::GetDefaultMaterial(MD_Surface);
-				}
-			}
-		}
-
-		const bool bInstanced = GRHISupportsInstancing;
-
-		// Copy the parameters for LOD - all instances
-		UserData_AllInstances.MeshRenderData = InComponent->GetStaticMesh()->RenderData.Get();
-		UserData_AllInstances.StartCullDistance = InComponent->InstanceStartCullDistance;
-		UserData_AllInstances.EndCullDistance = InComponent->InstanceEndCullDistance;
-		UserData_AllInstances.MinLOD = ClampedMinLOD;
-		UserData_AllInstances.bRenderSelected = true;
-		UserData_AllInstances.bRenderUnselected = true;
-		UserData_AllInstances.RenderData = bInstanced ? nullptr : &InstancedRenderData;
-
-		// selected only
-		UserData_SelectedInstances = UserData_AllInstances;
-		UserData_SelectedInstances.bRenderUnselected = false;
-
-		// unselected only
-		UserData_DeselectedInstances = UserData_AllInstances;
-		UserData_DeselectedInstances.bRenderSelected = false;
-	}
+	void SetupProxy(UInstancedStaticMeshComponent* InComponent);
 };
 
 #if WITH_EDITOR
