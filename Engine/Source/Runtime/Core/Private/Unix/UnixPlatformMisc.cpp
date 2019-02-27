@@ -956,5 +956,5 @@ void FUnixPlatformMisc::UngrabAllInput()
 
 FString FUnixPlatformMisc::GetLoginId()
 {
-	return FString::Printf(TEXT("%s + %s(%d)"), *GetOperatingSystemId(), FPlatformProcess::UserName(), geteuid());
+	return FString::Printf(TEXT("%s-%08x"), *GetOperatingSystemId(), static_cast<uint32>(geteuid()));
 }
