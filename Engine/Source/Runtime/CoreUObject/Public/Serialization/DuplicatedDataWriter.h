@@ -7,6 +7,8 @@
 #include "UObject/UObjectAnnotation.h"
 #include "Serialization/DuplicatedObject.h"
 #include "Serialization/LargeMemoryData.h"
+#include "Templates/RefCounting.h"
+#include "UObject/UObjectThreadContext.h"
 
 struct FObjectInstancingGraph;
 
