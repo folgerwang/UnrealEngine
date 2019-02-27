@@ -190,8 +190,10 @@ VkImage FVulkanSurface::CreateImage(
 	bool bForceLinearTexture)
 {
 	const VkPhysicalDeviceProperties& DeviceProperties = InDevice.GetDeviceProperties();
+	const FPixelFormatInfo& FormatInfo = GPixelFormats[InFormat];
+	VkFormat TextureFormat = (VkFormat)FormatInfo.PlatformFormat;
 
-	checkf(GPixelFormats[InFormat].Supported, TEXT("Format %d"), (int32)InFormat);
+	checkf(TextureFormat != VK_FORMAT_UNDEFINED, TEXT("PixelFormat %d, is not supported for images"), (int32)InFormat);
 
 	VkImageCreateInfo TmpCreateInfo;
 	VkImageCreateInfo* ImageCreateInfoPtr = OutInfo ? OutInfo : &TmpCreateInfo;
@@ -226,7 +228,7 @@ VkImage FVulkanSurface::CreateImage(
 		break;
 	}
 
-	ImageCreateInfo.format = UEToVkFormat(InFormat, false);
+	ImageCreateInfo.format = UEToVkTextureFormat(InFormat, false);
 
 	checkf(ImageCreateInfo.format != VK_FORMAT_UNDEFINED, TEXT("Pixel Format %d not defined!"), (int32)InFormat);
 	if (OutStorageFormat)
@@ -236,7 +238,7 @@ VkImage FVulkanSurface::CreateImage(
 
 	if (OutViewFormat)
 	{
-		VkFormat ViewFormat = UEToVkFormat(InFormat, (UEFlags & TexCreate_SRGB) == TexCreate_SRGB);
+		VkFormat ViewFormat = UEToVkTextureFormat(InFormat, (UEFlags & TexCreate_SRGB) == TexCreate_SRGB);
 		*OutViewFormat = ViewFormat;
 		ImageCreateInfo.format = ViewFormat;
 	}
@@ -590,6 +592,8 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 {
 	StorageFormat = (VkFormat)GPixelFormats[PixelFormat].PlatformFormat;
 	check((UEFlags & TexCreate_SRGB) == 0);
+	checkf(PixelFormat == PF_Unknown || StorageFormat != VK_FORMAT_UNDEFINED, TEXT("PixelFormat %d, is not supported for images"), (int32)PixelFormat);
+
 	ViewFormat = StorageFormat;
 	FullAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(PixelFormat, true, true);
 	PartialAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(PixelFormat, false, true);
@@ -1275,7 +1279,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture2D(bool bFromRenderingThread, FText
 	const int32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
 	const int32 BlockSizeZ = GPixelFormats[PixelFormat].BlockSizeZ;
 	const int32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
-	VkFormat Format = UEToVkFormat(PixelFormat, false);
+	VkFormat Format = UEToVkTextureFormat(PixelFormat, false);
 
 	ensure(BlockSizeZ == 1);
 
@@ -1350,7 +1354,7 @@ void FVulkanDynamicRHI::InternalUpdateTexture3D(bool bFromRenderingThread, FText
 	const int32 BlockSizeY = GPixelFormats[PixelFormat].BlockSizeY;
 	const int32 BlockSizeZ = GPixelFormats[PixelFormat].BlockSizeZ;
 	const int32 BlockBytes = GPixelFormats[PixelFormat].BlockBytes;
-	const VkFormat Format = UEToVkFormat(PixelFormat, false);
+	const VkFormat Format = UEToVkTextureFormat(PixelFormat, false);
 
 	ensure(BlockSizeZ == 1);
 
@@ -1507,6 +1511,7 @@ VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage InIm
 	{
 		ensure(ViewInfo.format == VK_FORMAT_UNDEFINED);
 		ViewInfo.format = (VkFormat)GPixelFormats[PF_DepthStencil].PlatformFormat;
+		ensure(ViewInfo.format != VK_FORMAT_UNDEFINED);
 		ViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
 	}
 
@@ -1579,8 +1584,8 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	LLM_SCOPE_VULKAN(ELLMTagVulkan::VulkanTextures);
 	if (Surface.ViewFormat == VK_FORMAT_UNDEFINED)
 	{
-		Surface.StorageFormat = UEToVkFormat(InFormat, false);
-		Surface.ViewFormat = UEToVkFormat(InFormat, (UEFlags & TexCreate_SRGB) == TexCreate_SRGB);
+		Surface.StorageFormat = UEToVkTextureFormat(InFormat, false);
+		Surface.ViewFormat = UEToVkTextureFormat(InFormat, (UEFlags & TexCreate_SRGB) == TexCreate_SRGB);
 		checkf(Surface.StorageFormat != VK_FORMAT_UNDEFINED, TEXT("Pixel Format %d not defined!"), (int32)InFormat);
 	}
 

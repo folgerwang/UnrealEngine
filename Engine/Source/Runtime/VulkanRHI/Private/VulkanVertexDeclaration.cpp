@@ -147,7 +147,7 @@ void FVulkanVertexInputStateInfo::Generate(FVulkanVertexDeclaration* VertexDecla
 
 		CurrAttribute.binding = StreamToBinding.FindChecked(CurrElement.StreamIndex);
 		CurrAttribute.location = CurrElement.AttributeIndex;
-		CurrAttribute.format = UEToVkFormat(CurrElement.Type);
+		CurrAttribute.format = UEToVkBufferFormat(CurrElement.Type);
 		CurrAttribute.offset = CurrElement.Offset;
 	}
 

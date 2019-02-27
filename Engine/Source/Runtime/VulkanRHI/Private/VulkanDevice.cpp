@@ -36,6 +36,9 @@ static TAutoConsoleVariable<int32> GCVarRobustBufferAccess(
 	ECVF_ReadOnly
 );
 
+// Mirror GPixelFormats with format information for buffers
+VkFormat GVulkanBufferFormat[PF_MAX];
+
 EDelayAcquireImageType GVulkanDelayAcquireImage = EDelayAcquireImageType::DelayAcquire;
 
 TAutoConsoleVariable<int32> CVarDelayAcquireBackBuffer(
@@ -425,7 +428,8 @@ void FVulkanDevice::SetupFormats()
 	{
 		GPixelFormats[Index].PlatformFormat = VK_FORMAT_UNDEFINED;
 		GPixelFormats[Index].Supported = false;
-
+		GVulkanBufferFormat[Index] = VK_FORMAT_UNDEFINED;
+		
 		// Set default component mapping
 		VkComponentMapping& ComponentMapping = PixelFormatComponentMapping[Index];
 		ComponentMapping.r = VK_COMPONENT_SWIZZLE_R;
@@ -441,7 +445,7 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_G8, VK_FORMAT_R8_UNORM);
 	SetComponentMapping(PF_G8, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
 
-	MapFormatSupport(PF_G16, VK_FORMAT_R16_UNORM);
+	MapFormatSupportWithFallback(PF_G16, VK_FORMAT_R16_UNORM, {VK_FORMAT_R16_SFLOAT});
 	SetComponentMapping(PF_G16, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
 
 	MapFormatSupport(PF_FloatRGB, VK_FORMAT_B10G11R11_UFLOAT_PACK32);
@@ -450,19 +454,7 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_FloatRGBA, VK_FORMAT_R16G16B16A16_SFLOAT, 8);
 	SetComponentMapping(PF_FloatRGBA, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
-	MapFormatSupport(PF_DepthStencil, VK_FORMAT_D32_SFLOAT_S8_UINT);
-	if (!GPixelFormats[PF_DepthStencil].Supported)
-	{
-		MapFormatSupport(PF_DepthStencil, VK_FORMAT_D24_UNORM_S8_UINT);
-		if (!GPixelFormats[PF_DepthStencil].Supported)
-		{
-			MapFormatSupport(PF_DepthStencil, VK_FORMAT_D16_UNORM_S8_UINT);
-			if (!GPixelFormats[PF_DepthStencil].Supported)
-			{
-				UE_LOG(LogVulkanRHI, Error, TEXT("No stencil texture format supported!"));
-			}
-		}
-	}
+	MapFormatSupportWithFallback(PF_DepthStencil, VK_FORMAT_D32_SFLOAT_S8_UINT, {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT});
 	SetComponentMapping(PF_DepthStencil, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY);
 
 	MapFormatSupport(PF_ShadowDepth, VK_FORMAT_D16_UNORM);
@@ -475,7 +467,7 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_A32B32G32R32F, VK_FORMAT_R32G32B32A32_SFLOAT, 16);
 	SetComponentMapping(PF_A32B32G32R32F, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
-	MapFormatSupport(PF_G16R16, VK_FORMAT_R16G16_UNORM);
+	MapFormatSupportWithFallback(PF_G16R16, VK_FORMAT_R16G16_UNORM, {VK_FORMAT_R16G16_SFLOAT});
 	SetComponentMapping(PF_G16R16, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
 
 	MapFormatSupport(PF_G16R16F, VK_FORMAT_R16G16_SFLOAT);
@@ -499,28 +491,7 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_R8_UINT, VK_FORMAT_R8_UINT);
 	SetComponentMapping(PF_R8_UINT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
 
-	MapFormatSupport(PF_D24, VK_FORMAT_X8_D24_UNORM_PACK32);
-	if (!GPixelFormats[PF_D24].Supported)
-	{
-		MapFormatSupport(PF_D24, VK_FORMAT_D24_UNORM_S8_UINT);
-		if (!GPixelFormats[PF_D24].Supported)
-		{
-			MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM_S8_UINT);
-			if (!GPixelFormats[PF_D24].Supported)
-			{
-				MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT);
-				if (!GPixelFormats[PF_D24].Supported)
-				{
-					MapFormatSupport(PF_D24, VK_FORMAT_D32_SFLOAT_S8_UINT);
-					if (!GPixelFormats[PF_D24].Supported)
-					{
-						MapFormatSupport(PF_D24, VK_FORMAT_D16_UNORM);
-					}
-				}
-			}
-		}
-	}
-
+	MapFormatSupportWithFallback(PF_D24, VK_FORMAT_X8_D24_UNORM_PACK32, {VK_FORMAT_D24_UNORM_S8_UINT, VK_FORMAT_D16_UNORM_S8_UINT, VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT});
 	SetComponentMapping(PF_D24, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO, VK_COMPONENT_SWIZZLE_ZERO);
 
 	MapFormatSupport(PF_R16F, VK_FORMAT_R16_SFLOAT);
@@ -535,7 +506,8 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_A2B10G10R10, VK_FORMAT_A2B10G10R10_UNORM_PACK32, 4);
 	SetComponentMapping(PF_A2B10G10R10, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
-	MapFormatSupport(PF_A16B16G16R16, VK_FORMAT_R16G16B16A16_UNORM, 8);
+	MapFormatSupportWithFallback(PF_A16B16G16R16, VK_FORMAT_R16G16B16A16_UNORM, {VK_FORMAT_R16G16B16A16_SFLOAT});
+	GPixelFormats[PF_A16B16G16R16].BlockBytes = 8;
 	SetComponentMapping(PF_A16B16G16R16, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
 	MapFormatSupport(PF_A8, VK_FORMAT_R8_UNORM);
@@ -565,10 +537,10 @@ void FVulkanDevice::SetupFormats()
 	MapFormatSupport(PF_R32G32B32A32_UINT, VK_FORMAT_R32G32B32A32_UINT);
 	SetComponentMapping(PF_R32G32B32A32_UINT, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
-	MapFormatSupport(PF_R16G16B16A16_SNORM, VK_FORMAT_R16G16B16A16_SNORM);
+	MapFormatSupportWithFallback(PF_R16G16B16A16_SNORM, VK_FORMAT_R16G16B16A16_SNORM, {VK_FORMAT_R16G16B16A16_SFLOAT});
 	SetComponentMapping(PF_R16G16B16A16_SNORM, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
-	MapFormatSupport(PF_R16G16B16A16_UNORM, VK_FORMAT_R16G16B16A16_UNORM);
+	MapFormatSupportWithFallback(PF_R16G16B16A16_UNORM, VK_FORMAT_R16G16B16A16_UNORM, {VK_FORMAT_R16G16B16A16_SFLOAT});
 	SetComponentMapping(PF_R16G16B16A16_UNORM, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A);
 
 	MapFormatSupport(PF_R8G8, VK_FORMAT_R8G8_UNORM);
@@ -661,7 +633,7 @@ void FVulkanDevice::SetupFormats()
 	for (int32 Index = (int32)VET_None + 1; Index < VET_MAX; ++Index)
 	{
 		EVertexElementType UEType = (EVertexElementType)Index;
-		VkFormat VulkanFormat = UEToVkFormat(UEType);
+		VkFormat VulkanFormat = UEToVkBufferFormat(UEType);
 		if (!IsBufferFormatSupported(VulkanFormat))
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("EVertexFormat(%d) is not supported with Vk format %d"), (int32)UEType, (int32)VulkanFormat);
@@ -690,13 +662,40 @@ VkSamplerYcbcrConversion FVulkanDevice::CreateSamplerColorConversion(const VkSam
 
 void FVulkanDevice::MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat)
 {
-	FPixelFormatInfo& FormatInfo = GPixelFormats[UEFormat];
-	FormatInfo.PlatformFormat = VulkanFormat;
-	FormatInfo.Supported = IsTextureFormatSupported(VulkanFormat);
+	MapFormatSupportWithFallback(UEFormat, VulkanFormat, TArrayView<VkFormat>());
+}
 
+void FVulkanDevice::MapFormatSupportWithFallback(EPixelFormat UEFormat, VkFormat VulkanFormat, TArrayView<const VkFormat> FallbackTextureFormats)
+{
+	VkFormat SupportedTextureFormat = IsTextureFormatSupported(VulkanFormat) ? VulkanFormat : VK_FORMAT_UNDEFINED;
+	VkFormat SupportedBufferFormat = IsBufferFormatSupported(VulkanFormat) ? VulkanFormat : VK_FORMAT_UNDEFINED;
+	
+	FPixelFormatInfo& FormatInfo = GPixelFormats[UEFormat];
+	// at this point we don't know if high level code will use this pixel format for buffers or textures
+	FormatInfo.Supported = (SupportedTextureFormat!= VK_FORMAT_UNDEFINED || SupportedBufferFormat!= VK_FORMAT_UNDEFINED);
+	FormatInfo.PlatformFormat = SupportedTextureFormat;
+	
+	GVulkanBufferFormat[UEFormat] = SupportedBufferFormat;
+		
+	if (SupportedTextureFormat == VK_FORMAT_UNDEFINED)
+	{
+		for (int32 Idx = 0; Idx < FallbackTextureFormats.Num(); ++Idx)
+		{
+			VkFormat FallbackTextureFormat = FallbackTextureFormats[Idx];
+			if (IsTextureFormatSupported(FallbackTextureFormat))
+			{
+				SupportedTextureFormat = FallbackTextureFormat;
+				FormatInfo.PlatformFormat = FallbackTextureFormat;
+				FormatInfo.Supported = true;
+								
+				UE_LOG(LogVulkanRHI, Display, TEXT("EPixelFormat(%d) (images) is not supported with Vk format %d, falling back to Vk format %d"), (int32)UEFormat, (int32)VulkanFormat, (int32)FallbackTextureFormat);
+			}
+		}
+	}
+			
 	if (!FormatInfo.Supported)
 	{
-		UE_LOG(LogVulkanRHI, Warning, TEXT("EPixelFormat(%d) is not supported with Vk format %d"), (int32)UEFormat, (int32)VulkanFormat);
+		UE_LOG(LogVulkanRHI, Error, TEXT("EPixelFormat(%d) is not supported with Vk format %d"), (int32)UEFormat, (int32)VulkanFormat);
 	}
 }
 

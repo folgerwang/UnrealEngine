@@ -1320,13 +1320,13 @@ void FVulkanBufferView::Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint3
 	Offset = InOffset;
 	Size = InSize;
 	check(Format != PF_Unknown);
-	const FPixelFormatInfo& FormatInfo = GPixelFormats[Format];
-	check(FormatInfo.Supported);
+	VkFormat BufferFormat = GVulkanBufferFormat[Format];
+	check(BufferFormat != VK_FORMAT_UNDEFINED);
 
 	VkBufferViewCreateInfo ViewInfo;
 	ZeroVulkanStruct(ViewInfo, VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO);
 	ViewInfo.buffer = Buffer.GetBufferHandle();
-	ViewInfo.format = (VkFormat)FormatInfo.PlatformFormat;
+	ViewInfo.format = BufferFormat;
 	ViewInfo.offset = Offset;
 	ViewInfo.range = Size;
 	Flags = Buffer.GetFlags() & VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT;
@@ -1345,9 +1345,9 @@ void FVulkanBufferView::Create(FVulkanBuffer& Buffer, EPixelFormat Format, uint3
 void FVulkanBufferView::Create(FVulkanResourceMultiBuffer* Buffer, EPixelFormat Format, uint32 InOffset, uint32 InSize)
 {
 	check(Format != PF_Unknown);
-	const FPixelFormatInfo& FormatInfo = GPixelFormats[Format];
-	check(FormatInfo.Supported);
-	Create((VkFormat)FormatInfo.PlatformFormat, Buffer, InOffset, InSize);
+	VkFormat BufferFormat = GVulkanBufferFormat[Format];
+	check(BufferFormat != VK_FORMAT_UNDEFINED);
+	Create(BufferFormat, Buffer, InOffset, InSize);
 }
 
 void FVulkanBufferView::Create(VkFormat Format, FVulkanResourceMultiBuffer* Buffer, uint32 InOffset, uint32 InSize)

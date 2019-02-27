@@ -52,6 +52,9 @@ struct FSamplerYcbcrConversionInitializer
 	VkChromaLocation YOffset;
 };
 
+// Mirror GPixelFormats with format information for buffers
+extern VkFormat GVulkanBufferFormat[PF_MAX];
+
 /** This represents a vertex declaration that hasn't been combined with a specific shader to create a bound shader. */
 class FVulkanVertexDeclaration : public FRHIVertexDeclaration
 {

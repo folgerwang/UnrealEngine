@@ -204,7 +204,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		if (InOutPixelFormat == PF_Unknown)
 		{
 			UE_LOG(LogVulkanRHI, Warning, TEXT("Can't find a proper pixel format for the swapchain, trying to pick up the first available"));
-			VkFormat PlatformFormat = UEToVkFormat(InOutPixelFormat, false);
+			VkFormat PlatformFormat = UEToVkTextureFormat(InOutPixelFormat, false);
 			bool bSupported = false;
 			for (int32 Index = 0; Index < Formats.Num(); ++Index)
 			{
@@ -242,7 +242,7 @@ FVulkanSwapChain::FVulkanSwapChain(VkInstance InInstance, FVulkanDevice& InDevic
 		}
 	}
 
-	VkFormat PlatformFormat = UEToVkFormat(InOutPixelFormat, false);
+	VkFormat PlatformFormat = UEToVkTextureFormat(InOutPixelFormat, false);
 
 	Device.SetupPresentQueue(Surface);
 

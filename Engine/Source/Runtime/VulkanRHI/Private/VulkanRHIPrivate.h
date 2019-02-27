@@ -615,7 +615,7 @@ static inline VkAttachmentStoreOp RenderTargetStoreActionToVulkan(ERenderTargetS
 	return OutStoreAction;
 }
 
-inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
+inline VkFormat UEToVkTextureFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 {
 	VkFormat Format = (VkFormat)GPixelFormats[UEFormat].PlatformFormat;
 	if (bIsSRGB && GMaxRHIFeatureLevel > ERHIFeatureLevel::ES2)
@@ -661,7 +661,7 @@ inline VkFormat UEToVkFormat(EPixelFormat UEFormat, const bool bIsSRGB)
 	return Format;
 }
 
-static inline VkFormat UEToVkFormat(EVertexElementType Type)
+static inline VkFormat UEToVkBufferFormat(EVertexElementType Type)
 {
 	switch (Type)
 	{
