@@ -420,6 +420,8 @@ bool FOnlineIdentityGoogle::Logout(int32 LocalUserNum)
 		UserIds.Remove(LocalUserNum);
 		// reset scope permissions
 		GConfig->GetArray(TEXT("OnlineSubsystemGoogle.OnlineIdentityGoogle"), TEXT("ScopeFields"), LoginURLDetails.ScopeFields, GEngineIni);
+		// always required login access fields
+		LoginURLDetails.ScopeFields.AddUnique(TEXT(GOOGLE_PERM_PUBLIC_PROFILE));
 
 		TriggerOnLoginFlowLogoutDelegates(LoginDomains);
 
