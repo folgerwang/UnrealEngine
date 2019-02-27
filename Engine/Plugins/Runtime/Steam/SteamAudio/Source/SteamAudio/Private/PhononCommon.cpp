@@ -212,9 +212,9 @@ namespace SteamAudio
 		return StrippedMapName;
 	}
 
-	void* LoadDll(const FString& DllFile)
+	void* LoadDll(const FString& DllFile, bool bErrorOnLoadFailure)
 	{
-		UE_LOG(LogSteamAudio, Log, TEXT("Attempting to load %s"), *DllFile);
+		UE_LOG(LogSteamAudio, Display, TEXT("Attempting to load %s"), *DllFile);
 
 		void* DllHandle = nullptr;
 
@@ -224,16 +224,30 @@ namespace SteamAudio
 		}
 		else
 		{
-			UE_LOG(LogSteamAudio, Error, TEXT("File does not exist. %s"), *DllFile);
+			if (bErrorOnLoadFailure)
+			{
+				UE_LOG(LogSteamAudio, Error, TEXT("Failed to load missing file. %s"), *DllFile);
+			}
+			else
+			{
+				UE_LOG(LogSteamAudio, Display, TEXT("File does not exist. %s"), *DllFile);
+			}
 		}
 
 		if (!DllHandle)
 		{
-			UE_LOG(LogSteamAudio, Error, TEXT("Unable to load %s."), *DllFile);
+			if (bErrorOnLoadFailure)
+			{
+				UE_LOG(LogSteamAudio, Error, TEXT("Failure to load %s."), *DllFile)
+			}
+			else
+			{
+				UE_LOG(LogSteamAudio, Display, TEXT("Unable to load %s."), *DllFile);
+			}
 		}
 		else
 		{
-			UE_LOG(LogSteamAudio, Log, TEXT("Loaded %s."), *DllFile);
+			UE_LOG(LogSteamAudio, Display, TEXT("Loaded %s."), *DllFile);
 		}
 
 		return DllHandle;

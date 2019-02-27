@@ -133,8 +133,8 @@ namespace SteamAudio
 	/** Strips PIE prefix from map name for use in-editor. */
 	FString STEAMAUDIO_API StrippedMapName(const FString& MapName);
 
-	/** Attempts to loads the specified DLL, performing some basic error checking. Returns handle to DLL or nullptr on error.*/
-	void* LoadDll(const FString& DllFile);
+	/** Attempts to loads the specified DLL, performing some basic error checking. Returns handle to DLL or nullptr if failed to load.*/
+	void* LoadDll(const FString& DllFile, bool bErrorOnLoadFailure);
 
 	/** Error logs non-successful statuses. */
 	void LogSteamAudioStatus(const IPLerror Status);
