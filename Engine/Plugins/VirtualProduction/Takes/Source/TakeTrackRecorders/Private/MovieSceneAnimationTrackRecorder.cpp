@@ -102,11 +102,13 @@ void UMovieSceneAnimationTrackRecorder::CreateTrackImpl()
 
 		if (AnimSequence.IsValid())
 		{
+			FFrameRate SampleRate = MovieScene->GetDisplayRate();
+
 			FText Error;
 			FString Name = SkeletalMeshComponent->GetName();
 			FName SerializedType("Animation");
 			FString FileName = FString::Printf(TEXT("%s_%s"), *(SerializedType.ToString()), *Name);
-			float IntervalTime = AnimSettings->SampleRate.AsDecimal() > 0.0f ? 1.0f / AnimSettings->SampleRate.AsDecimal() : 1.0f / FAnimationRecordingSettings::DefaultSampleRate;
+			float IntervalTime = SampleRate.AsDecimal() > 0.0f ? 1.0f / SampleRate.AsDecimal() : 1.0f / FAnimationRecordingSettings::DefaultSampleRate;
 			FAnimationFileHeader Header(SerializedType, ObjectGuid, IntervalTime);
 
 			USkeleton* AnimSkeleton = AnimSequence->GetSkeleton();
@@ -224,9 +226,12 @@ void UMovieSceneAnimationTrackRecorder::RecordSampleImpl(const FQualifiedFrameTi
 			// We capture world space transforms for actors if they're attached, but we're not recording the attachment parent
 			bRecordInWorldSpace = !OwningTakeRecorderSource->IsOtherActorBeingRecorded(AttachParent->GetOwner());
 		}
+
+		FFrameRate SampleRate = MovieSceneSection->GetTypedOuter<UMovieScene>()->GetDisplayRate();
+
 		//Set this up here so we know that it's parent sources have also been added so we record in the correct space
 		FAnimationRecordingSettings RecordingSettings;
-		RecordingSettings.SampleRate = AnimSettings->SampleRate.AsDecimal();
+		RecordingSettings.SampleRate = SampleRate.AsDecimal();
 		RecordingSettings.InterpMode = AnimSettings->InterpMode;
 		RecordingSettings.TangentMode = AnimSettings->TangentMode;
 		RecordingSettings.Length = 0;

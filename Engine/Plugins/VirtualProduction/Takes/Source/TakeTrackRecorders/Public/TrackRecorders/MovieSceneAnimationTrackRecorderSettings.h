@@ -17,7 +17,6 @@ public:
 		: Super(ObjInit)
 	, AnimationTrackName(NSLOCTEXT("UMovieSceneAnimationTrackRecorderSettings", "DefaultAnimationTrackName", "RecordedAnimation"))
 	, AnimationSubDirectory(TEXT("Animation"))
-	, SampleRate(30, 1)
 	, bRemoveRootAnimation(true)
 	{
 	}
@@ -29,10 +28,6 @@ public:
 	/** The name of the subdirectory animations will be placed in. Leave this empty to place into the same directory as the sequence base path. */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Animation Recorder Settings")
 	FString AnimationSubDirectory;
-	
-	/** Maximum sample rate of the recorded animation */
-	UPROPERTY(EditAnywhere, Category = "Animation Recorder Settings")
-	FFrameRate SampleRate;
 	
 	/** Interpolation mode for the recorded keys. */
 	UPROPERTY(EditAnywhere, Category = "Animation Recorder Settings", DisplayName = "Interpolation Mode")

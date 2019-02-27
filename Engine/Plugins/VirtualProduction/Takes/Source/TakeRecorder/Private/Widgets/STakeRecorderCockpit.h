@@ -62,7 +62,7 @@ private:
 	FText GetTakeWarningText() const;
 
 	EVisibility GetRecordErrorVisibility() const;
-	FText GetRecordErrorText() const;
+	FText GetRecordErrorText() const; 
 
 	void UpdateRecordError();
 	void UpdateTakeError();
@@ -76,9 +76,9 @@ private:
 	FText GetUserDescriptionText() const;
 	void SetUserDescriptionText(const FText& InNewText, ETextCommit::Type);
 
+	FText GetFrameRateText() const;
 	FFrameRate GetFrameRate() const;
 	bool IsFrameRateCompatible(FFrameRate InFrameRate) const;
-	void SetFrameRate(FFrameRate InNewFrameRate);
 
 	FText GetSlateText() const;
 	void SetSlateText(const FText& InNewText, ETextCommit::Type InCommitType);
