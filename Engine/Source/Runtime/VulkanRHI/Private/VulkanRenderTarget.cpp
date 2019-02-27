@@ -1093,14 +1093,17 @@ void FVulkanDynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, 
 
 		StagingBuffer->InvalidateMappedMemory();
 
-		OutputData.SetNum(NumPixels);
+		uint32 OutWidth = InRect.Max.X - InRect.Min.X;
+		uint32 OutHeight= InRect.Max.Y - InRect.Min.Y;
+		OutputData.SetNum(OutWidth * OutHeight);
+		uint32 OutIndex = 0;
 		FFloat16Color* Dest = OutputData.GetData();
 		for (int32 Row = InRect.Min.Y; Row < InRect.Max.Y; ++Row)
 		{
 			FFloat16Color* Src = (FFloat16Color*)StagingBuffer->GetMappedPointer() + Row * (Surface.Width >> InMipIndex) + InRect.Min.X;
 			for (int32 Col = InRect.Min.X; Col < InRect.Max.X; ++Col)
 			{
-				*Dest++ = *Src++;
+				OutputData[OutIndex++] = *Src++;
 			}
 		}
 		InDevice->GetStagingManager().ReleaseBuffer(InCmdBuffer, StagingBuffer);

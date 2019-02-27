@@ -43,6 +43,8 @@ protected:
 	int32 SemaphoreIndex;
 	uint32 NumPresentCalls;
 	uint32 NumAcquireCalls;
+	uint32 InternalWidth = 0;
+	uint32 InternalHeight = 0;
 
 	uint32 RTPacingSampleCount = 0;
 	double RTPacingPreviousFrameCPUTime = 0;

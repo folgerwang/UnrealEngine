@@ -764,8 +764,8 @@ bool FVulkanViewport::Present(FVulkanCommandListContext* Context, FVulkanCmdBuff
 			SCOPE_CYCLE_COUNTER(STAT_VulkanAcquireBackBuffer);
 			GetNextImageIndex();
 
-			uint32 WindowSizeX = SizeX;
-			uint32 WindowSizeY = SizeY;
+			uint32 WindowSizeX = FMath::Min(SizeX, SwapChain->InternalWidth);
+			uint32 WindowSizeY = FMath::Min(SizeY, SwapChain->InternalHeight);
 
 			Context->RHIPushEvent(TEXT("CopyImageToBackBuffer"), FColor::Blue);
 			CopyImageToBackBuffer(CmdBuffer, true, RenderingBackBuffer->Surface.Image, BackBufferImages[AcquiredImageIndex], SizeX, SizeY, WindowSizeX, WindowSizeY);
