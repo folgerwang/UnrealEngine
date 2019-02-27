@@ -49,6 +49,13 @@ private:
 	double StartTime;
 	bool bPlaying;
 
+	/** 
+	 * Number of ticks to wait after the movie is complete before moving on to the next one. 
+	 * 
+	 * This allows us to defer texture deletion while it is being displayed.
+	 */
+	int32 TicksLeftToWaitPostCompletion;
+
 	bool StartNextMovie();
 	void ReleaseAcquiredResources();
 	bool DisplayFrames(float InDeltaTime);

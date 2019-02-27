@@ -80,7 +80,7 @@ bool FWebMContainer::Open(const FString& FilePath)
 
 		if (Track->GetType() == mkvparser::Track::kVideo)
 		{
-			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP9") == 0)
+			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP9") == 0 || FCStringAnsi::Strcmp(Track->GetCodecId(), "V_VP8") == 0)
 			{
 				MkvFile->VideoTracks.Add(static_cast<const mkvparser::VideoTrack*>(Track));
 
@@ -99,7 +99,7 @@ bool FWebMContainer::Open(const FString& FilePath)
 		}
 		else if (Track->GetType() == mkvparser::Track::kAudio)
 		{
-			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "A_OPUS") == 0)
+			if (FCStringAnsi::Strcmp(Track->GetCodecId(), "A_OPUS") == 0 || FCStringAnsi::Strcmp(Track->GetCodecId(), "A_VORBIS") == 0)
 			{
 				MkvFile->AudioTracks.Add(static_cast<const mkvparser::AudioTrack*>(Track));
 

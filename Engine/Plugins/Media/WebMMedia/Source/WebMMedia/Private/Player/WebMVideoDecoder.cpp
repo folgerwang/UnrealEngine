@@ -178,7 +178,13 @@ void FWebMVideoDecoder::Close()
 	}
 
 	// Make sure all compute shader decoding is done
-	FlushRenderingCommands();
+	//
+	// This function can also be called on a rendering thread (the streamer is ticked there during a startup movie, and decoder gets deleted on StartNextMovie()
+	// if there are >1 movie queued). In this case we will ensure that the resources survive for one more frame after use by other means.
+	if (IsInGameThread())
+	{
+		FlushRenderingCommands();
+	}
 
 	if (bIsInitialized)
 	{
