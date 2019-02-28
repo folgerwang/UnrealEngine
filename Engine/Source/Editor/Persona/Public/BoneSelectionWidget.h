@@ -103,6 +103,7 @@ public:
 
 	SLATE_BEGIN_ARGS( SBoneSelectionWidget )
 		: _bShowSocket(false)
+		, _bShowVirtualBones(true)
 		, _OnBoneSelectionChanged()
 		, _OnGetSelectedBone()
 		, _OnGetReferenceSkeleton()
@@ -110,6 +111,10 @@ public:
 	{}
 
 		SLATE_ARGUMENT(bool, bShowSocket)
+
+		/** Should show skeletons virtual bones in tree */
+		SLATE_ARGUMENT(bool, bShowVirtualBones)
+
 		/** set selected bone name */
 		SLATE_EVENT(FOnBoneSelectionChanged, OnBoneSelectionChanged);
 
@@ -152,6 +157,7 @@ private:
 	FGetReferenceSkeleton	OnGetReferenceSkeleton;
 	FGetSocketList			OnGetSocketList;
 	bool bShowSocket;
+	bool bShowVirtualBones;
 
 	// Cache supplied tooltip
 	FText SuppliedToolTip;

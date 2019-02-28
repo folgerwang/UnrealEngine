@@ -83,6 +83,7 @@ TSharedRef< SWidget > SBoneMappingListRow::GenerateWidgetForColumn( const FName&
 					.OnBoneSelectionChanged(this, &SBoneMappingListRow::OnBoneSelectionChanged)
 					.OnGetSelectedBone(this, &SBoneMappingListRow::GetSelectedBone)
 					.OnGetReferenceSkeleton(OnGetReferenceSkeleton)
+					.bShowVirtualBones(false)
 				]
 
 				+SHorizontalBox::Slot()

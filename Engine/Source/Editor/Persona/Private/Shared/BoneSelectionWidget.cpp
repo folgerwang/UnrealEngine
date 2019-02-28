@@ -233,6 +233,7 @@ void SBoneSelectionWidget::Construct(const FArguments& InArgs)
 	OnGetReferenceSkeleton = InArgs._OnGetReferenceSkeleton;
 	OnGetSocketList = InArgs._OnGetSocketList;
 	bShowSocket = InArgs._bShowSocket;
+	bShowVirtualBones = InArgs._bShowVirtualBones;
 
 	SuppliedToolTip = InArgs._ToolTipText.Get();
 
@@ -265,7 +266,8 @@ TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 		.OnGetReferenceSkeleton(OnGetReferenceSkeleton)
 		.OnGetSocketList(OnGetSocketList)
 		.bShowSocket(bShowSocket)
-		.SelectedBone(CurrentBoneName);
+		.SelectedBone(CurrentBoneName)
+		.bShowVirtualBones(bShowVirtualBones);
 
 	BonePickerButton->SetMenuContentWidgetToFocus(MenuWidget->GetFilterTextWidget());
 
