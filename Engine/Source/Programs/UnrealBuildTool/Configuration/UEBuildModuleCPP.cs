@@ -346,7 +346,7 @@ namespace UnrealBuildTool
 
 			// Set up the environment with which to compile the CPP files
 			CppCompileEnvironment CompileEnvironment = ModuleCompileEnvironment;
-			if (Target.bUsePCHFiles)
+			if (Target.bUsePCHFiles && Rules.PCHUsage != ModuleRules.PCHUsageMode.NoPCHs)
 			{
 				// If this module doesn't need a shared PCH, configure that
 				if(Rules.PrivatePCHHeaderFile != null && (Rules.PCHUsage == ModuleRules.PCHUsageMode.NoSharedPCHs || Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs))

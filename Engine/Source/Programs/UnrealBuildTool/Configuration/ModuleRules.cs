@@ -73,6 +73,11 @@ namespace UnrealBuildTool
 			Default,
 
 			/// <summary>
+			/// Never use any PCHs.
+			/// </summary>
+			NoPCHs,
+
+			/// <summary>
 			/// Never use shared PCHs.  Always generate a unique PCH for this module if appropriate
 			/// </summary>
 			NoSharedPCHs,
