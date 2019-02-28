@@ -676,6 +676,8 @@ void UMapBuildDataRegistry::InvalidateStaticLighting(UWorld* World, bool bRecrea
 
 		MarkPackageDirty();
 	}
+
+	bSetupResourceClusters = false;
 }
 
 void UMapBuildDataRegistry::InvalidateReflectionCaptures(const TSet<FGuid>* ResourcesToKeep)
@@ -856,7 +858,6 @@ void UMapBuildDataRegistry::EmptyLevelData(const TSet<FGuid>* ResourcesToKeep)
 	}
 
 	LightmapResourceClusters.Empty();
-	bSetupResourceClusters = false;
 }
 
 FUObjectAnnotationSparse<FMeshMapBuildLegacyData, true> GComponentsWithLegacyLightmaps;
