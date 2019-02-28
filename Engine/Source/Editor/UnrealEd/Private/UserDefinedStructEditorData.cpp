@@ -179,6 +179,12 @@ void UUserDefinedStructEditorData::RecreateDefaultInstance(FString* OutLog)
 {
 	UUserDefinedStruct* ScriptStruct = GetOwnerStruct();
 	ScriptStruct->DefaultStructInstance.Recreate(ScriptStruct);
+	ReinitializeDefaultInstance(OutLog);
+}
+
+void UUserDefinedStructEditorData::ReinitializeDefaultInstance(FString* OutLog)
+{
+	UUserDefinedStruct* ScriptStruct = GetOwnerStruct();
 	uint8* StructData = ScriptStruct->DefaultStructInstance.GetStructMemory();
 	ensure(ScriptStruct->DefaultStructInstance.IsValid() && ScriptStruct->DefaultStructInstance.GetStruct() == ScriptStruct);
 	if (ScriptStruct->DefaultStructInstance.IsValid() && StructData)

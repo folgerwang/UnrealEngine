@@ -143,6 +143,7 @@ public:
 
 	const uint8* GetDefaultInstance() const;
 	void RecreateDefaultInstance(FString* OutLog = nullptr);
+	void ReinitializeDefaultInstance(FString* OutLog = nullptr);
 	void CleanDefaultInstance();
 
 private:
