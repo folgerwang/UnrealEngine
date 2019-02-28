@@ -367,8 +367,9 @@ private:
 			InputFile << DirectoryMappings;
 
 			ResetAllShaderSourceDirectoryMappings();
-			for (const auto& MappingEntry : DirectoryMappings)
+			for (TPair<FString, FString>& MappingEntry : DirectoryMappings)
 			{
+				FPaths::NormalizeDirectoryName(MappingEntry.Value);
 				AddShaderSourceDirectoryMapping(MappingEntry.Key, MappingEntry.Value);
 			}
 		}

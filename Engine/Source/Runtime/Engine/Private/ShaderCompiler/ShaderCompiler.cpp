@@ -378,7 +378,12 @@ bool FShaderCompileUtilities::DoWriteTasks(const TArray<FShaderCommonCompileJob*
 
 	TransferFile << FormatVersionMap;
 
+	// Convert all the source directory paths to absolute, since SCW might be in a different directory to the editor executable
 	TMap<FString, FString> ShaderSourceDirectoryMappings = AllShaderSourceDirectoryMappings();
+	for(TPair<FString, FString>& Pair : ShaderSourceDirectoryMappings)
+	{
+		Pair.Value = FPaths::ConvertRelativePathToFull(Pair.Value);
+	}
 	TransferFile << ShaderSourceDirectoryMappings;
 
 	TArray<FShaderCompileJob*> QueuedSingleJobs;
@@ -1426,11 +1431,11 @@ FShaderCompilingManager::FShaderCompilingManager() :
 	NumOutstandingJobs(0),
 	NumExternalJobs(0),
 #if PLATFORM_MAC
-	ShaderCompileWorkerName(TEXT("../../../Engine/Binaries/Mac/ShaderCompileWorker")),
+	ShaderCompileWorkerName(FPaths::EngineDir() / TEXT("Binaries/Mac/ShaderCompileWorker")),
 #elif PLATFORM_LINUX
-	ShaderCompileWorkerName(TEXT("../../../Engine/Binaries/Linux/ShaderCompileWorker")),
+	ShaderCompileWorkerName(FPaths::EngineDir() / TEXT("Binaries/Linux/ShaderCompileWorker")),
 #else
-	ShaderCompileWorkerName(TEXT("../../../Engine/Binaries/Win64/ShaderCompileWorker.exe")),
+	ShaderCompileWorkerName(FPaths::EngineDir() / TEXT("Binaries/Win64/ShaderCompileWorker.exe")),
 #endif
 	SuppressedShaderPlatforms(0)
 {
