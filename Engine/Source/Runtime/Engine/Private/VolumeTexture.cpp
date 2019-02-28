@@ -466,9 +466,9 @@ public:
 		FSamplerStateInitializerRHI SamplerStateInitializer
 		(
 			SamplerFilter,
-			AM_Clamp,
-			AM_Clamp,
-			AM_Clamp
+			AM_Wrap,
+			AM_Wrap,
+			AM_Wrap
 		);
 		SamplerStateRHI = RHICreateSamplerState(SamplerStateInitializer);
 	}
