@@ -65,6 +65,21 @@ public:
 	static FString GetBuildDate();
 
 	/**
+	 * Gets the name of the graphics API currently in use.
+	 *
+	 * @return name of Graphics API
+	 */
+	static FString GetGraphicsAPI();
+
+	/**
+	 * Sets the Graphics Api currently in use
+	 *
+	 * @return name of Graphics API
+	 */
+	static void SetGraphicsAPI(FString APIString);
+
+
+	/**
 	 * Gets the value of ENGINE_IS_PROMOTED_BUILD.
 	 */
 	static int32 GetEngineIsPromotedBuild();
@@ -709,6 +724,10 @@ private:
 
 	/** Holds the name of the user that launched session. */
 	static FString SessionOwner;
+
+	/** Holds the name the graphics api currently in use*/
+	static FString GraphicsAPI;
+
 
 	/** List of authorized session users. */
 	static TArray<FString> SessionUsers;
