@@ -17,15 +17,10 @@ FARSupportInterface ::FARSupportInterface (IARSystemSupport* InARImplementation,
 {
 }
 
-
 FARSupportInterface ::~FARSupportInterface ()
 {
 	IModularFeatures::Get().UnregisterModularFeature(FARSupportInterface ::GetModularFeatureName(), this);
-
-	UARBlueprintLibrary::RegisterAsARSystem(nullptr);
-	UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(nullptr);
 }
-
 
 void FARSupportInterface ::InitializeARSystem()
 {
@@ -34,8 +29,8 @@ void FARSupportInterface ::InitializeARSystem()
 
 	if (ARImplemention)
 	{
-		UARBlueprintLibrary::RegisterAsARSystem(MakeShareable(this));
-		UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(MakeShareable(this));
+		UARBlueprintLibrary::RegisterAsARSystem(AsShared());
+		UARBaseAsyncTaskBlueprintProxy::RegisterAsARSystem(AsShared());
 
 		ARImplemention->OnARSystemInitialized();
 	}

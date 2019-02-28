@@ -31,10 +31,10 @@ public:
 	virtual void ReportSuccess() { check(0); }
 	virtual void ReportFailure() { check(0); }
 
-	static void RegisterAsARSystem(const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
+	static void RegisterAsARSystem(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
 
 protected:
-	static const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
+	static const TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
 	/** The async task to check during Tick() */
 	TSharedPtr<FARAsyncTask, ESPMode::ThreadSafe> AsyncTask;
 	
@@ -42,7 +42,7 @@ private:
 	/** True until the async task completes, then false */
 	bool bShouldTick;
 
-	static TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
+	static TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FARSaveWorldPin, const TArray<uint8>&, SavedWorld);

@@ -219,11 +219,11 @@ public:
 	static UARCandidateImage* AddRuntimeCandidateImage(UARSessionConfig* SessionConfig, UTexture2D* CandidateTexture, FString FriendlyName, float PhysicalWidth);
 
 public:
-	static void RegisterAsARSystem(const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
+	static void RegisterAsARSystem(const TSharedRef<FARSupportInterface , ESPMode::ThreadSafe>& NewArSystem);
 	
 private:
-	static const TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
-	static TSharedPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
+	static const TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe>& GetARSystem();
+	static TWeakPtr<FARSupportInterface , ESPMode::ThreadSafe> RegisteredARSystem;
 };
 
 
