@@ -200,6 +200,7 @@ void FCameraExposureSettings::ExportToPostProcessSettings(FPostProcessSettings* 
 	OutPostProcessSettings->bOverride_AutoExposureSpeedUp = true;
 	OutPostProcessSettings->bOverride_AutoExposureSpeedDown = true;
 	OutPostProcessSettings->bOverride_AutoExposureBias = true;
+	OutPostProcessSettings->bOverride_AutoExposureBiasCurve = true;
 	OutPostProcessSettings->bOverride_HistogramLogMin = true;
 	OutPostProcessSettings->bOverride_HistogramLogMax = true;
 
@@ -210,6 +211,7 @@ void FCameraExposureSettings::ExportToPostProcessSettings(FPostProcessSettings* 
 	OutPostProcessSettings->AutoExposureSpeedUp = SpeedUp;
 	OutPostProcessSettings->AutoExposureSpeedDown = SpeedDown;
 	OutPostProcessSettings->AutoExposureBias = Bias;
+	OutPostProcessSettings->AutoExposureBiasCurve = BiasCurve;
 	OutPostProcessSettings->HistogramLogMin = HistogramLogMin;
 	OutPostProcessSettings->HistogramLogMax = HistogramLogMax;
 }
@@ -644,6 +646,7 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, bOverride_AutoExposureSpeedUp(Settings.bOverride_AutoExposureSpeedUp)
 	, bOverride_AutoExposureSpeedDown(Settings.bOverride_AutoExposureSpeedDown)
 	, bOverride_AutoExposureBias(Settings.bOverride_AutoExposureBias)
+	, bOverride_AutoExposureBiasCurve(Settings.bOverride_AutoExposureBiasCurve)
 	, bOverride_HistogramLogMin(Settings.bOverride_HistogramLogMin)
 	, bOverride_HistogramLogMax(Settings.bOverride_HistogramLogMax)
 	, bOverride_LensFlareIntensity(Settings.bOverride_LensFlareIntensity)
@@ -807,6 +810,7 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, DepthOfFieldMinFstop(Settings.DepthOfFieldMinFstop)
 	, DepthOfFieldBladeCount(Settings.DepthOfFieldBladeCount)
 	, AutoExposureBias(Settings.AutoExposureBias)
+	, AutoExposureBiasCurve(Settings.AutoExposureBiasCurve)
 	, AutoExposureLowPercent(Settings.AutoExposureLowPercent)
 	, AutoExposureHighPercent(Settings.AutoExposureHighPercent)
 	, AutoExposureMinBrightness(Settings.AutoExposureMinBrightness)

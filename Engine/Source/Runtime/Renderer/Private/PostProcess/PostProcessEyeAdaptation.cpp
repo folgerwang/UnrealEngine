@@ -11,6 +11,8 @@
 #include "PipelineStateCache.h"
 #include "Math/UnrealMathUtility.h"
 #include "ScenePrivate.h"
+#include "Curves/CurveFloat.h"
+
 
 RENDERCORE_API bool UsePreExposure(EShaderPlatform Platform);
 
@@ -44,16 +46,6 @@ TAutoConsoleVariable<float> CVarEyeAdaptationFocus(
 	TEXT(">0: Center focus, 1 is a good number (default)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
-FORCEINLINE float EV100ToLuminance(float EV100)
-{
-	return 1.2 * FMath::Pow(2.0f, EV100);
-}
-
-FORCEINLINE float EV100ToLog2(float EV100)
-{
-	return EV100 + 0.263f; // Where .263 is log2(1.2)
-}
-
 /**
  *   Shared functionality used in computing the eye-adaptation parameters
  *   Compute the parameters used for eye-adaptation.  These will default to values
@@ -82,7 +74,17 @@ inline static void ComputeEyeAdaptationValues(const ERHIFeatureLevel::Type MinFe
 	float MinAverageLuminance = 1;
 	float MaxAverageLuminance = 1;
 	// This scales the average luminance AFTER it gets clamped, affecting the exposure value directly.
-	float LocalExposureMultipler = FMath::Pow(2.0f, Settings.AutoExposureBias);
+	float AutoExposureBias = Settings.AutoExposureBias;
+	if (Settings.AutoExposureBiasCurve)
+	{
+		float AverageSceneLuminance = View.GetLastAverageSceneLuminance();
+		if (AverageSceneLuminance > 0)
+		{
+			AutoExposureBias += Settings.AutoExposureBiasCurve->GetFloatValue(LuminanceToEV100(AverageSceneLuminance));
+		}
+	}
+
+	float LocalExposureMultipler = FMath::Pow(2.0f, AutoExposureBias);
 	// This scales the average luminance BEFORE it gets clamped, used to implement the calibration constant for AEM_Basic.
 	float AverageLuminanceScale = 1.f;
 
@@ -432,6 +434,8 @@ float FRCPassPostProcessEyeAdaptation::GetFixedExposure(const FViewInfo& View)
 
 void FSceneViewState::UpdatePreExposure(FViewInfo& View)
 {
+	const FSceneViewFamily& ViewFamily = *View.Family;
+
 	PreExposure = 1.f;
 	bUpdateLastExposure = false;
 
@@ -443,11 +447,9 @@ void FSceneViewState::UpdatePreExposure(FViewInfo& View)
 			PreExposure = FRCPassPostProcessEyeAdaptation::GetFixedExposure(View);
 		}
 	}
-	else if (UsePreExposure(View.GetShaderPlatform()))
+	else if (!IsRichView(ViewFamily) /*&& !ViewFamily.EngineShowFlags.VisualizeHDR */&& !ViewFamily.EngineShowFlags.VisualizeBloom && ViewFamily.EngineShowFlags.PostProcessing && ViewFamily.bResolveScene)
 	{
-		const FSceneViewFamily& ViewFamily = *View.Family;
-
-		if (!IsRichView(ViewFamily) /*&& !ViewFamily.EngineShowFlags.VisualizeHDR */&& !ViewFamily.EngineShowFlags.VisualizeBloom && ViewFamily.EngineShowFlags.PostProcessing && ViewFamily.bResolveScene)
+		if (UsePreExposure(View.GetShaderPlatform()))
 		{
 			const float PreExposureOverride = CVarEyeAdaptationPreExposureOverride.GetValueOnRenderThread();
 			const float LastExposure = View.GetLastEyeAdaptationExposure();
@@ -462,10 +464,12 @@ void FSceneViewState::UpdatePreExposure(FViewInfo& View)
 
 			bUpdateLastExposure = true;
 		}
+		// The exposure compensation curves require the scene average luminance
+		else if (View.FinalPostProcessSettings.AutoExposureBiasCurve)
+		{
+			bUpdateLastExposure = true;
+		}
 	}
-
-	// Set up view's preexposure.
-	View.PreExposure = PreExposure > 0 ? PreExposure : 1.0f;
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessEyeAdaptation::ComputeOutputDesc(EPassOutputId InPassOutputId) const
@@ -820,7 +824,7 @@ void FSceneViewState::FEyeAdaptationRTManager::SwapRTs(bool bInUpdateLastExposur
 	{
 		if (!StagingBuffers[CurrentStagingBuffer].IsValid())
 		{
-			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_G32R32F, FClearValueBinding::None, TexCreate_CPUReadback | TexCreate_HideInVisualizeTexture, TexCreate_None, false));
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_A32B32G32R32F, FClearValueBinding::None, TexCreate_CPUReadback | TexCreate_HideInVisualizeTexture, TexCreate_None, false));
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, StagingBuffers[CurrentStagingBuffer], TEXT("EyeAdaptationCPUReadBack"), true, ERenderTargetTransience::NonTransient);
 		}
 
@@ -837,7 +841,8 @@ void FSceneViewState::FEyeAdaptationRTManager::SwapRTs(bool bInUpdateLastExposur
 
 			if (ResultsBuffer)
 			{
-				LastExposure = *ResultsBuffer;
+				LastExposure = ResultsBuffer[0];
+				LastAverageSceneLuminance = ResultsBuffer[2];
 			}
 			RHICmdList.UnmapStagingSurface(StagingBuffers[NextStagingBuffer]->GetRenderTargetItem().ShaderResourceTexture);
 		}
@@ -857,7 +862,7 @@ TRefCountPtr<IPooledRenderTarget>&  FSceneViewState::FEyeAdaptationRTManager::Ge
 	if (!PooledRenderTarget[BufferNumber].IsValid() && RHICmdList)
 	{
 		// Create the texture needed for EyeAdaptation
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_G32R32F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
+		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(1, 1), PF_A32B32G32R32F, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable, false));
 		if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM5)
 		{
 			Desc.TargetableFlags |= TexCreate_UAV;

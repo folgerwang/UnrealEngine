@@ -1406,6 +1406,7 @@ bool SNewProjectWizard::CreateProject( const FString& ProjectFile )
 	ProjectInfo.TargetedHardware = SelectedHardwareClassTarget;
 	ProjectInfo.DefaultGraphicsPerformance = SelectedGraphicsPreset;
 	ProjectInfo.bIsEnterpriseProject = (SelectedTemplate->Type == FTemplateCategory::EnterpriseCategoryName) || FApp::IsEnterpriseInstalled();
+	ProjectInfo.bForceExtendedLuminanceRange = SelectedTemplate->ProjectFile.IsEmpty();
 
 	if (!GameProjectUtils::CreateProject(ProjectInfo, FailReason, FailLog))
 	{

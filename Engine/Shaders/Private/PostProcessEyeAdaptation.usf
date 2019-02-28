@@ -65,13 +65,14 @@ float ComputeEyeAdaptation(float OldExposure, float TargetExposure, float FrameT
 	return clamp(OldExposure + Diff * Factor, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w);
 }
 
-float2 MainEyeAdaptationCommon()
+float4 MainEyeAdaptationCommon()
 {
-	float2 OutColor = 0;
+	float4 OutColor = 0;
 
-	float ExposureOffsetMultipler = EyeAdaptationParams[1].x;
-	float TargetExposure = ComputeEyeAdaptationExposure(PostprocessInput0);
-	
+	const float ExposureOffsetMultipler = EyeAdaptationParams[1].x;
+	const float AverageSceneLuminance = ComputeEyeAdaptationExposure(PostprocessInput0);
+	const float TargetExposure = clamp(AverageSceneLuminance, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w);
+
 	float OldExposureScale = PostprocessInput0.Load(int3(0, 1, 0)).x;
 	float OldExposure = ExposureOffsetMultipler / ( OldExposureScale != 0 ? OldExposureScale : 1.0f );
 	float FrameTime = EyeAdaptationParams[1].y;
@@ -84,24 +85,25 @@ float2 MainEyeAdaptationCommon()
 
 	OutColor.x = ExposureOffsetMultipler * SmoothedExposureScale;
 	OutColor.y = ExposureOffsetMultipler * TargetExposureScale;
-
+	OutColor.z = AverageSceneLuminance;
+	OutColor.w = 0;
 
 	return OutColor;
 }
 
 void MainPS(float4 UVAndScreenPos : TEXCOORD0, 
-	out float2 OutColor : SV_Target0)
+	out float4 OutColor : SV_Target0)
 {
 	OutColor = MainEyeAdaptationCommon();
 }
 
 #if COMPUTESHADER
-RWTexture2D<float2> RWOutComputeTex;
+RWTexture2D<float4> RWOutComputeTex;
 
 [numthreads(1, 1, 1)]
 void MainCS(uint2 DispatchThreadId : SV_DispatchThreadID)
 {
-	float2 OutColor = MainEyeAdaptationCommon();
+	float4 OutColor = MainEyeAdaptationCommon();
 
 	uint2 PixelPos = DispatchThreadId + (uint2)View.ViewRectMin.xy;
 	RWOutComputeTex[PixelPos] = OutColor;
@@ -149,7 +151,7 @@ void MainReductionPS(
 
 void MainLogLuminance2ExposureScalePS(
 	in float4 UVAndScreenPos : TEXCOORD0,
-	out float2 OutColor : SV_Target0
+	out float4 OutColor : SV_Target0
 	)
 {
 	float2 UV = UVAndScreenPos.xy;
@@ -174,12 +176,13 @@ void MainLogLuminance2ExposureScalePS(
 	LogLumAve = (LogLumAve - EyeAdaptationParams[2].y) / EyeAdaptationParams[2].x;
 	
 	// Convert LogLuminanceAverage to Average Intensity
-	float LumAve = OneOverPreExposure * exp2(LogLumAve) * AverageLuminanceScale;
+	const float AverageSceneLuminance = OneOverPreExposure * exp2(LogLumAve);
+	const float LumAve = AverageSceneLuminance * AverageLuminanceScale;
 
-	float ClampedLumAve = clamp(LumAve, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w );
+	const float ClampedLumAve = clamp(LumAve, EyeAdaptationParams[0].z, EyeAdaptationParams[0].w );
 	
 	// NB: this param value differs by a factor from the value used in the histogram-based alogrithm 
-	float ExposureOffsetMultipler = EyeAdaptationParams[1].x;
+	const float ExposureOffsetMultipler = EyeAdaptationParams[1].x;
 
 	// The Exposure Scale (and thus intensity) used in the previous frame
 	float ExposureScaleOld = EyeAdaptationTexture.Load(int3(0, 0, 0)).x;
@@ -197,4 +200,6 @@ void MainLogLuminance2ExposureScalePS(
 	OutColor.x = ExposureOffsetMultipler * SmoothedExposureScale;
 	// Output the target value
 	OutColor.y = ExposureOffsetMultipler * TargetExposureScale;
+	OutColor.z = AverageSceneLuminance;
+	OutColor.w = 0;
 }

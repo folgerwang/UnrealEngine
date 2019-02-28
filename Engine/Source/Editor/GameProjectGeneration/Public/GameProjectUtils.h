@@ -20,6 +20,7 @@ struct FProjectInformation
 		, bShouldGenerateCode(bInGenerateCode)
 		, bCopyStarterContent(bInCopyStarterContent)
 		, bIsEnterpriseProject(false)
+		, bForceExtendedLuminanceRange(false)
 		, TargetedHardware(EHardwareClass::Desktop)
 		, DefaultGraphicsPerformance(EGraphicsPreset::Maximum)
 	{
@@ -31,6 +32,7 @@ struct FProjectInformation
 	bool bShouldGenerateCode;
 	bool bCopyStarterContent;
 	bool bIsEnterpriseProject;
+	bool bForceExtendedLuminanceRange; // See "r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange"
 
 	EHardwareClass::Type TargetedHardware;
 	EGraphicsPreset::Type DefaultGraphicsPerformance;

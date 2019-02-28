@@ -786,6 +786,9 @@ private:
 		/** Get the last frame exposure value (used to compute pre-exposure) */
 		float GetLastExposure() const { return LastExposure; }
 
+		/** Get the last frame average scene luminance (used for exposure compensation curve) */
+		float GetLastAverageSceneLuminance() const { return LastAverageSceneLuminance; }
+
 	private:
 
 		/** Return one of two two render targets */
@@ -796,6 +799,8 @@ private:
 		int32 CurrentBuffer;
 
 		float LastExposure;
+		float LastAverageSceneLuminance = 0; // 0 means invalid. Used for Exposure Compensation Curve.
+
 		int32 CurrentStagingBuffer;
 		static const int32 NUM_STAGING_BUFFERS = 3;
 
@@ -1169,6 +1174,11 @@ public:
 	float GetLastEyeAdaptationExposure() const
 	{
 		return EyeAdaptationRTManager.GetLastExposure();
+	}
+
+	float GetLastAverageSceneLuminance() const
+	{
+		return EyeAdaptationRTManager.GetLastAverageSceneLuminance();
 	}
 
 	bool HasValidTonemappingLUT() const

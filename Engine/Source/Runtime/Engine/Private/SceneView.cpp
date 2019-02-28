@@ -1408,6 +1408,12 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		}
 		PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
+		// Curve assets can not be blended.
+		IF_PP(AutoExposureBiasCurve)
+		{
+			Dest.AutoExposureBiasCurve = Src.AutoExposureBiasCurve;
+		}
+
 		// actual texture cannot be blended but the intensity can be blended
 		IF_PP(LensFlareBokehShape)
 		{

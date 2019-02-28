@@ -197,16 +197,6 @@ FString LogToString(float LogValue)
 	}
 }
 
-FORCEINLINE float LuminanceToEV100(float Luminance)
-{
-	return FMath::Log2(Luminance / 1.2f);
-}
-
-FORCEINLINE float Log2ToEV100(float Log2)
-{
-	return Log2 - 0.263f; // Where .263 is log2(1.2)
-}
-
 void FRCPassPostProcessVisualizeHDR::Process(FRenderingCompositePassContext& Context)
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessVisualizeHDR);

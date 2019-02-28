@@ -1684,6 +1684,16 @@ float FViewInfo::GetLastEyeAdaptationExposure() const
 	return 0.f; // Invalid exposure
 }
 
+float FViewInfo::GetLastAverageSceneLuminance() const
+{
+	const FSceneViewState* EffectiveViewState = GetEffectiveViewState();
+	if (EffectiveViewState)
+	{
+		return EffectiveViewState->GetLastAverageSceneLuminance();
+	}
+	return 0.f; // Invalid scene luminance
+}
+
 void FViewInfo::SetValidTonemappingLUT() const
 {
 	FSceneViewState* EffectiveViewState = GetEffectiveViewState();

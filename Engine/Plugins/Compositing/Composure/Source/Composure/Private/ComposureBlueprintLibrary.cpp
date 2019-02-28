@@ -122,6 +122,7 @@ void UComposureBlueprintLibrary::CopyCameraSettingsToSceneCapture(UCameraCompone
 		COPY_PPSETTING(DepthOfFieldMinFstop, bOverride_DepthOfFieldMinFstop);
 		COPY_PPSETTING(DepthOfFieldBladeCount, bOverride_DepthOfFieldBladeCount);
 		COPY_PPSETTING(AutoExposureBias, bOverride_AutoExposureBias);
+		COPY_PPSETTING(AutoExposureBiasCurve, bOverride_AutoExposureBiasCurve);
 			
 		COPY_PPSETTING(DepthOfFieldSensorWidth, bOverride_DepthOfFieldSensorWidth);
 		COPY_PPSETTING(DepthOfFieldFocalDistance, bOverride_DepthOfFieldFocalDistance);

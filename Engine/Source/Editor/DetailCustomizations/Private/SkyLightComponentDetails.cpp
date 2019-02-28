@@ -3,6 +3,7 @@
 #include "SkyLightComponentDetails.h"
 #include "Components/SceneComponent.h"
 #include "Engine/SkyLight.h"
+#include "Components/SkyLightComponent.h"
 #include "Widgets/DeclarativeSyntaxSupport.h"
 #include "Widgets/Text/STextBlock.h"
 #include "Widgets/Input/SButton.h"
@@ -26,6 +27,23 @@ TSharedRef<IDetailCustomization> FSkyLightComponentDetails::MakeInstance()
 
 void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
+	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetSelectedObjects();
+	for (int32 ObjectIndex = 0; ObjectIndex < SelectedObjects.Num(); ++ObjectIndex)
+	{
+		const TWeakObjectPtr<UObject>& CurrentObject = SelectedObjects[ObjectIndex];
+		if (CurrentObject.IsValid())
+		{
+			ASkyLight* CurrentCaptureActor = Cast<ASkyLight>(CurrentObject.Get());
+			if (CurrentCaptureActor != NULL)
+			{
+				SkyLight = CurrentCaptureActor;
+				break;
+			}
+		}
+	}
+
+	USkyLightComponent* SkyLightComponent = SkyLight.IsValid() ? SkyLight->GetLightComponent() : nullptr;
+
 	// Mobility property is on the scene component base class not the light component and that is why we have to use USceneComponent::StaticClass
 	TSharedRef<IPropertyHandle> MobilityHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(USkyLightComponent, Mobility), USceneComponent::StaticClass());
 	// Set a mobility tooltip specific to lights
@@ -39,22 +57,14 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 		LightIntensityProperty->SetInstanceMetaData("UIMin", TEXT("0.0f"));
 		LightIntensityProperty->SetInstanceMetaData("UIMax", TEXT("50000.0f"));
 		LightIntensityProperty->SetInstanceMetaData("SliderExponent", TEXT("10.0f"));
-		LightIntensityProperty->SetInstanceMetaData("Units", TEXT("CandelaPerMeter2"));
-	}
 
-	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetSelectedObjects();
-
-	for( int32 ObjectIndex = 0; ObjectIndex < SelectedObjects.Num(); ++ObjectIndex )
-	{
-		const TWeakObjectPtr<UObject>& CurrentObject = SelectedObjects[ObjectIndex];
-		if ( CurrentObject.IsValid() )
+		if (!SkyLightComponent || SkyLightComponent->SourceType != SLS_CapturedScene)
 		{
-			ASkyLight* CurrentCaptureActor = Cast<ASkyLight>(CurrentObject.Get());
-			if (CurrentCaptureActor != NULL)
-			{
-				SkyLight = CurrentCaptureActor;
-				break;
-			}
+			LightIntensityProperty->SetInstanceMetaData("Units", TEXT("CandelaPerMeter2"));
+		}
+		else
+		{
+			LightIntensityProperty->SetPropertyDisplayName(LOCTEXT("LightIntensityScaleDisplayName", "Intensity Scale"));
 		}
 	}
 
@@ -63,6 +73,10 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 	// The bVisible checkbox in the rendering category is frequently used on lights
 	// Editing the rendering category and giving it TypeSpecific priority will place it just under the Light category
 	DetailLayout.EditCategory("Rendering", FText::GetEmpty(), ECategoryPriority::TypeSpecific);
+
+	TSharedPtr<IPropertyHandle> SourceTypeProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(USkyLightComponent, SourceType), USkyLightComponent::StaticClass());
+	SourceTypeProperty->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FSkyLightComponentDetails::OnSourceTypeChanged));
+
 
 	DetailLayout.EditCategory( "SkyLight" )
 	.AddCustomRow( NSLOCTEXT("SkyLightDetails", "UpdateSkyLight", "Recapture Scene") )
@@ -89,6 +103,12 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 		];
 }
 
+void FSkyLightComponentDetails::CustomizeDetails(const TSharedPtr<IDetailLayoutBuilder>& DetailBuilder)
+{
+	CachedDetailBuilder = DetailBuilder;
+	CustomizeDetails(*DetailBuilder);
+}
+
 FReply FSkyLightComponentDetails::OnUpdateSkyCapture()
 {
 	if (SkyLight.IsValid())
@@ -100,6 +120,15 @@ FReply FSkyLightComponentDetails::OnUpdateSkyCapture()
 	}
 
 	return FReply::Handled();
+}
+
+void FSkyLightComponentDetails::OnSourceTypeChanged()
+{
+	IDetailLayoutBuilder* DetailBuilder = CachedDetailBuilder.Pin().Get();
+	if (DetailBuilder)
+	{
+		DetailBuilder->ForceRefreshDetails();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

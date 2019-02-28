@@ -1062,6 +1062,9 @@ public:
 	/** Get the last valid exposure value for eye adapation. */
 	float GetLastEyeAdaptationExposure() const;
 
+	/** Get the last valid average scene luminange for eye adapation (exposure compensation curve). */
+	float GetLastAverageSceneLuminance() const;
+
 	/** Informs sceneinfo that tonemapping LUT has queued commands to compute it at least once */
 	void SetValidTonemappingLUT() const;
 

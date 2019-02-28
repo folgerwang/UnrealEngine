@@ -1830,7 +1830,14 @@ bool GameProjectUtils::GenerateConfigFiles(const FProjectInformation& InProjectI
 			FileContents += TEXT("UseAudioMixer=True") LINE_TERMINATOR;
 			FileContents += LINE_TERMINATOR;
 		}
-		
+
+		if (InProjectInfo.bForceExtendedLuminanceRange)
+		{
+			FileContents += TEXT("[/Script/Engine.RendererSettings]") LINE_TERMINATOR;
+			FileContents += TEXT("r.DefaultFeature.AutoExposure.ExtendDefaultLuminanceRange=True") LINE_TERMINATOR;
+			FileContents += LINE_TERMINATOR;
+		}
+
 		if (InProjectInfo.bCopyStarterContent)
 		{
 			FString SpecificEditorStartupMap;
