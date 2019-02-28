@@ -184,8 +184,13 @@ FShadowDepthDSToPS PassFinalizeTessellationOutput(FShadowDepthVSToDS Interpolant
 		);
 #endif
 
-#if !(ONEPASS_POINTLIGHT_SHADOW || PERSPECTIVE_CORRECT_DEPTH) && COMPILER_SUPPORTS_EMPTY_STRUCTS
+// Conditions below are derived. See struct FShadowDepthVSToPS in ShadowDepthCommon.ush
+#if !PERSPECTIVE_CORRECT_DEPTH && !COMPILER_SUPPORTS_EMPTY_STRUCTS && !ONEPASS_POINTLIGHT_SHADOW
 	O.Dummy = 0;
+#endif
+
+#if INTERPOLATE_POSITION
+	O.PixelPosition = WorldPosition.xyz;
 #endif
 
 	return O;
