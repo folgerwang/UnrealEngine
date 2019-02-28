@@ -31,6 +31,7 @@ void SPerforceSourceControlSettings::Construct(const FArguments& InArgs)
 	{
 #if USE_P4_API
 		ClientApi TestP4;
+		TestP4.SetProg("UE4");
 		Error P4Error;
 		TestP4.Init(&P4Error);
 		PortName = ANSI_TO_TCHAR(TestP4.GetPort().Text());

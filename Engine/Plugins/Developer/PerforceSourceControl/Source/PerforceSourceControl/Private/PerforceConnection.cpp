@@ -318,6 +318,7 @@ bool FPerforceConnection::EnsureValidConnection(FString& InOutServerName, FStrin
 	FString NewClientSpecName = InOutWorkspaceName;
 
 	ClientApi TestP4;
+	TestP4.SetProg("UE4");
 	TestP4.SetProtocol("tag", "");
 	TestP4.SetProtocol("enableStreams", "");
 
@@ -684,6 +685,7 @@ void FPerforceConnection::EstablishConnection(const FPerforceConnectionInfo& InC
 
 	UE_LOG(LogSourceControl, Verbose, TEXT("Attempting P4 connection: %s/%s"), *InConnectionInfo.Port, *InConnectionInfo.UserName);
 
+	P4Client.SetProg("UE4");
 	P4Client.SetProtocol("tag", "");
 	P4Client.SetProtocol("enableStreams", "");
 
