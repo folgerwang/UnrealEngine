@@ -644,7 +644,7 @@ void FShaderResource::Serialize(FArchive& Ar, bool bLoadedByCookedMaterial)
 	Ar << NumInstructions;
 
 #if WITH_EDITORONLY_DATA
-	if (!Ar.IsCooking() || Ar.CookingTarget()->HasEditorOnlyData())
+	if ((!Ar.IsCooking() || Ar.CookingTarget()->HasEditorOnlyData()) && !bLoadedByCookedMaterial)
 	{
 		Ar << NumTextureSamplers;
 	}
