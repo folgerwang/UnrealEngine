@@ -1220,6 +1220,23 @@ void UBlueprintGeneratedClass::CheckAndApplyComponentTemplateOverrides(UObject* 
 	}
 }
 
+uint8* UBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
+{
+	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
+	{
+		if (UberGraphFunction == FuncToCheck)
+		{
+			FPointerToUberGraphFrame* PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
+			checkSlow(PointerToUberGraphFrame);
+			ensure(PointerToUberGraphFrame->RawPointer);
+			return PointerToUberGraphFrame->RawPointer;
+		}
+	}
+	UClass* ParentClass = GetSuperClass();
+	checkSlow(ParentClass);
+	return ParentClass->GetPersistentUberGraphFrame(Obj, FuncToCheck);
+}
+
 void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass, UClass* OldClass) const
 {
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
@@ -1481,6 +1498,7 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 {
 	Super::PurgeClass(bRecompilingOnLoad);
 
+	UberGraphFramePointerProperty = NULL;
 	UberGraphFunction = NULL;
 #if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
 	UberGraphFunctionKey = 0;

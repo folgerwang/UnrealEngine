@@ -1209,10 +1209,10 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::FindDebuggingData
 			UFunction* OuterFunction = Cast<UFunction>(Property->GetOuter());
 			if (!PropertyBase && OuterFunction)
 			{
-				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(OuterFunction->GetOuter());
+				UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass);
 				if (BPGC && ActiveObject->IsA(BPGC))
 				{
-					PropertyBase = GetPersistentUberGraphFrame( OuterFunction, ActiveObject );
+					PropertyBase = BPGC->GetPersistentUberGraphFrame(ActiveObject, OuterFunction);
 				}
 			}
 #endif // USE_UBER_GRAPH_PERSISTENT_FRAME

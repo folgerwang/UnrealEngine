@@ -50,22 +50,6 @@ static FAutoConsoleVariableRef CVarVerboseScriptStats(
 	ECVF_Default
 );
 
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-// Mirror definition of FPointerToUberGraphFrame, it is a UStruct and
-// we cannot easily generate its reflection data here in CoreUObject. The
-// builtins pattern we use for FVector, FQuat etc cannot be used because
-// our only member is a raw pointer and it cannot be a UProperty. This
-// creates difficulty in determining the correct size for the UStruct
-struct FPointerToUberGraphFrameCoreUObject
-{
-	uint8* RawPointer;
-
-#if VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
-	uint32 UberGraphFunctionKey;
-#endif//VALIDATE_UBER_GRAPH_PERSISTENT_FRAME
-};
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
-
 /*-----------------------------------------------------------------------------
 	Globals.
 -----------------------------------------------------------------------------*/
@@ -324,33 +308,6 @@ FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TC
 
 	return bDeprecated ? Ret + TEXT("_DEPRECATED") : Ret;
 }
-
-#if USE_UBER_GRAPH_PERSISTENT_FRAME
-/** Returns memory used to store temporary data on an instance, used by blueprints */
-static uint8* GetPersistentUberGraphFrameUnchecked(const UFunction* ForFn, UObject* Obj)
-{
-	const UClass* FromClass = ForFn->GetOuterUClassUnchecked();
-	checkSlow(ForFn->HasAnyFunctionFlags(FUNC_UbergraphFunction));
-	checkSlow(Obj->IsA(FromClass));
-	checkSlow(FromClass->UberGraphFramePointerProperty);
-	FPointerToUberGraphFrameCoreUObject* PointerToUberGraphFrame =
-		FromClass->UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrameCoreUObject>(
-			(void*)Obj
-		);
-	checkSlow(PointerToUberGraphFrame);
-	checkSlow(PointerToUberGraphFrame->RawPointer);
-	return PointerToUberGraphFrame->RawPointer;
-}
-
-uint8* GetPersistentUberGraphFrame(const UFunction* ForFn, UObject* Obj)
-{
-	if (ForFn->HasAnyFunctionFlags(FUNC_UbergraphFunction))
-	{
-		return GetPersistentUberGraphFrameUnchecked(ForFn, Obj);
-	}
-	return nullptr;
-}
-#endif //USE_UBER_GRAPH_PERSISTENT_FRAME
 
 /*-----------------------------------------------------------------------------
 	FFrame implementation.
@@ -745,7 +702,7 @@ void ProcessScriptFunction(UObject* Context, UFunction* Function, FFrame& Stack,
 	uint8* FrameMemory = nullptr;
 	FFrame NewStack(Context, Function, nullptr, &Stack, Function->Children);
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-	FrameMemory = GetPersistentUberGraphFrame(Function, Context);
+	FrameMemory = Function->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(Context, Function);
 #endif
 	bool bUsePersistentFrame = (nullptr != FrameMemory);
 	if (!bUsePersistentFrame)
@@ -1430,7 +1387,10 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 	{
 		uint8* Frame = NULL;
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-		Frame = GetPersistentUberGraphFrame(Function, this);
+		if (Function->HasAnyFunctionFlags(FUNC_UbergraphFunction))
+		{
+			Frame = Function->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(this, Function);
+		}
 #endif
 		const bool bUsePersistentFrame = (NULL != Frame);
 		if (!bUsePersistentFrame)
@@ -1964,7 +1924,7 @@ DEFINE_FUNCTION(UObject::execLetValueOnPersistentFrame)
 	checkSlow(DestProperty);
 	UFunction* UberGraphFunction = CastChecked<UFunction>(DestProperty->GetOwnerStruct());
 	checkSlow(Stack.Object->GetClass()->IsChildOf(UberGraphFunction->GetOuterUClassUnchecked()));
-	uint8* FrameBase = GetPersistentUberGraphFrameUnchecked(UberGraphFunction, Stack.Object);
+	uint8* FrameBase = UberGraphFunction->GetOuterUClassUnchecked()->GetPersistentUberGraphFrame(Stack.Object, UberGraphFunction);
 	checkSlow(FrameBase);
 	uint8* DestAddress = DestProperty->ContainerPtrToValuePtr<uint8>(FrameBase);
 

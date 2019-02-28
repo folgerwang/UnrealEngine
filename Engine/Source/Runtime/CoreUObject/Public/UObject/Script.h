@@ -552,13 +552,3 @@ COREUOBJECT_API FString ToValidCPPIdentifierChars(TCHAR Char);
 */
 COREUOBJECT_API FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TCHAR* Prefix);
 
-/**
-	@param ForFn Function to search for a corresponding uber graph frame
-	@param Obj owning the uber graph frame, Obj must be an instance based on ForFn->GetOuterUClass()
-	@return A pointer to the start of the objects persistent uber graph
-		frame if ForFn is an ubergraph function, else nullptr. The uber graph
-		frame is a struct that has a matching layout to a blueprint's UberGraphFunction's
-		parameters. The Uber Graph frame is an optimization because it avoids a large
-		allocation and corresponding initialization when calling the UberGraphFunction
-*/
-COREUOBJECT_API uint8* GetPersistentUberGraphFrame(const UFunction* ForFn, UObject* Obj);
