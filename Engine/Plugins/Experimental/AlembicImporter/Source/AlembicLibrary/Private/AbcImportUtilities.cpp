@@ -10,6 +10,10 @@
 #include "Windows/WindowsHWrapper.h"
 #endif
 
+#if PLATFORM_WINDOWS
+#include "Windows/AllowWindowsPlatformTypes.h"
+#endif
+
 THIRD_PARTY_INCLUDES_START
 #include <Alembic/AbcCoreHDF5/All.h>
 #include <Alembic/AbcCoreOgawa/All.h>
@@ -20,6 +24,10 @@ THIRD_PARTY_INCLUDES_START
 #include <Alembic/AbcGeom/All.h>
 #include <Alembic/Abc/IObject.h>
 THIRD_PARTY_INCLUDES_END
+
+#if PLATFORM_WINDOWS
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
 
 #include "Rendering/SkeletalMeshLODModel.h"
 

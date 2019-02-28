@@ -3,6 +3,14 @@
 // Re-enable warnings
 THIRD_PARTY_INCLUDES_END
 
+// Hide Windows-only types (same as HideWindowsPlatformTypes.h)
+#undef INT
+#undef UINT
+#undef DWORD
+#undef FLOAT
+#undef TRUE
+#undef FALSE
+
 // Undo any Windows defines.
 #undef uint8
 #undef uint16
@@ -36,6 +44,7 @@ THIRD_PARTY_INCLUDES_END
 #undef ReportEvent
 #undef GetClassName
 #undef GetClassInfo
+#undef Yield
 #undef IMediaEventSink
 
 // Undefine all the atomics. AllowWindowsPlatformAtomics/HideWindowsPlatformAtomics temporarily defining these macros.

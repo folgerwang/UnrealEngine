@@ -85,6 +85,10 @@ namespace Windows
 
 	typedef RTL_SRWLOCK SRWLOCK, *PSRWLOCK;
 
+	// Constants
+	static const BOOL TRUE = 1;
+	static const BOOL FALSE = 0;
+
 	// Modules
 	MINIMAL_WINDOWS_API HMODULE WINAPI LoadLibraryW(LPCTSTR lpFileName);
 	MINIMAL_WINDOWS_API BOOL WINAPI FreeLibrary(HMODULE hModule);
