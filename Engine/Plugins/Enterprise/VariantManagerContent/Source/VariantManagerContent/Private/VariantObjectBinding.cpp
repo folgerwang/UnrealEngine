@@ -227,7 +227,7 @@ void UVariantObjectBinding::ExecuteTargetFunction(FName FunctionName)
 	UWorld* World = DirectorInstance->GetWorld();
 	if (World->WorldType == EWorldType::Editor && !Func->HasMetaData(NAME_CallInEditor))
 	{
-		UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! It is also recommended to only ever call other CallInEditor functions from within it."), *FunctionName.ToString());
+		UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! Also note that calling this from the editor may have irreversible effects on the level."), *FunctionName.ToString());
 		return;
 	}
 #endif
@@ -291,7 +291,7 @@ void UVariantObjectBinding::ExecuteAllTargetFunctions()
 		UWorld* World = DirectorInstance->GetWorld();
 		if (World->WorldType == EWorldType::Editor && !Func->HasMetaData(NAME_CallInEditor))
 		{
-			UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! It is also recommended to only ever call other CallInEditor functions from within it."), *Func->GetName());
+			UE_LOG(LogVariantContent, Warning, TEXT("Cannot call function '%s' as it doesn't have the CallInEditor option checked! Also note that calling this from the editor may have irreversible effects on the level."), *Func->GetName());
 			continue;
 		}
 #endif

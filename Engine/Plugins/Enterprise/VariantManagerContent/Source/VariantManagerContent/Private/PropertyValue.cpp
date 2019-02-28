@@ -876,6 +876,12 @@ void UPropertyValue::ApplyViaFunctionSetter(UObject* TargetObject)
 		}
 	}
 
+	// HACK: Restore Visibility properties to operating recursively. Temporary until 4.23
+	if (PropertySetter->GetName() == TEXT("SetVisibility") && PropertySetter->ParmsSize == 2 && Parms)
+	{
+		Parms[1] = true;
+	}
+
 	// Only actually call the function if we managed to pack our recorded bytes in the params. Else we will
 	// just reset the object to defaults
 	if (bAppliedRecordedData)

@@ -318,7 +318,12 @@ namespace GLTF
 	{
 		const uint32 CameraIndex = Asset->Cameras.Num();
 		const FNode* Found       = Asset->Nodes.FindByPredicate([CameraIndex](const FNode& Node) { return CameraIndex == Node.CameraIndex; });
-		check(Found);
+		FString Name = GetString(Object, TEXT("name"));
+		if (!Found)
+		{
+			Messages.Emplace(EMessageSeverity::Warning, FString::Printf(TEXT("No camera node found for camera %d('%s')"), CameraIndex, *Name));
+			return;
+		}
 
 		FCamera& Camera = Asset->Cameras.Emplace_GetRef(*Found);
 		Camera.Name     = GetString(Object, TEXT("name"));
