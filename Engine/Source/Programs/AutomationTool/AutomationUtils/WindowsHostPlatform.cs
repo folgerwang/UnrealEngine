@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +24,14 @@ namespace AutomationTool
 
 		public override string GetUE4ExePath(string UE4Exe)
 		{
-			return CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RelativeBinariesFolder, UE4Exe);
+			if(Path.IsPathRooted(UE4Exe))
+			{
+				return CommandUtils.CombinePaths(UE4Exe);
+			}
+			else
+			{
+				return CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RelativeBinariesFolder, UE4Exe);
+			}
 		}
 
 		public override string LocalBuildsLogFolder

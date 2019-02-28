@@ -24,6 +24,11 @@ namespace AutomationTool
 
 		public override string GetUE4ExePath(string UE4Exe)
 		{
+			if(Path.IsPathRooted(UE4Exe))
+			{
+				return CommandUtils.CombinePaths(UE4Exe);
+			}
+
 			int CmdExeIndex = UE4Exe.IndexOf("-Cmd.exe");
 			if (CmdExeIndex != -1)
 			{
