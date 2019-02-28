@@ -105,7 +105,9 @@ void SSessionBrowser::Construct( const FArguments& InArgs, TSharedRef<ISessionMa
 
 	ReloadSessions();
 
+	updatingTreeExpansion = true;
 	SessionTreeView->SetSingleExpandedItem(AppGroupItem);
+	updatingTreeExpansion = false;
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
