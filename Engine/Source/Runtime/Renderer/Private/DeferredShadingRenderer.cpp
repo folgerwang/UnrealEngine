@@ -1716,7 +1716,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 	TRefCountPtr<IPooledRenderTarget> SkyLightRT;
 	TRefCountPtr<IPooledRenderTarget> GlobalIlluminationRT;
 	TRefCountPtr<IPooledRenderTarget> HitDistanceRT;
-	if (IsRayTracingEnabled())
+	const bool bRayTracingEnabled = IsRayTracingEnabled();
+	if (bRayTracingEnabled)
 	{
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 		{
@@ -2068,7 +2069,7 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 #if RHI_RAYTRACING
 		const bool bRaytracedTranslucency = CVarRayTracingTranslucency.GetValueOnRenderThread() != 0;
-		if (bRaytracedTranslucency)
+		if (bRayTracingEnabled && bRaytracedTranslucency)
 		{
 			ResolveSceneColor(RHICmdList);
 			RayTraceTranslucency(RHICmdList);
