@@ -537,7 +537,7 @@ namespace UnrealBuildTool
 
 			// Copy remote FrameworkAssets directory as it could contain resource bundles that must be packaged locally.
 			DirectoryReference BaseDir = DirectoryReference.FromFile(TargetDesc.ProjectFile) ?? UnrealBuildTool.EngineDirectory;
-			DirectoryReference FrameworkAssetsDir = DirectoryReference.Combine(BaseDir, "Intermediate", "IOS", "FrameworkAssets");
+			DirectoryReference FrameworkAssetsDir = DirectoryReference.Combine(BaseDir, "Intermediate", TargetDesc.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS", "FrameworkAssets");
 
 			Log.TraceInformation("[Remote] Downloading {0}", FrameworkAssetsDir);
 			DownloadDirectory(FrameworkAssetsDir);
