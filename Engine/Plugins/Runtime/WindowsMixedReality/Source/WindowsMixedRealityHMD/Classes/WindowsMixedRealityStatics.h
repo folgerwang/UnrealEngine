@@ -10,7 +10,9 @@
 #pragma warning(default:4668)
 
 #if WITH_WINDOWS_MIXED_REALITY
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "MixedRealityInterop.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 namespace WindowsMixedReality
