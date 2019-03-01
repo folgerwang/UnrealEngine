@@ -73,7 +73,7 @@ public class ApplicationCore : ModuleRules
 			PublicIncludePaths.AddRange(new string[] {"Runtime/ApplicationCore/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "SoundSwitch");
 		}
-        else if (Target.Platform == UnrealTargetPlatform.Android)
+        else if (Target.Platform == UnrealTargetPlatform.Android || Target.Platform == UnrealTargetPlatform.Lumin)
         {
             PrivateDependencyModuleNames.AddRange(
 				new string[] {
