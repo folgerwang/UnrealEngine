@@ -360,7 +360,7 @@ struct FBaseBlendedCurve
 	/** Get Array Index by UID */
 	int32 GetArrayIndexByUID(USkeleton::AnimCurveUID InUid) const
 	{
-		int32 ArrayIndex = (*UIDToArrayIndexLUT)[InUid];
+		int32 ArrayIndex = (*UIDToArrayIndexLUT).IsValidIndex(InUid) ? (*UIDToArrayIndexLUT)[InUid] : MAX_uint16;
 		if (ArrayIndex != MAX_uint16)
 		{
 			return ArrayIndex;
@@ -373,7 +373,7 @@ struct FBaseBlendedCurve
 	{
 		check(bInitialized);
 
-		return ((*UIDToArrayIndexLUT)[InUid] != MAX_uint16);
+		return (GetArrayIndexByUID(InUid) != INDEX_NONE);
 	}
 	
 	/** Get Valid Element Count from given UIDToArrayIndexLUT */
