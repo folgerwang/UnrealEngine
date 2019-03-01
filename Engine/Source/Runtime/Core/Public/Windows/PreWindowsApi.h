@@ -9,6 +9,8 @@
 #pragma push_macro("MAX_uint32")
 #pragma push_macro("MAX_int32")
 #pragma push_macro("TEXT")
+#pragma push_macro("TRUE")
+#pragma push_macro("FALSE")
 
 // Undefine the TEXT macro for winnt.h to redefine it, unless it's already been included
 #ifndef _WINNT_
