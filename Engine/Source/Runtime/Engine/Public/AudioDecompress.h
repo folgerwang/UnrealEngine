@@ -470,7 +470,8 @@ public:
 	void StartBackgroundTask()
 	{
 		FScopeLock Lock(&CritSect);
-		Task->StartBackgroundTask(ShouldUseBackgroundPoolFor_FAsyncRealtimeAudioTask() ? GBackgroundPriorityThreadPool : GThreadPool);
+		const bool bUseBackground = ShouldUseBackgroundPoolFor_FAsyncRealtimeAudioTask() && (Task->GetTask().GetTaskType() != ERealtimeAudioTaskType::Procedural);
+		Task->StartBackgroundTask(bUseBackground ? GBackgroundPriorityThreadPool : GThreadPool);
 	}
 
 	FAsyncRealtimeAudioTaskWorker<T>& GetTask()

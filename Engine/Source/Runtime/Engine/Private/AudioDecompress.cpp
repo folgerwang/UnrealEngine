@@ -696,7 +696,7 @@ void FAsyncAudioDecompressWorker::DoWork()
 
 static TAutoConsoleVariable<int32> CVarShouldUseBackgroundPoolFor_FAsyncRealtimeAudioTask(
 	TEXT("AudioThread.UseBackgroundThreadPool"),
-	0,
+	1,
 	TEXT("If true, use the background thread pool for realtime audio decompression."));
 
 bool ShouldUseBackgroundPoolFor_FAsyncRealtimeAudioTask()
