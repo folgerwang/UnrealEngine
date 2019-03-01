@@ -1752,11 +1752,7 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 	{
 		FRenderingPolygonGroup& RenderingPolygonGroup = RenderingPolygonGroups[ PolygonGroupID ];
 
-		// Remove material slot associated with section
-		const int32 MaterialIndex = RenderingPolygonGroup.MaterialIndex;
-		StaticMesh->StaticMaterials.RemoveAt( MaterialIndex );
-
-		// Adjust rendering indices held by sections: any index above the one we just deleted now needs to be decremented.
+		// Adjust rendering indices held by sections: any index above the one we are about to delete now needs to be decremented.
 		const uint32 RenderingSectionIndex = RenderingPolygonGroup.RenderingSectionIndex;
 
 		for( const FPolygonGroupID PolygonGroupIDToAdjust : RenderingPolygonGroups.GetElementIDs() )
@@ -1766,11 +1762,6 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 			if( PolygonGroupToAdjust.RenderingSectionIndex > RenderingSectionIndex )
 			{
 				PolygonGroupToAdjust.RenderingSectionIndex--;
-			}
-
-			if( PolygonGroupToAdjust.MaterialIndex > MaterialIndex )
-			{
-				PolygonGroupToAdjust.MaterialIndex--;
 			}
 		}
 
@@ -1782,7 +1773,7 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 			// Get current number of triangles allocated for this section
 			const int32 MaxTriangles = RenderingPolygonGroup.MaxTriangles;
 
-			// Remove indices from this poisition in the index buffer
+			// Remove indices from this position in the index buffer
 			StaticMeshLOD.IndexBuffer.RemoveIndicesAt( FirstIndex, MaxTriangles * 3 );
 
 			// Adjust first index for all subsequent render sections to account for the indices just removed.
@@ -1792,23 +1783,6 @@ void UEditableStaticMeshAdapter::OnDeletePolygonGroups( const UEditableMesh* Edi
 			{
 				check( StaticMeshLOD.Sections[ Index ].FirstIndex >= FirstIndex );
 				StaticMeshLOD.Sections[ Index ].FirstIndex -= MaxTriangles * 3;
-			}
-
-			// Adjust material indices for any sections to account for the fact that one has been removed
-			for( uint32 Index = 0; Index < NumRenderingSections; ++Index )
-			{
-				FStaticMeshSection& StaticMeshSection = StaticMeshLOD.Sections[ Index ];
-				if( StaticMeshSection.MaterialIndex > MaterialIndex )
-				{
-					StaticMeshSection.MaterialIndex--;
-
-#if WITH_EDITORONLY_DATA
-					// SectionInfoMap must be synced with the info of the modified Section
-					FMeshSectionInfo SectionInfo = StaticMesh->SectionInfoMap.Get( StaticMeshLODIndex, Index );
-					--SectionInfo.MaterialIndex;
-					StaticMesh->SectionInfoMap.Set( StaticMeshLODIndex, Index, SectionInfo );
-#endif
-				}
 			}
 
 			StaticMeshLOD.Sections.RemoveAt( RenderingSectionIndex );
