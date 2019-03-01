@@ -2193,6 +2193,8 @@ public:
 	 */
 	void UpdateTransform(FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix LocalToWorld, FMatrix PreviousLocalToWorld)
 	{
+		check(PrimitiveSceneInfo->Proxy->IsMovable());
+
 		FComponentVelocityData& VelocityData = ComponentData.FindOrAdd(PrimitiveSceneInfo->PrimitiveComponentId);
 		VelocityData.LocalToWorld = LocalToWorld;
 		VelocityData.LastFrameUsed = InternalFrameIndex;

@@ -1188,7 +1188,10 @@ void FScene::UpdatePrimitiveTransform_RenderThread(FRHICommandListImmediate& RHI
 	// (note that the octree update relies on the bounds not being modified yet).
 	PrimitiveSceneInfo->RemoveFromScene(bUpdateStaticDrawLists);
 
-	VelocityData.UpdateTransform(PrimitiveSceneInfo, LocalToWorld, PrimitiveSceneProxy->GetLocalToWorld());
+	if (PrimitiveSceneInfo->Proxy->IsMovable())
+	{
+		VelocityData.UpdateTransform(PrimitiveSceneInfo, LocalToWorld, PrimitiveSceneProxy->GetLocalToWorld());
+	}
 
 	if (GWarningOnRedundantTransformUpdate && PrimitiveSceneProxy->WouldSetTransformBeRedundant(LocalToWorld, WorldBounds, LocalBounds, AttachmentRootPosition))
 	{
@@ -2279,10 +2282,8 @@ void FSceneVelocityData::StartFrame(FScene* Scene)
 			// Recreate PrimitiveUniformBuffer on the frame after the primitive moved, since it contains PreviousLocalToWorld
 			VelocityData.PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);
 
-			if (VelocityData.PrimitiveSceneInfo->IsIndexValid())
-			{
-				AddPrimitiveToUpdateGPU(*Scene, VelocityData.PrimitiveSceneInfo->GetIndex());
-			}
+			check(VelocityData.PrimitiveSceneInfo->IsIndexValid());
+			AddPrimitiveToUpdateGPU(*Scene, VelocityData.PrimitiveSceneInfo->GetIndex());
 		}
 
 		if (bTrimOld && (InternalFrameIndex - VelocityData.LastFrameUsed) > 10)
