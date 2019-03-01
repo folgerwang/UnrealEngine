@@ -366,7 +366,8 @@ bool UMovementComponent::ShouldSkipUpdate(float DeltaTime) const
 
 float UMovementComponent::GetGravityZ() const
 {
-	return GetPhysicsVolume()->GetGravityZ();
+	APhysicsVolume* PhysicsVolume = GetPhysicsVolume();
+	return PhysicsVolume ? PhysicsVolume->GetGravityZ() : UPhysicsSettings::Get()->DefaultGravityZ;
 }
 
 void UMovementComponent::HandleImpact(const FHitResult& Hit, float TimeSlice, const FVector& MoveDelta)
