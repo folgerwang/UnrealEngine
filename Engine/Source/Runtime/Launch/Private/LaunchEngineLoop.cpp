@@ -2164,16 +2164,16 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 			}
 
 			{
-				SCOPED_BOOT_TIMING("FEngineFontServices::Create");
-				// Create the engine font services now that the Slate renderer is ready
-				FEngineFontServices::Create();
+SCOPED_BOOT_TIMING("FEngineFontServices::Create");
+// Create the engine font services now that the Slate renderer is ready
+FEngineFontServices::Create();
 			}
 
 			{
-				SCOPED_BOOT_TIMING("GetMoviePlayer()->SetupLoadingScreenFromIni");
-				// allow the movie player to load a sequence from the .inis (a PreLoadingScreen module could have already initialized a sequence, in which case
-				// it wouldn't have anything in it's .ini file)
-				GetMoviePlayer()->SetupLoadingScreenFromIni();
+			SCOPED_BOOT_TIMING("GetMoviePlayer()->SetupLoadingScreenFromIni");
+			// allow the movie player to load a sequence from the .inis (a PreLoadingScreen module could have already initialized a sequence, in which case
+			// it wouldn't have anything in it's .ini file)
+			GetMoviePlayer()->SetupLoadingScreenFromIni();
 			}
 
 			{
@@ -2190,14 +2190,14 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				SCOPED_BOOT_TIMING("EarlyStartupMovie");
 				GetMoviePlayer()->Initialize(SlateRenderer.Get());
 
-                // hide splash screen now before playing any movies
+				// hide splash screen now before playing any movies
 				FPlatformMisc::PlatformHandleSplashScreen(false);
 
 				// only allowed to play any movies marked as early startup.  These movies or widgets can have no interaction whatsoever with uobjects or engine features
 				GetMoviePlayer()->PlayEarlyStartupMovies();
 
-                // display the splash screen again now that early startup movies have played
-                FPlatformMisc::PlatformHandleSplashScreen(true);
+				// display the splash screen again now that early startup movies have played
+				FPlatformMisc::PlatformHandleSplashScreen(true);
 
 #if 0 && PAK_TRACKER// dump the files which have been accessed inside the pak file
 				FPakPlatformFile* PakPlatformFile = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(FPakPlatformFile::GetTypeName()));
@@ -2254,19 +2254,32 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 				}
 #endif
 			}
-            else
-            {
+			else
+			{
 				SCOPED_BOOT_TIMING("PlayFirstPreLoadScreen");
 
-                // hide splash screen now before playing any movies
-                FPlatformMisc::PlatformHandleSplashScreen(false);
+				if (FPreLoadScreenManager::Get())
+				{
+					//initialize and play our first Early PreLoad Screen if one is setup
+					FPreLoadScreenManager::Get()->Initialize(SlateRenderer.Get());
 
-                if (FPreLoadScreenManager::Get())
-                {
-                    //initialize and play our first Early PreLoad Screen if one is setup
-                    FPreLoadScreenManager::Get()->Initialize(SlateRenderer.Get());
-                    FPreLoadScreenManager::Get()->PlayFirstPreLoadScreen(EPreLoadScreenTypes::EarlyStartupScreen);
+					if (FPreLoadScreenManager::Get()->HasRegisteredPreLoadScreenType(EPreLoadScreenTypes::EarlyStartupScreen))
+					{
+						// disable the splash before playing the early startup screen
+						FPlatformMisc::PlatformHandleSplashScreen(false);
+						FPreLoadScreenManager::Get()->PlayFirstPreLoadScreen(EPreLoadScreenTypes::EarlyStartupScreen);
+					}
+					else
+					{
+						// no early startup screen, show the splash screen
+						FPlatformMisc::PlatformHandleSplashScreen(true);
+					}					
                 }
+				else
+				{
+					// no preload manager, show the splash screen
+					FPlatformMisc::PlatformHandleSplashScreen(true);
+				}
             }
 		}
 		else if ( IsRunningCommandlet() )
