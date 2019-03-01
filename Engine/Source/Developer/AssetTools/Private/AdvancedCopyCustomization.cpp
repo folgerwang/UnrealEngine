@@ -4,6 +4,9 @@
 #include "Containers/UnrealString.h"
 #include "AssetRegistryModule.h"
 #include "Interfaces/IPluginManager.h"
+#include "Engine/World.h"
+#include "Engine/Level.h"
+#include "Engine/MapBuildDataRegistry.h"
 
 
 #define LOCTEXT_NAMESPACE "AdvancedCopyCustomization"
@@ -24,6 +27,10 @@ UAdvancedCopyCustomization::UAdvancedCopyCustomization(const class FObjectInitia
 
 	FilterForExcludingDependencies.bRecursivePaths = true;
 	FilterForExcludingDependencies.bRecursiveClasses = true;
+	FilterForExcludingDependencies.ClassNames.Add(UWorld::StaticClass()->GetFName());
+	FilterForExcludingDependencies.ClassNames.Add(ULevel::StaticClass()->GetFName());
+	FilterForExcludingDependencies.ClassNames.Add(UMapBuildDataRegistry::StaticClass()->GetFName());
+
 }
 
 void UAdvancedCopyCustomization::SetPackageThatInitiatedCopy(const FString& InBasePackage)

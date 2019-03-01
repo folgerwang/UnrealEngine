@@ -68,7 +68,7 @@ public:
 
 	/** Constructs this widget with InArgs */
 	void Construct( const FArguments& InArgs, const FAdvancedCopyParams& InParams, const FText& InReportMessage, const TArray<TMap<FString, FString>>& DestinationMap, const TArray<TMap<FName, FName>>& DependencyMap, const FOnReportConfirmed& InOnReportConfirmed );
-
+		
 	ECheckBoxState IsGeneratingDependencies() const;
 
 	void ToggleGeneratingDependencies(ECheckBoxState NewState);
@@ -98,6 +98,8 @@ private:
 
 	/** Handler for when "Cancel" is clicked */
 	FReply CancelClicked();
+
+	FText GetHeaderText(const FText InReportMessage) const;
 
 private:
 	FOnReportConfirmed OnReportConfirmed;

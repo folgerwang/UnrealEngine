@@ -140,7 +140,7 @@ void SAdvancedCopyReportDialog::Construct( const FArguments& InArgs, const FAdva
 			.Padding(0, 4)
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(LOCTEXT("AdvancedCopyDesc","The following files will be copied to {0} and references to copied files will be fixed up."),InReportMessage))
+				.Text(this, &SAdvancedCopyReportDialog::GetHeaderText, InReportMessage)
 				.TextStyle( FEditorStyle::Get(), "PackageMigration.DialogTitle" )
 			]
 
@@ -221,6 +221,15 @@ void SAdvancedCopyReportDialog::Construct( const FArguments& InArgs, const FAdva
 	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+FText SAdvancedCopyReportDialog::GetHeaderText(const FText InReportMessage) const
+{
+	if (PackageReportRootNode.Children.Num() == 0)
+	{
+		return LOCTEXT("NoValidSources", "You have not selected any valid sources for advanced copying.");
+	}
+	return FText::Format(LOCTEXT("AdvancedCopyDesc", "The following files will be copied to {0} and references to copied files will be fixed up."), InReportMessage);
+}
 
 ECheckBoxState SAdvancedCopyReportDialog::IsGeneratingDependencies() const
 {
