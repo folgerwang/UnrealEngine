@@ -136,9 +136,13 @@ struct FShadowDepthVSToDS
 
 struct FShadowDepthDSToPS : FShadowDepthVSToPS
 {
-	float4 Position : SV_POSITION;
-#if ONEPASS_POINTLIGHT_SHADOW && USING_VERTEX_SHADER_LAYER
+#if ONEPASS_POINTLIGHT_SHADOW
+	float4 Position : TEXCOORD6;
+#if USING_VERTEX_SHADER_LAYER
 	uint LayerIndex : SV_RenderTargetArrayIndex;
+#endif
+#else
+	float4 Position : SV_POSITION;
 #endif
 };
 
