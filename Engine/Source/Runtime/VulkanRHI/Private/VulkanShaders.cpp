@@ -110,6 +110,13 @@ void FVulkanShader::Setup(const TArray<uint8>& InShaderHeaderAndCode, uint64 InS
 		checkSlow(CodeHeader.UniformBufferSpirvInfos.Num() == 0);
 	}
 	check(CodeHeader.GlobalSpirvInfos.Num() == CodeHeader.Globals.Num());
+
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+	// main_00000000_00000000
+	ANSICHAR EntryPoint[24];
+	GetEntryPoint(EntryPoint);
+	DebugEntryPoint = EntryPoint;
+#endif
 }
 
 VkShaderModule FVulkanShader::CreateHandle(const FVulkanLayout* Layout, uint32 LayoutHash)

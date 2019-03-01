@@ -125,6 +125,9 @@ public:
 	}
 
 protected:
+#if VULKAN_ENABLE_SHADER_DEBUG_NAMES
+	FString							DebugEntryPoint;
+#endif
 	uint64							ShaderKey;
 
 	/** External bindings for this shader. */
