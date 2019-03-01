@@ -309,9 +309,9 @@ private:
 		IConcertClientPtr ConcertClient = IConcertModule::Get().GetClientInstance();
 		if (ConcertClient.IsValid() && ConcertClient->GetSessionConnectionStatus() == EConcertConnectionStatus::Connected)
 		{
-			return FSlateIcon(FConcertFrontendStyle::GetStyleSetName(), "Concert.Online");
+			return FSlateIcon(FConcertFrontendStyle::GetStyleSetName(), "Concert.Online", "Concert.Online.Small");
 		}
-		return FSlateIcon(FConcertFrontendStyle::GetStyleSetName(), "Concert.Offline");
+		return FSlateIcon(FConcertFrontendStyle::GetStyleSetName(), "Concert.Offline", "Concert.Offline.Small");
 	}
 
 	/**
