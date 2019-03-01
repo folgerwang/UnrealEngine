@@ -51,6 +51,11 @@ public:
 	static void* GetHardwareWindow();
 	static void SetHardwareWindow(void* InWindow);
 
+	/** Waits on the current thread for a hardware window and returns it. 
+	 *  May return nullptr if the application is shutting down.
+	 */
+	static void* WaitForHardwareWindow();
+
 protected:
 	/** @return true if the native window is currently in fullscreen mode, false otherwise */
 	virtual EWindowMode::Type GetWindowMode() const override { return EWindowMode::Fullscreen; }

@@ -2,6 +2,8 @@
 
 #include "Android/AndroidWindow.h"
 #include "Android/AndroidWindowUtils.h"
+#include "Android/AndroidEventManager.h"
+
 #if USE_ANDROID_JNI
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
@@ -120,6 +122,37 @@ void* FAndroidWindow::GetHardwareWindow()
 	return NativeWindow;
 }
 
+void* FAndroidWindow::WaitForHardwareWindow()
+{
+	// Sleep if the hardware window isn't currently available.
+	// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
+	// This case will come up frequently as a result of the DON flow in Gvr.
+	// Until the app is fully resumed. It would be nicer if this code respected the lifecycle events
+	// of an android app instead, but all of those events are handled on a separate thread and it would require
+	// significant re-architecturing to do.
+
+	// Before sleeping, we peek into the event manager queue to see if it contains an ON_DESTROY event, 
+	// in which case, we exit the loop to allow the application to exit before a window has been created.
+	// For instance when the user aborts the "Place your phone into thr Daydream headset." screen.
+	// It is not sufficient to check the GIsRequestingExit global variable, as the handler reacting to the APP_EVENT_STATE_ON_DESTROY
+	// may be running in the same thread as this method and therefore lead to a deadlock.
+
+	void* Window = GetHardwareWindow();
+	while (Window == nullptr)
+	{
+#if USE_ANDROID_EVENTS
+		if (GIsRequestingExit || FAppEventManager::GetInstance()->WaitForEventInQueue(EAppEventState::APP_EVENT_STATE_ON_DESTROY, 0.0f))
+		{
+			// Application is shutting down soon, abort the wait and return nullptr
+			return nullptr;
+		}
+#endif
+		FPlatformProcess::Sleep(0.001f);
+		Window = GetHardwareWindow();
+	}
+	return Window;
+}
+
 #if USE_ANDROID_JNI
 extern bool AndroidThunkCpp_IsGearVRApplication();
 #endif
@@ -198,17 +231,8 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	if (bIsDaydreamApp && Window == NULL)
 	{
 		// Sleep if the hardware window isn't currently available.
-		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
-		// This case will come up frequently as a result of the DON flow in Gvr.
-		// Until the app is fully resumed. It would be nicer if this code respected the lifecycle events
-		// of an android app instead, but all of those events are handled on a separate thread and it would require
-		// significant re-architecturing to do.
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FAndroidWindow::GetScreenRect"));
-		while (Window == NULL)
-		{
-			FPlatformProcess::Sleep(0.001f);
-			Window = (ANativeWindow*)FAndroidWindow::GetHardwareWindow();
-		}
+		Window = (ANativeWindow*)FAndroidWindow::WaitForHardwareWindow();
 	}
 	//	check(Window != NULL);
 	if (Window == NULL)

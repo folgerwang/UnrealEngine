@@ -117,13 +117,16 @@ void FVulkanAndroidPlatform::CreateSurface(void* WindowHandle, VkInstance Instan
 	WindowHandle = FAndroidWindow::GetHardwareWindow();
 	if (WindowHandle == NULL)
 	{
+
 		// Sleep if the hardware window isn't currently available.
 		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in FVulkanAndroidPlatform::CreateSurface"));
-		while (WindowHandle == NULL)
+		WindowHandle = FAndroidWindow::WaitForHardwareWindow();
+
+		if (WindowHandle == NULL)
 		{
-			FPlatformProcess::Sleep(0.001f);
-			WindowHandle = FAndroidWindow::GetHardwareWindow();
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Aborting FVulkanAndroidPlatform::CreateSurface, FAndroidWindow::WaitForHardwareWindow() returned null"));
+			return;
 		}
 	}
 

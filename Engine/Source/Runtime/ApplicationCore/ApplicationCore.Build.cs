@@ -73,8 +73,16 @@ public class ApplicationCore : ModuleRules
 			PublicIncludePaths.AddRange(new string[] {"Runtime/ApplicationCore/Public/IOS"});
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "SoundSwitch");
 		}
+        else if (Target.Platform == UnrealTargetPlatform.Android)
+        {
+            PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"Launch"
+				}
+			);
+        }
 
-		if (!Target.bCompileAgainstApplicationCore)
+        if (!Target.bCompileAgainstApplicationCore)
         {
 			throw new System.Exception("ApplicationCore cannot be used when Target.bCompileAgainstApplicationCore = false.");
         }

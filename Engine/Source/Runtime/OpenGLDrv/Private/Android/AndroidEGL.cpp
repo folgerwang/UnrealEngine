@@ -662,15 +662,13 @@ void AndroidEGL::InitSurface(bool bUseSmallSurface, bool bCreateWndSurface)
 	{
 		// Sleep if the hardware window isn't currently available.
 		// The Window may not exist if the activity is pausing/resuming, in which case we make this thread wait
-		// This case will come up frequently as a result of the DON flow in Gvr.
-		// Until the app is fully resumed. It would be nicer if this code respected the lifecycle events
-		// of an android app instead, but all of those events are handled on a separate thread and it would require
-		// significant re-architecturing to do.
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("Waiting for Native window in AndroidEGL::InitSurface"));
-		while (window == NULL)
+		window = (ANativeWindow*)FAndroidWindow::WaitForHardwareWindow();
+	
+		if (window == NULL)
 		{
-			FPlatformProcess::Sleep(0.001f);
-			window = (ANativeWindow*)FAndroidWindow::GetHardwareWindow();
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("Aborting AndroidEGL::InitSurface, FAndroidWindow::WaitForHardwareWindow() returned null"));
+			return;
 		}
 	}
 
