@@ -212,10 +212,9 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 		bool bBlutility = GetDefault<UEditorExperimentalSettings>()->bEnableEditorUtilityBlueprints;
 		bool bLocalizationDashboard = GetDefault<UEditorExperimentalSettings>()->bEnableLocalizationDashboard;
 		bool bTranslationPicker = GetDefault<UEditorExperimentalSettings>()->bEnableTranslationPicker;
-		bool bDeviceOutputLog = GetDefault<UEditorExperimentalSettings>()->bDeviceOutputLog;
 
 		// Make sure at least one is enabled before creating the section
-		if (bBlutility || bLocalizationDashboard || bTranslationPicker || bDeviceOutputLog)
+		if (bBlutility || bLocalizationDashboard || bTranslationPicker)
 		{
 			MenuBuilder.BeginSection("ExperimentalTabSpawners", LOCTEXT("ExperimentalTabSpawnersHeading", "Experimental"));
 			{
@@ -251,18 +250,6 @@ void FMainMenu::FillWindowMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FEx
 						FUIAction(FExecuteAction::CreateStatic(&FMainFrameTranslationEditorMenu::HandleOpenTranslationPicker))
 						);
 				}
-				
-				// Device output log
-				if (bDeviceOutputLog)
-				{
-					MenuBuilder.AddMenuEntry(
-						LOCTEXT("DeviceOutputLogMenuLabel", "Device Output Log"),
-						LOCTEXT("DeviceOutputLogToolTip", "Open the Device Output Log tab."),
-						FSlateIcon(FEditorStyle::GetStyleSetName(), "Log.TabIcon"),
-						FUIAction(FExecuteAction::CreateStatic(&FMainMenu::OpenDeviceOutputLog))
-						);
-				}
-
 			}
 			MenuBuilder.EndSection();
 		}
