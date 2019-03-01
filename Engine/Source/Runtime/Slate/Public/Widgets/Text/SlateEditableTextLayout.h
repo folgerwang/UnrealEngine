@@ -365,10 +365,6 @@ public:
 
 	bool HasActiveContextMenu() const;
 
-protected:
-
-	void CommitTextChanges(ETextCommit::Type CommitReason);
-
 private:
 	/** Insert the given text at the current cursor position, correctly taking into account new line characters */
 	void InsertTextAtCursorImpl(const FString& InString);
@@ -608,9 +604,6 @@ private:
 
 	/** Whether the text has been committed by a virtual keyboard */
 	bool bTextCommittedByVirtualKeyboard;
-
-	/** Whether the widget contains uncommitted text */
-	bool bHasUncommittedText;
 
 	/** What text was submitted by a virtual keyboard */
 	FText VirtualKeyboardText;
