@@ -48,6 +48,10 @@ FFXSystemInterface* FFXSystemInterface::Create(ERHIFeatureLevel::Type InFeatureL
 
 void FFXSystemInterface::Destroy( FFXSystemInterface* FXSystem )
 {
+	check(FXSystem && !FXSystem->bIsPendingKill);
+
+	// Notify that the delete command is on its way. Preventing any future render commands from accessing the FFXSystemInterface.
+	FXSystem->bIsPendingKill = true;
 	ENQUEUE_RENDER_COMMAND(FDestroyFXSystemCommand)(
 		[FXSystem](FRHICommandList& RHICmdList)
 		{
@@ -188,6 +192,15 @@ FFXSystem::FFXSystem(ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InSh
 
 FFXSystem::~FFXSystem()
 {
+	for (FVectorFieldInstance* VectorFieldInstance : VectorFields)
+	{
+		if (VectorFieldInstance)
+		{
+			delete VectorFieldInstance;
+		}
+	}
+	VectorFields.Empty();
+
 	DestroyGPUSimulation();
 }
 
@@ -250,7 +263,7 @@ void FFXSystem::AddVectorField( UVectorFieldComponent* VectorFieldComponent )
 		check( VectorFieldComponent->VectorFieldInstance == NULL );
 		checkSlow( VectorFieldComponent->FXSystem && VectorFieldComponent->FXSystem->GetInterface(Name) == this );
 
-		if ( VectorFieldComponent->VectorField )
+		if ( VectorFieldComponent->VectorField && !IsPendingKill() )
 		{
 			FVectorFieldInstance* Instance = new FVectorFieldInstance();
 			VectorFieldComponent->VectorField->InitInstance(Instance, /*bPreviewInstance=*/ false);
@@ -281,7 +294,8 @@ void FFXSystem::RemoveVectorField( UVectorFieldComponent* VectorFieldComponent )
 		FVectorFieldInstance* Instance = VectorFieldComponent->VectorFieldInstance;
 		VectorFieldComponent->VectorFieldInstance = NULL;
 
-		if ( Instance )
+		// If pending kill the VectorFieldInstance will be freed in the destructor.
+		if ( Instance  && !IsPendingKill() )
 		{
 			FFXSystem* FXSystem = this;
 			ENQUEUE_RENDER_COMMAND(FRemoveVectorFieldCommand)(
@@ -305,7 +319,7 @@ void FFXSystem::UpdateVectorField( UVectorFieldComponent* VectorFieldComponent )
 
 		FVectorFieldInstance* Instance = VectorFieldComponent->VectorFieldInstance;
 
-		if ( Instance )
+		if ( Instance && !IsPendingKill() )
 		{
 			struct FUpdateVectorFieldParams
 			{

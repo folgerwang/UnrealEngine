@@ -32,28 +32,33 @@ FFXSystemInterface* NiagaraEmitterInstanceBatcher::GetInterface(const FName& InN
 
 void NiagaraEmitterInstanceBatcher::Queue(FNiagaraComputeExecutionContext *ExecContext)
 {
-	//UE_LOG(LogNiagara, Warning, TEXT("Submitted!"));
-	//SimulationQueue[CurQueueIndex]->Add(InContext);
-	TArray<FNiagaraComputeExecutionContext*>* Queue = &SimulationQueue[0];
-	uint32 QueueIndex = CurQueueIndex;
-	ENQUEUE_RENDER_COMMAND(QueueNiagaraDispatch)(
-		[Queue, QueueIndex, ExecContext](FRHICommandListImmediate& RHICmdList)
+	if (!IsPendingKill())
+	{
+		//UE_LOG(LogNiagara, Warning, TEXT("Submitted!"));
+		//SimulationQueue[CurQueueIndex]->Add(InContext);
+		TArray<FNiagaraComputeExecutionContext*>* Queue = &SimulationQueue[0];
+		uint32 QueueIndex = CurQueueIndex;
+		ENQUEUE_RENDER_COMMAND(QueueNiagaraDispatch)(
+			[Queue, QueueIndex, ExecContext](FRHICommandListImmediate& RHICmdList)
+		{
+			const uint32 QueueIndexMask = (1 << QueueIndex);
+			//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
+			if (!(ExecContext->PendingExecutionQueueMask & QueueIndexMask))
 			{
-				const uint32 QueueIndexMask = (1 << QueueIndex);
-				//Don't queue the same context for execution multiple times. TODO: possibly try to combine/accumulate the tick info if we happen to have > 1 before it's executed.
-				if (!(ExecContext->PendingExecutionQueueMask & QueueIndexMask))
-				{
-					Queue[QueueIndex].Add(ExecContext);
-					ExecContext->PendingExecutionQueueMask |= QueueIndexMask;
-				}
-			});
+				Queue[QueueIndex].Add(ExecContext);
+				ExecContext->PendingExecutionQueueMask |= QueueIndexMask;
+			}
+		});
+	}
 }
 
 void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *ExecContext)
 {
-	TArray<FNiagaraComputeExecutionContext*>* Queue = &SimulationQueue[0];
-	ENQUEUE_RENDER_COMMAND(RemoveNiagaraDispatch)(
-		[Queue, ExecContext](FRHICommandListImmediate& RHICmdList)
+	if (!IsPendingKill())
+	{
+		TArray<FNiagaraComputeExecutionContext*>* Queue = &SimulationQueue[0];
+		ENQUEUE_RENDER_COMMAND(RemoveNiagaraDispatch)(
+			[Queue, ExecContext](FRHICommandListImmediate& RHICmdList)
 		{
 			for (int32 i = 0; i < SIMULATION_QUEUE_COUNT; i++)
 			{
@@ -61,6 +66,7 @@ void NiagaraEmitterInstanceBatcher::Remove(FNiagaraComputeExecutionContext *Exec
 			}
 			ExecContext->PendingExecutionQueueMask = 0;
 		});
+	}
 }
 
 void NiagaraEmitterInstanceBatcher::ExecuteAll(FRHICommandList &RHICmdList, FUniformBufferRHIParamRef ViewUniformBuffer)

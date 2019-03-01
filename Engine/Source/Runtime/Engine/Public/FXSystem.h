@@ -221,12 +221,16 @@ public:
 	 */
 	void PostRenderOpaque(FRHICommandListImmediate& RHICmdList) { PostRenderOpaque(RHICmdList, nullptr, nullptr, FUniformBufferRHIParamRef()); }
 
+	bool IsPendingKill() const { return bIsPendingKill; }
+
 protected:
 
 	/** By making the destructor protected, an instance must be destroyed via FFXSystemInterface::Destroy. */
 	ENGINE_API virtual ~FFXSystemInterface();
 
 private:
+
+	bool bIsPendingKill = false;
 
 	static TMap<FName, FCreateCustomFXSystemDelegate> CreateCustomFXDelegates;
 };
