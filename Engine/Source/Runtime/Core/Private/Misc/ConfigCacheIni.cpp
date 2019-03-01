@@ -75,6 +75,9 @@ bool FConfigValue::ExpandValue(const FString& InCollapsedValue, FString& OutExpa
 	// Replace %GAMEDIR% with the game directory.
 	NumReplacements += OutExpandedValue.ReplaceInline(TEXT("%GAMEDIR%"), *FPaths::ProjectDir(), ESearchCase::CaseSensitive);
 
+	// Replace %ENGINEDIR% with the user's engine directory.
+	NumReplacements += OutExpandedValue.ReplaceInline(TEXT("%ENGINEDIR%"), *FPaths::EngineDir(), ESearchCase::CaseSensitive);
+
 	// Replace %ENGINEUSERDIR% with the user's engine directory.
 	NumReplacements += OutExpandedValue.ReplaceInline(TEXT("%ENGINEUSERDIR%"), *FPaths::EngineUserDir(), ESearchCase::CaseSensitive);
 
