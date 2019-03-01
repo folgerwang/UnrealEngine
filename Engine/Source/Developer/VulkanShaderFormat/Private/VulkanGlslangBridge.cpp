@@ -208,10 +208,25 @@ static void ComputeMovableWordIndices(FSpirv& Spirv)
 		spv::Op OpCode = (spv::Op)(*Ptr & spv::OpCodeMask);
 		switch (OpCode)
 		{
+		case spv::OpEntryPoint:
+			{
+				uint32 ExecModel = Ptr[1];
+				uint32 EntryPoint = Ptr[2];
+				FString Name = ReadLiteralString(Ptr + 3);
+				check(Name == TEXT("main_00000000_00000000"));
+				check(Spirv.OffsetToEntryPoint == 0);
+				Spirv.OffsetToEntryPoint = (uint32)(&Ptr[3] - PtrStart);
+			}
+			break;
 		case spv::OpName:
 			{
 				uint32 TargetId = Ptr[1];
 				FString Name = ReadLiteralString(Ptr + 2);
+				if (Name == TEXT("main_00000000_00000000"))
+				{
+					check(Spirv.OffsetToMainName == 0);
+					Spirv.OffsetToMainName = (uint32)(&Ptr[2] - PtrStart);
+				}
 				Names.Add(TargetId, Name);
 			}
 			break;
@@ -328,6 +343,9 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 	const char* GlslSourceSkipHeader = strstr(Source, "#version");
 	Shader->setStrings(&GlslSourceSkipHeader, 1);
 
+	Shader->setEntryPoint("main_00000000_00000000");
+	Shader->setSourceEntryPoint("main_00000000_00000000");
+
 	auto DoGenerate = [&]()
 	{
 		const int DefaultVersion = 100;// Options & EOptionDefaultDesktop ? 110 : 100;
@@ -359,6 +377,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 			return false;
 		}
 
+		// Generate SPIRV
 		std::vector<unsigned int> Spirv;
 		glslang::GlslangToSpv(*Program->getIntermediate((EShLanguage)Stage), Spirv);
 
@@ -366,34 +385,7 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 		OutSpirv.Data.AddZeroed(SizeInWords);
 		FMemory::Memcpy(OutSpirv.Data.GetData(), &Spirv[0], SizeInWords * sizeof(uint32));
 
-		if (CompilerInfo.bDebugDump)
-		{
-			// Binary SpirV
-			FString SpirvFile = DumpDebugInfoPath / (TEXT("Output.spv"));
-			glslang::OutputSpvBin(Spirv, TCHAR_TO_ANSI(*SpirvFile));
-
-			// Text spirv
-			FString SpirvTextFile = DumpDebugInfoPath / (TEXT("Output.spvasm"));
-			std::ofstream File;
-			File.open(TCHAR_TO_ANSI(*SpirvTextFile), std::fstream::out/* | std::fstream::binary*/);
-			if (File.is_open())
-			{
-				spv::Parameterize();
-				spv::Disassemble(File, Spirv);
-				File.close();
-			}
-		}
-		else if (CompilerInfo.Input.bSkipPreprocessedCache)
-		{
-			spv::Parameterize();
-			spv::Disassemble(std::cout, Spirv);
-		}
-
-		if (CompilerInfo.Input.bSkipPreprocessedCache)
-		{
-			Program->dumpReflection();
-		}
-
+		// Gather Reflection info
 		for (int32 Index = 0; Index < Program->getNumLiveUniformVariables(); ++Index)
 		{
 			const char* AnsiName = Program->getUniformName(Index);
@@ -431,6 +423,48 @@ bool GenerateSpirv(const ANSICHAR* Source, FCompilerInfo& CompilerInfo, FString&
 		}
 
 		ComputeMovableWordIndices(OutSpirv);
+		OutSpirv.CRC = FCrc::MemCrc32(OutSpirv.Data.GetData(), OutSpirv.Data.Num() * sizeof(uint32));
+
+		// Patch the entry point name
+		auto FixEntryPoint = [&](uint32 OffsetToName)
+		{
+			char* EntryPointName = (char*)(OutSpirv.Data.GetData() + OffsetToName);
+			check(!FCStringAnsi::Strcmp(EntryPointName, "main_00000000_00000000"));
+			FCStringAnsi::Sprintf(EntryPointName, "main_%0.8x_%0.8x", OutSpirv.Data.Num() * sizeof(uint32), OutSpirv.CRC);
+		};
+		FixEntryPoint(OutSpirv.OffsetToMainName);
+		FixEntryPoint(OutSpirv.OffsetToEntryPoint);
+		// Copy back to original spirv data as it is used for dumping information
+		FMemory::Memcpy(&Spirv[0], OutSpirv.Data.GetData(), SizeInWords * sizeof(uint32));
+
+		// Dump debug info/files
+		if (CompilerInfo.bDebugDump)
+		{
+			// Binary SpirV
+			FString SpirvFile = DumpDebugInfoPath / (TEXT("Output.spv"));
+			glslang::OutputSpvBin(Spirv, TCHAR_TO_ANSI(*SpirvFile));
+
+			// Text spirv
+			FString SpirvTextFile = DumpDebugInfoPath / (TEXT("Output.spvasm"));
+			std::ofstream File;
+			File.open(TCHAR_TO_ANSI(*SpirvTextFile), std::fstream::out/* | std::fstream::binary*/);
+			if (File.is_open())
+			{
+				spv::Parameterize();
+				spv::Disassemble(File, Spirv);
+				File.close();
+			}
+		}
+		else if (CompilerInfo.Input.bSkipPreprocessedCache)
+		{
+			spv::Parameterize();
+			spv::Disassemble(std::cout, Spirv);
+		}
+
+		if (CompilerInfo.Input.bSkipPreprocessedCache)
+		{
+			Program->dumpReflection();
+		}
 
 		return true;
 	};

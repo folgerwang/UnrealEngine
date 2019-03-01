@@ -1027,6 +1027,7 @@ static void ConvertToNEWHeader(FOLDVulkanCodeHeader& OLDHeader,
 	OutHeader.EmulatedUBsCopyInfo = OLDHeader.UniformBuffersCopyInfo;
 	OutHeader.EmulatedUBCopyRanges = OLDHeader.NEWEmulatedUBCopyRanges;
 	OutHeader.SourceHash = OLDHeader.SourceHash;
+	OutHeader.SpirvCRC = Spirv.CRC;
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
 	OutHeader.DebugName = OLDHeader.ShaderName;
 #endif
@@ -1041,8 +1042,7 @@ static void BuildShaderOutput(
 	const ANSICHAR* InShaderSource,
 	int32 SourceLen,
 	const FVulkanBindingTable& BindingTable,
-	const ANSICHAR* InShaderSourceES,
-	int32 SourceLenES,
+	uint32 NumLines,
 	FSpirv& Spirv,
 	const FString& DebugName,
 	bool bHasRealUBs
@@ -1489,7 +1489,8 @@ static void BuildShaderOutput(
 	//			uncommenting this will cause the project to have non deterministic materials and will hurt patch sizes
 	// ShaderOutput.ShaderCode.AddOptionalData('n', TCHAR_TO_UTF8(*ShaderInput.GenerateShaderName()));
 
-	ShaderOutput.NumInstructions = 0;
+	// Something to compare.
+	ShaderOutput.NumInstructions = NumLines;
 	ShaderOutput.NumTextureSamplers = OLDHeader.SerializedBindings.NumSamplers;
 	ShaderOutput.bSucceeded = true;
 
@@ -1514,7 +1515,6 @@ static void BuildShaderOutput(
 //	const ANSICHAR* InShaderSource,
 //	int32 SourceLen,
 //	const FVulkanBindingTable& BindingTable,
-//	const ANSICHAR* InShaderSourceES,
 //	int32 SourceLenES,
 //	const FString& SPVFile,
 //	const FString& DebugName
@@ -1529,7 +1529,6 @@ static void BuildShaderOutput(
 //		InShaderSource,
 //		SourceLen,
 //		BindingTable,
-//		InShaderSourceES,
 //		SourceLenES,
 //		Spirv,
 //		DebugName
@@ -1731,6 +1730,24 @@ static bool CompileUsingInternal(FCompilerInfo& CompilerInfo, FVulkanBindingTabl
 {
 	FString Errors;
 	FSpirv Spirv;
+	const ANSICHAR* Main = GlslSource.GetData();
+	Main = FCStringAnsi::Strstr(Main, "void main_");
+	check(Main);
+	auto GetNumEOLs = [](const ANSICHAR* Ptr)
+	{
+		uint32 NumLines = 0;
+		while (*Ptr)
+		{
+			if (*Ptr == '\n')
+			{
+				++NumLines;
+			}
+			++Ptr;
+		}
+
+		return NumLines;
+	};
+	uint32 NumLines = GetNumEOLs(Main);
 	if (GenerateSpirv(GlslSource.GetData(), CompilerInfo, Errors, CompilerInfo.Input.DumpDebugInfoPath, Spirv))
 	{
 		FString DebugName = CompilerInfo.Input.DumpDebugInfoPath.Right(CompilerInfo.Input.DumpDebugInfoPath.Len() - CompilerInfo.Input.DumpDebugInfoRootPath.Len());
@@ -1738,7 +1755,7 @@ static bool CompileUsingInternal(FCompilerInfo& CompilerInfo, FVulkanBindingTabl
 		Output.Target = CompilerInfo.Input.Target;
 		BuildShaderOutput(Output, CompilerInfo.Input,
 			GlslSource.GetData(), GlslSource.Num(),
-			BindingTable, nullptr, 0, Spirv, DebugName, bHasRealUBs);
+			BindingTable, NumLines, Spirv, DebugName, bHasRealUBs);
 		return true;
 	}
 	else

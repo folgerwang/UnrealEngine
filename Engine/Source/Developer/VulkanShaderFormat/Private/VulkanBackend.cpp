@@ -5655,7 +5655,8 @@ bool FVulkanCodeBackend::GenerateMain(
 			_mesa_glsl_warning(ParseState, "'patchconstantfunc' attribute only applies to hull shaders");
 		}
 
-		ir_function* MainFunction = new(ParseState)ir_function("main");
+		// Values that will be patched in later from the SPIRV
+		ir_function* MainFunction = new(ParseState)ir_function("main_00000000_00000000");
 		MainFunction->add_signature(MainSig);
 
 		Instructions->append_list(&DeclInstructions);

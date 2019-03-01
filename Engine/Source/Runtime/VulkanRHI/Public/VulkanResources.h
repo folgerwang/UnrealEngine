@@ -108,6 +108,12 @@ public:
 	}
 #endif
 
+	// Name should be pointing to "main_"
+	void GetEntryPoint(ANSICHAR* Name)
+	{
+		FCStringAnsi::Sprintf(Name, "main_%0.8x_%0.8x", Spirv.Num() * sizeof(uint32), CodeHeader.SpirvCRC);
+	}
+
 	FORCEINLINE const FVulkanShaderHeader& GetCodeHeader() const
 	{
 		return CodeHeader;

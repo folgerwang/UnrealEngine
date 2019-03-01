@@ -81,6 +81,9 @@ struct FSpirv
 		uint32 WordBindingIndex = UINT32_MAX;
 	};
 	TArray<FEntry> ReflectionInfo;
+	uint32 OffsetToMainName = 0;
+	uint32 OffsetToEntryPoint = 0;
+	uint32 CRC = 0;
 
 	int32 FindBinding(const FString& Name, bool bOuter = false) const
 	{

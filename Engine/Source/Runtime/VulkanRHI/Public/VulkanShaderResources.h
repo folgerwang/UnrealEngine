@@ -176,7 +176,7 @@ struct FVulkanShaderHeader
 	uint16									Pad1 = 1;
 
 	FSHAHash								SourceHash;
-	//FSHAHash								SpirvHash;
+	uint32									SpirvCRC = 0;
 
 	TArray<FSpirvInfo>						UniformBufferSpirvInfos;
 	TArray<FSpirvInfo>						GlobalSpirvInfos;
@@ -282,6 +282,7 @@ inline FArchive& operator<<(FArchive& Ar, FVulkanShaderHeader& Header)
 	Ar << Header.InOutMask;
 	Ar << Header.bHasRealUBs;
 	Ar << Header.SourceHash;
+	Ar << Header.SpirvCRC;
 	Ar << Header.UniformBufferSpirvInfos;
 	Ar << Header.GlobalSpirvInfos;
 #if VULKAN_ENABLE_SHADER_DEBUG_NAMES
