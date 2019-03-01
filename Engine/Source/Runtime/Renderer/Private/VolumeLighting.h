@@ -96,7 +96,7 @@ public:
 			SetShaderValue(RHICmdList, ShaderRHI, DepthBiasParameters, FVector2D(ShadowMap->GetShaderDepthBias(), 1.0f / (ShadowMap->MaxSubjectZ - ShadowMap->MinSubjectZ)));
 
 			FTextureRHIParamRef ShadowDepthTextureResource = nullptr;
-			if (LightType == LightType_Point)
+			if (LightType == LightType_Point || LightType == LightType_Rect)
 			{
 				if (GBlackTexture && GBlackTexture->TextureRHI)
 				{
