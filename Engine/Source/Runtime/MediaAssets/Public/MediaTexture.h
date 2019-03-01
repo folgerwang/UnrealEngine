@@ -128,6 +128,7 @@ public:
 	virtual float GetSurfaceWidth() const override;
 	virtual float GetSurfaceHeight() const override;
 	virtual FGuid GetExternalTextureGuid() const override;
+	void SetRenderedExternalTextureGuid(const FGuid& InNewGuid);
 
 public:
 
@@ -175,7 +176,10 @@ private:
 	TSharedPtr<FMediaTextureClockSink, ESPMode::ThreadSafe> ClockSink;
 
 	/** The default external texture GUID if no media player is assigned. */
-	/*TAtomic<*/FGuid/*>*/ CurrentGuid;
+	FGuid CurrentGuid;
+
+	/** The last Guid that was rendered and registered in the render command*/
+	FGuid CurrentRenderedGuid;
 
 	/** The player that is currently associated with this texture. */
 	TWeakObjectPtr<UMediaPlayer> CurrentPlayer;
@@ -197,4 +201,7 @@ private:
 
 	/** Current size of the resource (in bytes).*/
 	SIZE_T Size;
+
+	/** Critical section to protect last rendered guid since it can be read from anywhere. */
+	mutable FCriticalSection CriticalSection;
 };

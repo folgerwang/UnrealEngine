@@ -183,13 +183,14 @@ void FMediaTextureResource::Render(const FRenderParams& Params)
 	if (SampleSource.IsValid())
 	{
 		// get the most current sample to be rendered
+		TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> TestSample;
 		TSharedPtr<IMediaTextureSample, ESPMode::ThreadSafe> Sample;
 		bool UseSample = false;
 		
-		while (SampleSource->Peek(Sample) && Sample.IsValid())
+		while (SampleSource->Peek(TestSample) && TestSample.IsValid())
 		{
-			const FTimespan StartTime = Sample->GetTime();
-			const FTimespan EndTime = StartTime + Sample->GetDuration();
+			const FTimespan StartTime = TestSample->GetTime();
+			const FTimespan EndTime = StartTime + TestSample->GetDuration();
 
 			if ((Params.Rate >= 0.0f) && (Params.Time < StartTime))
 			{
@@ -326,6 +327,9 @@ void FMediaTextureResource::Render(const FRenderParams& Params)
 			FExternalTextureRegistry::Get().UnregisterExternalTexture(Params.PreviousGuid);
 		}
 	}
+	
+	//Update usable Guid for the RenderThread
+	Owner.SetRenderedExternalTextureGuid(Params.CurrentGuid);
 }
 
 

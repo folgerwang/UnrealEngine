@@ -158,9 +158,17 @@ float UMediaTexture::GetSurfaceHeight() const
 
 FGuid UMediaTexture::GetExternalTextureGuid() const
 {
-	return CurrentGuid;
+	FScopeLock Lock(&CriticalSection);
+	return CurrentRenderedGuid;
 }
 
+void UMediaTexture::SetRenderedExternalTextureGuid(const FGuid& InNewGuid)
+{
+	check(IsInRenderingThread());
+
+	FScopeLock Lock(&CriticalSection);
+	CurrentRenderedGuid = InNewGuid;
+}
 
 /* UObject interface
  *****************************************************************************/
@@ -179,13 +187,14 @@ void UMediaTexture::BeginDestroy()
 		ClockSink.Reset();
 	}
 
-	if (CurrentGuid.IsValid())
+	//Unregister the last rendered Guid
+	const FGuid LastRendered = GetExternalTextureGuid();
+	if (LastRendered.IsValid())
 	{
-		FGuid Guid = CurrentGuid;
 		ENQUEUE_RENDER_COMMAND(MediaTextureUnregisterGuid)(
-			[Guid](FRHICommandList& RHICmdList)
+			[LastRendered](FRHICommandList& RHICmdList)
 			{
-				FExternalTextureRegistry::Get().UnregisterExternalTexture(Guid);
+				FExternalTextureRegistry::Get().UnregisterExternalTexture(LastRendered);
 			});
 	}
 
