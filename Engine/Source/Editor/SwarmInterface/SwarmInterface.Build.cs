@@ -26,5 +26,9 @@ public class SwarmInterface : ModuleRules
 			PublicDependencyModuleNames.Add("Sockets");
 			PublicDependencyModuleNames.Add("Networking");
 		}
+
+		// Copy the AgentInterface DLLs to the same output directory as the editor DLL.
+		RuntimeDependencies.Add("$(BinaryOutputDir)/AgentInterface.dll", "$(EngineDir)/Binaries/DotNET/AgentInterface.dll", StagedFileType.NonUFS);
+		RuntimeDependencies.Add("$(BinaryOutputDir)/AgentInterface.pdb", "$(EngineDir)/Binaries/DotNET/AgentInterface.pdb", StagedFileType.DebugNonUFS);
 	}
 }

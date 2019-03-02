@@ -46,7 +46,7 @@
     <DebugSymbols>True</DebugSymbols>
     <DebugType>pdbonly</DebugType>
     <Optimize>False</Optimize>
-    <OutputPath>..\..\..\..\Binaries\Win64\</OutputPath>
+    <OutputPath>..\..\..\..\Binaries\DotNET\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -55,7 +55,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Development|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>True</Optimize>
-    <OutputPath>..\..\..\..\Binaries\Win64\</OutputPath>
+    <OutputPath>..\..\..\..\Binaries\DotNET\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>

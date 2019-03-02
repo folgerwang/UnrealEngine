@@ -1920,7 +1920,7 @@ bool FStaticLightingSystem::CreateLightmassProcessor()
 		return false;
 	}
 
-	if (NSwarm::FSwarmInterface::Initialize(*(FString(FPlatformProcess::BaseDir()) + TEXT("..\\DotNET\\SwarmInterface.dll"))) == false)
+	if (NSwarm::FSwarmInterface::Initialize(*(FPaths::EngineDir() / TEXT("Binaries/DotNET/SwarmInterface.dll"))) == false)
 	{
 		UE_LOG(LogStaticLightingSystem, Warning, TEXT("Failed to initialize Swarm."));
 		FMessageDialog::Open(EAppMsgType::Ok,
