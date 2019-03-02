@@ -90,7 +90,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 	else
 	{
 		// Try expected path of an executable inside an app package in Engine Binaries
-		FString ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s.app/Contents/MacOS/%s"), *PlatformName, *ExecutableName, *ExecutableName);
+		FString ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s.app/Contents/MacOS/%s"), *PlatformName, *ExecutableName, *ExecutableName);
 			
 		NSString* LaunchPath = ExecutablePath.GetNSString();
 		
@@ -101,7 +101,7 @@ FString FMacPlatformProcess::GenerateApplicationPath( const FString& AppName, EB
 		else
 		{
 			// Next try expected path of a simple executable file in Engine Binaries
-			ExecutablePath = FString::Printf(TEXT("../../../Engine/Binaries/%s/%s"), *PlatformName, *ExecutableName);
+			ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s"), *PlatformName, *ExecutableName);
 
 			LaunchPath = ExecutablePath.GetNSString();
 

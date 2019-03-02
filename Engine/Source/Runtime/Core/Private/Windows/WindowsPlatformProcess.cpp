@@ -108,7 +108,8 @@ void FWindowsPlatformProcess::FreeDllHandle( void* DllHandle )
 FString FWindowsPlatformProcess::GenerateApplicationPath( const FString& AppName, EBuildConfigurations::Type BuildConfiguration)
 {
 	FString PlatformName = GetBinariesSubdirectory();
-	FString ExecutablePath = FString::Printf(TEXT("..\\..\\..\\Engine\\Binaries\\%s\\%s"), *PlatformName, *AppName);
+	FString ExecutablePath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/%s/%s"), *PlatformName, *AppName);
+	FPaths::MakePlatformFilename(ExecutablePath);
 
 	if (BuildConfiguration != EBuildConfigurations::Development)
 	{
