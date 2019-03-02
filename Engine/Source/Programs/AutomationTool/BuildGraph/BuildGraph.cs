@@ -678,7 +678,7 @@ namespace AutomationTool
 				foreach(FileReference File in Pair.Value.Files.Select(x => x.ToFileReference(RootDir)))
 				{
 					TempStorageBlock CurrentStorageBlock;
-					if(FileToStorageBlock.TryGetValue(File, out CurrentStorageBlock))
+					if(FileToStorageBlock.TryGetValue(File, out CurrentStorageBlock) && !TempStorage.IsDuplicateBuildProduct(File))
 					{
 						LogError("File '{0}' was produced by {1} and {2}", File, InputStorageBlock, CurrentStorageBlock);
 					}
