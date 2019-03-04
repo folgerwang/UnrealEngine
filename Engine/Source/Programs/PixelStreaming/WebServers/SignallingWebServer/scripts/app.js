@@ -91,9 +91,9 @@ function setupHtmlEvents(){
 	    }
 	}
 
-	let showFPSCheckBox = document.getElementById('show-fps-tgl');
-	if (showFPSCheckBox != null) {
-	    showFPSCheckBox.onchange = function (event) {
+	let showFPSButton = document.getElementById('show-fps-button');
+	if (showFPSButton != null) {
+	    showFPSButton.onclick = function (event) {
 	        let consoleDescriptor = {
 	            Console: 'stat fps'
 	        }
