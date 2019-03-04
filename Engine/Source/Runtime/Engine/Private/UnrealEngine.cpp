@@ -764,10 +764,7 @@ void RefreshSamplerStatesCallback()
 			);
 		}
 
-		UMaterialInterface::RecacheAllMaterialUniformExpressions();
-
-		// Need to recache all cached mesh draw commands, as they store pointers to material uniform buffers which we just invalidated.
-		GetRendererModule().UpdateStaticDrawLists();
+		UMaterialInterface::RecacheAllMaterialUniformExpressions(false);
 	}
 }
 

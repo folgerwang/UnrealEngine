@@ -963,7 +963,7 @@ public:
 		TArray<FName>* OutTextureParamNames, struct FStaticParameterSet* InStaticParameterSet,
 		ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type InQuality) override;
 #endif
-	ENGINE_API virtual void RecacheUniformExpressions() const override;
+	ENGINE_API virtual void RecacheUniformExpressions(bool bRecreateUniformBuffer) const override;
 
 	ENGINE_API virtual float GetOpacityMaskClipValue() const override;
 	ENGINE_API virtual bool GetCastDynamicShadowAsMasked() const override;

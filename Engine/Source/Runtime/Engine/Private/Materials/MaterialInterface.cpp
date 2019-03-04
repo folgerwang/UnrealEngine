@@ -210,12 +210,12 @@ void UMaterialInterface::SetForceMipLevelsToBeResident( bool OverrideForceMiplev
 	}
 }
 
-void UMaterialInterface::RecacheAllMaterialUniformExpressions()
+void UMaterialInterface::RecacheAllMaterialUniformExpressions(bool bRecreateUniformBuffer)
 {
 	// For each interface, reacache its uniform parameters
 	for( TObjectIterator<UMaterialInterface> MaterialIt; MaterialIt; ++MaterialIt )
 	{
-		MaterialIt->RecacheUniformExpressions();
+		MaterialIt->RecacheUniformExpressions(bRecreateUniformBuffer);
 	}
 }
 

@@ -3098,9 +3098,6 @@ void FMaterialEditor::SetVectorParameterDefaultOnDependentMaterials(FName Parame
 		MaterialsToOverride.Add(OriginalMaterial);
 	}
 
-
-	FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
-
 	const ERHIFeatureLevel::Type FeatureLevel = GEditor->GetEditorWorldContext().World()->FeatureLevel;
 
 	for (int32 MaterialIndex = 0; MaterialIndex < MaterialsToOverride.Num(); MaterialIndex++)
@@ -3108,7 +3105,6 @@ void FMaterialEditor::SetVectorParameterDefaultOnDependentMaterials(FName Parame
 		UMaterial* CurrentMaterial = MaterialsToOverride[MaterialIndex];
 
 		CurrentMaterial->OverrideVectorParameterDefault(ParameterName, Value, bOverride, FeatureLevel);
-		UpdateContext.AddMaterial(CurrentMaterial);
 	}
 
 	// Update MI's that reference any of the materials affected
@@ -3178,9 +3174,6 @@ void FMaterialEditor::SetScalarParameterDefaultOnDependentMaterials(FName Parame
 		MaterialsToOverride.Add(OriginalMaterial);
 	}
 
-
-	FMaterialUpdateContext UpdateContext(FMaterialUpdateContext::EOptions::SyncWithRenderingThread);
-
 	const ERHIFeatureLevel::Type FeatureLevel = GEditor->GetEditorWorldContext().World()->FeatureLevel;
 
 	for (int32 MaterialIndex = 0; MaterialIndex < MaterialsToOverride.Num(); MaterialIndex++)
@@ -3188,7 +3181,6 @@ void FMaterialEditor::SetScalarParameterDefaultOnDependentMaterials(FName Parame
 		UMaterial* CurrentMaterial = MaterialsToOverride[MaterialIndex];
 
 		CurrentMaterial->OverrideScalarParameterDefault(ParameterName, Value, bOverride, FeatureLevel);
-		UpdateContext.AddMaterial(CurrentMaterial);
 	}
 
 	// Update MI's that reference any of the materials affected

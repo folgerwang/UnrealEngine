@@ -729,13 +729,21 @@ public:
 
 	/**
 	 * Re-caches uniform expressions for all material interfaces
+	 * Set bRecreateUniformBuffer to true if uniform buffer layout will change (e.g. FMaterial is being recompiled).
+	 * In that case calling needs to use FMaterialUpdateContext to recreate the rendering state of primitives using this material.
+	 * 
+	 * @param bRecreateUniformBuffer - true forces uniform buffer recreation.
 	 */
-	ENGINE_API static void RecacheAllMaterialUniformExpressions();
+	ENGINE_API static void RecacheAllMaterialUniformExpressions(bool bRecreateUniformBuffer);
 
 	/**
 	 * Re-caches uniform expressions for this material interface                   
+	 * Set bRecreateUniformBuffer to true if uniform buffer layout will change (e.g. FMaterial is being recompiled).
+	 * In that case calling needs to use FMaterialUpdateContext to recreate the rendering state of primitives using this material.
+	 *
+	 * @param bRecreateUniformBuffer - true forces uniform buffer recreation.
 	 */
-	virtual void RecacheUniformExpressions() const {}
+	virtual void RecacheUniformExpressions(bool bRecreateUniformBuffer) const {}
 
 #if WITH_EDITOR
 	/** Clears the shader cache and recompiles the shader for rendering. */
