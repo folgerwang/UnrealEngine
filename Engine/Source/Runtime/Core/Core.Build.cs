@@ -54,6 +54,17 @@ public class Core : ModuleRules
 				"IntelTBB",
 				"IntelVTune"
 				);
+
+			if(Target.Platform == UnrealTargetPlatform.Win64 && Target.WindowsPlatform.bUseBundledDbgHelp)
+			{
+				PublicDelayLoadDLLs.Add("DBGHELP.DLL");
+				PrivateDefinitions.Add("USE_BUNDLED_DBGHELP=1");
+				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/DbgHelp/dbghelp.dll");
+			}
+			else
+			{
+				PrivateDefinitions.Add("USE_BUNDLED_DBGHELP=0");
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{

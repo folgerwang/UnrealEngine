@@ -20,6 +20,9 @@ public class SymbolDebuggerTarget : TargetRules
 		bCompileAgainstEngine = false;
 		bCompileAgainstCoreUObject = true;
 
+		// Need to disable the bundled version of dbghelp so that CrashDebugHelper can load dbgeng.dll.
+		WindowsPlatform.bUseBundledDbgHelp = false;
+
 		// SymbolDebugger.exe has no exports, so no need to verify that a .lib and .exp file was emitted by
 		// the linker.
 		bHasExports = false;

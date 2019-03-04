@@ -26,6 +26,9 @@ public class MinidumpDiagnosticsTarget : TargetRules
 		// Do NOT produce additional console app exe
 		bIsBuildingConsoleApplication = true;
 
+		// Need to disable the bundled version of dbghelp so that CrashDebugHelper can load dbgeng.dll.
+		WindowsPlatform.bUseBundledDbgHelp = false;
+
 		GlobalDefinitions.Add("MINIDUMPDIAGNOSTICS=1");
         GlobalDefinitions.Add("NOINITCRASHREPORTER=1");
     }

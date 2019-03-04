@@ -38,6 +38,9 @@ public class CrashReportClientTarget : TargetRules
 		// Epic Games Launcher needs to run on OS X 10.9, so CrashReportClient needs this as well
 		bEnableOSX109Support = true;
 
+		// Need to disable the bundled version of dbghelp so that CrashDebugHelper can load dbgeng.dll.
+		WindowsPlatform.bUseBundledDbgHelp = false;
+
 		GlobalDefinitions.Add("NOINITCRASHREPORTER=1");
 	}
 }

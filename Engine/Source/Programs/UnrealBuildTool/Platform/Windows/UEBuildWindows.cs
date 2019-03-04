@@ -211,6 +211,12 @@ namespace UnrealBuildTool
 		public bool bClangTimeTrace = false;
 
 		/// <summary>
+		/// Bundle a working version of dbghelp.dll with the application, and use this to generate minidumps. This works around a bug with the Windows 10 Fall Creators Update (1709)
+		/// where rich PE headers larger than a certain size would result in corrupt minidumps.
+		/// </summary>
+		public bool bUseBundledDbgHelp = true;
+
+		/// <summary>
 		/// The Visual C++ environment to use for this target. Only initialized after all the target settings are finalized, in ValidateTarget().
 		/// </summary>
 		internal VCEnvironment Environment;
@@ -390,6 +396,11 @@ namespace UnrealBuildTool
 		public string GetVisualStudioCompilerVersionName()
 		{
 			return Inner.GetVisualStudioCompilerVersionName();
+		}
+
+		public bool bUseBundledDbgHelp
+		{
+			get { return Inner.bUseBundledDbgHelp; }
 		}
 
 		internal VCEnvironment Environment
