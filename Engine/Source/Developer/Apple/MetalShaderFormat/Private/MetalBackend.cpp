@@ -1483,8 +1483,8 @@ protected:
 		{
 			check(sig->is_main);
             
-            ir_variable* patchCount = new(ParseState)ir_variable(glsl_type::uint_type, "patchCount", ir_var_uniform);
-            patchCount->semantic = "u";
+            ir_variable* patchCount = new(ParseState)ir_variable(glsl_type::uint_type, "patchCount", ir_var_in);
+            patchCount->semantic = "";
             Buffers.Buffers.Add(patchCount);
             
             int32 patchIndex = Buffers.GetIndex(patchCount);
@@ -1502,7 +1502,7 @@ protected:
 				"uint2 thread_position_in_grid [[thread_position_in_grid]],\n"
 				"ushort2 thread_position_in_threadgroup [[thread_position_in_threadgroup]],\n"
 				"uint2 threadgroup_position_in_grid [[threadgroup_position_in_grid]],\n"
-				"constant uint *patchCount [[ buffer(%d) ]],\n"
+				"device const uint *patchCount [[ buffer(%d) ]],\n"
 				"#define METAL_INDEX_BUFFER_ID %d\n"
 				"const device typed_buffer<uint>* indexBuffer [[ buffer(METAL_INDEX_BUFFER_ID) ]]",
                 patchIndex, IndexBufferIndex
