@@ -1370,8 +1370,36 @@ bool ParseComputePipelineDesc(const char* descriptor_path, mtlpp::Library const&
 				if (SEARCH_AND_SCAN(search, ParseEntries::ShaderName, Buffer))
 				{
 					ns::String name = [NSString stringWithUTF8String:Buffer];
-					mtlpp::Function func = ComputeLib.NewFunction(name);
-					descriptor.SetComputeFunction(func);
+					
+					if (SEARCH_AND_SCAN(search, ParseEntries::IndexType, Buffer))
+					{
+						mtlpp::IndexType val;
+						if (Parse(Buffer, val))
+						{
+							mtlpp::FunctionConstantValues Values;
+							uint32_t IndexType = (uint32_t)val;
+							Values.SetConstantValue(&IndexType, mtlpp::DataType::UInt, ns::String(@"indexBufferType"));
+							
+							ns::AutoReleasedError error;
+							mtlpp::Function func = ComputeLib.NewFunction(name, Values, &error);
+							if (error.GetPtr())
+							{
+								NSLog(@"ComputeLib.NewFunction Output: %@", error.GetPtr());
+							}
+							descriptor.SetComputeFunction(func);
+						}
+						else
+						{
+							mtlpp::Function func = ComputeLib.NewFunction(name);
+							descriptor.SetComputeFunction(func);
+						}
+					}
+					else
+					{
+						mtlpp::Function func = ComputeLib.NewFunction(name);
+						descriptor.SetComputeFunction(func);
+					}
+					search = search_old;
 				}
 				else
 				{
