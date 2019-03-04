@@ -298,25 +298,35 @@ private:
 
 
 /** Delegate for switching between PIE and Editor worlds without having access to them */
-DECLARE_DELEGATE_OneParam( FOnSwitchWorldForPIE, bool );
+DECLARE_DELEGATE_TwoParams( FOnSwitchWorldForPIE, bool, UWorld* );
 
 #if WITH_EDITOR
 /**
- * When created, tells the viewport client to set the appropriate GWorld
- * When destroyed, tells the viewport client to reset the GWorld back to what it was
+ * When created, switches global context to a PIE world
+ * When destroyed, resets the GWorld back to what it was before
  */
 class ENGINE_API FScopedConditionalWorldSwitcher
 {
 public:
+	/** Use the viewport to figure out what world to set temporarily */
 	FScopedConditionalWorldSwitcher( class FViewportClient* InViewportClient );
+
+	/** Explicitly set to the specific world */
+	FScopedConditionalWorldSwitcher( UWorld* InWorld );
+
+	/** Resets back to initial world */
 	~FScopedConditionalWorldSwitcher();
 
 	/** Delegate to call to switch worlds for PIE viewports.  Is not called when simulating (non-gameviewportclient) */
 	static FOnSwitchWorldForPIE SwitchWorldForPIEDelegate;
 private:
+	/** Called by constructors to do actual switch */
+	void ConditionalSwitchWorld( class FViewportClient* InViewportClient, UWorld* InWorld );
+
 	/** Viewport client used to set the world */
 	FViewportClient* ViewportClient;
-	/** World to reset when this is destoyed.  Can be null if nothing needs to be reset */	
+
+	/** World to reset when this is destroyed.  Can be null if nothing needs to be reset */
 	UWorld* OldWorld;
 };
 #else
@@ -324,7 +334,8 @@ private:
 class ENGINE_API FScopedConditionalWorldSwitcher
 {
 public:
-	FScopedConditionalWorldSwitcher( class FViewportClient* InViewportClient ){}
+	FScopedConditionalWorldSwitcher( class FViewportClient* InViewportClient ) {}
+	FScopedConditionalWorldSwitcher( UWorld* InWorld ) {}
 	~FScopedConditionalWorldSwitcher() {}
 };
 

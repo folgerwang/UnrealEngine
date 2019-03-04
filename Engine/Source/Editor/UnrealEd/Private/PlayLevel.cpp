@@ -3607,15 +3607,15 @@ int32 UEditorEngine::OnSwitchWorldForSlatePieWindow( int32 WorldID )
 	return RestoreID;
 }
 
-void UEditorEngine::OnSwitchWorldsForPIE( bool bSwitchToPieWorld )
+void UEditorEngine::OnSwitchWorldsForPIE( bool bSwitchToPieWorld, UWorld* OverrideWorld )
 {
 	if( bSwitchToPieWorld )
 	{
-		SetPlayInEditorWorld( PlayWorld );
+		SetPlayInEditorWorld( OverrideWorld ? OverrideWorld : PlayWorld );
 	}
 	else
 	{
-		RestoreEditorWorld( EditorWorld );
+		RestoreEditorWorld( OverrideWorld ? OverrideWorld : EditorWorld );
 	}
 }
 

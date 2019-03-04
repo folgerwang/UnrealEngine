@@ -736,6 +736,11 @@ UWorld* SetPlayInEditorWorld( UWorld* PlayInEditorWorld )
 	GIsPlayInEditorWorld = true;
 	GWorld = PlayInEditorWorld;
 
+	if (FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(PlayInEditorWorld))
+	{
+		GPlayInEditorID = WorldContext->PIEInstance;
+	}
+
 	return SavedWorld;
 }
 
@@ -750,6 +755,7 @@ void RestoreEditorWorld( UWorld* EditorWorld )
 	check(GIsPlayInEditorWorld);
 	GIsPlayInEditorWorld = false;
 	GWorld = EditorWorld;
+	GPlayInEditorID = -1;
 }
 
 /**

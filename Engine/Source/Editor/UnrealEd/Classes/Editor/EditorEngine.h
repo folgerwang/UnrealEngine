@@ -2697,7 +2697,7 @@ private:
 	/**
 	 * Called via a delegate to toggle between the editor and pie world
 	 */
-	void OnSwitchWorldsForPIE( bool bSwitchToPieWorld );
+	void OnSwitchWorldsForPIE( bool bSwitchToPieWorld, UWorld* OverrideWorld = nullptr );
 
 	/**
 	 * Gives focus to the server or first PIE client viewport

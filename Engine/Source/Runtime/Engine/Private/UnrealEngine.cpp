@@ -10169,7 +10169,24 @@ FOnSwitchWorldForPIE FScopedConditionalWorldSwitcher::SwitchWorldForPIEDelegate;
 
 FScopedConditionalWorldSwitcher::FScopedConditionalWorldSwitcher( FViewportClient* InViewportClient )
 	: ViewportClient( InViewportClient )
-	, OldWorld( NULL )
+	, OldWorld( nullptr )
+{
+	ConditionalSwitchWorld( ViewportClient, nullptr );
+}
+
+FScopedConditionalWorldSwitcher::FScopedConditionalWorldSwitcher(UWorld* InWorld)
+	: ViewportClient( nullptr )
+	, OldWorld( nullptr )
+{
+	if (InWorld)
+	{
+		ViewportClient = InWorld->GetGameViewport();
+	}
+
+	ConditionalSwitchWorld( ViewportClient, InWorld );
+}
+
+void FScopedConditionalWorldSwitcher::ConditionalSwitchWorld( FViewportClient* InViewportClient, UWorld* InWorld )
 {
 	if( GIsEditor )
 	{
@@ -10178,31 +10195,44 @@ FScopedConditionalWorldSwitcher::FScopedConditionalWorldSwitcher( FViewportClien
 			OldWorld = GWorld; 
 			const bool bSwitchToPIEWorld = true;
 			// Delegate must be valid
-			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld );
-		} 
+			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld, nullptr );
+		}
 		else if( ViewportClient )
 		{
 			// Tell the viewport client to set the correct world and store what the world used to be
 			OldWorld = ViewportClient->ConditionalSetWorld();
+		}
+		else if ( InWorld && !GIsPlayInEditorWorld )
+		{
+			OldWorld = GWorld;
+			const bool bSwitchToPIEWorld = true;
+			// No viewport so set the world directly
+			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld, InWorld );
 		}
 	}
 }
 
 FScopedConditionalWorldSwitcher::~FScopedConditionalWorldSwitcher()
 {
-	// Only switch in the editor and if we made a swtich (OldWorld not null)
+	// Only switch in the editor and if we made a switch (OldWorld not null)
 	if( GIsEditor && OldWorld )
 	{
 		if( ViewportClient && ViewportClient == GEngine->GameViewport && GIsPlayInEditorWorld )
 		{
 			const bool bSwitchToPIEWorld = false;
 			// Delegate must be valid
-			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld );
-		} 
+			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld, nullptr );
+		}
 		else if( ViewportClient )
 		{
 			// Tell the viewport client to restore the old world
 			ViewportClient->ConditionalRestoreWorld( OldWorld );
+		}
+		else if( GIsPlayInEditorWorld )
+		{
+			// No viewport so always restore to old world
+			const bool bSwitchToPIEWorld = false;
+			SwitchWorldForPIEDelegate.ExecuteIfBound( bSwitchToPIEWorld, OldWorld );
 		}
 	}
 }
