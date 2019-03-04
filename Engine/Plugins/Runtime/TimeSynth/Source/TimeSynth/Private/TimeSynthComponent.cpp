@@ -53,12 +53,23 @@ void UTimeSynthComponent::OnRegister()
 	Super::OnRegister();
 
 	SetComponentTickEnabled(true);
-	RegisterComponent();
+
+	if (!IsRegistered())
+	{
+		RegisterComponent();
+	}
 }
 
 void UTimeSynthComponent::OnUnregister()
 {
 	Super::OnUnregister();
+
+	SetComponentTickEnabled(false);
+
+	if (IsRegistered())
+	{
+		UnregisterComponent();
+	}
 }
 
 bool UTimeSynthComponent::IsReadyForFinishDestroy()
@@ -562,6 +573,11 @@ FTimeSynthClipHandle UTimeSynthComponent::PlayClip(UTimeSynthClip* InClip, UTime
 	{
 		UE_LOG(LogTimeSynth, Warning, TEXT("Failed to play clip: needs to have sounds to choose from."));
 		return FTimeSynthClipHandle();
+	}
+
+	if (!bIsActive)
+	{
+		SetActive(true);
 	}
 
 	// Get this time synth components transform
