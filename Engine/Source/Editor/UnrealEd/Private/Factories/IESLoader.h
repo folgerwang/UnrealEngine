@@ -7,6 +7,8 @@
 
 class Error;
 
+enum class EIESPhotometricType;
+
 /**
  * To load the IES file image format. IES files exist for many real world lights. The file stores how much light is emitted in a specific direction.
  * The data is usually measured but tools to paint IES files exist.
@@ -39,6 +41,9 @@ private:
 
 	/** used by ComputeFullIntegral(), integrated over the unit sphere, to avoid computing it twice, -1 if not computed yet */
 	float CachedIntegral;
+
+	/** The photometric type associated with the IES file being loaded */
+	EIESPhotometricType PhotometricType;
 
 	// will set Error to 0 on success
 	void Load(const uint8* Buffer);
