@@ -2545,14 +2545,3 @@ static TAutoConsoleVariable<int32> CVarSkyLightingQuality(
 	TEXT("  1: on\n"),
 	ECVF_Scalability | ECVF_RenderThreadSafe
 );
-
-static TAutoConsoleVariable<int32> CVarDefaultGraphicsApi(
-	TEXT("r.DefaultGraphicsApi"),
-	0,
-	TEXT("0: Default\n")
-	TEXT("1: DirectX 11\n")
-	TEXT("2: DirectX 12\n")
-	TEXT("3: Vulkan\n")
-	TEXT("4: OpenGL\n"),
-	ECVF_ReadOnly
-);

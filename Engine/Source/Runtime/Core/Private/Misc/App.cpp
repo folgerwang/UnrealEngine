@@ -24,7 +24,7 @@ FGuid FApp::InstanceId = FGuid::NewGuid();
 FGuid FApp::SessionId = FGuid::NewGuid();
 FString FApp::SessionName = FString();
 FString FApp::SessionOwner = FString();
-FString FApp::GraphicsAPI = FString();
+FString FApp::GraphicsRHI = FString();
 TArray<FString> FApp::SessionUsers = TArray<FString>();
 bool FApp::Standalone = true;
 bool FApp::bIsBenchmarking = false;
@@ -99,14 +99,14 @@ FString FApp::GetBuildDate()
 	return FString(BuildSettings::GetBuildDate());
 }
 
-FString FApp::GetGraphicsAPI()
+FString FApp::GetGraphicsRHI()
 {
-	return GraphicsAPI;
+	return GraphicsRHI;
 }
 
-void FApp::SetGraphicsAPI(FString APIString)
+void FApp::SetGraphicsRHI(FString RHIString)
 {
-	GraphicsAPI = APIString;
+	GraphicsRHI = RHIString;
 }
 
 void FApp::InitializeSession()

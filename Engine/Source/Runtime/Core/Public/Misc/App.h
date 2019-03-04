@@ -65,18 +65,16 @@ public:
 	static FString GetBuildDate();
 
 	/**
-	 * Gets the name of the graphics API currently in use.
+	 * Gets the name of the graphics RHI currently in use.
 	 *
-	 * @return name of Graphics API
+	 * @return name of Graphics RHI
 	 */
-	static FString GetGraphicsAPI();
+	static FString GetGraphicsRHI();
 
 	/**
-	 * Sets the Graphics Api currently in use
-	 *
-	 * @return name of Graphics API
+	 * Sets the Graphics RHI currently in use
 	 */
-	static void SetGraphicsAPI(FString APIString);
+	static void SetGraphicsRHI(FString RHIString);
 
 
 	/**
@@ -725,8 +723,8 @@ private:
 	/** Holds the name of the user that launched session. */
 	static FString SessionOwner;
 
-	/** Holds the name the graphics api currently in use*/
-	static FString GraphicsAPI;
+	/** Holds the name the graphics RHI currently in use*/
+	static FString GraphicsRHI;
 
 
 	/** List of authorized session users. */

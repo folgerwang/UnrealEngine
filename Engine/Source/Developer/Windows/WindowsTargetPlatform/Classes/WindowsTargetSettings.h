@@ -24,6 +24,17 @@ enum class ECompilerVersion : uint8
 	VisualStudio2017 = 2 UMETA(DisplayName = "Visual Studio 2017"),
 	VisualStudio2019 = 3 UMETA(DisplayName = "Visual Studio 2019"),
 };
+UENUM()
+enum class EDefaultGraphicsRHI : uint8
+{
+	DefaultGraphicsRHI_Default = 0 UMETA(DisplayName = "Default"),
+	DefaultGraphicsRHI_DX11 = 1 UMETA(DisplayName = "DirectX 11"),
+	DefaultGraphicsRHI_DX12 = 2 UMETA(DisplayName = "DirectX 12"),
+	DefaultGraphicsRHI_Vulkan = 3 UMETA(DisplayName = "Vulkan"),
+	DefaultGraphicsRHI_OpenGL = 4 UMETA(DisplayName = "OpenGL"),
+};
+
+
 
 /**
  * Implements the settings for the Windows target platform. The first instance of this class is initialized in
@@ -48,6 +59,13 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, config, Category=Rendering)
 	TArray<FString> TargetedRHIs;
+
+	/** 
+	 * Default Graphics RHI. Select which RHIto use. Make sure its also selected as a Targeted RHI
+	 * Requires Editor restart
+	 */
+	UPROPERTY(EditAnywhere, config, Category="Targeted RHIs", Meta = (DisplayName = "Default RHI"))
+	EDefaultGraphicsRHI DefaultGraphicsRHI;
 
 	/**
 	 * Determine the minimum supported 
