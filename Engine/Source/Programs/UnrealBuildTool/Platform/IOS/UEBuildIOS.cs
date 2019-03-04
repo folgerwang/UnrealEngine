@@ -274,6 +274,12 @@ namespace UnrealBuildTool
 		public readonly bool bDisableForceInline = false;
 		
 		/// <summary>
+		/// true if IDFA are enabled
+		/// </summary>
+		[ConfigFile(ConfigHierarchyType.Engine, "/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bEnableAdvertisingIdentifier")]
+		public readonly bool bEnableAdvertisingIdentifier = false;
+
+		/// <summary>
 		/// Returns a list of all the non-shipping architectures which are supported
 		/// </summary>
 		public IEnumerable<string> NonShippingArchitectures
@@ -963,6 +969,11 @@ namespace UnrealBuildTool
 					Log.TraceVerbose("        Registering custom oodle compressor for {0}", UnrealTargetPlatform.IOS.ToString());
 					CompileEnvironment.Definitions.Add("REGISTER_OODLE_CUSTOM_COMPRESSOR=1");
 				}
+			}
+
+			if (ProjectSettings.bEnableAdvertisingIdentifier)
+			{
+				CompileEnvironment.Definitions.Add("ENABLE_ADVERTISING_IDENTIFIER=1");
 			}
 
 			LinkEnvironment.AdditionalFrameworks.Add(new UEBuildFramework("GameKit"));

@@ -291,6 +291,10 @@ public:
 	// Enable bitcode compiling?
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Support bitcode in Shipping"))
 	bool bShipForBitcode;
+
+	// Enable Advertising Identified
+	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Enable Advertising Identified (IDFA)"))
+	bool bEnableAdvertisingIdentifier;
 	
 	// Any additional linker flags to pass to the linker in non-shipping builds
 	UPROPERTY(GlobalConfig, EditAnywhere, Category = Build, meta = (DisplayName = "Additional Non-Shipping Linker Flags", ConfigHierarchyEditable))
