@@ -652,14 +652,14 @@ namespace Audio
 					if (Bus)
 					{
 						// If this bus is already registered, add this as a source id
-						Bus->AddInstanceId(SourceId);
+						Bus->AddInstanceId(SourceId, InitParams.NumInputChannels);
 					}
 					else
 					{
 						// If the bus is not registered, make a new entry
 						FMixerBus NewBusData(this, InitParams.NumInputChannels, NumOutputFrames);
 
-						NewBusData.AddInstanceId(SourceId);
+						NewBusData.AddInstanceId(SourceId, InitParams.NumInputChannels);
 
 						Buses.Add(InitParams.BusId, NewBusData);
 					}

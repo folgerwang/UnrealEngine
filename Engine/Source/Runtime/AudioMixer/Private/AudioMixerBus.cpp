@@ -20,14 +20,30 @@ namespace Audio
 		}
 	}
 
+	void FMixerBus::SetNumOutputChannels(int32 InNumOutputChannels)
+	{
+		NumChannels = InNumOutputChannels;
+		const int32 NumSamples = NumChannels * NumFrames;
+		for (int32 i = 0; i < 2; ++i)
+		{
+			MixedSourceData[i].Reset();
+			MixedSourceData[i].AddZeroed(NumSamples);
+		}
+	}
+
 	void FMixerBus::Update()
 	{
 		CurrentBufferIndex = !CurrentBufferIndex;
 	}
 
-	void FMixerBus::AddInstanceId(const int32 InSourceId)
+	void FMixerBus::AddInstanceId(const int32 InSourceId, int32 InNumOutputChannels)
 	{
 		InstanceIds.Add(InSourceId);
+
+		if (NumChannels != InNumOutputChannels)
+		{
+			SetNumOutputChannels(InNumOutputChannels);
+		}
 	}
 
 	bool FMixerBus::RemoveInstanceId(const int32 InSourceId)

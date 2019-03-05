@@ -26,7 +26,7 @@ namespace Audio
 		void Update();
 
 		// Adds a source id for instances of this bus
-		void AddInstanceId(const int32 InSourceInstanceId);
+		void AddInstanceId(const int32 InSourceInstanceId, int32 InNumOutputChannels);
 
 		// Removes the source id from this bus. Returns true if there are no more instances or sends.
 		bool RemoveInstanceId(const int32 InSourceId);
@@ -47,6 +47,9 @@ namespace Audio
 		void MixBuffer();
 
 	private:
+
+		// If this bus was constructed before
+		void SetNumOutputChannels(int32 InNumOutputChannels);
 
 		// Array of instance ids. These are sources which are instances of this.
 		// It's possible for this data to have bus sends but no instance ids.
