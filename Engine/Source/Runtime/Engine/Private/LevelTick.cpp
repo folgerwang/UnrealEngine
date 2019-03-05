@@ -1051,7 +1051,7 @@ void UWorld::SendAllEndOfFrameUpdates()
 	{
 		if (ParameterCollectionInstance)
 		{
-			ParameterCollectionInstance->DeferredUpdateRenderState();
+			ParameterCollectionInstance->DeferredUpdateRenderState(false);
 		}
 	}
 	bMaterialParameterCollectionInstanceNeedsDeferredUpdate = false;

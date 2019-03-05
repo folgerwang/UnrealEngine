@@ -1039,7 +1039,7 @@ void UWorld::SetupParameterCollectionInstances()
 		AddParameterCollectionInstance(CurrentCollection, false);
 	}
 
-	UpdateParameterCollectionInstances(false);
+	UpdateParameterCollectionInstances(false, false);
 }
 
 void UWorld::AddParameterCollectionInstance(UMaterialParameterCollection* Collection, bool bUpdateScene)
@@ -1071,14 +1071,14 @@ void UWorld::AddParameterCollectionInstance(UMaterialParameterCollection* Collec
 
 	// Ensure the new instance creates initial render thread resources
 	// This needs to happen right away, so they can be picked up by any cached shader bindings
-	NewInstance->DeferredUpdateRenderState(false);
+	NewInstance->UpdateRenderState(true);
 
 	if (bUpdateScene)
 	{
 		// Update the scene's list of instances, needs to happen to prevent a race condition with GC 
 		// (rendering thread still uses the FMaterialParameterCollectionInstanceResource when GC deletes the UMaterialParameterCollectionInstance)
 		// However, if UpdateParameterCollectionInstances is going to be called after many AddParameterCollectionInstance's, this can be skipped for now.
-		UpdateParameterCollectionInstances(false);
+		UpdateParameterCollectionInstances(false, false);
 	}
 }
 
@@ -1097,7 +1097,7 @@ UMaterialParameterCollectionInstance* UWorld::GetParameterCollectionInstance(con
 	return NULL;
 }
 
-void UWorld::UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers)
+void UWorld::UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers, bool bRecreateUniformBuffer)
 {
 	if (Scene)
 	{
@@ -1109,7 +1109,11 @@ void UWorld::UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffe
 
 			if (bUpdateInstanceUniformBuffers)
 			{
-				Instance->UpdateRenderState();
+				Instance->UpdateRenderState(bRecreateUniformBuffer);
+			}
+			else
+			{
+				checkf(!bRecreateUniformBuffer, TEXT("Recreate Uniform Buffer was requested but cannot be executed because bUpdateInstanceUniformBuffers was false"));
 			}
 
 			InstanceResources.Add(Instance->GetResource());

@@ -137,7 +137,7 @@ private:
 	/** Gets default values into data to be set on the uniform buffer. */
 	void GetDefaultParameterData(TArray<FVector4>& ParameterData) const;
 
-	void UpdateDefaultResource();
+	void UpdateDefaultResource(bool bRecreateUniformBuffer);
 };
 
 

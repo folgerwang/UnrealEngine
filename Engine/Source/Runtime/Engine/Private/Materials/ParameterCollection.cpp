@@ -56,7 +56,7 @@ void UMaterialParameterCollection::PostLoad()
 		CurrentWorld->AddParameterCollectionInstance(this, true);
 	}
 
-	UpdateDefaultResource();
+	UpdateDefaultResource(true);
 }
 
 void UMaterialParameterCollection::BeginDestroy()
@@ -141,15 +141,15 @@ void SanitizeParameters(TArray<ParameterType>& Parameters)
 	}
 }
 
-TArray<FCollectionScalarParameter> PreviousScalarParameters;
-TArray<FCollectionVectorParameter> PreviousVectorParameters;
+int32 PreviousNumScalarParameters = 0;
+int32 PreviousNumVectorParameters = 0;
 
 void UMaterialParameterCollection::PreEditChange(UProperty* PropertyThatWillChange)
 {
 	Super::PreEditChange(PropertyThatWillChange);
 
-	PreviousScalarParameters = ScalarParameters;
-	PreviousVectorParameters = VectorParameters;
+	PreviousNumScalarParameters = ScalarParameters.Num();
+	PreviousNumVectorParameters = VectorParameters.Num();
 }
 
 void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -159,8 +159,7 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 
 	// If the array counts have changed, an element has been added or removed, and we need to update the uniform buffer layout,
 	// Which also requires recompiling any referencing materials
-	if (ScalarParameters.Num() != PreviousScalarParameters.Num()
-		|| VectorParameters.Num() != PreviousVectorParameters.Num())
+	if (ScalarParameters.Num() != PreviousNumScalarParameters || VectorParameters.Num() != PreviousNumVectorParameters)
 	{
 		// Limit the count of parameters to fit within uniform buffer limits
 		const uint32 MaxScalarParameters = 1024;
@@ -178,39 +177,11 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 		}
 
 		// Generate a new Id so that unloaded materials that reference this collection will update correctly on load
+		// Now that we changed the guid, we must recompile all materials which reference this collection
 		StateId = FGuid::NewGuid();
 
 		// Update the uniform buffer layout
 		CreateBufferStruct();
-
-		// Recreate each instance of this collection
-		for (TObjectIterator<UWorld> It; It; ++It)
-		{
-			UWorld* CurrentWorld = *It;
-			CurrentWorld->AddParameterCollectionInstance(this, false);
-		}
-
-		// Build set of changed parameter names
-		TSet<FName> ParameterNames;
-		for (const FCollectionVectorParameter& Param : PreviousVectorParameters)
-		{
-			ParameterNames.Add(Param.ParameterName);
-		}
-
-		for (const FCollectionScalarParameter& Param : PreviousScalarParameters)
-		{
-			ParameterNames.Add(Param.ParameterName);
-		}
-
-		for (const FCollectionVectorParameter& Param : VectorParameters)
-		{
-			ParameterNames.Remove(Param.ParameterName);
-		}
-
-		for (const FCollectionScalarParameter& Param : ScalarParameters)
-		{
-			ParameterNames.Remove(Param.ParameterName);
-		}
 
 		// Create a material update context so we can safely update materials using this parameter collection.
 		{
@@ -235,16 +206,8 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 					{
 						if (CurrentMaterial->MaterialParameterCollectionInfos[FunctionIndex].ParameterCollection == this)
 						{
-							TArray<UMaterialExpressionCollectionParameter*> CollectionParameters;
-							CurrentMaterial->GetAllExpressionsInMaterialAndFunctionsOfType(CollectionParameters);
-							for (UMaterialExpressionCollectionParameter* CollectionParameter : CollectionParameters)
-							{
-								if (ParameterNames.Contains(CollectionParameter->ParameterName))
-								{
-									bRecompile = true;
-									break;
-								}
-							}
+							bRecompile = true;
+							break;
 						}
 					}
 				}
@@ -259,20 +222,28 @@ void UMaterialParameterCollection::PostEditChangeProperty(FPropertyChangedEvent&
 					CurrentMaterial->MarkPackageDirty();
 				}
 			}
+
+			// Recreate all uniform buffers based off of this collection
+			for (TObjectIterator<UWorld> It; It; ++It)
+			{
+				UWorld* CurrentWorld = *It;
+				CurrentWorld->UpdateParameterCollectionInstances(true, true);
+			}
+
+			UpdateDefaultResource(true);
 		}
 	}
-
-	// Update each world's scene with the new instance, and update each instance's uniform buffer to reflect the changes made by the user
-	for (TObjectIterator<UWorld> It; It; ++It)
+	else
 	{
-		UWorld* CurrentWorld = *It;
-		CurrentWorld->UpdateParameterCollectionInstances(true);
+		// We didn't need to recreate the uniform buffer, just update its contents
+		for (TObjectIterator<UWorld> It; It; ++It)
+		{
+			UWorld* CurrentWorld = *It;
+			CurrentWorld->UpdateParameterCollectionInstances(true, false);
+		}
+
+		UpdateDefaultResource(false);
 	}
-
-	UpdateDefaultResource();
-
-	PreviousScalarParameters.Empty();
-	PreviousVectorParameters.Empty();
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -466,12 +437,12 @@ void UMaterialParameterCollection::GetDefaultParameterData(TArray<FVector4>& Par
 	}
 }
 
-void UMaterialParameterCollection::UpdateDefaultResource()
+void UMaterialParameterCollection::UpdateDefaultResource(bool bRecreateUniformBuffer)
 {
 	// Propagate the new values to the rendering thread
 	TArray<FVector4> ParameterData;
 	GetDefaultParameterData(ParameterData);
-	DefaultResource->GameThread_UpdateContents(StateId, ParameterData, GetFName());
+	DefaultResource->GameThread_UpdateContents(StateId, ParameterData, GetFName(), bRecreateUniformBuffer);
 
 	FGuid Id = StateId;
 	FMaterialParameterCollectionInstanceResource* Resource = DefaultResource;
@@ -504,8 +475,6 @@ void UMaterialParameterCollectionInstance::SetCollection(UMaterialParameterColle
 {
 	Collection = InCollection;
 	World = InWorld;
-
-	UpdateRenderState();
 }
 
 bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName ParameterName, float ParameterValue)
@@ -532,8 +501,7 @@ bool UMaterialParameterCollectionInstance::SetScalarParameterValue(FName Paramet
 
 		if (bUpdateUniformBuffer)
 		{
-			//@todo - only update uniform buffers max once per frame
-			UpdateRenderState();
+			UpdateRenderState(false);
 		}
 
 		return true;
@@ -566,8 +534,7 @@ bool UMaterialParameterCollectionInstance::SetVectorParameterValue(FName Paramet
 
 		if (bUpdateUniformBuffer)
 		{
-			//@todo - only update uniform buffers max once per frame
-			UpdateRenderState();
+			UpdateRenderState(false);
 		}
 
 		return true;
@@ -604,7 +571,7 @@ bool UMaterialParameterCollectionInstance::GetVectorParameterValue(FName Paramet
 	return false;
 }
 
-void UMaterialParameterCollectionInstance::UpdateRenderState()
+void UMaterialParameterCollectionInstance::UpdateRenderState(bool bRecreateUniformBuffer)
 {
 	// Don't need material parameters on the server
 	if (!World.IsValid() || World->GetNetMode() == NM_DedicatedServer)
@@ -615,26 +582,22 @@ void UMaterialParameterCollectionInstance::UpdateRenderState()
 	bNeedsRenderStateUpdate = true;
 	World->SetMaterialParameterCollectionInstanceNeedsUpdate();
 
-	if (!GDeferUpdateRenderStates)
+	if (!GDeferUpdateRenderStates || bRecreateUniformBuffer)
 	{
-		DeferredUpdateRenderState();
+		DeferredUpdateRenderState(bRecreateUniformBuffer);
 	}
 }
 
-void UMaterialParameterCollectionInstance::DeferredUpdateRenderState(bool bUpdateScene)
+void UMaterialParameterCollectionInstance::DeferredUpdateRenderState(bool bRecreateUniformBuffer)
 {
+	checkf(bNeedsRenderStateUpdate || !bRecreateUniformBuffer, TEXT("DeferredUpdateRenderState was told to recreate the uniform buffer, but there's nothing to update"));
+
 	if (bNeedsRenderStateUpdate && World.IsValid())
 	{
 		// Propagate the new values to the rendering thread
 		TArray<FVector4> ParameterData;
 		GetParameterData(ParameterData);
-		Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName());
-
-		if (bUpdateScene)
-		{
-			// Update the world's scene with the new uniform buffer pointer
-			World->UpdateParameterCollectionInstances(false);
-		}
+		Resource->GameThread_UpdateContents(Collection ? Collection->StateId : FGuid(), ParameterData, GetFName(), bRecreateUniformBuffer);
 	}
 
 	bNeedsRenderStateUpdate = false;
@@ -684,13 +647,13 @@ void UMaterialParameterCollectionInstance::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-void FMaterialParameterCollectionInstanceResource::GameThread_UpdateContents(const FGuid& InGuid, const TArray<FVector4>& Data, const FName& InOwnerName)
+void FMaterialParameterCollectionInstanceResource::GameThread_UpdateContents(const FGuid& InGuid, const TArray<FVector4>& Data, const FName& InOwnerName, bool bRecreateUniformBuffer)
 {
 	FMaterialParameterCollectionInstanceResource* Resource = this;
 	ENQUEUE_RENDER_COMMAND(UpdateCollectionCommand)(
-		[InGuid, Data, InOwnerName, Resource](FRHICommandListImmediate& RHICmdList)
+		[InGuid, Data, InOwnerName, Resource, bRecreateUniformBuffer](FRHICommandListImmediate& RHICmdList)
 		{
-			Resource->UpdateContents(InGuid, Data, InOwnerName);
+			Resource->UpdateContents(InGuid, Data, InOwnerName, bRecreateUniformBuffer);
 		}
 	);
 }
@@ -718,26 +681,26 @@ FMaterialParameterCollectionInstanceResource::~FMaterialParameterCollectionInsta
 	UniformBuffer.SafeRelease();
 }
 
-void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& InId, const TArray<FVector4>& Data, const FName& InOwnerName)
+void FMaterialParameterCollectionInstanceResource::UpdateContents(const FGuid& InId, const TArray<FVector4>& Data, const FName& InOwnerName, bool bRecreateUniformBuffer)
 {
 	Id = InId;
 	OwnerName = InOwnerName;
 
 	if (InId != FGuid() && Data.Num() > 0)
 	{
-		uint32 Size = Data.GetTypeSize() * Data.Num();
-		bool bSizeChanged = Size != UniformBufferLayout.ConstantBufferSize;
-		UniformBufferLayout.ConstantBufferSize = Data.GetTypeSize() * Data.Num();
-		UniformBufferLayout.ComputeHash();
+		const uint32 NewSize = Data.GetTypeSize() * Data.Num();
 		check(UniformBufferLayout.Resources.Num() == 0);
 
-		if (!bSizeChanged && IsValidRef(UniformBuffer))
+		if (!bRecreateUniformBuffer && IsValidRef(UniformBuffer))
 		{
+			check(NewSize == UniformBufferLayout.ConstantBufferSize);
 			check(UniformBuffer->GetLayout() == UniformBufferLayout);
 			RHIUpdateUniformBuffer(UniformBuffer, Data.GetData());
 		}
 		else
 		{
+			UniformBufferLayout.ConstantBufferSize = NewSize;
+			UniformBufferLayout.ComputeHash();
 			UniformBuffer = RHICreateUniformBuffer(Data.GetData(), UniformBufferLayout, UniformBuffer_MultiFrame);
 		}
 	}

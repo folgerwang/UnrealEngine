@@ -2423,7 +2423,7 @@ public:
 	UMaterialParameterCollectionInstance* GetParameterCollectionInstance(const UMaterialParameterCollection* Collection);
 
 	/** Updates this world's scene with the list of instances, and optionally updates each instance's uniform buffer. */
-	void UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers);
+	void UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffers, bool bRecreateUniformBuffer);
 
 	/** Gets the canvas object for rendering to a render target.  Will allocate one if needed. */
 	UCanvas* GetCanvasForRenderingToTarget();
