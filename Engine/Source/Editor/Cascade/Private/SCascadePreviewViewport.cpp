@@ -21,6 +21,9 @@ void SCascadePreviewViewport::Tick(const FGeometry& AllottedGeometry, const doub
 
 SCascadePreviewViewport::~SCascadePreviewViewport()
 {
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	Editor->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+
 	if (ViewportClient.IsValid())
 	{
 		ViewportClient->Viewport = NULL;
@@ -32,6 +35,30 @@ void SCascadePreviewViewport::Construct(const FArguments& InArgs)
 	CascadePtr = InArgs._Cascade;
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
+
+	// Restore last used feature level
+	if (ViewportClient.IsValid())
+	{
+		UWorld* World = ViewportClient->GetPreviewScene().GetWorld();
+		if (World != nullptr)
+		{
+			World->ChangeFeatureLevel(GWorld->FeatureLevel);
+		}
+	}
+
+	// Use a delegate to inform the attached world of feature level changes.
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			if(ViewportClient.IsValid())
+			{
+				UWorld* World = ViewportClient->GetPreviewScene().GetWorld();
+				if (World != nullptr)
+				{
+					World->ChangeFeatureLevel(NewFeatureLevel);
+				}
+			}
+		});
 }
 
 void SCascadePreviewViewport::RefreshViewport()
@@ -79,6 +106,20 @@ TSharedPtr<SWidget> SCascadePreviewViewport::MakeViewportToolbar()
 		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 }
 
+
+void SCascadePreviewViewport::PopulateViewportOverlays(TSharedRef<SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	// this widget will display the current viewed feature level
+	Overlay->AddSlot()
+		.VAlign(VAlign_Top)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
+}
 
 void SCascadePreviewViewport::OnFocusViewportToSelection()
 {
