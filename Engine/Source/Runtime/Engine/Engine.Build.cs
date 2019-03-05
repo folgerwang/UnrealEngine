@@ -307,6 +307,11 @@ public class Engine : ModuleRules
 			}
 		);
 
+		if(Target.bWithLiveCoding)
+		{
+			DynamicallyLoadedModuleNames.Add("LiveCoding");
+		}
+
 		if (Target.Type != TargetType.Server)
 		{
 			DynamicallyLoadedModuleNames.AddRange(

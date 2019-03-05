@@ -106,6 +106,12 @@ public:
 	TSharedPtr< FUICommandInfo > ReloadLevelEditor;
 	TSharedPtr< FUICommandInfo > RecompileGameCode;
 
+#if WITH_LIVE_CODING
+	TSharedPtr< FUICommandInfo > HotReloadMode_Legacy;
+	TSharedPtr< FUICommandInfo > HotReloadMode_LiveCoding;
+	TSharedPtr< FUICommandInfo > HotReload_ShowConsole;
+#endif
+
 	/**
 	 * Level context menu commands.  These are shared between all viewports
 	 * and rely on GCurrentLevelEditingViewport
@@ -842,6 +848,28 @@ public:
 	 */
 	static void RecompileGameCode_Clicked();
 	static bool Recompile_CanExecute();
+
+#if WITH_LIVE_CODING
+	/**
+	 * Enables live coding mode
+	 */
+	static void HotReload_EnableLiveCoding(bool bEnable);
+
+	/**
+	 * Determines if hot reload is set to use legacy mode.
+	 */
+	static bool HotReload_IsLegacyMode();
+
+	/**
+	 * Determines if live coding is enabled
+	 */
+	static bool HotReload_IsLiveCodingMode();
+
+	/**
+	 * Shows the console
+	 */
+	static void HotReload_ShowConsole_Clicked();
+#endif
 
 	/**
 	 * Called when requesting connection to source control

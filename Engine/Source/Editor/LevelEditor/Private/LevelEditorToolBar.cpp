@@ -1421,6 +1421,17 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 				FLevelEditorCommands::Get().RecompileGameCode->GetDescription(),
 				FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Recompile")
 				);
+
+#if WITH_LIVE_CODING
+			ToolbarBuilder.AddComboButton(
+				FUIAction(),
+				FOnGetContent::CreateStatic( &FLevelEditorToolBar::GenerateCompileMenuContent, InCommandList ),
+				LOCTEXT( "CompileCombo_Label", "Compile Options" ),
+				LOCTEXT( "CompileComboToolTip", "Compile options menu" ),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Recompile"),
+				true
+				);
+#endif
 		}
 	}
 	ToolbarBuilder.EndSection();
@@ -1840,6 +1851,33 @@ static void MakePreviewSettingsMenu( FMenuBuilder& MenuBuilder )
 	MenuBuilder.EndSection();
 #undef LOCTEXT_NAMESPACE
 }
+
+#if WITH_LIVE_CODING
+TSharedRef< SWidget > FLevelEditorToolBar::GenerateCompileMenuContent( TSharedRef<FUICommandList> InCommandList )
+{
+#define LOCTEXT_NAMESPACE "LevelToolBarCompileMenu"
+
+	const bool bShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList );
+
+	MenuBuilder.BeginSection("HotReloadMode", LOCTEXT( "HotReloadMode", "Mode" ) );
+	{
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReloadMode_Legacy );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReloadMode_LiveCoding );
+	}
+	MenuBuilder.EndSection();
+
+	MenuBuilder.BeginSection("HotReloadActions", LOCTEXT( "HotReloadActions", "Actions" ) );
+	{
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReload_ShowConsole );
+	}
+	MenuBuilder.EndSection();
+
+	return MenuBuilder.MakeWidget();
+
+#undef LOCTEXT_NAMESPACE
+}
+#endif
 
 TSharedRef< SWidget > FLevelEditorToolBar::GenerateQuickSettingsMenu( TSharedRef<FUICommandList> InCommandList )
 {

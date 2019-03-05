@@ -91,6 +91,10 @@
 #include "LevelUtils.h"
 #include "ISceneOutliner.h"
 
+#if WITH_LIVE_CODING
+#include "ILiveCodingModule.h"
+#endif
+
 DEFINE_LOG_CATEGORY_STATIC(LevelEditorActions, Log, All);
 
 #define LOCTEXT_NAMESPACE "LevelEditorActions"
@@ -1026,6 +1030,15 @@ bool FLevelEditorActionCallbacks::CanShowSourceCodeActions()
 
 void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 {
+#if WITH_LIVE_CODING
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr && LiveCoding->IsEnabled())
+	{
+		LiveCoding->TriggerRecompile();
+		return;
+	}
+#endif
+
 	// Don't allow a recompile while already compiling!
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>(HotReloadModule);
 	if( !HotReloadSupport.IsCurrentlyCompiling() )
@@ -1048,6 +1061,37 @@ bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>(HotReloadModule);
 	return !HotReloadSupport.IsCurrentlyCompiling() && !(FApp::GetEngineIsPromotedBuild() && FEngineBuildSettings::IsPerforceBuild());
 }
+
+#if WITH_LIVE_CODING
+void FLevelEditorActionCallbacks::HotReload_EnableLiveCoding(bool bEnable)
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr)
+	{
+		LiveCoding->Enable(bEnable);
+	}
+}
+
+bool FLevelEditorActionCallbacks::HotReload_IsLegacyMode( )
+{
+	return !HotReload_IsLiveCodingMode();
+}
+
+bool FLevelEditorActionCallbacks::HotReload_IsLiveCodingMode( )
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	return LiveCoding != nullptr && LiveCoding->IsEnabled();
+}
+
+void FLevelEditorActionCallbacks::HotReload_ShowConsole_Clicked()
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding!= nullptr)
+	{
+		LiveCoding->ShowConsole();
+	}
+}
+#endif
 
 void FLevelEditorActionCallbacks::ConnectToSourceControl_Clicked()
 {
@@ -3094,6 +3138,12 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( MapCheck, "Open Map Check", "Checks map for errors", EUserInterfaceActionType::Button, FInputChord() );
 
 	UI_COMMAND( RecompileGameCode, "Recompile Game Code", "Recompiles and reloads C++ code for game systems on the fly", EUserInterfaceActionType::Button, FInputChord( EKeys::P, EModifierKey::Alt | EModifierKey::Control | EModifierKey::Shift ) );
+
+#if WITH_LIVE_CODING
+	UI_COMMAND( HotReloadMode_Legacy, "Legacy", "Use the legacy hot reload system", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( HotReloadMode_LiveCoding, "Live Coding (Experimental)", "Hot-patches C++ function changes into the current process. Currently does not allow class layout changes.", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( HotReload_ShowConsole, "Show Console", "Displays the live coding console window.", EUserInterfaceActionType::Button, FInputChord() );
+#endif
 
 	UI_COMMAND( EditAsset, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputChord( EKeys::E, EModifierKey::Control ) );
 	UI_COMMAND( EditAssetNoConfirmMultiple, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputChord( EKeys::E, EModifierKey::Control | EModifierKey::Shift ) );

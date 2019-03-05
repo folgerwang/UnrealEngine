@@ -526,6 +526,12 @@ namespace UnrealBuildTool
 		[ConfigFile(ConfigHierarchyType.Engine, "/Script/BuildSettings.BuildSettings", "bWithPerfCounters")]
         public bool bWithPerfCounters = false;
 
+		/// <summary>
+		/// Whether to enable support for live coding
+		/// </summary>
+		[RequiresUniqueBuildEnvironment]
+		public bool bWithLiveCoding = false;
+
         /// <summary>
         /// Whether to turn on logging for test/shipping builds.
         /// </summary>
@@ -1784,6 +1790,11 @@ namespace UnrealBuildTool
         public bool bWithPerfCounters
 		{
 			get { return Inner.bWithPerfCounters; }
+		}
+
+		public bool bWithLiveCoding
+		{
+			get { return Inner.bWithLiveCoding; }
 		}
 
         public bool bUseLoggingInShipping

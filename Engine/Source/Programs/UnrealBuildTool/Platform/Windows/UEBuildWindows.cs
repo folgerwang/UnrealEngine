@@ -246,6 +246,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Directory containing the DIA SDK
+		/// </summary>
+		public string DiaSdkDir
+		{
+			get { return WindowsPlatform.FindDiaSdkDirs(Environment.Compiler).Select(x => x.FullName).FirstOrDefault(); }
+		}
+
+		/// <summary>
 		/// When using a Visual Studio compiler, returns the version name as a string
 		/// </summary>
 		/// <returns>The Visual Studio compiler version name (e.g. "2015")</returns>
@@ -423,6 +431,11 @@ namespace UnrealBuildTool
 			get { return Inner.WindowsSdkDir; }
 		}
 
+		public string DiaSdkDir
+		{
+			get { return Inner.DiaSdkDir; }
+		}
+
 		#if !__MonoCS__
 		#pragma warning restore CS1591
 		#endif
@@ -455,6 +468,11 @@ namespace UnrealBuildTool
 		/// Cache of Visual C++ installation directories
 		/// </summary>
 		private static Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>> CachedToolChainDirs = new Dictionary<WindowsCompiler, Dictionary<VersionNumber, DirectoryReference>>();
+
+		/// <summary>
+		/// Cache of DIA SDK installation directories
+		/// </summary>
+		private static Dictionary<WindowsCompiler, List<DirectoryReference>> CachedDiaSdkDirs = new Dictionary<WindowsCompiler, List<DirectoryReference>>();
 
 		/// <summary>
 		/// Cache of Windows SDK installation directories
@@ -507,6 +525,7 @@ namespace UnrealBuildTool
 
 			if(Target.Configuration != UnrealTargetConfiguration.Shipping)
 			{
+				Target.bWithLiveCoding = true;
 				Target.WindowsPlatform.bCreateHotPatchableImage = true;
 			}
 		}
@@ -1187,6 +1206,51 @@ namespace UnrealBuildTool
 
 			OutMsBuildPath = null;
 			return false;
+		}
+
+		/// <summary>
+		/// Determines the directory containing the MSVC toolchain
+		/// </summary>
+		/// <param name="Compiler">Major version of the compiler to use</param>
+		/// <returns>Map of version number to directories</returns>
+		public static List<DirectoryReference> FindDiaSdkDirs(WindowsCompiler Compiler)
+		{
+			List<DirectoryReference> DiaSdkDirs;
+			if(!CachedDiaSdkDirs.TryGetValue(Compiler, out DiaSdkDirs))
+			{
+				DiaSdkDirs = new List<DirectoryReference>();
+
+				DirectoryReference PlatformDir;
+				if(UEBuildPlatformSDK.TryGetHostPlatformAutoSDKDir(out PlatformDir))
+				{
+					DirectoryReference DiaSdkDir = DirectoryReference.Combine(PlatformDir, "Win64", "DIA SDK", (Compiler == WindowsCompiler.VisualStudio2019)? "VS2019" : "VS2017");
+					if(IsValidDiaSdkDir(DiaSdkDir))
+					{
+						DiaSdkDirs.Add(DiaSdkDir);
+					}
+				}
+			
+				List<DirectoryReference> VisualStudioDirs = FindVSInstallDirs(Compiler);
+				foreach(DirectoryReference VisualStudioDir in VisualStudioDirs)
+				{
+					DirectoryReference DiaSdkDir = DirectoryReference.Combine(VisualStudioDir, "DIA SDK");
+					if(IsValidDiaSdkDir(DiaSdkDir))
+					{
+						DiaSdkDirs.Add(DiaSdkDir);
+					}
+				}
+			}
+			return DiaSdkDirs;
+		}
+
+		/// <summary>
+		/// Determines if a directory contains a valid DIA SDK
+		/// </summary>
+		/// <param name="DiaSdkDir">The directory to check</param>
+		/// <returns>True if it contains a valid DIA SDK</returns>
+		static bool IsValidDiaSdkDir(DirectoryReference DiaSdkDir)
+		{
+			return FileReference.Exists(FileReference.Combine(DiaSdkDir, "bin", "amd64", "msdia140.dll"));
 		}
 
 		/// <summary>

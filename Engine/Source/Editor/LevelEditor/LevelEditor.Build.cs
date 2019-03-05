@@ -92,5 +92,10 @@ public class LevelEditor : ModuleRules
 				"VREditor"
 			}
 		);
+
+		if(Target.bWithLiveCoding)
+		{
+			PrivateIncludePathModuleNames.Add("LiveCoding");
+		}
 	}
 }

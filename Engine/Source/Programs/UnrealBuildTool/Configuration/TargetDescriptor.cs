@@ -44,12 +44,19 @@ namespace UnrealBuildTool
 		/// </summary>
 		[CommandLine("-NoHotReload", Value = nameof(HotReloadMode.Disabled))]
 		[CommandLine("-ForceHotReload", Value = nameof(HotReloadMode.FromIDE))]
+		[CommandLine("-LiveCoding", Value = nameof(HotReloadMode.LiveCoding))]
 		public HotReloadMode HotReloadMode = HotReloadMode.Default;
 
 		/// <summary>
 		/// Map of module name to suffix for hot reloading from the editor
 		/// </summary>
 		public Dictionary<string, int> HotReloadModuleNameToSuffix = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+		/// <summary>
+		/// Path to the manifest for passing info about the output to live coding
+		/// </summary>
+		[CommandLine("-LiveCodingManifest=")]
+		public FileReference LiveCodingManifest = null;
 
 		/// <summary>
 		/// Constructor

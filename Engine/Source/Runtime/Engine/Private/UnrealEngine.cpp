@@ -1562,6 +1562,11 @@ void UEngine::Init(IEngineLoop* InEngineLoop)
 		FModuleManager::Get().LoadModule("LevelSequence");
 	}
 
+	// Enable the live coding module if it's a developer build
+#if WITH_LIVE_CODING
+	FModuleManager::Get().LoadModule("LiveCoding");
+#endif
+
 	// Finish asset manager loading
 	if (AssetManager)
 	{

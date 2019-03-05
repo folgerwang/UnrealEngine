@@ -3098,6 +3098,16 @@ namespace UnrealBuildTool
 				GlobalCompileEnvironment.Definitions.Add("WITH_CEF3=0");
 			}
 
+			// Set the define for enabling live coding
+			if(Rules.bWithLiveCoding)
+			{
+				GlobalCompileEnvironment.Definitions.Add("WITH_LIVE_CODING=1");
+			}
+			else
+			{
+				GlobalCompileEnvironment.Definitions.Add("WITH_LIVE_CODING=0");
+			}
+
 			if (Rules.bUseXGEController &&
 				Rules.Type == TargetType.Editor &&
 				(Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64))
