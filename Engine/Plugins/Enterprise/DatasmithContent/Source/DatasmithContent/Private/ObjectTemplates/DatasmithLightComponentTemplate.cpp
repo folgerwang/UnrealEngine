@@ -75,6 +75,7 @@ void UDatasmithLightComponentTemplate::Load( const UObject* Source )
 	bUseTemperature = LightComponent->bUseTemperature;
 	Temperature = LightComponent->Temperature;
 
+	IESTexture = LightComponent->IESTexture;
 	bUseIESBrightness = LightComponent->bUseIESBrightness;
 	IESBrightnessScale = LightComponent->IESBrightnessScale;
 #endif // #if WITH_EDITORONLY_DATA
