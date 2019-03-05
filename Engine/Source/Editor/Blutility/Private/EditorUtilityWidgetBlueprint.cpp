@@ -22,8 +22,8 @@ UEditorUtilityWidgetBlueprint::UEditorUtilityWidgetBlueprint(const FObjectInitia
 
 void UEditorUtilityWidgetBlueprint::BeginDestroy()
 {
-	// Created tab is invalid on editor shutdown, prevents the cleanup script from running then
-	if (CreatedTab.IsValid())
+	// prevent the cleanup script from running on editor shutdown
+	if (!GIsRequestingExit)
 	{
 		IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
 		BlutilityModule->RemoveLoadedScriptUI(this);
