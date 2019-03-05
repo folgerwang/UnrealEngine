@@ -202,7 +202,17 @@ namespace UnrealBuildTool
 								continue;
 							}
 
-							if(!bIsRunning && EditorLocation == new FileReference(RunningProcess.MainModule.FileName))
+							FileReference MainModuleFile;
+							try
+							{
+								MainModuleFile = new FileReference(RunningProcess.MainModule.FileName);
+							}
+							catch
+							{
+								MainModuleFile = null;
+							}
+
+							if(!bIsRunning && EditorLocation == MainModuleFile)
 							{
 								bIsRunning = true;
 							}
