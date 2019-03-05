@@ -269,6 +269,14 @@ bool FLinuxPlatformApplicationMisc::InitSDL()
 
 		SDL_SetHint("SDL_VIDEO_X11_REQUIRE_XRANDR", "1");  // workaround for misbuilt SDL libraries on X11.
 
+		// pass the string as is (SDL will parse)
+		FString EglDeviceHint;
+		if (FParse::Value(FCommandLine::Get(), TEXT("-egldevice="), EglDeviceHint))
+		{
+			UE_LOG(LogInit, Log, TEXT("Hinting SDL to choose EGL device '%s'"), *EglDeviceHint);
+			SDL_SetHint("SDL_HINT_EGL_DEVICE", TCHAR_TO_UTF8(*EglDeviceHint));
+		}
+
 		// The following hints are needed when FLinuxApplication::SetHighPrecisionMouseMode is called and Enable = true.
 		// SDL_SetRelativeMouseMode when enabled is warping the mouse in default mode but we don't want that. 
 		// Furthermore SDL hides the mouse which we prevent with extending SDL with a new hint.
