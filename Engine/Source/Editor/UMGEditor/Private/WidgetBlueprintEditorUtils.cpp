@@ -1130,7 +1130,25 @@ TArray<UWidget*> FWidgetBlueprintEditorUtils::PasteWidgetsInternal(TSharedRef<FW
 		// automatically.
 		if ( NewWidget->GetParent() == nullptr )
 		{
-			RootPasteWidgets.Add(NewWidget);
+			// Check to see if this widget is content of another widget holding it in a named slot.
+			bool bIsNamedSlot = false;
+			for (UWidget* ContainerWidget : PastedWidgets)
+			{
+				if (INamedSlotInterface* NamedSlotContainer = Cast<INamedSlotInterface>(ContainerWidget))
+				{
+					if (NamedSlotContainer->ContainsContent(NewWidget))
+					{
+						bIsNamedSlot = true;
+						break;
+					}
+				}
+			}
+
+			// It's a Root widget only if it's not not in a named slot.
+			if (!bIsNamedSlot)
+			{
+				RootPasteWidgets.Add(NewWidget);
+			}
 		}
 	}
 
