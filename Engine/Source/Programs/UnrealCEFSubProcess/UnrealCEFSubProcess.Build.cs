@@ -30,8 +30,6 @@ public class UnrealCEFSubProcess : ModuleRules
 		AddEngineThirdPartyPrivateStaticDependencies(Target,
 			"CEF3"
 			);
-			
-		bEnableShadowVariableWarnings = false;
 	}
 }
 

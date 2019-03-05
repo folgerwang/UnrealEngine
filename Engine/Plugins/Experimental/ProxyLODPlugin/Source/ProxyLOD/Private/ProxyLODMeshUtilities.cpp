@@ -10,7 +10,9 @@
 #include "Modules/ModuleManager.h"
 #include "MeshUtilities.h" // IMeshUtilities
 
+THIRD_PARTY_INCLUDES_START
 #include <DirectXMeshCode/DirectXMesh/DirectXMesh.h>
+THIRD_PARTY_INCLUDES_END
 
 #include "MeshDescription.h"
 #include "MeshAttributes.h"

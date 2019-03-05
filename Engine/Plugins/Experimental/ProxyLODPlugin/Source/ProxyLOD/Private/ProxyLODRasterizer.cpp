@@ -6,7 +6,9 @@
 #include "ProxyLODMeshUtilities.h"
 #include "ProxyLODThreadedWrappers.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <tbb/spin_mutex.h>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {

@@ -37,8 +37,6 @@ public class ImageWrapper : ModuleRules
 			PublicDefinitions.Add("WITH_UNREALEXR=0");
 		}
 
-		bEnableShadowVariableWarnings = false;
-
 		// Enable exceptions to allow error handling
 		bEnableExceptions = true;
 

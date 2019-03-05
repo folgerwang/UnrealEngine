@@ -8,7 +8,9 @@
 #include "ProxyLODGrid2d.h"
 #include "ProxyLODRasterizer.h" // FRasterGrid
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {

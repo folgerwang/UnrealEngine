@@ -19,9 +19,10 @@
 #include "ProxyLODThreadedWrappers.h"
 #include "ProxyLODVertexTypes.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
 #include <vector>
-
+THIRD_PARTY_INCLUDES_END
 
 /**
 * Various stages in the ProxyLOD pipeline require different internal mesh formats, but

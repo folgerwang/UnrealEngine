@@ -6,12 +6,10 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODMeshConvertUtils.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
-
-
-
 #include <openvdb/tools/VolumeToMesh.h> // for VolumeToMesh
-
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {

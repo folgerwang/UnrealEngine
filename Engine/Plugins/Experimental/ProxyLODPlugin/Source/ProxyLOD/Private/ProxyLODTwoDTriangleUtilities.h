@@ -2,8 +2,10 @@
 
 #pragma once
 
+THIRD_PARTY_INCLUDES_START
 #include <array>
 #include <limits>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {

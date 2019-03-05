@@ -119,7 +119,7 @@ namespace ProxyLOD
 // --- Implementation of templated functions --- 
 
 	template <typename VertexType, typename PartitionFunctor>
-	static void ProxyLOD::CreatePartitionArray( const TAOSMesh<VertexType>& Mesh, 
+	void ProxyLOD::CreatePartitionArray( const TAOSMesh<VertexType>& Mesh, 
 		                                        const PartitionFunctor& Functor, 
 		                                        TArray<int32>& PartitionArray)
 	{
@@ -153,7 +153,7 @@ namespace ProxyLOD
 
 
 	template <typename VertexType, typename PartitionFunctor>
-	static void ProxyLOD::PartitionMeshSplit( const TAOSMesh<VertexType>& SrcMesh, 
+	void ProxyLOD::PartitionMeshSplit( const TAOSMesh<VertexType>& SrcMesh, 
 		                                      const PartitionFunctor& Functor, 
 		                                      TArray<TAOSMesh<VertexType>>& ResultMeshArray)
 	{
@@ -290,7 +290,7 @@ namespace ProxyLOD
 
 	
 	template <typename VertexType>
-	static bool  ProxyLOD::MergeMeshArray( TArray<TAOSMesh<VertexType>>& MeshArray, TAOSMesh<VertexType>& ResultMesh)
+	bool  ProxyLOD::MergeMeshArray( TArray<TAOSMesh<VertexType>>& MeshArray, TAOSMesh<VertexType>& ResultMesh)
 	{
 		// Determine the space needed.
 
@@ -344,7 +344,7 @@ namespace ProxyLOD
 
 
 	template <typename VertexType>
-	static bool  ProxyLOD::MergeMeshArray( TArray<TAOSMesh<VertexType>>& MeshArray, 
+	bool  ProxyLOD::MergeMeshArray( TArray<TAOSMesh<VertexType>>& MeshArray, 
 		                                   const TArray<int32> * SeamVertArrayOfArrays, 
 		                                   TAOSMesh<VertexType>& ResultMesh)
 	{

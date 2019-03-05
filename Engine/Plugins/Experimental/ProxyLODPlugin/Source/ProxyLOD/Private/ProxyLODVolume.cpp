@@ -8,10 +8,15 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODMeshUtilities.h"
 
+THIRD_PARTY_INCLUDES_START
+#pragma warning(push)
+#pragma warning(disable: 4146)
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/Interpolation.h> // for Spatial Query
 #include <openvdb/tools/MeshToVolume.h> // for MeshToVolume
 #include <openvdb/tools/VolumeToMesh.h> // for VolumeToMesh
+#pragma warning(pop)
+THIRD_PARTY_INCLUDES_END
 
 #include "MeshDescription.h"
 

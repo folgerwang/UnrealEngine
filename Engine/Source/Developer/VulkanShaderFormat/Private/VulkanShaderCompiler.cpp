@@ -655,13 +655,13 @@ struct FVulkanHlslccHeader : public CrossCompiler::FHlslccHeader
 			ShaderSource += 22;
 			while (*ShaderSource && *ShaderSource != '\n')
 			{
-				FString Name;
-				if (!CrossCompiler::ParseIdentifier(ShaderSource, Name))
+				FString ExternalTextureName;
+				if (!CrossCompiler::ParseIdentifier(ShaderSource, ExternalTextureName))
 				{
 					return false;
 				}
 
-				ExternalTextures.Add(Name);
+				ExternalTextures.Add(ExternalTextureName);
 
 				if (Match(ShaderSource, '\n'))
 				{

@@ -9,7 +9,6 @@ namespace UnrealBuildTool.Rules
 
 
             // For boost:: and TBB:: code
-            bEnableUndefinedIdentifierWarnings = false;
             bUseRTTI = true;
 
             PublicIncludePaths.AddRange(

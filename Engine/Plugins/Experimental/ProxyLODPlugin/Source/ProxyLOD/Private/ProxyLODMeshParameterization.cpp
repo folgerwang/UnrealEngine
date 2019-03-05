@@ -2,8 +2,10 @@
 
 #include "ProxyLODMeshParameterization.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <UVAtlasCode/UVAtlas/inc/UVAtlas.h>
 #include <DirectXMeshCode/DirectXMesh/DirectXMesh.h>
+THIRD_PARTY_INCLUDES_END
 
 
 #include "ProxyLODThreadedWrappers.h"

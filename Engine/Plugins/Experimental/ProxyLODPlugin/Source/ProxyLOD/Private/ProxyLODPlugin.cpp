@@ -12,8 +12,10 @@
 #include "Misc/ScopedSlowTask.h"
 #include "Stats/StatsMisc.h"
 //#include "ScopedTimers.h"
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
 #include <openvdb/tools/Interpolation.h> // for grid sampler
+THIRD_PARTY_INCLUDES_END
 
 #define PROXYLOD_CLOCKWISE_TRIANGLES  1
 

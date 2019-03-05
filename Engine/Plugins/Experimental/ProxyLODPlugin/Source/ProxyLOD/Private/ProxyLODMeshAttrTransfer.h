@@ -5,7 +5,9 @@
 #include "ProxyLODMeshTypes.h"
 #include "ProxyLODThreadedWrappers.h"
 
+THIRD_PARTY_INCLUDES_START
 #include <openvdb/openvdb.h>
+THIRD_PARTY_INCLUDES_END
 
 namespace ProxyLOD
 {
