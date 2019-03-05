@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -19,19 +19,9 @@ namespace UnrealBuildTool
 		public FileItem HeaderFile;
 
 		/// <summary>
-		/// Whether optimization is enabled
+		/// The compile environment for this shared PCH
 		/// </summary>
-		public bool bOptimizeCode;
-
-		/// <summary>
-		/// Whether to enable RTTI
-		/// </summary>
-		public bool bUseRTTI;
-
-		/// <summary>
-		/// Whether to enable exceptions
-		/// </summary>
-		public bool bEnableExceptions;
+		public CppCompileEnvironment CompileEnvironment;
 
 		/// <summary>
 		/// The output files for the shared PCH
@@ -41,12 +31,10 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		public PrecompiledHeaderInstance(FileItem HeaderFile, bool bOptimizeCode, bool bUseRTTI, bool bEnableExceptions, CPPOutput Output)
+		public PrecompiledHeaderInstance(FileItem HeaderFile, CppCompileEnvironment CompileEnvironment, CPPOutput Output)
 		{
 			this.HeaderFile = HeaderFile;
-			this.bOptimizeCode = bOptimizeCode;
-			this.bUseRTTI = bUseRTTI;
-			this.bEnableExceptions = bEnableExceptions;
+			this.CompileEnvironment = CompileEnvironment;
 			this.Output = Output;
 		}
 
@@ -56,7 +44,7 @@ namespace UnrealBuildTool
 		/// <returns>String representation of the object</returns>
 		public override string ToString()
 		{
-			return String.Format("{0} (Optimized={1}, RTTI={2}, Exceptions={3})", HeaderFile.Location.GetFileName(), bOptimizeCode, bUseRTTI, bEnableExceptions);
+			return HeaderFile.Location.GetFileName();
 		}
 	}
 }

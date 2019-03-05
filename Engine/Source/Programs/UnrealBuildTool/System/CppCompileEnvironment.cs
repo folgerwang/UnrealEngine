@@ -195,7 +195,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to warn about the use of shadow variables
 		/// </summary>
-		public bool bEnableShadowVariableWarnings = false;
+		public bool bEnableShadowVariableWarnings = true;
 
 		/// <summary>
 		/// Whether to treat shadow variable warnings as errors.
@@ -205,7 +205,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Whether to warn about the use of undefined identifiers in #if expressions
 		/// </summary>
-		public bool bEnableUndefinedIdentifierWarnings = false;
+		public bool bEnableUndefinedIdentifierWarnings = true;
 
 		/// <summary>
 		/// Whether to treat undefined identifier warnings as errors.
