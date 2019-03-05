@@ -20,7 +20,7 @@
 			"Name" : "SkeletalMeshReduction",
 			"Type" : "Editor",
 			"LoadingPhase" : "Default",
-			 "WhitelistPlatforms": [ "Win64" ]
+			"WhitelistPlatforms": [ "Win64", "Mac", "Linux"]
 		}
 	]
 }
