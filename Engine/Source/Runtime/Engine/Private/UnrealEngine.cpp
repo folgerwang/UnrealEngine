@@ -8617,7 +8617,6 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 	UPackage* PackageToReset = nullptr;
 	FLinkerLoad* Linker = LoadPackageLinker(nullptr, *PackageName.ToString(), LoadFlags, nullptr, nullptr, nullptr, [&PackageToReset, &Result](FLinkerLoad* InLinker)
 	{
-		check(InLinker);
 		if (InLinker != nullptr && InLinker->LinkerRoot != nullptr)
 		{
 			Result = InLinker->LinkerRoot->GetGuid();
@@ -8625,8 +8624,10 @@ FGuid UEngine::GetPackageGuid(FName PackageName, bool bForPIE)
 		}
 	});
 
-	ResetLoaders(PackageToReset);
-	Linker = nullptr;
+	if (PackageToReset)
+	{
+		ResetLoaders(PackageToReset);
+	}
 
 	return Result;
 }
