@@ -42,7 +42,12 @@ void SetupLCIUniformBuffers(const FPrimitiveSceneProxy* PrimitiveSceneProxy, con
 	if (LCI)
 	{
 		PrecomputedLightingBuffer = LCI->GetPrecomputedLightingBuffer();
-		LightmapResourceClusterBuffer = LCI->GetResourceCluster() ? LCI->GetResourceCluster()->UniformBuffer : nullptr;
+	}
+
+	if (LCI && LCI->GetResourceCluster())
+	{
+		check(LCI->GetResourceCluster()->UniformBuffer);
+		LightmapResourceClusterBuffer = LCI->GetResourceCluster()->UniformBuffer;
 	}
 
 	if (!PrecomputedLightingBuffer)

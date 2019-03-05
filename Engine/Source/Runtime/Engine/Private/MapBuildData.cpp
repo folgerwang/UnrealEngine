@@ -784,6 +784,13 @@ void UMapBuildDataRegistry::SetupLightmapResourceClusters()
 			LightmapResourceClusters[ClusterIndex].Input = ClusterInput;
 			Data.ResourceCluster = &LightmapResourceClusters[ClusterIndex];
 		}
+
+		// Init empty cluster uniform buffers so they can be referenced by cached mesh draw commands.
+		// Can't create final uniform buffers as feature level is unknown at this point.
+		for (FLightmapResourceCluster& Cluster : LightmapResourceClusters)
+		{
+			BeginInitResource(&Cluster);
+		}
 	}
 }
 
@@ -801,10 +808,10 @@ void UMapBuildDataRegistry::InitializeClusterRenderingResources(ERHIFeatureLevel
 	// If we have any mesh build data, we must have at least one resource cluster, otherwise clusters have not been setup properly.
 	check(LightmapResourceClusters.Num() > 0 || MeshBuildData.Num() == 0);
 
+	// At this point all lightmap cluster resources are initialized and we can update cluster uniform buffers.
 	for (FLightmapResourceCluster& Cluster : LightmapResourceClusters)
 	{
-		Cluster.SetFeatureLevel(InFeatureLevel);
-		BeginInitResource(&Cluster);
+		Cluster.UpdateUniformBuffer(InFeatureLevel);
 	}
 }
 
