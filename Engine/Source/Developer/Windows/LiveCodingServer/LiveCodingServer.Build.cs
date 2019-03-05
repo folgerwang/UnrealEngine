@@ -23,5 +23,7 @@ public class LiveCodingServer : ModuleRules
 		PrivateIncludePaths.Add(Path.Combine(DiaSdkDir, "include"));
 		PublicAdditionalLibraries.Add(Path.Combine(DiaSdkDir, "lib", "amd64", "diaguids.lib"));
 		RuntimeDependencies.Add("$(TargetOutputDir)/msdia140.dll", Path.Combine(DiaSdkDir, "bin", "amd64", "msdia140.dll"));
+
+		PrecompileForTargets = PrecompileTargetsType.None;
 	}
 }
