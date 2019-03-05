@@ -5,7 +5,7 @@
 #include "SkeletalSimplifierLinearAlgebra.h"
 
 #include "Math/Color.h"     // FLinearColor
-#include "Math/Vector2d.h"  // FVector2d
+#include "Math/Vector2D.h"  // FVector2d
 #include "Math/Vector.h"    // FVector
 #include "MeshBuild.h"      // ApprxEquals for normals & UVs
 #include "Templates/UnrealTemplate.h"
