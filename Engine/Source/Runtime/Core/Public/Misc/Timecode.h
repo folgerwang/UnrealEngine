@@ -6,6 +6,7 @@
 #include "GenericPlatform/GenericPlatformMath.h"
 #include "Misc/FrameNumber.h"
 #include "Misc/FrameRate.h"
+#include "Misc/Timespan.h"
 
 /**
  * A timecode that stores time in HH:MM:SS format with the remainder
@@ -14,8 +15,8 @@
 struct FTimecode
 {
 	/**
-	* Default construction for UObject purposes
-	*/
+	 * Default construction for UObject purposes
+	 */
 	FTimecode()
 		: Hours(0)
 		, Minutes(0)
@@ -25,12 +26,12 @@ struct FTimecode
 	{}
 
 	/**
-	* User construction from a number of hours minutes seconds and frames.
-	* @param InbDropFrame - If true, this Timecode represents a "Drop Frame Timecode" format which
+	 * User construction from a number of hours minutes seconds and frames.
+	 * @param InbDropFrame - If true, this Timecode represents a "Drop Frame Timecode" format which
 							skips the first frames of every minute (except those ending in multiples of 10)
 							to account for drift when using a fractional NTSC framerate.
-	*/
-	FTimecode(int32 InHours, int32 InMinutes, int32 InSeconds, int32 InFrames, bool InbDropFrame)
+ 	 */
+	explicit FTimecode(int32 InHours, int32 InMinutes, int32 InSeconds, int32 InFrames, bool InbDropFrame)
 		: Hours(InHours)
 		, Minutes(InMinutes)
 		, Seconds(InSeconds)
@@ -38,20 +39,20 @@ struct FTimecode
 		, bDropFrameFormat(InbDropFrame)
 	{}
 
-	FTimecode(double InSeconds, const FFrameRate& FrameRate)
-		: bDropFrameFormat(false)
+	/**
+	 * User construction from a time in seconds
+	 * @param InbDropFrame - If true, this Timecode represents a "Drop Frame Timecode" format which
+							skips the first frames of every minute (except those ending in multiples of 10)
+							to account for drift when using a fractional NTSC framerate.
+	 */
+	explicit FTimecode(double InSeconds, const FFrameRate& InFrameRate, bool InbDropFrame)
 	{
-		int32 WholeSeconds = InSeconds;
-		const float FractionalSeconds = InSeconds - WholeSeconds;
-
-		Frames = FMath::FloorToInt(FrameRate.Numerator * FractionalSeconds);
-
-		Seconds = WholeSeconds % 60;
-		WholeSeconds /= 60;
-		Minutes = WholeSeconds % 60;
-		WholeSeconds /= 60;
-		Hours = WholeSeconds % 24;
+		int32 NumberOfFrames = InbDropFrame ? (int32)FMath::RoundToInt(InSeconds * InFrameRate.AsDecimal()) : (int32)FMath::RoundToZero(InSeconds * FMath::RoundToInt(InFrameRate.AsDecimal()));
+		*this = FromFrameNumber(FFrameNumber(NumberOfFrames), InFrameRate, InbDropFrame);
 	}
+
+	friend bool operator==(const FFrameRate& A, const FFrameRate& B);
+	friend bool operator!=(const FFrameRate& A, const FFrameRate& B);
 
 public:
 
@@ -179,21 +180,48 @@ public:
 		}
 	}
 
-	static bool IsDropFormatTimecodeSupported(const FFrameRate& InFrameRate)
+	/**
+	 * Converts this Timecode back into a timespan at the given framerate, taking into account if this is a drop-frame format timecode.
+	 */
+	FTimespan ToTimespan(const FFrameRate& InFrameRate) const
 	{
-		// Drop Format Timecode is only valid for NTSC 23.976, 29.97, and 59.94.
-		const FFrameRate TwentyThreeNineSevenSix = FFrameRate(24000, 1001);
-		const FFrameRate TwentyNineNineSeven = FFrameRate(30000, 1001);
-		const FFrameRate FiftyNineNineFour = FFrameRate(60000, 1001);
-
-		return InFrameRate == TwentyThreeNineSevenSix || InFrameRate == TwentyNineNineSeven || InFrameRate == FiftyNineNineFour;
+		const FFrameNumber ConvertedFrameNumber = ToFrameNumber(InFrameRate);
+		const double NumberOfSeconds = bDropFrameFormat
+				? ConvertedFrameNumber.Value * InFrameRate.AsInterval()
+				: (double)ConvertedFrameNumber.Value / FMath::RoundToInt(InFrameRate.AsDecimal());
+		return FTimespan::FromSeconds(NumberOfSeconds);
 	}
 
 	/**
-	* Get the Qualified Timecode formatted in HH:MM:SS:FF or HH;MM;SS;FF depending on if this represents drop-frame timecode or not.
-	* @param bForceSignDisplay - Forces the timecode to be prepended with a positive or negative sign.
-	Standard behavior is to only show the sign when the value is negative.
-	*/
+	 * Create a FTimecode from a timespan at the given frame rate. Optionally supports creating a drop frame timecode,
+	 * which drops certain timecode display numbers to help account for NTSC frame rates which are fractional.
+	 *
+	 * @param InFrameNumber - The timespan to convert into a timecode.
+	 * @param InFrameRate	- The framerate that this timecode is based in. This should be the playback framerate as it is used to determine
+	 *						  when the Frame value wraps over.
+	 * @param InbDropFrame	- If true, the returned timecode will drop the first two frames on every minute (except when Minute % 10 == 0)
+	 *						  This is only valid for NTSC framerates (29.97, 59.94) and will assert if you try to create a drop-frame format
+	 *						  from a non-valid framerate. All framerates can be represented when in non-drop frame format.
+	 */
+	static FTimecode FromTimespan(const FTimespan& InTimespan, const FFrameRate& InFrameRate, bool InbDropFrame)
+	{
+		return FTimecode(InTimespan.GetTotalSeconds(), InFrameRate, InbDropFrame);
+	}
+
+	static bool IsDropFormatTimecodeSupported(const FFrameRate& InFrameRate)
+	{
+		// Drop Format Timecode is only valid for 29.97 and 59.94.
+		const FFrameRate TwentyNineNineSeven = FFrameRate(30000, 1001);
+		const FFrameRate FiftyNineNineFour = FFrameRate(60000, 1001);
+
+		return InFrameRate == TwentyNineNineSeven || InFrameRate == FiftyNineNineFour;
+	}
+
+	/**
+	 * Get the Qualified Timecode formatted in HH:MM:SS:FF or HH;MM;SS;FF depending on if this represents drop-frame timecode or not.
+	 * @param bForceSignDisplay - Forces the timecode to be prepended with a positive or negative sign.
+								  Standard behavior is to only show the sign when the value is negative.
+	 */
 	FString ToString(bool bForceSignDisplay = false) const
 	{
 		bool bHasNegativeComponent = Hours < 0 || Minutes < 0 || Seconds < 0 || Frames < 0;
@@ -235,3 +263,13 @@ public:
 	/** If true, this Timecode represents a Drop Frame timecode used to account for fractional frame rates in NTSC play rates. */
 	bool bDropFrameFormat;
 };
+
+inline bool operator==(const FTimecode& A, const FTimecode& B)
+{
+	return A.Hours == B.Hours && A.Minutes == B.Minutes && A.Seconds == B.Seconds && A.Frames == A.Frames;
+}
+
+inline bool operator!=(const FTimecode& A, const FTimecode& B)
+{
+	return !(A == B);
+}

@@ -10,8 +10,6 @@ FTimecode USystemTimeTimecodeProvider::GetTimecode() const
 {
 	const FDateTime DateTime = FDateTime::Now();
 	const FTimespan Timespan = DateTime.GetTimeOfDay();
-	const double TotalSeconds = Timespan.GetTotalSeconds();
-	FFrameNumber FrameNumber = FrameRate.AsFrameNumber(TotalSeconds);
 
-	return FTimecode::FromFrameNumber(FrameNumber, FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate));
+	return FTimecode::FromTimespan(Timespan, FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate));
 }
