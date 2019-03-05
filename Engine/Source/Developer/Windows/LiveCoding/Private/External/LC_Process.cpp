@@ -7,6 +7,12 @@
 #include "LC_Logging.h"
 #include <Psapi.h>
 
+// BEGIN EPIC MODS
+#pragma warning(push)
+#pragma warning(disable:6011) // warning C6011: Dereferencing NULL pointer 'processInfo'.
+#pragma warning(disable:6335) // warning C6335: Leaking process information handle 'context->pi.hProcess'.
+// END EPIC MODS
+
 // internal ntdll.dll definitions
 typedef LONG NTSTATUS;
 typedef LONG KPRIORITY;
@@ -837,3 +843,7 @@ namespace process
 		delete[] memory;
 	}
 }
+
+// BEGIN EPIC MODS
+#pragma warning(pop)
+// END EPIC MODS

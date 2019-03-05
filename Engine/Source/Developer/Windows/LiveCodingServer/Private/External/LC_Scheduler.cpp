@@ -5,6 +5,11 @@
 #include "LC_Thread.h"
 
 
+// BEGIN EPIC MODS
+#pragma warning(push)
+#pragma warning(disable:6011) // warning C6011: Dereferencing NULL pointer 'info'. 
+// END EPIC MODS
+
 namespace
 {
 	scheduler::TaskQueue* g_taskQueue = nullptr;
@@ -147,3 +152,7 @@ void scheduler::WaitForTask(TaskBase* task)
 		}
 	}
 }
+
+// BEGIN EPIC MODS
+#pragma warning(pop)
+// END EPIC MODS

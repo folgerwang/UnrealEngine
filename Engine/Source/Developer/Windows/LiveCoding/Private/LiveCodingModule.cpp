@@ -19,7 +19,7 @@ IMPLEMENT_MODULE(FLiveCodingModule, LiveCoding)
 #define LOCTEXT_NAMESPACE "LiveCodingModule"
 
 FString GLiveCodingConsolePath;
-const wchar_t* GLiveCodingConsoleArguments = nullptr;
+FString GLiveCodingConsoleArguments;
 
 FLiveCodingModule::FLiveCodingModule()
 	: bEnabled(false)

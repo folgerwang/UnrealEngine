@@ -5,6 +5,11 @@
 #include "LC_Logging.h"
 #include <process.h>
 
+// BEGIN EPIC MODS
+#pragma warning(push)
+#pragma warning(disable:6322) // warning C6322: Empty _except block.
+#pragma warning(disable:6258) // warning C6258: Using TerminateThread does not allow proper thread clean up.
+// END EPIC MODS
 
 namespace
 {
@@ -175,3 +180,7 @@ namespace thread
 		SetThreadName(name);
 	}
 }
+
+// BEGIN EPIC MODS
+#pragma warning(pop)
+// END EPIC MODS

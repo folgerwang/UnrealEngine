@@ -32,6 +32,11 @@
 *  - xxHash source repository : https://github.com/Cyan4973/xxHash
 */
 
+// BEGIN EPIC MODS
+#pragma warning(push)
+#pragma warning(disable:6385) // warning C6385: Reading invalid data from '&state'
+// END EPIC MODS
+
 // MM: tuning
 #pragma warning(disable : 4711)
 #pragma warning(disable : 4820)
@@ -892,3 +897,7 @@ XXH_PUBLIC_API XXH64_hash_t XXH64_hashFromCanonical(const XXH64_canonical_t* src
 }
 
 #endif  /* XXH_NO_LONG_LONG */
+
+// BEGIN EPIC MODS
+#pragma warning(pop)
+// END EPIC MODS

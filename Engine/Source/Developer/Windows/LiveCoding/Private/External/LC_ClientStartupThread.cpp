@@ -343,11 +343,11 @@ unsigned int ClientStartupThread::ThreadFunction(const std::wstring& processGrou
 			commandLine += processGroupName;
 
 			// BEGIN EPIC MOD - Additional arguments for console app
-			extern const wchar_t* GLiveCodingConsoleArguments;
-			if(GLiveCodingConsoleArguments != nullptr)
+			extern FString GLiveCodingConsoleArguments;
+			if(GLiveCodingConsoleArguments.Len() > 0)
 			{
 				commandLine += L" ";
-				commandLine += GLiveCodingConsoleArguments;
+				commandLine += *GLiveCodingConsoleArguments;
 			}
 			if (!FApp::IsProjectNameEmpty())
 			{

@@ -139,14 +139,17 @@ bool actions::LoadPatch::Execute(CommandType* command, const DuplexPipe* pipe, v
 	HMODULE module = ::LoadLibraryW(command->path);
 
 	// BEGIN EPIC MOD - Support for UE4 debug visualizers
-	typedef void InitNatvisHelpersFunc(FNameEntry*** NameTable, FChunkedFixedUObjectArray* ObjectArray);
-
-	InitNatvisHelpersFunc* InitNatvisHelpers = (InitNatvisHelpersFunc*)(void*)GetProcAddress(module, "InitNatvisHelpers");
-	if (InitNatvisHelpers != nullptr)
+	if (module != nullptr)
 	{
-		extern FNameEntry*** GFNameTableForDebuggerVisualizers_MT;
-		extern FChunkedFixedUObjectArray*& GObjectArrayForDebugVisualizers;
-		(*InitNatvisHelpers)(GFNameTableForDebuggerVisualizers_MT, GObjectArrayForDebugVisualizers);
+		typedef void InitNatvisHelpersFunc(FNameEntry*** NameTable, FChunkedFixedUObjectArray* ObjectArray);
+
+		InitNatvisHelpersFunc* InitNatvisHelpers = (InitNatvisHelpersFunc*)(void*)GetProcAddress(module, "InitNatvisHelpers");
+		if (InitNatvisHelpers != nullptr)
+		{
+			extern FNameEntry*** GFNameTableForDebuggerVisualizers_MT;
+			extern FChunkedFixedUObjectArray*& GObjectArrayForDebugVisualizers;
+			(*InitNatvisHelpers)(GFNameTableForDebuggerVisualizers_MT, GObjectArrayForDebugVisualizers);
+		}
 	}
 	// END EPIC MOD
 

@@ -27,6 +27,10 @@
 // unreachable code
 #pragma warning (disable : 4702)
 
+// BEGIN EPIC MODS
+#pragma warning(push)
+#pragma warning(disable:6031) // warning C6031: Return value ignored: 'CoInitialize'.
+// END EPIC MODS
 
 namespace
 {
@@ -1796,3 +1800,7 @@ bool ServerCommandThread::ApplySettingStringAction::Execute(CommandType* command
 
 	return true;
 }
+
+// BEGIN EPIC MODS
+#pragma warning(pop)
+// END EPIC MODS

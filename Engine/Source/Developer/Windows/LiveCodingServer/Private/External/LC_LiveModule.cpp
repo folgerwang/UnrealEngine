@@ -631,16 +631,16 @@ namespace
 		// the code to inject on x64 is:
 		//		B0 01		mov al, 1
 		//		C3			ret				different calling convention than x86
-		const uint8_t PATCH[3u] = { 0xB0, 0x01, 0xC3 };
+		const uint8_t PatchData[3u] = { 0xB0, 0x01, 0xC3 };
 #else
 		// the code to inject on x86 is:
 		//		B0 01		mov al, 1
 		//		C2 0C 00	ret 0Ch			different calling convention than x64
-		const uint8_t PATCH[5u] = { 0xB0, 0x01, 0xC2, 0x0C, 0x00 };
+		const uint8_t PatchData[5u] = { 0xB0, 0x01, 0xC2, 0x0C, 0x00 };
 #endif
 
 		uint8_t* address = pointer::Offset<uint8_t*>(patchBase, dllMainRva);
-		process::WriteProcessMemory(processHandle, address, PATCH, sizeof(PATCH));
+		process::WriteProcessMemory(processHandle, address, PatchData, sizeof(PatchData));
 	}
 
 
