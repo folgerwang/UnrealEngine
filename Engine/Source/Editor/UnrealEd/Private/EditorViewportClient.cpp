@@ -51,6 +51,9 @@
 #include "ViewportWorldInteraction.h"
 #include "Editor/EditorPerformanceSettings.h"
 #include "ImageWriteQueue.h"
+#include "DebugViewModeHelpers.h"
+#include "Misc/ScopedSlowTask.h"
+#include "UnrealEngine.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewportClient"
 
@@ -3624,6 +3627,17 @@ void FEditorViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 		.SetViewModeParam( ViewModeParam, ViewModeParamName ) );
 
 	ViewFamily.EngineShowFlags = EngineShowFlags;
+
+	if (GIsEditor && World && ViewFamily.GetDebugViewShaderMode() != DVSM_None && HasMissingDebugViewModeShaders(true))
+	{
+		FScopedSlowTask CompileShaderTask(3.f, LOCTEXT("CompileMissingViewModeShaders", "Compiling Missing ViewMode Shaders")); // { Get Used Materials, Sync Pending Shader, Wait for Compilation }
+		// CompileShaderTask.MakeDialog(true);
+		TSet<UMaterialInterface*> Materials;
+		if (GetUsedMaterialsInWorld(World, Materials, CompileShaderTask))
+		{
+			CompileDebugViewModeShaders(ViewFamily.GetDebugViewShaderMode(), GetCachedScalabilityCVars().MaterialQualityLevel, ViewFamily.GetFeatureLevel(), false, false, Materials, CompileShaderTask);
+		}
+	}
 
 	if( ModeTools->GetActiveMode( FBuiltinEditorModes::EM_InterpEdit ) == 0 || !AllowsCinematicControl() )
 	{

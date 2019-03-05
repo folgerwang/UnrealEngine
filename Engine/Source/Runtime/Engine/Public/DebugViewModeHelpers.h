@@ -46,6 +46,7 @@ FORCEINLINE bool AllowDebugViewShaderMode(EDebugViewShaderMode ShaderMode) { ret
 ENGINE_API int32 GetNumActorsInWorld(UWorld* InWorld);
 ENGINE_API bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& OutMaterials, struct FSlowTask& Task);
 ENGINE_API bool CompileDebugViewModeShaders(EDebugViewShaderMode Mode, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, bool bFullRebuild, bool bWaitForPreviousShaders, TSet<UMaterialInterface*>& Materials, FSlowTask& ProgressTask);
+ENGINE_API bool HasMissingDebugViewModeShaders(bool bClearFlag);
 
 ENGINE_API bool WaitForShaderCompilation(const FText& Message, FSlowTask& ProgressTask);
 

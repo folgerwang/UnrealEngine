@@ -10,13 +10,28 @@ DebugViewModeMaterialProxy.cpp : Contains definitions the debug view mode materi
 #include "EngineModule.h"
 #include "RendererInterface.h"
 
-ENGINE_API bool GetDebugViewMaterial(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial)
+ENGINE_API bool GetDebugViewMaterial(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial)
 {
 #if WITH_EDITORONLY_DATA
-	return FDebugViewModeMaterialProxy::GetShader(InMaterialInterface, InDebugViewMode, OutMaterialRenderProxy, OutMaterial);
+	return FDebugViewModeMaterialProxy::GetShader(InMaterialInterface, InDebugViewMode, InFeatureLevel, OutMaterialRenderProxy, OutMaterial);
 #else
 	return false;
 #endif
+}
+
+ENGINE_API bool HasMissingDebugViewModeShaders(bool bClearFlag)
+{
+#if WITH_EDITORONLY_DATA
+	if (FDebugViewModeMaterialProxy::MissingShadersChanged())
+	{
+		if (bClearFlag)
+		{
+			FDebugViewModeMaterialProxy::ClearMissingShadersFlag();
+		}
+		return true;
+	}
+#endif
+	return false;
 }
 
 ENGINE_API void ClearDebugViewMaterials(UMaterialInterface* InMaterialInterface)
@@ -28,9 +43,10 @@ ENGINE_API void ClearDebugViewMaterials(UMaterialInterface* InMaterialInterface)
 
 #if WITH_EDITORONLY_DATA
 
-TMap<FDebugViewModeMaterialProxy::FMaterialUsagePair, FDebugViewModeMaterialProxy*> FDebugViewModeMaterialProxy::DebugMaterialShaderMap;
-
 volatile bool FDebugViewModeMaterialProxy::bReentrantCall = false;
+TMap<FDebugViewModeMaterialProxy::FMaterialKey, FDebugViewModeMaterialProxy*> FDebugViewModeMaterialProxy::DebugMaterialShaderMap;
+TSet<FDebugViewModeMaterialProxy::FMaterialKey> FDebugViewModeMaterialProxy::MissingShaders;
+bool FDebugViewModeMaterialProxy::bMissingShadersChanged = false;
 
 void FDebugViewModeMaterialProxy::AddShader(
 	UMaterialInterface* InMaterialInterface, 
@@ -50,24 +66,42 @@ void FDebugViewModeMaterialProxy::AddShader(
 		InMaterialInterface = UMaterial::GetDefaultMaterial(MD_Surface);
 	}
 
-	FMaterialUsagePair ShaderMapKey(InMaterialInterface, InDebugViewMode);
+	FMaterialKey ShaderMapKey(InMaterialInterface, InDebugViewMode, InFeatureLevel);
 	if (!DebugMaterialShaderMap.Contains(ShaderMapKey))
 	{
 		DebugMaterialShaderMap.Add(ShaderMapKey, new FDebugViewModeMaterialProxy(InMaterialInterface, InQualityLevel, InFeatureLevel, bSynchronousCompilation, InDebugViewMode));
 	}
+	MissingShaders.Remove(ShaderMapKey);
 }
 
-bool FDebugViewModeMaterialProxy::GetShader(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial)
+bool FDebugViewModeMaterialProxy::GetShader(const UMaterialInterface* InMaterialInterface, EDebugViewShaderMode InDebugViewMode, ERHIFeatureLevel::Type InFeatureLevel, const FMaterialRenderProxy*& OutMaterialRenderProxy, const FMaterial*& OutMaterial)
 {
-	FDebugViewModeMaterialProxy** BoundMaterial = DebugMaterialShaderMap.Find(FMaterialUsagePair(InMaterialInterface, InDebugViewMode));
-	if (BoundMaterial && *BoundMaterial && (*BoundMaterial)->IsValid() && (*BoundMaterial)->GetRenderingThreadShaderMap())
+	FMaterialKey MaterialKey(InMaterialInterface, InDebugViewMode, InFeatureLevel);
+	FDebugViewModeMaterialProxy** BoundMaterial = DebugMaterialShaderMap.Find(MaterialKey);
+	if (BoundMaterial && *BoundMaterial)
 	{
-		OutMaterialRenderProxy = *BoundMaterial;
-		OutMaterial = *BoundMaterial;
-		return true;
+		if ((*BoundMaterial)->IsValid() && (*BoundMaterial)->GetRenderingThreadShaderMap())
+		{
+			OutMaterialRenderProxy = *BoundMaterial;
+			OutMaterial = *BoundMaterial;
+			return true;
+		}
+		else // This material is not usable for debug view modes.
+		{
+			return false;
+		}
 	}
 	else
 	{
+		if (!MissingShaders.Contains(MaterialKey))
+		{
+			MissingShaders.Add(MaterialKey);
+
+			// Note that a new shader key is missing, so that we can trigger recompilation.
+			// Because it is not garantied that this can be fixed (see ValidateAllShaders()), 
+			// we only kept track of new entries, and don't necessarily try to fix all of them.
+			bMissingShadersChanged = true;
+		}
 		return false;
 	}
 }
@@ -83,17 +117,18 @@ void FDebugViewModeMaterialProxy::ClearAllShaders(UMaterialInterface* InMaterial
 
 	if (!InMaterialInterface)
 	{
-		for (TMap<FMaterialUsagePair, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
+		for (TMap<FMaterialKey, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
 		{
 			FDebugViewModeMaterialProxy* Proxy = It.Value();
 			MaterialsToDelete.Add(Proxy);
 			It.Value() = nullptr;
 		}
 		DebugMaterialShaderMap.Empty();
+		MissingShaders.Empty();
 	}
 	else
 	{
-		for (TMap<FMaterialUsagePair, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
+		for (TMap<FMaterialKey, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
 		{
 			if (It.Key().MaterialInterface == InMaterialInterface)
 			{
@@ -101,6 +136,14 @@ void FDebugViewModeMaterialProxy::ClearAllShaders(UMaterialInterface* InMaterial
 				MaterialsToDelete.Add(Proxy);
 				It.Value() = nullptr;
 
+				It.RemoveCurrent();
+			}
+		}
+
+		for (TSet<FMaterialKey>::TIterator It(MissingShaders); It; ++It)
+		{
+			if (It->MaterialInterface == InMaterialInterface)
+			{
 				It.RemoveCurrent();
 			}
 		}
@@ -131,7 +174,7 @@ void FDebugViewModeMaterialProxy::ValidateAllShaders(TSet<UMaterialInterface*>& 
 
 	TArray<FDebugViewModeMaterialProxy*> MaterialsToUpdate;
 
-	for (TMap<FMaterialUsagePair, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
+	for (TMap<FMaterialKey, FDebugViewModeMaterialProxy*>::TIterator It(DebugMaterialShaderMap); It; ++It)
 	{
 		const UMaterialInterface* OriginalMaterialInterface = It.Key().MaterialInterface;
 		FDebugViewModeMaterialProxy* DebugMaterial = It.Value();
