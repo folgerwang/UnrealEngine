@@ -29,7 +29,8 @@ void UTakeRecorderUserSettings::PostEditChangeProperty(FPropertyChangedEvent& Pr
 
 UTakeRecorderProjectSettings::UTakeRecorderProjectSettings()
 {
-	Settings.TakeSaveDir.Path = TEXT("/Game/Cinematics/Takes/{year}-{month}-{day}/{slate}_{take}");
+	Settings.RootTakeSaveDir.Path = TEXT("/Game/Cinematics/Takes");
+	Settings.TakeSaveDir = TEXT("{year}-{month}-{day}/{slate}_{take}");
 	Settings.DefaultSlate = TEXT("Scene_1");
 	Settings.bRecordSourcesIntoSubSequences = true;
 	Settings.bRecordToPossessable = false;

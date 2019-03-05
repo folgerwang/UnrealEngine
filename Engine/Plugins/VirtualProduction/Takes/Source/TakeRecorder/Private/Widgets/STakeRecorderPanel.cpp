@@ -861,7 +861,7 @@ void STakeRecorderPanel::ToggleTakeBrowserCheckState(ECheckBoxState CheckState)
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName);
 		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
-		FString TakesPath = GetTakeMetaData()->GenerateAssetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.TakeSaveDir.Path);
+		FString TakesPath = GetTakeMetaData()->GenerateAssetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.GetTakeAssetPath());
 		TakesPath = FPaths::GetPath(*TakesPath);
 
 		while(!TakesPath.IsEmpty())

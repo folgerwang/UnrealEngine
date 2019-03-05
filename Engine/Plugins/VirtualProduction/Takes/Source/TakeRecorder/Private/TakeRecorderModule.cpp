@@ -101,7 +101,7 @@ namespace
 
 		NewTab->SetContent( NewBrowser );
 
-		FString TakesDir = FPaths::GetPath(FPaths::GetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.TakeSaveDir.Path));
+		FString TakesDir = FPaths::GetPath(FPaths::GetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.GetTakeAssetPath()));
 		TArray<FString> TakesFolders;
 		TakesFolders.Push(TakesDir);
 		ContentBrowser.SyncBrowserToFolders(TakesFolders, true, false, FTakeRecorderModule::TakesBrowserInstanceName);

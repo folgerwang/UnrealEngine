@@ -459,7 +459,7 @@ void STakeRecorderCockpit::UpdateRecordError()
 		return;
 	}
 
-	FString PackageName = TakeMetaData->GenerateAssetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.TakeSaveDir.Path);
+	FString PackageName = TakeMetaData->GenerateAssetPath(GetDefault<UTakeRecorderProjectSettings>()->Settings.GetTakeAssetPath());
 	if (!FPackageName::IsValidLongPackageName(PackageName))
 	{
 		RecordErrorText = FText::Format(LOCTEXT("ErrorWidget_InvalidPath", "{0} is not a valid asset path."), FText::FromString(PackageName));

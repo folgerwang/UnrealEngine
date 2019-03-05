@@ -384,7 +384,7 @@ bool UTakeRecorder::Initialize(ULevelSequence* LevelSequenceBase, UTakeRecorderS
 		return false;
 	}
 
-	if (!CreateDestinationAsset(*InParameters.Project.TakeSaveDir.Path, LevelSequenceBase, Sources, MetaData, OutError))
+	if (!CreateDestinationAsset(*InParameters.Project.GetTakeAssetPath(), LevelSequenceBase, Sources, MetaData, OutError))
 	{
 		return false;
 	}
@@ -654,7 +654,7 @@ void UTakeRecorder::Start()
 	MovieSceneSerializationNamespace::bAutoSerialize = Parameters.User.bAutoSerialize;
 	if (Parameters.User.bAutoSerialize)
 	{
-		FString AssetName = AssetMetaData->GenerateAssetPath(Parameters.Project.TakeSaveDir.Path);
+		FString AssetName = AssetMetaData->GenerateAssetPath(Parameters.Project.GetTakeAssetPath());
 		FString AssetPath = FPaths::ProjectSavedDir() + AssetName;
 		FPaths::RemoveDuplicateSlashes(AssetPath);
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();

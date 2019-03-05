@@ -57,8 +57,15 @@ struct FTakeRecorderProjectParameters
 
 	TAKERECORDER_API FTakeRecorderProjectParameters();
 
+	/** The take asset path, composed of the TakeRootSaveDir and the TakeSaveDir */
+	TAKERECORDER_API FString GetTakeAssetPath() const { return RootTakeSaveDir.Path / TakeSaveDir; }
+
+	/** The root of the directory in which to save recorded takes. */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Take Recorder", meta = (ContentDir))
+	FDirectoryPath RootTakeSaveDir;
+
 	/**
-	 * The location in which to save recorded takes. Supports any of the following format specifiers that will be substituted when a take is recorded:
+	 * The name of the directory in which to save recorded takes. Supports any of the following format specifiers that will be substituted when a take is recorded:
 	 * {day}       - The day of the timestamp for the start of the recording.
 	 * {month}     - The month of the timestamp for the start of the recording.
 	 * {year}      - The year of the timestamp for the start of the recording.
@@ -68,8 +75,8 @@ struct FTakeRecorderProjectParameters
 	 * {take}      - The take number.
 	 * {slate}     - The slate string.
 	 */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category="Take Recorder")
-	FDirectoryPath TakeSaveDir;
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = "Take Recorder")
+	FString TakeSaveDir;
 
 	/**
 	 * The default name to use for the Slate information
