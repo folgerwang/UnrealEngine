@@ -1097,10 +1097,7 @@ void UAnimMontage::RefreshParentAssetData()
 		}
 	}
 
-	// this delegate causes it to reconstrucand this code can be called by UI. 
-	// that is dangerous as it can cause the UI to reconstruct in the middle of it. 
-	// until this, the multi window won't work well. 
-	//OnMontageChanged.Broadcast();
+	OnMontageChanged.Broadcast();
 }
 
 #endif
