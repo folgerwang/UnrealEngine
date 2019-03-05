@@ -880,11 +880,14 @@ void UPrimitiveComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 		const FName PropertyName = PropertyThatChanged->GetFName();
 
 		// CachedMaxDrawDistance needs to be set as if you have no cull distance volumes affecting this primitive component the cached value wouldn't get updated
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, LDMaxDrawDistance)
-			|| PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bAllowCullDistanceVolume)
-			|| PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bNeverDistanceCull))
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, LDMaxDrawDistance))
 		{
 			NewCachedMaxDrawDistance = LDMaxDrawDistance;
+			bCullDistanceInvalidated = true;
+		}
+		else if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bAllowCullDistanceVolume)
+			|| PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bNeverDistanceCull))
+		{
 			bCullDistanceInvalidated = true;
 		}
 
@@ -904,11 +907,6 @@ void UPrimitiveComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 	if (bCullDistanceInvalidated)
 	{
-		// Make sure cached cull distance is up-to-date.
-		if (LDMaxDrawDistance > 0)
-		{
-			NewCachedMaxDrawDistance = FMath::Min(LDMaxDrawDistance, CachedMaxDrawDistance);
-		}
 		// Directly use LD cull distance if cull distance volumes are disabled.
 		if (!bAllowCullDistanceVolume)
 		{
@@ -916,7 +914,22 @@ void UPrimitiveComponent::PostEditChangeProperty(FPropertyChangedEvent& Property
 		}
 		else if (UWorld* World = GetWorld())
 		{
-			World->UpdateCullDistanceVolumes(nullptr, this);
+			const bool bUpdatedDrawDistances = World->UpdateCullDistanceVolumes(nullptr, this);
+
+			// If volumes invalidated the distance, handle the desired distance against other sources
+			if (bUpdatedDrawDistances)
+			{
+				if (LDMaxDrawDistance <= 0)
+				{
+					// Volume is the only controlling source, use directly
+					NewCachedMaxDrawDistance = CachedMaxDrawDistance;
+				}
+				else
+				{
+					// Select the minimum desired value
+					NewCachedMaxDrawDistance = FMath::Min(CachedMaxDrawDistance, LDMaxDrawDistance);
+				}
+			}
 		}
 
 		// Reattach to propagate cull distance change.

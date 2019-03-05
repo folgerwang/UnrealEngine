@@ -1730,10 +1730,11 @@ void UWorld::UpdateWorldComponents(bool bRerunConstructionScripts, bool bCurrent
 }
 
 
-void UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponent* ComponentToUpdate)
+bool UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponent* ComponentToUpdate)
 {
 	// Map that will store new max draw distance for every primitive
 	TMap<UPrimitiveComponent*,float> CompToNewMaxDrawMap;
+	bool bUpdatedDrawDistances = false;
 
 	// Keep track of time spent.
 	double Duration = 0.0;
@@ -1804,6 +1805,8 @@ void UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponen
 				{
 					CullDistanceVolume->GetPrimitiveMaxDrawDistances(CompToNewMaxDrawMap);
 				}
+
+				bUpdatedDrawDistances = true;
 			}
 
 			// Finally, go over all primitives, and see if they need to change.
@@ -1822,6 +1825,8 @@ void UWorld::UpdateCullDistanceVolumes(AActor* ActorToUpdate, UPrimitiveComponen
 	{
 		UE_LOG(LogWorld, Log, TEXT("Updating cull distance volumes took %5.2f seconds"),Duration);
 	}
+
+	return bUpdatedDrawDistances;
 }
 
 
