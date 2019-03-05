@@ -15,8 +15,7 @@
 	"IsBetaVersion" : false,
 	"Installed": false,
 	"SupportedTargetPlatforms": [
-		"Lumin",
-		"Win64"
+		"Lumin"
 	],
 	"Modules" :
 	[
