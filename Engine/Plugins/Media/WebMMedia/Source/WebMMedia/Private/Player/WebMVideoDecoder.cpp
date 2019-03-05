@@ -7,8 +7,8 @@
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
 #include "WebMMediaTextureSample.h"
+#include "WebMSamplesSink.h"
 #include "MediaShaders.h"
-#include "MediaSamples.h"
 #include "PipelineStateCache.h"
 #include "RHIStaticStates.h"
 #include "Containers/DynamicRHIResourceArray.h"
@@ -61,9 +61,9 @@ namespace
 	TGlobalResource<FMoviePlaybackResources> GMoviePlayerResources;
 }
 
-FWebMVideoDecoder::FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples)
-	: Samples(InSamples)
-	, VideoSamplePool(new FWebMMediaTextureSamplePool)
+FWebMVideoDecoder::FWebMVideoDecoder(IWebMSamplesSink& InSamples)
+	: VideoSamplePool(new FWebMMediaTextureSamplePool)
+	, Samples(InSamples)
 	, bTexturesCreated(false)
 	, bIsInitialized(false)
 {
@@ -147,7 +147,7 @@ void FWebMVideoDecoder::DoDecodeVideoFrames(const TArray<TSharedPtr<FWebMFrame>>
 
 			TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> VideoSample = VideoSamplePool->AcquireShared();
 
-			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time);
+			VideoSample->Initialize(FIntPoint(Image->d_w, Image->d_h), FIntPoint(Image->d_w, Image->d_h), VideoFrame->Time, VideoFrame->Duration);
 
 			FConvertParams Params;
 			Params.VideoSample = VideoSample;
@@ -278,7 +278,7 @@ void FWebMVideoDecoder::ConvertYUVToRGBAndSubmit(const FConvertParams& Params)
 		CommandList.EndRenderPass();
 		CommandList.CopyToResolveTarget(RenderTarget, RenderTarget, FResolveParams());
 
-		Samples->AddVideo(VideoSample.ToSharedRef());
+		Samples.AddVideoSampleFromDecodingThread(VideoSample.ToSharedRef());
 	}
 }
 

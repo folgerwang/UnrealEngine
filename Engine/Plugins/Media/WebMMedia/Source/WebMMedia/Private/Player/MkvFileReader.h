@@ -17,6 +17,8 @@ class FMkvFileReader : public mkvparser::IMkvReader
 public:
 	bool Open(const TCHAR* Filename);
 
+	static FTimespan GetVideoFrameDuration(const mkvparser::VideoTrack& track);
+
 public:
 	// IMkvReader interface
 	virtual int Read(long long Position, long Lenght, unsigned char* Buffer) override;

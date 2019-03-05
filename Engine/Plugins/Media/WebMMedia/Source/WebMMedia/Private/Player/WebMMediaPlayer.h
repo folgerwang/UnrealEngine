@@ -15,8 +15,8 @@
 #include "IMediaView.h"
 #include "IMediaEventSink.h"
 #include "Misc/Timespan.h"
-#include "Templates/SharedPointer.h"
 #include "MkvFileReader.h"
+#include "WebMSamplesSink.h"
 
 class FMediaSamples;
 class FWebMVideoDecoder;
@@ -24,6 +24,7 @@ class FWebMAudioDecoder;
 
 class FWebMMediaPlayer
 	: public IMediaPlayer
+	, public IWebMSamplesSink
 	, protected IMediaCache
 	, protected IMediaControls
 	, protected IMediaTracks
@@ -32,6 +33,11 @@ class FWebMMediaPlayer
 public:
 	FWebMMediaPlayer(IMediaEventSink& InEventSink);
 	virtual ~FWebMMediaPlayer();
+
+public:
+	//~ IWebMSamplesSink interface
+	virtual void AddVideoSampleFromDecodingThread(TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> Sample) override;
+	virtual void AddAudioSampleFromDecodingThread(TSharedRef<FWebMMediaAudioSample, ESPMode::ThreadSafe> Sample) override;
 
 public:
 	//~ IMediaPlayer interface

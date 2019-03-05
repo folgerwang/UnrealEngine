@@ -159,6 +159,7 @@ void FWebMContainer::ReadFrames(FTimespan ReadBufferLength, TArray<TSharedPtr<FW
 
 			TSharedPtr<FWebMFrame> Frame = MakeShared<FWebMFrame>();
 			Frame->Time = CurrentTime;
+			Frame->Duration = FMkvFileReader::GetVideoFrameDuration(*MkvFile->VideoTracks[SelectedVideoTrack]);
 			Frame->Data.SetNumUninitialized(MkvFrame.len);
 			MkvFrame.Read(MkvReader.Get(), Frame->Data.GetData());
 

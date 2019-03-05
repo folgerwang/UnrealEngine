@@ -4,7 +4,7 @@
 #include "WebMMediaPrivate.h"
 #include "WebMMediaFrame.h"
 #include "WebMMediaAudioSample.h"
-#include "MediaSamples.h"
+#include "WebMSamplesSink.h"
 
 THIRD_PARTY_INCLUDES_START
 #include <opus.h>
@@ -18,9 +18,9 @@ struct FWebMAudioDecoder::FVorbisDecoder
 	vorbis_block Block;
 };
 
-FWebMAudioDecoder::FWebMAudioDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples)
-	: Samples(InSamples)
-	, AudioSamplePool(new FWebMMediaAudioSamplePool)
+FWebMAudioDecoder::FWebMAudioDecoder(IWebMSamplesSink& InSamples)
+	: AudioSamplePool(new FWebMMediaAudioSamplePool)
+	, Samples(InSamples)
 	, OpusDecoder(nullptr)
 {
 }
@@ -94,7 +94,7 @@ bool FWebMAudioDecoder::InitializeVorbis(const uint8* CodecPrivateData, size_t C
 {
 	if (CodecPrivateDataSize < 3 || !CodecPrivateData || CodecPrivateData[0] != 2)
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis - invalid data"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis - invalid data"));
 		return false;
 	}
 
@@ -108,7 +108,7 @@ bool FWebMAudioDecoder::InitializeVorbis(const uint8* CodecPrivateData, size_t C
 		{
 			if (Offset >= CodecPrivateDataSize)
 			{
-				UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis - invalid offset"));
+				UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis - invalid offset"));
 				return false;
 			}
 			HeaderSize[i] += CodecPrivateData[Offset];
@@ -122,7 +122,7 @@ bool FWebMAudioDecoder::InitializeVorbis(const uint8* CodecPrivateData, size_t C
 
 	if (HeaderSize[0] + HeaderSize[1] + HeaderSize[2] + Offset != CodecPrivateDataSize)
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis - parameters mismatch"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis - parameters mismatch"));
 		return false;
 	}
 
@@ -150,7 +150,7 @@ bool FWebMAudioDecoder::InitializeVorbis(const uint8* CodecPrivateData, size_t C
 	{
 		if (vorbis_synthesis_headerin(&VorbisDecoder->Info, &Vc, &Packet[i]))
 		{
-			UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis - invalid headers"));
+			UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis - invalid headers"));
 			vorbis_comment_clear(&Vc);
 			return false;
 		}
@@ -160,19 +160,19 @@ bool FWebMAudioDecoder::InitializeVorbis(const uint8* CodecPrivateData, size_t C
 
 	if (vorbis_synthesis_init(&VorbisDecoder->DspState, &VorbisDecoder->Info))
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis (synthesis)"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis (synthesis)"));
 		return false;
 	}
 
 	if (VorbisDecoder->Info.channels != Channels || VorbisDecoder->Info.rate != SampleRate)
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis - invalid parameters"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis - invalid parameters"));
 		return false;
 	}
 
 	if (vorbis_block_init(&VorbisDecoder->DspState, &VorbisDecoder->Block))
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Failed to initialize Vorbis"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Failed to initialize Vorbis"));
 		return false;
 	}
 
@@ -219,8 +219,10 @@ void FWebMAudioDecoder::DoDecodeAudioFrames(const TArray<TSharedPtr<FWebMFrame>>
 		if (NumOfSamplesDecoded > 0)
 		{
 			TSharedRef<FWebMMediaAudioSample, ESPMode::ThreadSafe> AudioSample = AudioSamplePool->AcquireShared();
-			AudioSample->Initialize(DecodeBuffer.GetData(), NumOfSamplesDecoded * Channels * 2, Channels, SampleRate, AudioFrame->Time, FTimespan::FromHours(1));
-			Samples->AddAudio(AudioSample);
+			FTimespan Duration = (NumOfSamplesDecoded * ETimespan::TicksPerSecond) / SampleRate;
+			AudioSample->Initialize(DecodeBuffer.GetData(), NumOfSamplesDecoded * Channels * 2, Channels, SampleRate, AudioFrame->Time, Duration);
+
+			Samples.AddAudioSampleFromDecodingThread(AudioSample);
 		}
 	}
 }
@@ -230,7 +232,7 @@ int32 FWebMAudioDecoder::DecodeOpus(const TSharedPtr<FWebMFrame>& AudioFrame)
 	int32 Result = opus_decode(OpusDecoder, AudioFrame->Data.GetData(), AudioFrame->Data.Num(), (opus_int16*) DecodeBuffer.GetData(), FrameSize, 0);
 	if (Result < 0)
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Error decoding Opus audio frame"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Error decoding Opus audio frame"));
 	}
 
 	return Result;
@@ -246,13 +248,13 @@ int32 FWebMAudioDecoder::DecodeVorbis(const TSharedPtr<FWebMFrame>& AudioFrame)
 
 	if (vorbis_synthesis(&VorbisDecoder->Block, &Packet))
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Error decoding Vorbis audio frame - vorbis_synthesis failed"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Error decoding Vorbis audio frame - vorbis_synthesis failed"));
 		return -1;
 	}
 
 	if (vorbis_synthesis_blockin(&VorbisDecoder->DspState, &VorbisDecoder->Block))
 	{
-		UE_LOG(LogWebMMedia, Display, TEXT("Error decoding Vorbis audio frame - vorbis_synthesis_blockin failed"));
+		UE_LOG(LogWebMMedia, Warning, TEXT("Error decoding Vorbis audio frame - vorbis_synthesis_blockin failed"));
 		return - 1;
 	}
 

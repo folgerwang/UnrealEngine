@@ -18,7 +18,7 @@ public:
 	FWebMMediaTextureSample();
 
 public:
-	void Initialize(FIntPoint InDisplaySize, FIntPoint InTotalSize, FTimespan InTime);
+	void Initialize(FIntPoint InDisplaySize, FIntPoint InTotalSize, FTimespan InTime, FTimespan InDuration);
 	void CreateTexture();
 
 public:
@@ -44,6 +44,7 @@ public:
 private:
 	TRefCountPtr<FRHITexture2D> Texture;
 	FTimespan Time;
+	FTimespan Duration;
 	FIntPoint TotalSize;
 	FIntPoint DisplaySize;
 };

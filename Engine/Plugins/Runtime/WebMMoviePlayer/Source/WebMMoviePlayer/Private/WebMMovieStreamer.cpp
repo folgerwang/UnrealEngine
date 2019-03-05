@@ -95,8 +95,8 @@ bool FWebMMovieStreamer::StartNextMovie()
 		}
 
 		Samples = MakeShareable(new FMediaSamples());
-		AudioDecoder.Reset(new FWebMAudioDecoder(Samples));
-		VideoDecoder.Reset(new FWebMVideoDecoder(Samples));
+		AudioDecoder.Reset(new FWebMAudioDecoder(*this));
+		VideoDecoder.Reset(new FWebMVideoDecoder(*this));
 
 		FWebMAudioTrackInfo DefaultAudioTrack = Container->GetCurrentAudioTrackInfo();
 		check(DefaultAudioTrack.bIsValid);
@@ -281,6 +281,16 @@ bool FWebMMovieStreamer::ReadMoreFrames()
 	}
 
 	return VideoFrames.Num() > 0 || AudioFrames.Num() > 0;
+}
+
+void FWebMMovieStreamer::AddVideoSampleFromDecodingThread(TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> Sample)
+{
+	Samples->AddVideo(Sample);
+}
+
+void FWebMMovieStreamer::AddAudioSampleFromDecodingThread(TSharedRef<FWebMMediaAudioSample, ESPMode::ThreadSafe> Sample)
+{
+	Samples->AddAudio(Sample);
 }
 
 #endif // WITH_WEBM_LIBS

@@ -8,17 +8,22 @@
 #include "WebMAudioBackend.h"
 #include "WebMMediaFrame.h"
 #include "Containers/Queue.h"
+#include "WebMSamplesSink.h"
 
 class FWebMVideoDecoder;
 class FWebMAudioDecoder;
 class FMediaSamples;
 class FWebMContainer;
 
-class FWebMMovieStreamer : public IMovieStreamer
+class FWebMMovieStreamer : public IMovieStreamer, public IWebMSamplesSink
 {
 public:
 	FWebMMovieStreamer();
 	~FWebMMovieStreamer();
+
+	//~ IWebMSamplesSink interface
+	virtual void AddVideoSampleFromDecodingThread(TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> Sample) override;
+	virtual void AddAudioSampleFromDecodingThread(TSharedRef<FWebMMediaAudioSample, ESPMode::ThreadSafe> Sample) override;
 
 	//~ IMediaOutput interface
 	virtual bool Init(const TArray<FString>& InMoviePaths, TEnumAsByte<EMoviePlaybackType> InPlaybackType) override;

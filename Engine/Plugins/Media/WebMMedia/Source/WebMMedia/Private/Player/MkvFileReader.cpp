@@ -14,6 +14,19 @@ bool FMkvFileReader::Open(const TCHAR* Filename)
 	return m_file.IsValid();
 }
 
+FTimespan FMkvFileReader::GetVideoFrameDuration(const mkvparser::VideoTrack& track)
+{
+	double FrameRate = track.GetFrameRate();
+	if (FrameRate > 0)
+	{
+		return FTimespan::FromSeconds(1.0 / FrameRate);
+	}
+	else
+	{
+		return FTimespan::FromSeconds(1.0 / 30.0);
+	}
+}
+
 int FMkvFileReader::Read(long long Position, long Lenght, unsigned char* Buffer)
 {
 	check(m_file.IsValid());

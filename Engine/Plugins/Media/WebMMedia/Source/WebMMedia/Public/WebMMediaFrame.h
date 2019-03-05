@@ -8,4 +8,5 @@ struct FWebMFrame
 {
 	TArray<uint8> Data;
 	FTimespan Time;
+	FTimespan Duration;
 };

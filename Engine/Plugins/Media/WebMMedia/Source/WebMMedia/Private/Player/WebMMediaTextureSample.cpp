@@ -8,11 +8,12 @@ FWebMMediaTextureSample::FWebMMediaTextureSample()
 {
 }
 
-void FWebMMediaTextureSample::Initialize(FIntPoint InDisplaySize, FIntPoint InTotalSize, FTimespan InTime)
+void FWebMMediaTextureSample::Initialize(FIntPoint InDisplaySize, FIntPoint InTotalSize, FTimespan InTime, FTimespan InDuration)
 {
 	Time = InTime;
 	DisplaySize = InDisplaySize;
 	TotalSize = InTotalSize;
+	Duration = InDuration;
 }
 
 void FWebMMediaTextureSample::CreateTexture()
@@ -50,7 +51,7 @@ FIntPoint FWebMMediaTextureSample::GetDim() const
 
 FTimespan FWebMMediaTextureSample::GetDuration() const
 {
-	return FTimespan(ETimespan::TicksPerSecond / 30);
+	return Duration;
 }
 
 EMediaTextureSampleFormat FWebMMediaTextureSample::GetFormat() const

@@ -6,7 +6,7 @@
 #include "Templates/SharedPointer.h"
 #include "Templates/UniquePtr.h"
 
-class FMediaSamples;
+class IWebMSamplesSink;
 class FWebMMediaAudioSample;
 class FWebMMediaAudioSamplePool;
 struct FWebMFrame;
@@ -15,7 +15,7 @@ struct OpusDecoder;
 class WEBMMEDIA_API FWebMAudioDecoder
 {
 public:
-	FWebMAudioDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples);
+	FWebMAudioDecoder(IWebMSamplesSink& InSamples);
 	~FWebMAudioDecoder();
 
 public:
@@ -31,11 +31,11 @@ private:
 	};
 
 	struct FVorbisDecoder;
-	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TUniquePtr<FWebMMediaAudioSamplePool> AudioSamplePool;
 	TUniquePtr<FVorbisDecoder> VorbisDecoder;
 	FGraphEventRef AudioDecodingTask;
 	TArray<uint8> DecodeBuffer;
+	IWebMSamplesSink& Samples;
 	OpusDecoder* OpusDecoder;
 	ESupportedCodecs Codec;
 	int32 FrameSize;

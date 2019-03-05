@@ -12,7 +12,7 @@ THIRD_PARTY_INCLUDES_START
 #include <vpx/vp8dx.h>
 THIRD_PARTY_INCLUDES_END
 
-class FMediaSamples;
+class IWebMSamplesSink;
 class FWebMMediaTextureSample;
 class FWebMMediaTextureSamplePool;
 struct FWebMFrame;
@@ -20,7 +20,7 @@ struct FWebMFrame;
 class WEBMMEDIA_API FWebMVideoDecoder
 {
 public:
-	FWebMVideoDecoder(TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> InSamples);
+	FWebMVideoDecoder(IWebMSamplesSink& InSamples);
 	~FWebMVideoDecoder();
 
 public:
@@ -36,12 +36,12 @@ private:
 	};
 
 	vpx_codec_ctx_t Context;
-	TSharedPtr<FMediaSamples, ESPMode::ThreadSafe> Samples;
 	TUniquePtr<FWebMMediaTextureSamplePool> VideoSamplePool;
 	TRefCountPtr<FRHITexture2D> DecodedY;
 	TRefCountPtr<FRHITexture2D> DecodedU;
 	TRefCountPtr<FRHITexture2D> DecodedV;
 	FGraphEventRef VideoDecodingTask;
+	IWebMSamplesSink& Samples;
 	bool bTexturesCreated;
 	bool bIsInitialized;
 

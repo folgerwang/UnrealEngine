@@ -12,6 +12,8 @@
 #include "WebMVideoDecoder.h"
 #include "WebMAudioDecoder.h"
 #include "WebMMediaFrame.h"
+#include "WebMMediaTextureSample.h"
+#include "WebMMediaAudioSample.h"
 
 #define LOCTEXT_NAMESPACE "FWebMMediaPlayer"
 
@@ -142,12 +144,14 @@ bool FWebMMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/
 
 	if (!MkvRead())
 	{
+		MkvReader.Reset();
+
 		UE_LOG(LogWebMMedia, Error, TEXT("Error parsing matroska file: %s"), *FilePath);
 		return false;
 	}
 
-	VideoDecoder.Reset(new FWebMVideoDecoder(Samples));
-	AudioDecoder.Reset(new FWebMAudioDecoder(Samples));
+	VideoDecoder.Reset(new FWebMVideoDecoder(*this));
+	AudioDecoder.Reset(new FWebMAudioDecoder(*this));
 
 	if (SelectedAudioTrack != INDEX_NONE)
 	{
@@ -218,6 +222,12 @@ void FWebMMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 	TArray<TSharedPtr<FWebMFrame>> VideoFrames;
 	TArray<TSharedPtr<FWebMFrame>> AudioFrames;
 
+	if (CurrentReadTime < CurrentTime - ReadBufferLength / 2)
+	{
+		UE_LOG(LogWebMMedia, Warning, TEXT("Playback is very behind, try to catchup and reset sync"));
+		Samples->FlushSamples();
+	}
+
 	// Read frames up to 1 secs in the future
 	while (CurrentReadTime < CurrentTime + ReadBufferLength)
 	{
@@ -243,11 +253,13 @@ void FWebMMediaPlayer::TickFetch(FTimespan DeltaTime, FTimespan Timecode)
 
 			if (SelectedVideoTrack != INDEX_NONE && VideoTracks[SelectedVideoTrack]->GetNumber() == TrackNumber)
 			{
+				Frame->Duration = FMkvFileReader::GetVideoFrameDuration(*VideoTracks[SelectedVideoTrack]);
 				VideoFrames.Add(Frame);
-				CurrentReadTime += FTimespan::FromSeconds(1.0 / VideoTracks[SelectedVideoTrack]->GetFrameRate());
+				CurrentReadTime += Frame->Duration;
 			}
 			else if (SelectedAudioTrack != INDEX_NONE && AudioTracks[SelectedAudioTrack]->GetNumber() == TrackNumber)
 			{
+				// We will set duration after decompression.
 				AudioFrames.Add(Frame);
 			}
 		}
@@ -746,6 +758,28 @@ void FWebMMediaPlayer::Pause()
 void FWebMMediaPlayer::Stop()
 {
 	Pause();
+}
+
+void FWebMMediaPlayer::AddVideoSampleFromDecodingThread(TSharedRef<FWebMMediaTextureSample, ESPMode::ThreadSafe> Sample)
+{
+	if (Sample->GetTime() < CurrentTime)
+	{
+		// We don't care about expired samples
+		return;
+	}
+
+	Samples->AddVideo(Sample);
+}
+
+void FWebMMediaPlayer::AddAudioSampleFromDecodingThread(TSharedRef<FWebMMediaAudioSample, ESPMode::ThreadSafe> Sample)
+{
+	if (Sample->GetTime() < CurrentTime)
+	{
+		// We don't care about expired samples
+		return;
+	}
+
+	Samples->AddAudio(Sample);
 }
 
 #undef LOCTEXT_NAMESPACE
