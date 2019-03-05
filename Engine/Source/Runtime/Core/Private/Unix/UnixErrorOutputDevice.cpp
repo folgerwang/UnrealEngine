@@ -13,6 +13,8 @@
 #include "Misc/App.h"
 #include "HAL/ExceptionHandling.h"
 
+extern CORE_API bool GIsGPUCrashed;
+
 FUnixErrorOutputDevice::FUnixErrorOutputDevice()
 :	ErrorPos(0)
 {
@@ -60,7 +62,15 @@ void FUnixErrorOutputDevice::Serialize(const TCHAR* Msg, ELogVerbosity::Type Ver
 		//     FOutputDevice::LogfImpl()
 		//     FWindowsErrorOutputDevice::Serialize()
 		const int32 NumStackFramesToIgnore = 3;
-		ReportAssert(Msg, NumStackFramesToIgnore);
+
+		if (GIsGPUCrashed)
+		{
+			ReportGPUCrash(Msg, NumStackFramesToIgnore);
+		}
+		else
+		{
+			ReportAssert(Msg, NumStackFramesToIgnore);
+		}
 	}
 	else
 	{

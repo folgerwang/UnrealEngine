@@ -21,6 +21,8 @@
 #include "HAL/ExceptionHandling.h"
 #include "Windows/WindowsHWrapper.h"
 
+extern CORE_API bool GIsGPUCrashed;
+
 FWindowsErrorOutputDevice::FWindowsErrorOutputDevice()
 {
 }
@@ -65,7 +67,15 @@ void FWindowsErrorOutputDevice::Serialize( const TCHAR* Msg, ELogVerbosity::Type
 		//     FOutputDevice::LogfImpl()
 		//     FWindowsErrorOutputDevice::Serialize()
 		const int32 NumStackFramesToIgnore = 3;
-		ReportAssert(Msg, NumStackFramesToIgnore);
+
+		if (GIsGPUCrashed)
+		{
+			ReportGPUCrash(Msg, NumStackFramesToIgnore);
+		}
+		else
+		{
+			ReportAssert(Msg, NumStackFramesToIgnore);
+		}
 	}
 	else
 	{

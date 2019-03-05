@@ -1479,7 +1479,8 @@ static void DefaultCrashHandler(FMacCrashContext const& Context)
 static uint32 GMacStackIgnoreDepth = 6;
 
 /** Message for the assert triggered on this thread */
-thread_local const TCHAR* GAssertErrorMessage = nullptr;
+thread_local const TCHAR* GCrashErrorMessage = nullptr;
+thread_local ECrashContextType GCrashErrorType = ECrashContextType::Crash;
 
 /** True system-specific crash handler that gets called first */
 static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
@@ -1490,15 +1491,15 @@ static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 	ECrashContextType Type;
 	const TCHAR* ErrorMessage;
 
-	if (GAssertErrorMessage == nullptr)
+	if (GCrashErrorMessage == nullptr)
 	{
 		Type = ECrashContextType::Crash;
 		ErrorMessage = TEXT("Caught signal");
 	}
 	else
 	{
-		Type = ECrashContextType::Assert;
-		ErrorMessage = GAssertErrorMessage;
+		Type = GCrashErrorType;
+		ErrorMessage = GCrashErrorMessage;
 	}
 	
 	FMacCrashContext CrashContext(Type, ErrorMessage);
@@ -1908,7 +1909,15 @@ void FMacCrashContext::GenerateEnsureInfoAndLaunchReporter() const
 
 void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
 {
-	GAssertErrorMessage = ErrorMessage;
+	GCrashErrorMessage = ErrorMessage;
+	GCrashErrorType = ECrashContextType::Assert;
+	FPlatformMisc::RaiseException(1);
+}
+
+void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
+{
+	GCrashErrorMessage = ErrorMessage;
+	GCrashErrorType = ECrashContextType::GPUCrash;
 	FPlatformMisc::RaiseException(1);
 }
 

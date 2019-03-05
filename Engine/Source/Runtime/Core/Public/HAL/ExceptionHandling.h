@@ -25,6 +25,7 @@ extern CORE_API TCHAR MiniDumpFilenameW[1024];
 // #CrashReport: 2014-10-09 These methods are specific to windows, remove from here.
 extern CORE_API int32 ReportCrash( Windows::LPEXCEPTION_POINTERS ExceptionInfo );
 extern CORE_API void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
+extern CORE_API void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId);
 #elif PLATFORM_XBOXONE
@@ -37,10 +38,12 @@ extern CORE_API void ReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesT
 #include <signal.h>
 extern CORE_API int32 ReportCrash(ucontext_t *Context, int32 Signal, struct __siginfo* Info);
 extern CORE_API void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
+extern CORE_API void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId);
 #elif PLATFORM_UNIX
 extern CORE_API void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
+extern CORE_API void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportEnsure(const TCHAR* ErrorMessage, int NumStackFramesToIgnore);
 extern CORE_API void ReportHang(const TCHAR*, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId);
 #endif

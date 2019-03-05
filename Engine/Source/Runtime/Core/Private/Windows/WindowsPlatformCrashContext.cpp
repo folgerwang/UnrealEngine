@@ -43,6 +43,7 @@
  * Code for an assert exception
  */
 const uint32 AssertExceptionCode = 0x4000;
+const uint32 GPUCrashExceptionCode = 0x8000;
 
 /**
  * Stores information about an assert that can be unpacked in the exception handler.
@@ -549,6 +550,17 @@ FORCENOINLINE void ReportAssert(const TCHAR* ErrorMessage, int NumStackFramesToI
 	::RaiseException( AssertExceptionCode, 0, ARRAY_COUNT(Arguments), Arguments );
 }
 
+FORCENOINLINE void ReportGPUCrash(const TCHAR* ErrorMessage, int NumStackFramesToIgnore)
+{
+	/** This is the last place to gather memory stats before exception. */
+	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
+
+	FAssertInfo Info(ErrorMessage, NumStackFramesToIgnore + 2); // +2 for this function and RaiseException()
+
+	ULONG_PTR Arguments[] = { (ULONG_PTR)&Info };
+	::RaiseException( GPUCrashExceptionCode, 0, ARRAY_COUNT(Arguments), Arguments );
+}
+
 void ReportHang(const TCHAR* ErrorMessage, const uint64* StackFrames, int32 NumStackFrames, uint32 HungThreadId)
 {
 	if (ReportCrashCallCount > 0 || FDebug::HasAsserted())
@@ -781,11 +793,18 @@ private:
 		const TCHAR* ErrorMessage = TEXT("Unhandled exception");
 		int NumStackFramesToIgnore = 0;
 
-		// If it was an assert, allow overriding the info from the exception parameters
+		// If it was an assert or GPU crash, allow overriding the info from the exception parameters
 		if (ExceptionInfo->ExceptionRecord->ExceptionCode == AssertExceptionCode && ExceptionInfo->ExceptionRecord->NumberParameters == 1)
 		{
 			const FAssertInfo& Info = *(const FAssertInfo*)ExceptionInfo->ExceptionRecord->ExceptionInformation[0];
 			Type = ECrashContextType::Assert;
+			ErrorMessage = Info.ErrorMessage;
+			NumStackFramesToIgnore = Info.NumStackFramesToIgnore;
+		}
+		else if (ExceptionInfo->ExceptionRecord->ExceptionCode == GPUCrashExceptionCode && ExceptionInfo->ExceptionRecord->NumberParameters == 1)
+		{
+			const FAssertInfo& Info = *(const FAssertInfo*)ExceptionInfo->ExceptionRecord->ExceptionInformation[0];
+			Type = ECrashContextType::GPUCrash;
 			ErrorMessage = Info.ErrorMessage;
 			NumStackFramesToIgnore = Info.NumStackFramesToIgnore;
 		}
