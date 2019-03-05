@@ -195,7 +195,7 @@ void FMagicLeapCustomPresentOpenGL::BeginRendering()
 			UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsInitFrameParams failed with status %d"), Result);
 		}
 		camera_params.projection_type = MLGraphicsProjectionType_ReversedInfiniteZ;
-		camera_params.surface_scale = frame.ScreenPercentage;
+		camera_params.surface_scale = frame.PixelDensity;
 		camera_params.protected_surface = false;
 		GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bProtectedContent"), camera_params.protected_surface, GEngineIni);
 
@@ -317,8 +317,9 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 
 		//check(vp_array.num_virtual_cameras >= 2); // We assume at least one virtual camera per eye
 
-		FVector2D InternalTextureDims;
-		Plugin->GetAppFrameworkConst().GetDeviceResolution(InternalTextureDims);
+		const FIntPoint& IdealRenderTargetSize = Plugin->GetHMDDevice()->GetIdealRenderTargetSize();
+		const int32 SizeX = FMath::CeilToInt(IdealRenderTargetSize.X * Plugin->GetCurrentFrame().PixelDensity);
+		const int32 SizeY = FMath::CeilToInt(IdealRenderTargetSize.Y * Plugin->GetCurrentFrame().PixelDensity);
 
 		// this texture contains both eye renders
 		glBindFramebuffer(GL_FRAMEBUFFER, Framebuffers[0]);
@@ -333,8 +334,8 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 		const bool bShouldFlipVertically = !IsES2Platform(GMaxRHIShaderPlatform);
 
 		bShouldFlipVertically ?
-			FOpenGL::BlitFramebuffer(0, 0, InternalTextureDims.X / 2, InternalTextureDims.Y, 0, vp_height, vp_width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST) :
-			FOpenGL::BlitFramebuffer(0, 0, InternalTextureDims.X / 2, InternalTextureDims.Y, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			FOpenGL::BlitFramebuffer(0, 0, SizeX / 2, SizeY, 0, vp_height, vp_width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST) :
+			FOpenGL::BlitFramebuffer(0, 0, SizeX / 2, SizeY, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 		MLResult Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[0].sync_object);
 		if (Result != MLResult_Ok)
@@ -345,8 +346,8 @@ void FMagicLeapCustomPresentOpenGL::FinishRendering()
 		FOpenGL::FramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, vp_array.color_id, 0, 1);
 
 		bShouldFlipVertically ?
-			FOpenGL::BlitFramebuffer(InternalTextureDims.X / 2, 0, InternalTextureDims.X, InternalTextureDims.Y, 0, vp_height, vp_width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST) :
-			FOpenGL::BlitFramebuffer(InternalTextureDims.X / 2, 0, InternalTextureDims.X, InternalTextureDims.Y, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			FOpenGL::BlitFramebuffer(SizeX / 2, 0, SizeX, SizeY, 0, vp_height, vp_width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST) :
+			FOpenGL::BlitFramebuffer(SizeX / 2, 0, SizeX, SizeY, 0, 0, vp_width, vp_height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 		Result = MLGraphicsSignalSyncObjectGL(Plugin->GraphicsClient, vp_array.virtual_cameras[1].sync_object);
 		if (Result != MLResult_Ok)
@@ -489,7 +490,7 @@ void FMagicLeapCustomPresentVulkan::BeginRendering()
 				UE_LOG(LogMagicLeap, Error, TEXT("MLGraphicsInitFrameParams failed with status %d"), InitResult);
 			}
 			camera_params.projection_type = MLGraphicsProjectionType_UnsignedZ;
-			camera_params.surface_scale = 1.0f;
+			camera_params.surface_scale = RHIframe.PixelDensity;
 			camera_params.protected_surface = false;
 			GConfig->GetBool(TEXT("/Script/LuminRuntimeSettings.LuminRuntimeSettings"), TEXT("bProtectedContent"), camera_params.protected_surface, GEngineIni);
 

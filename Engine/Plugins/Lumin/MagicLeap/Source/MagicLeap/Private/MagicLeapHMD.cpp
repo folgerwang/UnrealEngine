@@ -477,14 +477,13 @@ bool FMagicLeapHMD::GetHMDMonitorInfo(MonitorInfo& MonitorDesc)
 	// TODO: check if we can rely on the return bool value from AppFramework.GetDeviceResolution() instead.
 	if (IsInitialized() && bHmdEnabled)
 	{
-		FVector2D Resolution;
-		AppFramework.GetDeviceResolution(Resolution);
+		const FIntPoint& RTSize = GetIdealRenderTargetSize();
 		MonitorDesc.MonitorName = "";
 		MonitorDesc.MonitorId = 0;
 		MonitorDesc.DesktopX = 0;
 		MonitorDesc.DesktopY = 0;
-		MonitorDesc.ResolutionX = Resolution.X;
-		MonitorDesc.ResolutionY = Resolution.Y;
+		MonitorDesc.ResolutionX = RTSize.X;
+		MonitorDesc.ResolutionY = RTSize.Y;
 		return true;
 	}
 	else
@@ -504,6 +503,17 @@ void FMagicLeapHMD::GetFieldOfView(float& OutHFOVInDegrees, float& OutVFOVInDegr
 	const FTrackingFrame& frame = GetCurrentFrame();
 	OutHFOVInDegrees = frame.HFov;
 	OutVFOVInDegrees = frame.VFov;
+}
+
+void FMagicLeapHMD::SetPixelDensity(const float NewDensity)
+{
+	// Surface scale does not support > 1.0
+	PixelDensity = FMath::Clamp(NewDensity, PixelDensityMin, 1.0f);
+}
+
+FIntPoint FMagicLeapHMD::GetIdealRenderTargetSize() const
+{
+	return FIntPoint(1280 * 2, 960);
 }
 
 bool FMagicLeapHMD::DoesSupportPositionalTracking() const
@@ -644,8 +654,7 @@ void FMagicLeapHMD::RefreshTrackingFrame()
 #if WITH_MLSDK
 	check(IsInGameThread());
 
-	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.ScreenPercentage"));
-	GameTrackingFrame.ScreenPercentage = CVar->GetValueOnGameThread() / 100.0f;
+	GameTrackingFrame.PixelDensity = PixelDensity;
 
 	// get the frame id for the frame
 	GameTrackingFrame.FrameId = HeadTrackerData.coord_frame_head;
@@ -890,8 +899,14 @@ void FMagicLeapHMD::AdjustViewRect(EStereoscopicPass StereoPass, int32& X, int32
 {
 	if (DebugViewportWidth > 0)
 	{
-		SizeX = DebugViewportWidth;
-		SizeY = DebugViewportHeight;
+		SizeX = DebugViewportWidth * PixelDensity;
+		SizeY = DebugViewportHeight * PixelDensity;
+	}
+	else
+	{
+		const FIntPoint& IdealRenderTargetSize = GetIdealRenderTargetSize();
+		SizeX = FMath::CeilToInt(IdealRenderTargetSize.X * PixelDensity);
+		SizeY = FMath::CeilToInt(IdealRenderTargetSize.Y * PixelDensity);
 	}
 
 	X = 0;
@@ -990,16 +1005,9 @@ void FMagicLeapHMD::CalculateRenderTargetSize(const class FViewport& Viewport, u
 {
 	check(IsInGameThread());
 
-	// set to the resolution of both eyes. unreal will pass in default 1280x720 which needs to be overridden here.
-	FVector2D Resolution;
-	// Device resolution takes into account the r.ScreenPercentage property that is set as the surface_scale for the camera params on BeginFrame().
-	bool bValidResolution = AppFramework.GetDeviceResolution(Resolution);
-
-	if (bValidResolution)
-	{
-		InOutSizeX = Resolution.X;
-		InOutSizeY = Resolution.Y;
-	}
+	const FIntPoint& IdealRenderTargetSize = GetIdealRenderTargetSize();
+	InOutSizeX = FMath::CeilToInt(IdealRenderTargetSize.X * PixelDensity);
+	InOutSizeY = FMath::CeilToInt(IdealRenderTargetSize.Y * PixelDensity);
 }
 
 bool FMagicLeapHMD::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
@@ -1080,7 +1088,7 @@ FMagicLeapHMD::FMagicLeapHMD(IMagicLeapPlugin* InMagicLeapPlugin, IARSystemSuppo
 #endif //WITH_MLSDK
 	RendererModule(nullptr),
 	MagicLeapPlugin(InMagicLeapPlugin),
-	IdealScreenPercentage(100.0f),
+	PixelDensity(1.0f),
 	bIsPlaying(false),
 	bIsPerceptionEnabled(false),
 	bIsVDZIEnabled(bEnableVDZI),
@@ -1119,6 +1127,13 @@ void FMagicLeapHMD::Startup()
 
 	// Context must be created before the bridge so that the bridge can set the render api.
 	AppFramework.Startup();
+
+	// Set initial pixel density
+	static const auto PixelDensityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("vr.PixelDensity"));
+	if (PixelDensityCVar)
+	{
+		PixelDensity = FMath::Clamp(PixelDensityCVar->GetFloat(), PixelDensityMin, PixelDensityMax);
+	}
 
 #if PLATFORM_WINDOWS
 	if (IsPCPlatform(GMaxRHIShaderPlatform) && !IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform))
@@ -1448,17 +1463,6 @@ void FMagicLeapHMD::InitDevice()
 		FSceneViewport* SceneVP = FindSceneViewport();
 		if (SceneVP && SceneVP->IsStereoRenderingAllowed())
 		{
-			FVector2D HmdSize;
-			bool IsValidResolution = AppFramework.GetDeviceResolution(HmdSize);
-
-			// An invalid resolution implies that the render thread hasn't received valid render info yet.
-			// If this is the case, we need to defer initialization until that happens.
-			//if (!IsValidResolution)
-			//{
-			//	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("     !IsValidResolution!"));
-			//	return;
-			//}
-
 			// This init must happen on the main thread for VR preview, otherwise it crashes on a non-Lumin RHI.
 
 				// Save any runtime configuration changes from the .ini.
@@ -1471,15 +1475,15 @@ void FMagicLeapHMD::InitDevice()
 			EWindowMode::Type WindowMode = EWindowMode::Windowed;
 #endif
 
-			if (IsValidResolution)
+			if (bHmdEnabled)
 			{
-				// Set the viewport size only if the resolution is valid to have the correct size for standalone desktop builds.
-				DebugViewportWidth = HmdSize.X;
-				DebugViewportHeight = HmdSize.Y;
-				FSystemResolution::RequestResolutionChange(HmdSize.X, HmdSize.Y, WindowMode);
+				const FIntPoint& RTSize = GetIdealRenderTargetSize();
+				DebugViewportWidth = RTSize.X;
+				DebugViewportHeight = RTSize.Y;
+				FSystemResolution::RequestResolutionChange(RTSize.X, RTSize.Y, WindowMode);
 				FPlatformAtomics::InterlockedExchange(&bDeviceWasJustInitialized, 0);
 			}
-			else if (!bHmdEnabled)
+			else
 			{
 				// If HMD is not enabled, set bDeviceWasJustInitialized to false so the device resolution code is not run every frame.
 				FPlatformAtomics::InterlockedExchange(&bDeviceWasJustInitialized, 0);				

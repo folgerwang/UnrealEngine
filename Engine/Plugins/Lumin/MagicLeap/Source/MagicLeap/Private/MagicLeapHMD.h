@@ -103,6 +103,10 @@ public:
 	virtual void UpdateScreenSettings(const FViewport* InViewport) override {}
 	virtual bool IsRenderingPaused() const override { return bIsRenderingPaused; }
 
+	virtual float GetPixelDenity() const override { return PixelDensity; }
+	virtual void SetPixelDensity(const float NewDensity) override;
+	virtual FIntPoint GetIdealRenderTargetSize() const override;
+
 	/** IStereoRendering interface */
 	virtual bool IsStereoEnabled() const override
 	{
@@ -296,7 +300,7 @@ private:
 #endif //WITH_MLSDK
 	IRendererModule* RendererModule;
 	IMagicLeapPlugin* MagicLeapPlugin;
-	float IdealScreenPercentage;
+	float PixelDensity;
 	bool bIsPlaying;
 	bool bIsPerceptionEnabled;
 	bool bIsVDZIEnabled;

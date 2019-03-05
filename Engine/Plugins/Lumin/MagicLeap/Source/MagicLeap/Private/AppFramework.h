@@ -66,8 +66,6 @@ public:
 
 	FVector2D GetFieldOfView() const;
 
-	/** Returns @true if we retrieved the device's resolution. Otherwise, it uses the default resolution. */
-	bool GetDeviceResolution(FVector2D& out_resolution) const;
 	FTransform GetDisplayCenterTransform() const { return FTransform::Identity; }; // HACK
 	uint32 GetViewportCount() const;
 

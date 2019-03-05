@@ -203,28 +203,6 @@ FVector2D FAppFramework::GetFieldOfView() const
 	return FVector2D(80.0f, 60.0f);
 }
 
-bool FAppFramework::GetDeviceResolution(FVector2D& OutResolution) const
-{
-#if WITH_MLSDK
-	// JMC: The size of the back buffer should not change, rather the internal
-	// viewport should render to a sub region of the back buffer.
-	// This will happen automatically once the render pipeline draws directly
-	// to our provided color buffer.
-	/*const FTrackingFrame *frame = GetOldFrame();
-
-	if (frame && frame->RenderInfoArray.num_virtual_cameras > 0)
-	{
-		const float width = frame->RenderInfoArray.viewport.w * 2.0f;
-		const float height = frame->RenderInfoArray.viewport.h;
-		OutResolution = FVector2D(width, height);
-		return true;
-	}*/
-#endif //WITH_MLSDK
-
-	OutResolution = FVector2D(1280.0f * 2.0f, 960.0f);
-	return true;
-}
-
 uint32 FAppFramework::GetViewportCount() const
 {
 #if WITH_MLSDK
