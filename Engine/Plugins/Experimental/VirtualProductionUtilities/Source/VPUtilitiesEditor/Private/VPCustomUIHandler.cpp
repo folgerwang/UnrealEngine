@@ -12,6 +12,7 @@
 #include "UI/VREditorUISystem.h"
 #include "UObject/ConstructorHelpers.h"
 #include "VREditorStyle.h"
+#include "VPUtilitiesEditorModule.h"
 #include "WidgetBlueprint.h"
 #include "Widgets/SWidget.h"
 
@@ -20,16 +21,6 @@
 
 static const FName VirtualProductionToolsLabel = TEXT("VirtualProductionTools");
 
-
-UVPCustomUIHandler::UVPCustomUIHandler(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-{
-	static ConstructorHelpers::FObjectFinder<UWidgetBlueprint> DefaultWidget(TEXT("/VirtualProductionUtilities/VirtualProductionWidget"));
-	if (DefaultWidget.Object)
-	{
-		VirtualProductionWidget = DefaultWidget.Object->GeneratedClass;
-	}
-}
 
 void UVPCustomUIHandler::Init()
 {
@@ -52,6 +43,20 @@ void UVPCustomUIHandler::Uninit()
 
 void UVPCustomUIHandler::FillVRRadialMenuWindows(FMenuBuilder& MenuBuilder)
 {
+	if (VirtualProductionWidget.Get() == nullptr)
+	{
+		UWidgetBlueprint* WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, TEXT("/VirtualProductionUtilities/Editor/VirtualProductionWidget.VirtualProductionWidget"));
+		if (WidgetBlueprint)
+		{
+			VirtualProductionWidget = WidgetBlueprint->GeneratedClass;
+		}
+	}
+
+	if (VirtualProductionWidget.Get() == nullptr)
+	{
+		UE_LOG(LogVPUtilitiesEditor, Warning, TEXT("/VirtualProductionUtilities/Editor/VirtualProductionWidget could not be found."));
+	}
+
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("VirtualProductionTools", "Virtual Production"),
 		FText(),

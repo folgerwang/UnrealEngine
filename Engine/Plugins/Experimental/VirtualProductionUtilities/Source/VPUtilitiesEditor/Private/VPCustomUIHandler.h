@@ -16,8 +16,6 @@ class UVPCustomUIHandler : public UObject
 {
 	GENERATED_BODY()
 
-	UVPCustomUIHandler(const FObjectInitializer& ObjectInitializer);
-
 public:
 	void Init();
 	void Uninit();
