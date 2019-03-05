@@ -33,7 +33,7 @@ public:
 	 *
 	 * @param Output The output object.
 	 */
-	void SetOutput(AVPlayerItemVideoOutput* Output, float InFrameRate);
+	void SetOutput(AVPlayerItemVideoOutput* Output, float InFrameRate, bool bFullRange = false);
 
 	/** Tick the video sampler (on the render thread). */
 	void Tick();
@@ -52,9 +52,11 @@ private:
 	/** Video sample object pool. */
 	FAvfMediaTextureSamplePool* VideoSamplePool;
 
+	/** Current Video cached decode information */
 	float FrameDuration;
+	FMatrix const* ColorTransform;
 
-#if WITH_ENGINE && COREVIDEO_SUPPORTS_METAL
+#if WITH_ENGINE
 
 	/** The Metal texture cache for unbuffered texture uploads. */
 	CVMetalTextureCacheRef MetalTextureCache;

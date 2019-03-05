@@ -40,6 +40,7 @@ class FAvfMediaTracks
 		: Loaded(false)
 		, FrameSize(0, 0)
 		, FrameRate(0.f)
+		, bFullRangeVideo(false)
 		{ }
 		
 		AVAssetTrack* AssetTrack;
@@ -52,6 +53,7 @@ class FAvfMediaTracks
 		//Cached Video Track Data
 		FIntPoint FrameSize;
 		float FrameRate;
+		bool bFullRangeVideo;
 	};
 
 public:

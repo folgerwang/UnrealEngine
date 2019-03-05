@@ -265,10 +265,13 @@ void FYCbCrConvertPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<F
 {
 	FYCbCrConvertUB UB;
 	{
+		// Chroma is not usually 1:1 with the output textxure
 		UB.CbCrSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
 		UB.CbCrTexture = CbCrTexture;
 		UB.ColorTransform = MediaShaders::CombineColorTransformAndOffset(ColorTransform, YUVOffset);
-		UB.LumaSampler = TStaticSamplerState<SF_Bilinear>::GetRHI();
+		
+		// Luma should be 1:1 with the output texture and needs to be point sampled
+		UB.LumaSampler = TStaticSamplerState<SF_Point>::GetRHI();
 		UB.LumaTexture = LumaTexture;
 		UB.SrgbToLinear = SrgbToLinear;
 	}

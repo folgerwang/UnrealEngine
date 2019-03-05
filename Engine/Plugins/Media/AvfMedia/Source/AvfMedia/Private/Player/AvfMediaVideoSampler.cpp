@@ -132,7 +132,8 @@ FAvfMediaVideoSampler::FAvfMediaVideoSampler(FMediaSamples& InSamples)
 	, Samples(InSamples)
 	, VideoSamplePool(new FAvfMediaTextureSamplePool)
 	, FrameDuration(0.0f)
-#if WITH_ENGINE && COREVIDEO_SUPPORTS_METAL
+	, ColorTransform(nullptr)
+#if WITH_ENGINE
 	, MetalTextureCache(nullptr)
 #endif
 { }
@@ -145,7 +146,7 @@ FAvfMediaVideoSampler::~FAvfMediaVideoSampler()
 	delete VideoSamplePool;
 	VideoSamplePool = nullptr;
 
-#if WITH_ENGINE && COREVIDEO_SUPPORTS_METAL
+#if WITH_ENGINE
 	if (MetalTextureCache)
 	{
 		CFRelease(MetalTextureCache);
@@ -158,7 +159,7 @@ FAvfMediaVideoSampler::~FAvfMediaVideoSampler()
 /* FAvfMediaVideoSampler interface
  *****************************************************************************/
 
-void FAvfMediaVideoSampler::SetOutput(AVPlayerItemVideoOutput* InOutput, float InFrameRate)
+void FAvfMediaVideoSampler::SetOutput(AVPlayerItemVideoOutput* InOutput, float InFrameRate, bool bFullRange)
 {
 	check(IsInRenderingThread());
 
@@ -169,6 +170,15 @@ void FAvfMediaVideoSampler::SetOutput(AVPlayerItemVideoOutput* InOutput, float I
 	Output = InOutput;
 
 	FrameDuration = 1.f / InFrameRate;
+	
+	if(bFullRange)
+	{
+		ColorTransform = &MediaShaders::YuvToRgbRec709Full;
+	}
+	else
+	{
+		ColorTransform = &MediaShaders::YuvToRgbRec709;
+	}
 }
 
 
@@ -211,9 +221,10 @@ void FAvfMediaVideoSampler::Tick()
 
 #if WITH_ENGINE
 	TRefCountPtr<FRHITexture2D> ShaderResource;
-#if COREVIDEO_SUPPORTS_METAL
-	// On iOS/tvOS we use the Metal texture cache
-	if (IsMetalPlatform(GMaxRHIShaderPlatform))
+
+	// We have to support Metal for this object now
+	check(COREVIDEO_SUPPORTS_METAL);
+	check(IsMetalPlatform(GMaxRHIShaderPlatform));
 	{
 		if (!MetalTextureCache)
 		{
@@ -227,7 +238,8 @@ void FAvfMediaVideoSampler::Tick()
 		
 		if (CVPixelBufferIsPlanar(Frame))
 		{
-			check(IsMetalPlatform(GMaxRHIShaderPlatform));
+			// Expecting BiPlanar kCVPixelFormatType_420YpCbCr8BiPlanar Full/Video
+			check(CVPixelBufferGetPlaneCount(Frame) == 2);
 			
 			uint32 TexCreateFlags = TexCreate_Dynamic | TexCreate_NoTiling;
 			
@@ -260,7 +272,7 @@ void FAvfMediaVideoSampler::Tick()
 			TRefCountPtr<FRHITexture2D> UVTex = RHICreateTexture2D(UVWidth, UVHeight, PF_R8G8, 1, 1, TexCreateFlags | TexCreate_ShaderResource, UVCreateInfo);
 			
 			FRHIResourceCreateInfo Info;
-			ShaderResource = RHICreateTexture2D(YWidth, YHeight, PF_B8G8R8A8, 1, 1, TexCreateFlags | TexCreate_ShaderResource | TexCreate_RenderTargetable, Info);
+			ShaderResource = RHICreateTexture2D(YWidth, YHeight, PF_B8G8R8A8, 1, 1, TexCreateFlags | TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_SRGB, Info);
 			
 			// render video frame into sink texture
 			FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
@@ -287,7 +299,7 @@ void FAvfMediaVideoSampler::Tick()
 
 					SetGraphicsPipelineState(RHICmdList, GraphicsPSOInit);
 
-					PixelShader->SetParameters(RHICmdList, YTex, UVTex, MediaShaders::YuvToSrgbPs4, MediaShaders::YUVOffset8bits, true);
+					PixelShader->SetParameters(RHICmdList, YTex, UVTex, *ColorTransform, MediaShaders::YUVOffset8bits, true);
 
 					FVertexBufferRHIRef VertexBuffer = CreateTempMediaVertexBuffer();
 					RHICmdList.SetStreamSource(0, VertexBuffer, 0);
@@ -323,74 +335,6 @@ void FAvfMediaVideoSampler::Tick()
 			
 			CFRelease(TextureRef);
 		}
-	}
-	else // Ran out of time to implement efficient OpenGLES texture upload - its running out of memory.
-	/*{
-	 if (!OpenGLTextureCache)
-	 {
-	 EAGLContext* Context = [EAGLContext currentContext];
-	 check(Context);
-	 
-	 CVReturn Return = CVOpenGLESTextureCacheCreate(kCFAllocatorDefault, nullptr, Context, nullptr, &OpenGLTextureCache);
-	 check(Return == kCVReturnSuccess);
-	 }
-	 check(OpenGLTextureCache);
-	 
-	 int32 Width = CVPixelBufferGetWidth(Frame);
-	 int32 Height = CVPixelBufferGetHeight(Frame);
-	 
-	 CVOpenGLESTextureRef TextureRef = nullptr;
-	 CVReturn Result = CVOpenGLESTextureCacheCreateTextureFromImage(kCFAllocatorDefault, OpenGLTextureCache, Frame, nullptr, GL_TEXTURE_2D, GL_RGBA, Width, Height, GL_RGBA, GL_UNSIGNED_BYTE, 0, &TextureRef);
-	 check(Result == kCVReturnSuccess);
-	 check(TextureRef);
-	 
-	 FRHIResourceCreateInfo CreateInfo;
-	 CreateInfo.BulkData = new FAvfTexture2DResourceWrapper(TextureRef);
-	 CreateInfo.ResourceArray = nullptr;
-	 
-	 uint32 TexCreateFlags = 0;
-	 TexCreateFlags |= TexCreate_Dynamic | TexCreate_NoTiling;
-	 
-	 TRefCountPtr<FRHITexture2D> RenderTarget;
-	 TRefCountPtr<FRHITexture2D> ShaderResource;
-	 
-	 RHICreateTargetableShaderResource2D(Width,
-	 Height,
-	 PF_R8G8B8A8,
-	 1,
-	 TexCreateFlags,
-	 TexCreate_RenderTargetable,
-	 false,
-	 CreateInfo,
-	 RenderTarget,
-	 ShaderResource
-	 );
-	 
-	 VideoSink->UpdateTextureSinkResource(RenderTarget, ShaderResource);
-	 CFRelease(TextureRef);
-	 }*/
-#endif	//COREVIDEO_SUPPORTS_METAL // On Mac we have to use IOSurfaceRef for backward compatibility - unless we update MIN_REQUIRED_VERSION to 10.11 we link against an older version of CoreVideo that doesn't support Metal.
-	{
-		FRHIResourceCreateInfo CreateInfo;
-		if (IsMetalPlatform(GMaxRHIShaderPlatform))
-		{
-			// Metal can upload directly from an IOSurface to a 2D texture, so we can just wrap it.
-			CreateInfo.BulkData = new FAvfTexture2DResourceWrapper(Frame);
-		}
-		else
-		{
-			// OpenGL on Mac uploads as a TEXTURE_RECTANGLE for which we have no code, so upload via system memory.
-			CreateInfo.BulkData = new FAvfTexture2DResourceMem(Frame);
-		}
-		CreateInfo.ResourceArray = nullptr;
-		
-		int32 Width = CVPixelBufferGetWidth(Frame);
-		int32 Height = CVPixelBufferGetHeight(Frame);
-		
-		uint32 TexCreateFlags = TexCreate_SRGB;
-		TexCreateFlags |= TexCreate_Dynamic | TexCreate_NoTiling;
-
-		ShaderResource = RHICreateTexture2D(Width, Height, PF_B8G8R8A8, 1, 1, TexCreateFlags | TexCreate_ShaderResource, CreateInfo);
 	}
 	
 	if(ShaderResource.IsValid())

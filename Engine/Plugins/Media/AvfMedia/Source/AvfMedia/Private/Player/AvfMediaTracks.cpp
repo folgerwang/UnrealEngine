@@ -20,6 +20,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+static int32 AVFMediaForceDecodeBGRA = 0;
+FAutoConsoleVariableRef CVarAVFMediaForceDecodeBGRA(
+	TEXT("m.avf.ForceDecodeBGRA"),
+	AVFMediaForceDecodeBGRA,
+	TEXT("Change between YUV decode and convert to BGRA in UE4 Shader (Keeps everything on the GPU) or always force Apple framework to perform the decode to BRGA (potential performance penalty).\n")
+	TEXT("0: Auto Detect YUV (Default) and decode to BGRA in UE4 Shader, 1: Force AV Framework to decode to BGRA"),
+	ECVF_ReadOnly);
+
 /* FAVPlayerItemLegibleOutputPushDelegate
  *****************************************************************************/
 
@@ -436,32 +444,49 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 		}
 		else if ([MediaType isEqualToString:AVMediaTypeVideo])
 		{
+			check(COREVIDEO_SUPPORTS_METAL);
+			
 			NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
-			// Mac:
-			// On Mac kCVPixelFormatType_422YpCbCr8 is the preferred single-plane YUV format but for H.264 bi-planar formats are the optimal choice
-			// The native RGBA format is 32ARGB but we use 32BGRA for consistency with iOS for now.
-			//
-			// iOS/tvOS:
-			// On iOS only bi-planar kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange/kCVPixelFormatType_420YpCbCr8BiPlanarFullRange are supported for YUV so an additional conversion is required.
-			// The only RGBA format is 32BGRA
-#if COREVIDEO_SUPPORTS_METAL
-			[OutputSettings setObject : [NSNumber numberWithInt : kCVPixelFormatType_420YpCbCr8BiPlanarFullRange] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
-#else
-			[OutputSettings setObject : [NSNumber numberWithInt : kCVPixelFormatType_32BGRA] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
-#endif
-
-#if WITH_ENGINE
-			// Setup sharing with RHI's starting with the optional Metal RHI
-			if (FPlatformMisc::HasPlatformFeature(TEXT("Metal")))
+			CMFormatDescriptionRef DescRef = (CMFormatDescriptionRef)[AssetTrack.formatDescriptions objectAtIndex:0];
+			
+			// Select decode format
+			int32 DecodePixelBufferFormat = 0;
+	
+			if(!AVFMediaForceDecodeBGRA)
 			{
-				[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferMetalCompatibilityKey];
+				CFDictionaryRef FormatExtensions = CMFormatDescriptionGetExtensions(DescRef);
+				if(FormatExtensions)
+				{
+					CFStringRef FormatName = (CFStringRef)CFDictionaryGetValue(FormatExtensions, kCMFormatDescriptionExtension_FormatName);
+					
+					// kCMVideoCodecType_H264 : 'avc1' - why is this a CFString in the dictionary and not a CFNumber?
+					if(FormatName && kCFCompareEqualTo == CFStringCompare(FormatName, CFSTR("'avc1'"), 0))
+					{
+						CFBooleanRef bFullRange = (CFBooleanRef)CFDictionaryGetValue(FormatExtensions, kCMFormatDescriptionExtension_FullRangeVideo);
+						if(bFullRange && (bool)CFBooleanGetValue(bFullRange))
+						{
+							DecodePixelBufferFormat = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange;
+						}
+						else
+						{
+							DecodePixelBufferFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
+						}
+					}
+				}
 			}
 
-#if PLATFORM_MAC
-			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferOpenGLCompatibilityKey];
-#else
-			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferOpenGLESCompatibilityKey];
-#endif
+			// BGRA32 is the fallback
+			if(DecodePixelBufferFormat == 0)
+			{
+				DecodePixelBufferFormat = kCVPixelFormatType_32BGRA;
+			}
+			
+			[OutputSettings setObject : [NSNumber numberWithInt :  DecodePixelBufferFormat] forKey : (NSString*)kCVPixelBufferPixelFormatTypeKey];
+			
+#if WITH_ENGINE
+			
+			[OutputSettings setObject:[NSNumber numberWithBool:YES] forKey:(NSString*)kCVPixelBufferMetalCompatibilityKey];
+			
 #endif //WITH_ENGINE
 
 			// Use unaligned rows
@@ -479,6 +504,7 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 			Track->Name = FString::Printf(TEXT("Video Track %i"), TrackIndex);
 			Track->Output = Output;
 			Track->Loaded = true;
+			Track->bFullRangeVideo = DecodePixelBufferFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange;
 			
 			// NominalFrameRate can be zero (e.g HLS streams) - try again using min frame duration, otherwise it's unknown - possibly variable - use a default
 			Track->FrameRate = AssetTrack.nominalFrameRate;
@@ -498,7 +524,6 @@ void FAvfMediaTracks::Initialize(AVPlayerItem* InPlayerItem, FString& OutInfo)
 			CGSize NaturalFrameSize = AssetTrack.naturalSize;
 			Track->FrameSize = FIntPoint((int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
 
-			CMFormatDescriptionRef DescRef = (CMFormatDescriptionRef)[AssetTrack.formatDescriptions objectAtIndex:0];
 			CMVideoCodecType CodecType = CMFormatDescriptionGetMediaSubType(DescRef);
 			OutInfo += FString::Printf(TEXT("    Codec: %s\n"), *AvfMedia::CodecTypeToString(CodecType));
 			OutInfo += FString::Printf(TEXT("    Dimensions: %i x %i\n"), (int32)NaturalFrameSize.width, (int32)NaturalFrameSize.height);
@@ -1007,11 +1032,13 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 					AVPlayerItemVideoOutput* Output;
 					TWeakPtr<FAvfMediaVideoSampler, ESPMode::ThreadSafe> VideoSamplerPtr;
 					float FrameRate;
+					bool bFullRange;
 				}
 				Params = {
 					(AVPlayerItemVideoOutput*)VideoTracks[SelectedVideoTrack].Output,
 					VideoSampler,
-					VideoTracks[TrackIndex].FrameRate
+					VideoTracks[TrackIndex].FrameRate,
+					VideoTracks[TrackIndex].bFullRangeVideo
 				};
 
 				ENQUEUE_RENDER_COMMAND(AvfMediaVideoSamplerSetOutput)(
@@ -1021,7 +1048,7 @@ bool FAvfMediaTracks::SelectTrack(EMediaTrackType TrackType, int32 TrackIndex)
 
 						if (PinnedVideoSampler.IsValid())
 						{
-							PinnedVideoSampler->SetOutput(Params.Output, Params.FrameRate);
+							PinnedVideoSampler->SetOutput(Params.Output, Params.FrameRate, Params.bFullRange);
 						}
 					});
 			}
