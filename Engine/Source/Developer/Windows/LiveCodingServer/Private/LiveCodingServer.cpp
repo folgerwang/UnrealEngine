@@ -1,3 +1,5 @@
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+
 #include "LiveCodingServer.h"
 #include "External/LC_Scheduler.h"
 #include "External/LC_UniqueId.h"
