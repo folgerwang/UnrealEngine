@@ -237,12 +237,42 @@ void SSCSEditorViewport::Construct(const FArguments& InArgs)
 
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
+	// Restore last used feature level
+	if (ViewportClient.IsValid())
+	{
+		UWorld* World = ViewportClient->GetPreviewScene()->GetWorld();
+		if (World != nullptr)
+		{
+			World->ChangeFeatureLevel(GWorld->FeatureLevel);
+		}
+	}
+
+	// Use a delegate to inform the attached world of feature level changes.
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	PreviewFeatureLevelChangedHandle = Editor->OnPreviewFeatureLevelChanged().AddLambda([this](ERHIFeatureLevel::Type NewFeatureLevel)
+		{
+			if(ViewportClient.IsValid())
+			{
+				UWorld* World = ViewportClient->GetPreviewScene()->GetWorld();
+				if (World != nullptr)
+				{
+					World->ChangeFeatureLevel(NewFeatureLevel);
+
+					// Refresh the preview scene. Don't change the camera.
+					RequestRefresh(false);
+				}
+			}
+		});
+
 	// Refresh the preview scene
 	RequestRefresh(true);
 }
 
 SSCSEditorViewport::~SSCSEditorViewport()
 {
+	UEditorEngine* Editor = (UEditorEngine*)GEngine;
+	Editor->OnPreviewFeatureLevelChanged().Remove(PreviewFeatureLevelChangedHandle);
+
 	if(ViewportClient.IsValid())
 	{
 		// Reset this to ensure it's no longer in use after destruction
@@ -277,6 +307,19 @@ TSharedPtr<SWidget> SSCSEditorViewport::MakeViewportToolbar()
 		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 }
 
+void SSCSEditorViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
+{
+	SEditorViewport::PopulateViewportOverlays(Overlay);
+
+	// add the feature level display widget
+	Overlay->AddSlot()
+		.VAlign(VAlign_Bottom)
+		.HAlign(HAlign_Right)
+		.Padding(5.0f)
+		[
+			BuildFeatureLevelWidget()
+		];
+}
 
 void SSCSEditorViewport::BindCommands()
 {

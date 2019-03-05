@@ -278,6 +278,16 @@ public:
 	FEditorViewportClient& operator=(const FEditorViewportClient&) = delete;
 
 	/**
+	 * Retrieves the FPreviewScene used by this instance of FEditorViewportClient.
+	 *
+	 * @return		The internal FPreviewScene pointer.
+	 */
+	FPreviewScene* GetPreviewScene()
+	{
+		return PreviewScene;
+	}
+
+	/**
 	 * Toggles whether or not the viewport updates in realtime and returns the updated state.
 	 *
 	 * @return		The current state of the realtime flag.
