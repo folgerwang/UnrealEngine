@@ -60,10 +60,18 @@ namespace UnrealBuildTool
 		/// <param name="bIncludeNonInstalledPlatforms">Whether to register platforms that are not installed</param>
 		public static void RegisterPlatforms(bool bIncludeNonInstalledPlatforms)
 		{
-			// Find and register all tool chains and build platforms that are present
-			Assembly UBTAssembly = Assembly.GetExecutingAssembly();
+			// Initialize the installed platform info
+			using(Timeline.ScopeEvent("Initializing InstalledPlatformInfo"))
+			{
+				InstalledPlatformInfo.Initialize();
+			}
 
-			Type[] AllTypes = UBTAssembly.GetTypes();
+			// Find and register all tool chains and build platforms that are present
+			Type[] AllTypes;
+			using(Timeline.ScopeEvent("Querying types"))
+			{
+				AllTypes = Assembly.GetExecutingAssembly().GetTypes();
+			}
 
 			// register all build platforms first, since they implement SDK-switching logic that can set environment variables
 			foreach (Type CheckType in AllTypes)
@@ -73,12 +81,15 @@ namespace UnrealBuildTool
 					if (CheckType.IsSubclassOf(typeof(UEBuildPlatformFactory)))
 					{
 						Log.TraceVerbose("    Registering build platform: {0}", CheckType.ToString());
-						UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)(UBTAssembly.CreateInstance(CheckType.FullName, true));
-
-						// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
-						if (bIncludeNonInstalledPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
+						using(Timeline.ScopeEvent(CheckType.Name))
 						{
-							TempInst.RegisterBuildPlatforms();
+							UEBuildPlatformFactory TempInst = (UEBuildPlatformFactory)Activator.CreateInstance(CheckType);
+							
+							// We need all platforms to be registered when we run -validateplatform command to check SDK status of each
+							if (bIncludeNonInstalledPlatforms || InstalledPlatformInfo.IsValidPlatform(TempInst.TargetPlatform))
+							{
+								TempInst.RegisterBuildPlatforms();
+							}
 						}
 					}
 				}

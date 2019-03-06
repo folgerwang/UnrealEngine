@@ -124,6 +124,14 @@ namespace UnrealBuildTool
 			}
 		}
 
+		/// <summary>
+		/// Initializes the InstalledPlatformInfo. While this is not necessary to be called, it allows timing the static constructor call.
+		/// </summary>
+		internal static void Initialize()
+		{
+			// Unused, but allows timing call of the static constructor
+		}
+
 		private static void ParsePlatformConfiguration(string PlatformConfiguration)
 		{
 			// Trim whitespace at the beginning.

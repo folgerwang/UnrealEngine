@@ -563,9 +563,12 @@ namespace UnrealBuildTool
 				Parallel.ForEach(Dependencies, File => { List<FileItem> Temp; CppDependencies.TryGetDependencies(File, out Temp); });
 			}
 
-			foreach (Action Action in Actions)
+			using(Timeline.ScopeEvent("Cache outdated actions"))
 			{
-				IsActionOutdated(Action, OutdatedActions, ActionHistory, CppDependencies, bIgnoreOutdatedImportLibraries);
+				foreach (Action Action in Actions)
+				{
+					IsActionOutdated(Action, OutdatedActions, ActionHistory, CppDependencies, bIgnoreOutdatedImportLibraries);
+				}
 			}
 		}
 
