@@ -129,7 +129,10 @@ bool actions::GetModule::Execute(CommandType* command, const DuplexPipe* pipe, v
 
 // BEGIN EPIC MOD - Support for UE4 debug visualizers
 struct FNameEntry;
+extern FNameEntry*** GFNameTableForDebuggerVisualizers_MT;
+
 class FChunkedFixedUObjectArray;
+extern FChunkedFixedUObjectArray*& GObjectArrayForDebugVisualizers;
 // END EPIC MOD
 
 
@@ -146,8 +149,6 @@ bool actions::LoadPatch::Execute(CommandType* command, const DuplexPipe* pipe, v
 		InitNatvisHelpersFunc* InitNatvisHelpers = (InitNatvisHelpersFunc*)(void*)GetProcAddress(module, "InitNatvisHelpers");
 		if (InitNatvisHelpers != nullptr)
 		{
-			extern FNameEntry*** GFNameTableForDebuggerVisualizers_MT;
-			extern FChunkedFixedUObjectArray*& GObjectArrayForDebugVisualizers;
 			(*InitNatvisHelpers)(GFNameTableForDebuggerVisualizers_MT, GObjectArrayForDebugVisualizers);
 		}
 	}
