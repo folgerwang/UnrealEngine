@@ -174,6 +174,12 @@ void FLightmapDensityMeshProcessor::Process(
 		else if (PrimitiveSceneProxy)
 		{
 			int32 LightMapResolution = PrimitiveSceneProxy->GetLightMapResolution();
+		#if WITH_EDITOR
+			if (GLightmassDebugOptions.bPadMappings)
+			{
+				LightMapResolution -= 2;
+			}
+		#endif
 			if (PrimitiveSceneProxy->IsStatic() && LightMapResolution > 0)
 			{
 				ShaderElementData.bTextureMapped = true;

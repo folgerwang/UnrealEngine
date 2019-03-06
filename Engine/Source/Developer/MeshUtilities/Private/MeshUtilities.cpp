@@ -2507,7 +2507,17 @@ public:
 					Packer.SetVersion(LightmapUVVersion);
 
 					Packer.FindCharts(OverlappingCorners);
-					bool bPackSuccess = Packer.FindBestPacking(SrcModel.BuildSettings.MinLightmapResolution);
+
+					int32 EffectiveMinLightmapResolution = SrcModel.BuildSettings.MinLightmapResolution;
+					if (LightmapUVVersion >= ELightmapUVVersion::ConsiderLightmapPadding)
+					{
+						if (GLightmassDebugOptions.bPadMappings)
+						{
+							EffectiveMinLightmapResolution -= 2;
+						}
+					}
+
+					bool bPackSuccess = Packer.FindBestPacking(EffectiveMinLightmapResolution);
 					if (bPackSuccess)
 					{
 						Packer.CommitPackedUVs();
