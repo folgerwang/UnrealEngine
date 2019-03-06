@@ -411,8 +411,7 @@ void UEditableStaticMeshAdapter::InitializeFromEditableMesh( const UEditableMesh
 	// @todo mesheditor instancing: sort this out
 	OriginalStaticMesh = nullptr;
 
-	// Always targets LOD0 at the moment
-	StaticMeshLODIndex = 0;
+	StaticMeshLODIndex = SubMeshAddress.LODIndex;
 
 	RenderingPolygons.Reset();
 	RenderingPolygonGroups.Reset();
