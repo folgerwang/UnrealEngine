@@ -181,8 +181,9 @@ void FD3D12CommandContext::ResolveTextureUsingShader(
 	StateCache.SetShaderResourceView<SF_Pixel>(SourceTexture->GetShaderResourceView(), TextureIndex);
 
 	FRHIResourceCreateInfo CreateInfo;
-	FVertexBufferRHIRef VertexBufferRHI = RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
-	void* VoidPtr = RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
+	check(IsInRHIThread() || !IsRunningRHIInSeparateThread());
+	FVertexBufferRHIRef VertexBufferRHI = GDynamicRHI->RHICreateVertexBuffer(sizeof(FScreenVertex) * 4, BUF_Volatile, CreateInfo);
+	void* VoidPtr = GDynamicRHI->RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(FScreenVertex) * 4, RLM_WriteOnly);
 
 	// Generate the vertices used
 	FScreenVertex* Vertices = (FScreenVertex*)VoidPtr;
@@ -207,7 +208,8 @@ void FD3D12CommandContext::ResolveTextureUsingShader(
 	Vertices[3].UV.X = MinU;
 	Vertices[3].UV.Y = MaxV;
 
-	RHIUnlockVertexBuffer(VertexBufferRHI);
+	GDynamicRHI->RHIUnlockVertexBuffer(VertexBufferRHI);
+
 	RHICmdList.SetStreamSource(0, VertexBufferRHI, 0);
 	RHICmdList.DrawPrimitive(0, 2, 1);
 
@@ -740,7 +742,6 @@ static uint32 ComputeBytesPerPixel(DXGI_FORMAT Format)
 }
 
 TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIParamRef TextureRHI, FIntRect InRect, FIntRect& StagingRectOUT, FReadSurfaceDataFlags InFlags, D3D12_PLACED_SUBRESOURCE_FOOTPRINT &readbackHeapDesc)
-
 {
 	FD3D12Device* Device = GetRHIDevice();
 	FD3D12Adapter* Adapter = Device->GetParentAdapter();
@@ -787,7 +788,7 @@ TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIPara
 	const uint32 BlockBytes = GPixelFormats[TextureRHI->GetFormat()].BlockBytes;
 	const uint32 XBytesAligned = Align((uint32)SourceDesc.Width * BlockBytes, FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 	const uint32 MipBytesAligned = XBytesAligned * SourceDesc.Height;
-	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture2D.GetInitReference()));
+	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture2D.GetInitReference(), nullptr));
 
 	// Staging rectangle is now the whole surface.
 	StagingRectOUT.Min = FIntPoint::ZeroValue;
@@ -1282,7 +1283,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	TRefCountPtr<FD3D12Resource> NonMSAATexture2D;
 
 	const D3D12_HEAP_PROPERTIES HeapProps = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT, (uint32)NodeMask, (uint32)NodeMask);
-	VERIFYD3D12RESULT(Adapter->CreateCommittedResource(NonMSAADesc, HeapProps, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, NonMSAATexture2D.GetInitReference()));
+	VERIFYD3D12RESULT(Adapter->CreateCommittedResource(NonMSAADesc, HeapProps, D3D12_RESOURCE_STATE_RENDER_TARGET, nullptr, NonMSAATexture2D.GetInitReference(), nullptr));
 
 	FD3D12ResourceLocation ResourceLocation(Device);
 	ResourceLocation.AsStandAlone(NonMSAATexture2D);
@@ -1303,7 +1304,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	const uint32 BlockBytes = GPixelFormats[TextureRHI->GetFormat()].BlockBytes;
 	const uint32 XBytesAligned = Align(SizeX * BlockBytes, FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 	const uint32 MipBytesAligned = XBytesAligned * SizeY;
-	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, NodeMask, NodeMask, MipBytesAligned, StagingTexture2D.GetInitReference()));
+	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, NodeMask, NodeMask, MipBytesAligned, StagingTexture2D.GetInitReference(), nullptr));
 
 	// Ensure we're dealing with a Texture2D, which the rest of this function already assumes
 	check(TextureRHI->GetTexture2D());
@@ -1488,7 +1489,7 @@ void FD3D12DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
 	const uint32 BlockBytes = GPixelFormats[TextureRHI->GetFormat()].BlockBytes;
 	const uint32 XBytesAligned = Align((uint32)TextureDesc.Width * BlockBytes, FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 	const uint32 MipBytesAligned = XBytesAligned * TextureDesc.Height;
-	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture2D.GetInitReference()));
+	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture2D.GetInitReference(), nullptr));
 
 	// Ensure we're dealing with a Texture2D, which the rest of this function already assumes
 	bool bIsTextureCube = false;
@@ -1616,7 +1617,7 @@ void FD3D12DynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI,
 	const uint32 XBytesAligned = Align(TextureDesc11.Width * BlockBytes, FD3D12_TEXTURE_DATA_PITCH_ALIGNMENT);
 	const uint32 DepthBytesAligned = XBytesAligned * TextureDesc11.Height;
 	const uint32 MipBytesAligned = DepthBytesAligned * TextureDesc11.DepthOrArraySize;
-	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture3D.GetInitReference()));
+	VERIFYD3D12RESULT(Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, Node, Node, MipBytesAligned, TempTexture3D.GetInitReference(), nullptr));
 
 	// Copy the data to a staging resource.
 	uint32 Subresource = 0;

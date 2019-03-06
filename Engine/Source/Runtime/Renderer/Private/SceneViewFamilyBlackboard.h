@@ -14,6 +14,10 @@ class FViewInfo;
 
 /** Contains reference on all available buffer for a given scene. */
 BEGIN_SHADER_PARAMETER_STRUCT(FSceneViewFamilyBlackboard, )
+	// FSceneViewFamilyBlackboard::SceneLightingChannels needs to be accessed with SceneLightingChannels.Load(), so a shader accessing
+	// needs to know when it not valid since SceneLightingChannels could end up being a dummy system texture.
+	SHADER_PARAMETER(uint32, bIsSceneLightingChannelsValid)
+
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneDepthBuffer)
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneVelocityBuffer)
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneGBufferA)
@@ -21,6 +25,7 @@ BEGIN_SHADER_PARAMETER_STRUCT(FSceneViewFamilyBlackboard, )
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneGBufferC)
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneGBufferD)
 	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SceneGBufferE)
+	SHADER_PARAMETER_RDG_TEXTURE(Texture2D<uint>, SceneLightingChannels)
 END_SHADER_PARAMETER_STRUCT()
 
 

@@ -85,6 +85,13 @@ void SetupFogUniformParameters(const FViewInfo& View, FFogUniformParameters& Out
 	}
 }
 
+TUniformBufferRef<FFogUniformParameters> CreateFogUniformBuffer(const class FViewInfo& View, EUniformBufferUsage Usage)
+{
+	FFogUniformParameters FogStruct;
+	SetupFogUniformParameters(View, FogStruct);
+	return CreateUniformBufferImmediate(FogStruct, Usage);
+}
+
 /** A vertex shader for rendering height fog. */
 class FHeightFogVS : public FGlobalShader
 {

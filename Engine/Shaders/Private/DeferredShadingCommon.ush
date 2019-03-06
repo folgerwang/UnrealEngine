@@ -552,7 +552,7 @@ FGBufferData DecodeGBufferData(
 
 	// derived from BaseColor, Metalness, Specular
 	{
-		GBuffer.SpecularColor = lerp( 0.08 * GBuffer.Specular.xxx, GBuffer.BaseColor, GBuffer.Metallic );
+		GBuffer.SpecularColor = ComputeF0(GBuffer.Specular, GBuffer.BaseColor, GBuffer.Metallic);
 
 		if (UseSubsurfaceProfile(GBuffer.ShadingModelID))
 		{

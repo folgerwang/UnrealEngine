@@ -6,7 +6,7 @@
 
 #include "D3D12RHIPrivate.h"
 #include "D3D12RootSignatureDefinitions.h"
-#include "CommonRayTracingBuiltInResources.ush"
+#include "RayTracingBuiltInResources.h"
 
 namespace
 {

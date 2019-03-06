@@ -56,7 +56,7 @@ struct FAreaLight
 	float3		FalloffColor;
 
 	FRect		Rect;
-	Texture2D	Texture;
+	FRectTexture Texture;
 	bool		bIsRect;
 };
 
@@ -961,7 +961,7 @@ FDirectLighting EvaluateBxDF( FGBufferData GBuffer, half3 N, half3 V, half3 L, f
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = (FRect)0;
 	AreaLight.bIsRect = false;
-	AreaLight.Texture = LTCAmpTexture;
+    AreaLight.Texture = InitRectTexture(LTCAmpTexture); // Dummy
 
 	return IntegrateBxDF( GBuffer, N, V, L, 1, NoL, AreaLight, Shadow );
 }

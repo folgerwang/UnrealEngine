@@ -4,6 +4,7 @@
 
 #include "../PathTracing/Utilities/PathTracingRandomSequence.ush"
 #include "../MonteCarlo.ush"
+#include "../LightShaderParameters.ush"
 #include "RayTracingCommon.ush"
 
 // #patrick todo: move to RayTracingCommon.ush
@@ -41,10 +42,9 @@ float2 ToConcentricMap(float2 RectangularCoords)
 }
 
 void GenerateDirectionalLightOcclusionRay(
+	FLightShaderParameters LightParameters,
 	float3 WorldPosition,
 	float3 WorldNormal,
-	float3 LightDirection,
-	float LightRadius,
 	float2 RandSample,
 	out float3 RayOrigin,
 	out float3 RayDirection,
@@ -54,9 +54,10 @@ void GenerateDirectionalLightOcclusionRay(
 	// Draw random variable and choose a point on a unit disk
 	float2 BufferSize = View.BufferSizeAndInvSize.xy;
 
-	float2 DiskUV = UniformSampleDiskConcentric(RandSample) * LightRadius;
+	float2 DiskUV = UniformSampleDiskConcentric(RandSample) * LightParameters.SourceRadius;
 
 	// Permute light direction by user-defined radius on unit sphere
+	float3 LightDirection = LightParameters.Direction;
 	float3 N = LightDirection;
 	float3 dPdu = float3(1, 0, 0);
 	if (dot(N, dPdu) != 0)

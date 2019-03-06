@@ -30,9 +30,9 @@ void TestMainRGS()
 	TraceRay(
 		TLAS,   // AccelerationStructure
 		RayFlags,
-		0xFF,   // InstanceInclusionMask
-		0,      // RayContributionToHitGroupIndex
-		1,      // MultiplierForGeometryContributionToShaderIndex
+		RAY_TRACING_MASK_ALL,             // InstanceInclusionMask
+		RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+		RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 		0,      // MissShaderIndex
 		Ray,    // RayDesc
 		Payload // Payload

@@ -24,7 +24,7 @@ float CalcSkyLightPdf(uint2 Pixel)
 	uint2 MipPixel = 0;
 	float MipPdf = 1.0;
 	uint StopLevel = MipLevel;
-	uint MipCount = Log2(Dimensions.x);
+	uint MipCount = log2(Dimensions.x);
 	for (uint Index = 0; Index < MipCount - StopLevel; ++Index)
 	{
 		uint MipIndex = MipCount - Index - 1;

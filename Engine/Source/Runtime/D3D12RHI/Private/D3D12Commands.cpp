@@ -412,7 +412,7 @@ void FD3D12CommandContext::RHICopyToStagingBuffer(FVertexBufferRHIParamRef Sourc
 		// Hopefully d3d12 will do smart pooling out of an internal heap.
 		StagingBuffer->SafeRelease();
 
-		VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), NumBytes, &StagingBuffer->StagedRead));
+		VERIFYD3D12RESULT(GetParentDevice()->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_READBACK, GetGPUMask(), GetGPUMask(), NumBytes, &StagingBuffer->StagedRead, TEXT("StagedRead")));
 		StagingBuffer->ShadowBufferSize = NumBytes;
 	}
 

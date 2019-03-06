@@ -74,7 +74,12 @@ void AmbientOcclusionRGS()
 	uint SamplesPerPixel = AmbientOcclusion.SamplesPerPixel;
 	
 	// Mask out depth values beyond far plane
-	if (Depth >= SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE || ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_UNLIT)
+	float DeviceZ = SceneTexturesStruct.SceneDepthTexture.Load(int3(PixelCoord, 0)).r;
+	bool IsFiniteDepth = DeviceZ > 0.0;
+	bool bTraceRay = (
+		IsFiniteDepth &&
+		ScreenSpaceData.GBuffer.ShadingModelID != SHADINGMODELID_UNLIT);
+	if (!bTraceRay)
 	{
 		Visibility = 1.0;
 		RayCount = SamplesPerPixel;
@@ -90,17 +95,19 @@ void AmbientOcclusionRGS()
 		if (dot(WorldNormal, Ray.Direction) <= 0.0) // TODO: does it needs to be handled by the denoiser?
 			continue;
 		
-		uint RayFlags = 0
-			| RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+		uint RayFlags = 0;
+#if !ENABLE_TWO_SIDED_GEOMETRY
+		RayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+#endif
 
 		FDefaultPayload Payload = (FDefaultPayload)0;
 
 		TraceRay(
 			TLAS,
 			RayFlags,
-			0xFF, // InstanceInclusionMask
-			0,    // RayContributionToHitGroupIndex
-			1,    // MultiplierForGeometryContributionToShaderIndex
+			RAY_TRACING_MASK_OPAQUE,          // InstanceInclusionMask
+			RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+			RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 			0,    // MissShaderIndex
 			Ray,
 			Payload

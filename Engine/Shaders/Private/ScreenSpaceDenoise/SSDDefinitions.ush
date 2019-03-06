@@ -55,11 +55,14 @@
 #define MIP_LEVEL_INVALID -1
 #define MIP_LEVEL_MISS 1024
 
-// Maximum number of signal that can be multiplexed into single output.
-#define MAX_SIGNAL_MULTIPLEXING 3
+// Maximum number of signal that can be denoised at same time.
+#define MAX_SIGNAL_BATCH_SIZE 4
 
-// Maximum number of buffer a signal can be encode to/decoded from.
-#define MAX_RENDER_TARGET_FOR_SIGNAL 3
+// Maximum number of signal that can be multiplexed into single output.
+#define MAX_SIGNAL_MULTIPLEXING (MAX_SIGNAL_BATCH_SIZE)
+
+// Maximum number of buffer multiple signals can be encode to/decoded from.
+#define MAX_MULTIPLEXED_TEXTURES (MAX_SIGNAL_BATCH_SIZE)
 
 
 //------------------------------------------------------- ENUMS
@@ -68,17 +71,26 @@
 	/** Buffer layout for the shadow penumbra given as input. */
 	#define SIGNAL_BUFFER_LAYOUT_UNINITIALIZED 0xDEAD
 
+
+	/** Buffer layout for the shadow penumbra given as input, assuming there is only one spp. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_1SPP 10
+
 	/** Buffer layout for the shadow penumbra given as input. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT 0
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_NSPP 15
 
-	/** Internal buffer layout for the shadow penumbra. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL 1
+	/** Internal buffer layout for the shadow penumbra, but using world bluring radius. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP 14
 
-	/** Internal buffer layout used for history rejection for the shadow penumbra. */
-	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION 2
+	/** Buffer layout for the shadow penumbra given as input. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP 16
 
-	/** Buffer layout taken as input by */ // TODO: unused, remove it.
-	// #define SIGNAL_BUFFER_LAYOUT_PENUMBRA_OUTPUT 3
+	/** Internal buffer layout for the shadow penumbra multiplexed into buffers.
+	 * This buffer layout is able to pack two signals per render target.
+	 */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION 12
+
+	/** Internal buffer layout for the shadow penumbra to be stored in indivual per light histories. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY 11
 
 
 	/** Buffer layout for the reflection given by the ray generation shader. */
@@ -102,12 +114,15 @@
 	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_INPUT 7
 
 	/** Internal buffer layout for global illumination. */
+	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_RECONSTRUCTION 13
+
+	/** Internal buffer layout for global illumination. */
 	#define SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY 8
 
 
 /** Defines how the signal is being processed. Matches C++'s ESignalProcessing. */
 	/** Shadow penumbra denoising. */
-	#define SIGNAL_PROCESSING_PENUMBRA 0
+	#define SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA 0
 
 	/** Reflection denoising. */
 	#define SIGNAL_PROCESSING_REFLECTIONS 1
@@ -161,7 +176,18 @@
 //------------------------------------------------------- GLOBAL CONFIGURATION OF ALL DENOISER SHADERS
 
 /** Do normal based anysotropy. */
-#define CONFIG_NORMAL_ANISOTROPY 1
+// TODO: the hierarchical denoiser needs that.
+#define CONFIG_NORMAL_ANISOTROPY 0
+
+/** Whether should enable VGPR optimizations. */
+#define CONFIG_VGPR_OPTIMIZATION 0
+
+/** Whether should do VALU optimizations. */
+#define CONFIG_VALU_OPTIMIZATIONS 1
+
+/** Whether should compile hint to the shader compiler to force shift some variable to SGPR. */
+// TODO: the shader compiler is not doing the right thing.
+#define CONFIG_SGPR_HINT_OPTIMIZATION 0
 
 /** By default, the color space stored into intermediary buffer is linear premultiplied RGBA. */
 #define STANDARD_BUFFER_COLOR_SPACE COLOR_SPACE_RGB

@@ -64,10 +64,16 @@ public:
 	// #dxr_todo: add API to update geometries and instances
 	TArray<FRayTracingGeometryInstance> Instances;
 
+	// Scene keeps track of child acceleration structures to manage their residency
+	TArray<TRefCountPtr<FD3D12MemBuffer>> BottomLevelAccelerationStructureBuffers;
+	void UpdateResidency(FD3D12CommandContext& CommandContext);
+
+	uint32 ShaderSlotsPerGeometrySegment = 1;
+
 	// Exclusive prefix sum of instance geometry segments is used to calculate SBT record address from instance and segment indices.
 	TArray<uint32> SegmentPrefixSum;
 	uint32 NumTotalSegments = 0;
-	uint32 GetHitGroupIndex(uint32 InstanceIndex, uint32 SegmentIndex) const { return SegmentPrefixSum[InstanceIndex] + SegmentIndex; }
+	uint32 GetHitRecordBaseIndex(uint32 InstanceIndex, uint32 SegmentIndex) const { return (SegmentPrefixSum[InstanceIndex] + SegmentIndex) * ShaderSlotsPerGeometrySegment; }
 
 	// #dxr_todo: shader tables should be explicitly registered and unregistered with the scene
 	FD3D12RayTracingShaderTable* FindOrCreateShaderTable(const FD3D12RayTracingPipelineState* Pipeline);

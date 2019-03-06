@@ -22,6 +22,7 @@
 #include "LevelSequenceActor.h"
 #include "Modules/ModuleManager.h"
 #include "LevelUtils.h"
+#include "Core/Public/ProfilingDebugging/CsvProfiler.h"
 
 /* ULevelSequencePlayer structors
  *****************************************************************************/
@@ -168,6 +169,22 @@ void ULevelSequencePlayer::OnStopped()
 
 	PrerequisiteActors.Reset();
 	LastViewTarget.Reset();
+}
+
+void ULevelSequencePlayer::UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped)
+{
+	UMovieSceneSequencePlayer::UpdateMovieSceneInstance(InRange, PlayerStatus, bHasJumped);
+
+	FLevelSequencePlayerSnapshot NewSnapshot;
+	TakeFrameSnapshot(NewSnapshot);
+
+	if (!PreviousSnapshot.IsSet() || PreviousSnapshot.GetValue().CurrentShotName != NewSnapshot.CurrentShotName)
+	{
+		CSV_EVENT_GLOBAL(TEXT("%s"), *NewSnapshot.CurrentShotName);
+		//UE_LOG(LogMovieScene, Log, TEXT("Shot evaluated: '%s'"), *NewSnapshot.CurrentShotName);
+	}
+
+	PreviousSnapshot = NewSnapshot;
 }
 
 /* IMovieScenePlayer interface

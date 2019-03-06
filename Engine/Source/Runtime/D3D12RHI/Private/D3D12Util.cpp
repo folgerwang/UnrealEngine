@@ -30,12 +30,24 @@ D3D12Util.h: D3D RHI utility implementation.
 
 extern bool D3D12RHI_ShouldCreateWithD3DDebug();
 
+static FString GetUniqueName()
+{
+	static int64 ID = 0;
+	const int64 UniqueID = FPlatformAtomics::InterlockedIncrement(&ID);
+	const FString UniqueName = FString::Printf(TEXT("D3D12RHIObjectUniqueName%lld"), UniqueID);
+	return UniqueName;
+}
+
 void SetName(ID3D12Object* const Object, const TCHAR* const Name)
 {
 #if NAME_OBJECTS
-	if (Object)
+	if (Object && Name)
 	{
 		VERIFYD3D12RESULT(Object->SetName(Name));
+	}
+	else if (Object)
+	{
+		VERIFYD3D12RESULT(Object->SetName(*GetUniqueName()));
 	}
 #else
 	UNREFERENCED_PARAMETER(Object);
@@ -47,9 +59,13 @@ void SetName(FD3D12Resource* const Resource, const TCHAR* const Name)
 {
 #if NAME_OBJECTS
 	// Special case for FD3D12Resources because we also store the name as a member in FD3D12Resource
-	if (Resource)
+	if (Resource && Name)
 	{
 		Resource->SetName(Name);
+	}
+	else if (Resource)
+	{
+		Resource->SetName(*GetUniqueName());
 	}
 #else
 	UNREFERENCED_PARAMETER(Resource);

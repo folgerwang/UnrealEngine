@@ -42,13 +42,13 @@
 
 #include "../ColorSpace.ush"
 #include "../EyeAdaptationCommon.ush"
+#include "../LightShaderParameters.ush"
 
 
 #if !defined(CONFIG_SIGNAL_PROCESSING)
 	#error Missing CONFIG_SIGNAL_PROCESSING
 
-#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-	#include "../LightShaderParameters.ush"
+#elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
 	
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	#include "../MonteCarlo.ush"
@@ -62,6 +62,63 @@
 	#error Unknown CONFIG_SIGNAL_PROCESSING
 
 #endif
+
+
+//------------------------------------------------------- DOMAIN SPECIFIC KNOWLEDGE PARAMETERS
+
+/** Knowledge specific to the signal being. */
+struct FSSDSignalDomainKnowledge
+{
+	// Light specific parameters
+	FLightShaderParameters Light;
+
+	// Directional light specific.
+	float HitDistanceToWorldBluringRadius;
+
+	// The type of light.
+	uint LightType;
+};
+
+float4 LightPositionAndRadius[MAX_SIGNAL_BATCH_SIZE];
+float4 LightDirectionAndLength[MAX_SIGNAL_BATCH_SIZE];
+float HitDistanceToWorldBluringRadius[MAX_SIGNAL_BATCH_SIZE];
+uint LightType[MAX_SIGNAL_BATCH_SIZE];
+
+Texture2D UnusedLightSourceTexture;
+
+
+/** Returns the FLightShaderParameters from the root shader parameters. */
+FSSDSignalDomainKnowledge GetSignalDomainKnowledge(uint BatchedSignalId)
+{
+	// Hopefully one day the shader compiler will be so nice we would no longer have to do this.
+	FSSDSignalDomainKnowledge SignalDomain;
+	SignalDomain.Light.InvRadius = 0;
+	SignalDomain.Light.Color = 0;
+	SignalDomain.Light.FalloffExponent = 0;
+	SignalDomain.Light.Tangent = 0;
+	SignalDomain.Light.SpotAngles = 0;
+	SignalDomain.Light.SpecularScale = 0;
+	SignalDomain.Light.SoftSourceRadius = 0;
+	SignalDomain.Light.SourceTexture = UnusedLightSourceTexture;
+	
+	SignalDomain.Light.Position = LightPositionAndRadius[BatchedSignalId].xyz;
+	SignalDomain.Light.Direction = LightDirectionAndLength[BatchedSignalId].xyz;
+	SignalDomain.Light.SourceRadius = LightPositionAndRadius[BatchedSignalId].w;
+	SignalDomain.Light.SourceLength = LightDirectionAndLength[BatchedSignalId].w;
+	SignalDomain.HitDistanceToWorldBluringRadius = HitDistanceToWorldBluringRadius[BatchedSignalId];
+	
+	#if !defined(DIM_LIGHT_TYPE)
+	{
+		SignalDomain.LightType = LightType[BatchedSignalId];
+	}
+	#else
+	{
+		SignalDomain.LightType = DIM_LIGHT_TYPE;
+	}
+	#endif
+	return SignalDomain;
+}
+	
 
 
 //------------------------------------------------------- INTERNAL
@@ -119,7 +176,7 @@ float GetSignalLuma4(FSSFSignalSample Sample, const uint Basis)
 			KarisX *= SafeRcp(Sample.AccumulatedSampleCount);
 		}
 		
-		return KarisX *= KarisHdrWeightInvY(KarisX, FrameExposureScale);
+		return KarisX * KarisHdrWeightInvY(KarisX, FrameExposureScale);
 	}
 	else
 	{
@@ -255,14 +312,6 @@ float4 WeightedLerp( float4 ColorA, float WeightA, float4 ColorB, float WeightB,
 	return ColorA * BlendA + ColorB * BlendB;
 }
 #endif
-
-
-//------------------------------------------------------- INTERNAL FOR PENUMBRA SIGNAL
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-
-float HitDistanceToWorldBluringRadius;
-
-#endif // CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
 
 
 //------------------------------------------------------- INTERNAL FOR REFLECTION SIGNAL
@@ -408,24 +457,18 @@ void GetInputRayDirectionPixel(
 //------------------------------------------------------- MAIN FUNCTIONS TO IMPLEMENT FOR THE PASSES
 
 /** Return whether this signal is occluded or not. */
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
 bool IsMissSample(FSSFSignalSample Sample)
 {
-	return Sample.LeavingRayCount != 0; // TODO: use PenumbraClosestHit instead.
+	return Sample.LeavingRayCount != 0.0;
 }
 #endif
 
 /** Return whether this signal is valid or not. */
 bool IsInvalidSample(FSSFSignalSample Sample)
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
-{
-	return Sample.PenumbraClosestHit == -1.0; // TODO: AccumulatedSampleCount == 0
-}
-#else
 {
 	return Sample.AccumulatedSampleCount == 0.0;
 }
-#endif
 
 /** COmpute the weight of the bilateral filter to use between a reference sample and a neighbor. */
 float ComputeBilateralWeight(
@@ -463,6 +506,15 @@ float ComputeBilateralWeight(
 		float DistFromRefPlane = dot(RefSceneMetadata.WorldNormal, RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition);
 
 		PositionBilateralWeight = saturate(1 - DistFromRefPlane * rcp(MaxWorldBluringDistance));
+	}
+	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 3
+	{
+		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
+
+		if (dot(V, V) > MaxWorldBluringDistance * MaxWorldBluringDistance)
+		{
+			PositionBilateralWeight = 0;
+		}
 	}
 	#endif
 
@@ -509,8 +561,8 @@ float ComputeBilateralWeight(
 	return PositionBilateralWeight * NormalBilateralWeight * LobeSimilarity * AxesSimilarity;
 }
 
-float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata)
-#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_PENUMBRA
+float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos SceneMetadata, uint BatchedSignalId)
+#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
 {
 	if (IsInvalidSample(Sample))
 	{
@@ -524,31 +576,32 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 	// Compute the anysotropy.
 	float Anisotropy = ComputeAnisotropyInvFactor(SceneMetadata);
 
-	FLightShaderParameters LightParameters = GetRootLightShaderParameters();
+	FSSDSignalDomainKnowledge DomainKnowledge = GetSignalDomainKnowledge(BatchedSignalId);
 
-	#if !defined(DIM_LIGHT_TYPE)
+	BRANCH
+	if (DomainKnowledge.LightType == LIGHT_TYPE_DIRECTIONAL)
 	{
-		return 0;
+		return DomainKnowledge.HitDistanceToWorldBluringRadius * Sample.PenumbraClosestHit * Anisotropy;
 	}
-	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_DIRECTIONAL
+	else if (DomainKnowledge.LightType == LIGHT_TYPE_POINT || DomainKnowledge.LightType == LIGHT_TYPE_SPOT)
 	{
-		return HitDistanceToWorldBluringRadius * Sample.PenumbraClosestHit * Anisotropy;
-	}
-	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_POINT || DIM_LIGHT_TYPE == LIGHT_TYPE_SPOT
-	{
-		float3 PixelToLightWorldVector = (LightParameters.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
+		float3 PixelToLightWorldVector = (DomainKnowledge.Light.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
 		float DistanceFromLight = length(PixelToLightWorldVector);
 
-		return LightParameters.SourceRadius * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
+		return DomainKnowledge.Light.SourceRadius * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
 	}
-	#elif DIM_LIGHT_TYPE == LIGHT_TYPE_RECT
+	else // if (DomainKnowledge.LightType == LIGHT_TYPE_RECT)
 	{
-		float3 PixelToLightWorldVector = (LightParameters.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
+		float3 PixelToLightWorldVector = (DomainKnowledge.Light.Position + View.PreViewTranslation) - SceneMetadata.TranslatedWorldPosition;
 		float DistanceFromLight = length(PixelToLightWorldVector);
 
-		float Scalar = abs(dot(normalize(PixelToLightWorldVector), LightParameters.Direction));
+		#if CONFIG_VALU_OPTIMIZATIONS
+			float Scalar = abs(dot(PixelToLightWorldVector, DomainKnowledge.Light.Direction)) * rsqrt(length2(PixelToLightWorldVector));
+		#else
+			float Scalar = abs(dot(normalize(PixelToLightWorldVector), DomainKnowledge.Light.Direction));
+		#endif
 
-		float2 LightDimensions = GetRectLightDimensions(LightParameters);
+		float2 LightDimensions = GetRectLightDimensions(DomainKnowledge.Light);
 
 		// TODO: area light anysotropy.
 		float SmallestLightDimension = min(LightDimensions.x, LightDimensions.y);
@@ -556,7 +609,6 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 		// TODO: Sample.PenumbraClosestHit depends on the direction of the ray, but does not DistanceFromLight, witch is bad for large area light.
 		return SmallestLightDimension * Sample.PenumbraClosestHit / (DistanceFromLight - Sample.PenumbraClosestHit) * Anisotropy;
 	}
-	#endif
 }
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 {
@@ -564,40 +616,15 @@ float GetSignalWorldBluringRadius(FSSFSignalSample Sample, FSSFSampleSceneInfos 
 }
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_AO
 {
-	return 1000; //Sample.PenumbraClosestHit;
+	return Sample.PenumbraClosestHit;
 }
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_GI_AND_AO
 {
-	Sample.PenumbraClosestHit;
+	return Sample.PenumbraClosestHit;
 }
 #else
 	#error Unimplemented GetSignalWorldBluringRadius()
 #endif
-
-FSSFSignalSample GetConstantSignalSample(uint TileMode)
-{
-	FSSFSignalSample OutputSample = CreateSignalSample();
-	if (TileMode == TILE_MODE_FULLY_INVALID)
-	{
-		OutputSample.AccumulatedSampleCount = 0.0;
-		OutputSample.LeavingRayCount = 0.0;
-	}
-	else if (TileMode == TILE_MODE_FULLY_LIGHTED)
-	{
-		OutputSample.AccumulatedSampleCount = 1.0;
-		OutputSample.LeavingRayCount = OutputSample.AccumulatedSampleCount;
-	}
-	else if (TileMode == TILE_MODE_FULLY_OCCLUDED)
-	{
-		OutputSample.AccumulatedSampleCount = 1.0;
-		OutputSample.LeavingRayCount = 0.0;
-	}
-	else if (TileMode == TILE_MODE_FULLY_UNSURE)
-	{
-		OutputSample.UncertainRayCount = 1.0;
-	}
-	return OutputSample;
-}
 
 // Returns the penumbra of this sample, or 1 if invalid.
 float GetSamplePenumbraSafe(FSSFSignalSample Sample)
@@ -645,11 +672,26 @@ float GetRatioEstimatorWeight(
 	float a2 = Pow4(RefSceneMetadata.Roughness);
 
 	float3 N = RefSceneMetadata.WorldNormal;
-	float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
-	float3 L = normalize((SampleSceneMetadata.TranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition) + OriginalRayDirection * PenumbraClosestHit);
-	float3 H = normalize(L + V);
 
-	float NoH = abs(dot(N, H));
+	float NoH;
+	#if CONFIG_VALU_OPTIMIZATIONS
+	{
+		float3 V = (View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+		float3 L = ((SampleSceneMetadata.TranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition) + OriginalRayDirection * PenumbraClosestHit);
+		float3 H = (L + V * (sqrt(length2(L)) * rsqrt(length2(V))));
+
+		NoH = saturate(dot(N, H) * rsqrt(length2(H)));
+	}
+	#else
+	{
+		float3 V = normalize(View.TranslatedWorldCameraOrigin - RefSceneMetadata.TranslatedWorldPosition);
+		float3 L = normalize((SampleSceneMetadata.TranslatedWorldPosition - RefSceneMetadata.TranslatedWorldPosition) + OriginalRayDirection * PenumbraClosestHit);
+		float3 H = normalize(L + V);
+
+		NoH = abs(dot(N, H));
+	}
+	#endif
+
 
 	#if 1
 	{

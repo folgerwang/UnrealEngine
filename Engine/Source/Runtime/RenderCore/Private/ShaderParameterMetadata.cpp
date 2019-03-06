@@ -125,6 +125,9 @@ void FShaderParametersMetadata::InitializeLayout()
 	 */
 	bool bAllowUniformBufferReferences = UseCase == EUseCase::ShaderParameterStruct;
 
+	/** Resource array are currently only supported for shader parameter structures. */
+	bool bAllowResourceArrays = UseCase == EUseCase::ShaderParameterStruct;
+
 	/** White list all use cases that inline a structure within another. Data driven are not known to inline structures. */
 	bool bAllowStructureInlining = UseCase == EUseCase::ShaderParameterStruct || UseCase == EUseCase::GlobalShaderParameterStruct;
 
@@ -132,9 +135,22 @@ void FShaderParametersMetadata::InitializeLayout()
 	{
 		const FShaderParametersMetadata& CurrentStruct = MemberStack[i].ContainingStruct;
 		const FMember& CurrentMember = MemberStack[i].Member;
-		EUniformBufferBaseType BaseType = CurrentMember.GetBaseType();
 
+		EUniformBufferBaseType BaseType = CurrentMember.GetBaseType();
+		const uint32 ArraySize = CurrentMember.GetNumElements();
 		const FShaderParametersMetadata* ChildStruct = CurrentMember.GetStructMetadata();
+
+		const bool bIsArray = ArraySize > 0;
+		const bool bIsRHIResource = (
+			BaseType == UBMT_TEXTURE ||
+			BaseType == UBMT_SRV ||
+			BaseType == UBMT_SAMPLER);
+		const bool bIsRDGResource = IsRDGResourceReferenceShaderParameterType(BaseType);
+		const bool bIsVariableNativeType = (
+			BaseType == UBMT_BOOL ||
+			BaseType == UBMT_INT32 ||
+			BaseType == UBMT_UINT32 ||
+			BaseType == UBMT_FLOAT32);
 
 		if (DO_CHECK)
 		{
@@ -167,13 +183,22 @@ void FShaderParametersMetadata::InitializeLayout()
 					UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: can only nests or include shader parameter struct define with BEGIN_SHADER_PARAMETER_STRUCT(), but %s is not."), *CppName, ChildStruct->GetStructTypeName());
 				}
 			}
+
+			const bool bTypeCanBeArray = (bAllowResourceArrays && (bIsRHIResource || bIsRDGResource)) || bIsVariableNativeType;
+			if (bIsArray && !bTypeCanBeArray)
+			{
+				UE_LOG(LogRendererCore, Fatal, TEXT("Shader parameter %s error: Not allowed to be an array."), *CppName);
+			}
 		}
 
 		if (IsShaderParameterTypeForUniformBufferLayout(BaseType))
 		{
-			const uint32 AbsoluteMemberOffset = CurrentMember.GetOffset() + MemberStack[i].StructOffset;
-			check(AbsoluteMemberOffset < (1u << (sizeof(FRHIUniformBufferLayout::FResourceParameter::MemberOffset) * 8)));
-			Layout.Resources.Add(FRHIUniformBufferLayout::FResourceParameter{ uint16(AbsoluteMemberOffset), BaseType });
+			for (uint32 ArrayElementId = 0; ArrayElementId < (bIsArray ? ArraySize : 1u); ArrayElementId++)
+			{
+				const uint32 AbsoluteMemberOffset = CurrentMember.GetOffset() + MemberStack[i].StructOffset + ArrayElementId * SHADER_PARAMETER_POINTER_ALIGNMENT;
+				check(AbsoluteMemberOffset < (1u << (sizeof(FRHIUniformBufferLayout::FResourceParameter::MemberOffset) * 8)));
+				Layout.Resources.Add(FRHIUniformBufferLayout::FResourceParameter{ uint16(AbsoluteMemberOffset), BaseType });
+			}
 		}
 
 		if (ChildStruct && BaseType != UBMT_REFERENCED_STRUCT)
@@ -186,7 +211,7 @@ void FShaderParametersMetadata::InitializeLayout()
 				MemberStack.Insert(FUniformBufferMemberAndOffset(*ChildStruct, StructMember, AbsoluteStructOffset), i + 1 + StructMemberIndex);
 			}
 		}
-	}
+	} // for (int32 i = 0; i < MemberStack.Num(); ++i)
 
 #if 0
 	/** Sort the resource on MemberType first to avoid CPU miss predictions when iterating over the resources. Then based on ascending offset
@@ -262,7 +287,7 @@ void FShaderParametersMetadata::AddResourceTableEntriesRecursive(const TCHAR* Un
 	}
 }
 
-void FShaderParametersMetadata::FindMemberFromOffset(uint16 MemberOffset, const FShaderParametersMetadata** OutContainingStruct, const FShaderParametersMetadata::FMember** OutMember) const
+void FShaderParametersMetadata::FindMemberFromOffset(uint16 MemberOffset, const FShaderParametersMetadata** OutContainingStruct, const FShaderParametersMetadata::FMember** OutMember, int32* ArrayElementId, FString* NamePrefix) const
 {
 	check(MemberOffset < GetSize());
 
@@ -274,13 +299,37 @@ void FShaderParametersMetadata::FindMemberFromOffset(uint16 MemberOffset, const 
 			const FShaderParametersMetadata* SubStruct = Member.GetStructMetadata();
 			if (MemberOffset < Member.GetOffset() + SubStruct->GetSize())
 			{
-				return SubStruct->FindMemberFromOffset(MemberOffset - Member.GetOffset(), OutContainingStruct, OutMember);
+				if (NamePrefix)
+				{
+					*NamePrefix = FString::Printf(TEXT("%s%s::"), **NamePrefix, Member.GetName());
+				}
+
+				return SubStruct->FindMemberFromOffset(MemberOffset - Member.GetOffset(), OutContainingStruct, OutMember, ArrayElementId, NamePrefix);
+			}
+		}
+		else if (Member.GetNumElements() > 0 && (
+			BaseType == UBMT_TEXTURE ||
+			BaseType == UBMT_SRV ||
+			BaseType == UBMT_SAMPLER ||
+			IsRDGResourceReferenceShaderParameterType(BaseType)))
+		{
+			uint16 ArrayStartOffset = Member.GetOffset();
+			uint16 ArrayEndOffset = ArrayStartOffset + SHADER_PARAMETER_POINTER_ALIGNMENT * Member.GetNumElements();
+
+			if (MemberOffset >= ArrayStartOffset && MemberOffset < ArrayEndOffset)
+			{
+				check((MemberOffset % SHADER_PARAMETER_POINTER_ALIGNMENT) == 0);
+				*OutContainingStruct = this;
+				*OutMember = &Member;
+				*ArrayElementId = (MemberOffset - ArrayStartOffset) / SHADER_PARAMETER_POINTER_ALIGNMENT;
+				return;
 			}
 		}
 		else if (Member.GetOffset() == MemberOffset)
 		{
 			*OutContainingStruct = this;
 			*OutMember = &Member;
+			*ArrayElementId = 0;
 			return;
 		}
 	}

@@ -43,8 +43,11 @@ bool RayHitRect( float3 L, FRect Rect )
 	return t >= 0 && InExtentX && InExtentY;
 }
 
-float IntegrateLight( FRect Rect, Texture2D SourceTexture )
+float IntegrateLight( FRect Rect, FRectTexture SourceTexture )
 {
+	// No visibile rect light due to barn door occlusion
+	if (Rect.Extent.x == 0 || Rect.Extent.y == 0) return 0;
+
 	float NoL;
 	float Falloff;
 
@@ -65,10 +68,14 @@ float IntegrateLight( FRect Rect, Texture2D SourceTexture )
 	return Falloff;
 }
 
-FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, Texture2D SourceTexture )
+FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, FRectTexture SourceTexture )
 {
 	float NoL;
 	float Falloff;
+	
+	// No-visible rect light due to barn door occlusion
+	if (Rect.Extent.x == 0 || Rect.Extent.y == 0) 
+        return (FDirectLighting)0;
 
 #if 0	// Reference quality
 	float3 L = RectIrradianceRef( N, Rect, Falloff, NoL );
@@ -243,7 +250,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 	return IntegrateBxDF( GBuffer, N, V, L, Falloff, NoL, AreaLight, Shadow );
 }
 
-FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, Texture2D SourceTexture, uint2 SVPos )
+FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rect, FShadowTerms Shadow, FRectTexture SourceTexture, uint2 SVPos )
 {
 	FDirectLighting Lighting = (FDirectLighting)0;
 
@@ -252,6 +259,10 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 
 	// Rect normal points away from point
 	if( dot( Rect.Axis[2], Rect.Origin ) < 0 )
+		return Lighting;
+	
+	// No-visible rect light due to barn door occlusion
+	if (Rect.Extent.x == 0 || Rect.Extent.y == 0) 
 		return Lighting;
 
 	FSphericalRect SphericalRect = BuildSphericalRect( Rect );
@@ -328,7 +339,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FRect Rec
 				PointInRect.y = dot( Rect.Axis[1], PointOnPlane - Rect.Origin );
 
 				float2 RectUV = PointInRect / Rect.Extent * float2( 0.5, -0.5 ) + 0.5;
-				float3 LightColor = SourceTexture.SampleLevel( View.SharedBilinearClampedSampler, RectUV, 0 ).rgb;
+				float3 LightColor = SampleRectTexture(SourceTexture, RectUV, 0, true);
 
 				if( Set == 0 || Set == 1 )
 				{

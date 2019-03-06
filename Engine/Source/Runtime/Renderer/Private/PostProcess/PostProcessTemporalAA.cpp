@@ -296,7 +296,7 @@ class FTAAPassConfigDim : SHADER_PERMUTATION_ENUM_CLASS("TAA_PASS_CONFIG", ETAAP
 class FTAAFastDim : SHADER_PERMUTATION_BOOL("TAA_FAST");
 class FTAAResponsiveDim : SHADER_PERMUTATION_BOOL("TAA_RESPONSIVE");
 class FTAACameraCutDim : SHADER_PERMUTATION_BOOL("TAA_CAMERA_CUT");
-class FTAAScreenPercentageDim : SHADER_PERMUTATION_INT("TAA_SCREEN_PERCENTAGE_RANGE", 3);
+class FTAAScreenPercentageDim : SHADER_PERMUTATION_INT("TAA_SCREEN_PERCENTAGE_RANGE", 4);
 class FTAAUpsampleFilteredDim : SHADER_PERMUTATION_BOOL("TAA_UPSAMPLE_FILTERED");
 class FTAADownsampleDim : SHADER_PERMUTATION_BOOL("TAA_DOWNSAMPLE");
 
@@ -412,6 +412,48 @@ class FPostProcessTemporalAACS : public FGlobalShader
 			return false;
 		}
 
+		if (PermutationVector.Get<FTAAPassConfigDim>() == ETAAPassConfig::MainSuperSampling)
+		{
+			// Super sampling is only high end PC SM5 functionality.
+			if (!IsPCPlatform(Parameters.Platform))
+			{
+				return false;
+			}
+
+			// No point disabling filtering.
+			if (!PermutationVector.Get<FTAAUpsampleFilteredDim>())
+			{
+				return false;
+			}
+
+			// No point doing a fast permutation since it is PC only.
+			if (PermutationVector.Get<FTAAFastDim>())
+			{
+				return false;
+			}
+		}
+
+		// No point disabling filtering if not using the fast permutation already.
+		if (!PermutationVector.Get<FTAAUpsampleFilteredDim>() &&
+			!PermutationVector.Get<FTAAFastDim>())
+		{
+			return false;
+		}
+
+		// No point downsampling if not using the fast permutation already.
+		if (PermutationVector.Get<FTAADownsampleDim>() &&
+			!PermutationVector.Get<FTAAFastDim>())
+		{
+			return false;
+		}
+
+		// Screen percentage range 3 is only for super sampling.
+		if (PermutationVector.Get<FTAAPassConfigDim>() != ETAAPassConfig::MainSuperSampling &&
+			PermutationVector.Get<FTAAScreenPercentageDim>() == 3)
+		{
+			return false;
+		}
+
 		// Fast dimensions is only for Main and Diaphragm DOF.
 		if (PermutationVector.Get<FTAAFastDim>() &&
 			!IsMainTAAConfig(PermutationVector.Get<FTAAPassConfigDim>()) &&
@@ -420,27 +462,21 @@ class FPostProcessTemporalAACS : public FGlobalShader
 			return false;
 		}
 		
-		if (PermutationVector.Get<FTAAUpsampleFilteredDim>() &&
-			SupportsResponsiveDim(PermutationVector))
+		// Non filtering option is only for upsampling.
+		if (!PermutationVector.Get<FTAAUpsampleFilteredDim>() &&
+			PermutationVector.Get<FTAAPassConfigDim>() != ETAAPassConfig::MainUpsampling)
 		{
 			return false;
 		}
 
 		// TAA_DOWNSAMPLE is only only for Main and MainUpsampling configs.
 		if (PermutationVector.Get<FTAADownsampleDim>() &&
-			PermutationVector.Get<FTAAPassConfigDim>() != ETAAPassConfig::Main &&
-			PermutationVector.Get<FTAAPassConfigDim>() != ETAAPassConfig::MainUpsampling)
+			!IsMainTAAConfig(PermutationVector.Get<FTAAPassConfigDim>()))
 		{
 			return false;
 		}
 
 		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::SM5);
-	}
-
-	static bool SupportsResponsiveDim(const FPermutationDomain& PermutationVector)
-	{
-		// TAA_UPSAMPLE_FILTERED is only used in MainUpsampling config
-		return PermutationVector.Get<FTAAPassConfigDim>() == ETAAPassConfig::Main;
 	}
 
 	static void ModifyCompilationEnvironment(const FGlobalShaderPermutationParameters& Parameters, FShaderCompilerEnvironment& OutEnvironment)
@@ -640,6 +676,7 @@ const TCHAR* const kTAAOutputNames[] = {
 	TEXT("TemporalAA"),
 	TEXT("DOFTemporalAA"),
 	TEXT("DOFTemporalAA"),
+	TEXT("TemporalAA"),
 };
 
 const TCHAR* const kTAAPassNames[] = {
@@ -650,6 +687,7 @@ const TCHAR* const kTAAPassNames[] = {
 	TEXT("MainUpsampling"),
 	TEXT("DiaphragmDOF"),
 	TEXT("DiaphragmDOFUpsampling"),
+	TEXT("MainSuperSampling"),
 };
 
 
@@ -710,7 +748,7 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 	const FSceneRenderTargetItem& DestDownsampled = bDownsamplePossible ? PassOutputs[2].RequestSurface(Context) : FSceneRenderTargetItem();
 
 	// Whether this is main TAA pass;
-	bool bIsMainPass = Parameters.Pass == ETAAPassConfig::Main || Parameters.Pass == ETAAPassConfig::MainUpsampling;
+	bool bIsMainPass = IsMainTAAConfig(Parameters.Pass);
 
 	// Whether to use camera cut shader permutation or not.
 	const bool bCameraCut = !InputHistory.IsValid() || Context.View.bCameraCut;
@@ -741,10 +779,11 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		PermutationVector.Set<FTAAFastDim>(Parameters.bUseFast);
 		PermutationVector.Set<FTAACameraCutDim>(!Context.View.PrevViewInfo.TemporalAAHistory.IsValid());
 		PermutationVector.Set<FTAADownsampleDim>(DestDownsampled.IsValid());
+		PermutationVector.Set<FTAAUpsampleFilteredDim>(true);
 
 		if (IsTAAUpsamplingConfig(Parameters.Pass))
 		{
-			const bool bUpsampleFiltered = CVarTemporalAAUpsampleFiltered.GetValueOnRenderThread() != 0 && FPostProcessTemporalAACS::SupportsResponsiveDim(PermutationVector);
+			const bool bUpsampleFiltered = CVarTemporalAAUpsampleFiltered.GetValueOnRenderThread() != 0 || Parameters.Pass != ETAAPassConfig::MainUpsampling;
 			PermutationVector.Set<FTAAUpsampleFilteredDim>(bUpsampleFiltered);
 
 			// If screen percentage > 100% on X or Y axes, then use screen percentage range = 2 shader permutation to disable LDS caching.
@@ -752,6 +791,13 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 				SrcRect.Height() > DestRect.Height())
 			{
 				PermutationVector.Set<FTAAScreenPercentageDim>(2);
+			}
+			// If screen percentage < 50% on X and Y axes, then use screen percentage range = 3 shader permutation.
+			else if (SrcRect.Width() * 100 < 50 * DestRect.Width() &&
+				SrcRect.Height() * 100 < 50 * DestRect.Height())
+			{
+				check(Parameters.Pass == ETAAPassConfig::MainSuperSampling);
+				PermutationVector.Set<FTAAScreenPercentageDim>(3);
 			}
 			// If screen percentage < 71% on X and Y axes, then use screen percentage range = 1 shader permutation to have smaller LDS caching.
 			else if (SrcRect.Width() * 100 < 71 * DestRect.Width() &&
@@ -964,20 +1010,23 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		Context.RHICmdList.EndUpdateMultiFrameResource(DestRenderTarget[0]->ShaderResourceTexture);
 	}
 
-	OutputHistory->SafeRelease();
-	OutputHistory->RT[0] = PassOutputs[0].PooledRenderTarget;
-	OutputHistory->ViewportRect = DestRect;
-	OutputHistory->ReferenceBufferSize = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY();
-	OutputHistory->SceneColorPreExposure = Context.View.PreExposure;
-
-	if (OutputExtent.X > 0)
+	if (!Context.View.bViewStateIsReadOnly)
 	{
-		OutputHistory->ReferenceBufferSize = OutputExtent;
+		OutputHistory->SafeRelease();
+		OutputHistory->RT[0] = PassOutputs[0].PooledRenderTarget;
+		OutputHistory->ViewportRect = DestRect;
+		OutputHistory->ReferenceBufferSize = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY();
+		OutputHistory->SceneColorPreExposure = Context.View.PreExposure;
+
+		if (OutputExtent.X > 0)
+		{
+			OutputHistory->ReferenceBufferSize = OutputExtent;
+		}
 	}
 
 	// Changes the view rectangle of the scene color and reference buffer size when doing temporal upsample for the
 	// following passes to still work.
-	if (Parameters.Pass == ETAAPassConfig::MainUpsampling)
+	if (Parameters.Pass == ETAAPassConfig::MainUpsampling || Parameters.Pass == ETAAPassConfig::MainSuperSampling)
 	{
 		Context.SceneColorViewRect = DestRect;
 		Context.ReferenceBufferSize = OutputExtent;

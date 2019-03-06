@@ -506,9 +506,13 @@ FPostProcessSettings::FPostProcessSettings()
 	AmbientOcclusionMipScale = 1.7f;
 	AmbientOcclusionMipThreshold = 0.01f;
 	AmbientOcclusionRadiusInWS = false;
+	RayTracingAOSamplesPerPixel = 1;
 	IndirectLightingColor = FLinearColor(1.0f, 1.0f, 1.0f);
 	IndirectLightingIntensity = 1.0f;
 	ColorGradingIntensity = 1.0f;
+	RayTracingGIMaxBounces = 1;
+	RayTracingGISamplesPerPixel = 1;
+
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	DepthOfFieldFocalDistance = 1000.0f;
 	DepthOfFieldFstop = 4.0f;
@@ -544,9 +548,24 @@ FPostProcessSettings::FPostProcessSettings()
 	MotionBlurMax = 5.0f;
 	MotionBlurPerObjectSize = 0.5f;
 	ScreenPercentage = 100.0f;
+	ReflectionsType = EReflectionsType::RayTracing;
 	ScreenSpaceReflectionIntensity = 100.0f;
 	ScreenSpaceReflectionQuality = 50.0f;
 	ScreenSpaceReflectionMaxRoughness = 0.6f;
+	RayTracingReflectionsMaxRoughness = 1;
+	RayTracingReflectionsMaxBounces = 1;
+	RayTracingReflectionsSamplesPerPixel = 1;
+	RayTracingReflectionsShadows = EReflectedAndRefractedRayTracedShadows::Hard_shadows;
+	
+	TranslucencyType = ETranslucencyType::RayTracing;
+	RayTracingTranslucencyMaxRoughness = 1;
+	RayTracingTranslucencyRefractionRays = 3; // 3 to: first hit surface, second hit back inner surface and a third to fetch the background.
+	RayTracingTranslucencySamplesPerPixel = 1;
+	RayTracingTranslucencyShadows = EReflectedAndRefractedRayTracedShadows::Hard_shadows;
+
+	PathTracingMaxBounces = 32;
+	PathTracingSamplesPerPixel = 16384;
+	
 	bMobileHQGaussian = false;
 
 #if DO_CHECK && WITH_EDITOR
@@ -671,6 +690,7 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, bOverride_AmbientOcclusionMipBlend(Settings.bOverride_AmbientOcclusionMipBlend)
 	, bOverride_AmbientOcclusionMipScale(Settings.bOverride_AmbientOcclusionMipScale)
 	, bOverride_AmbientOcclusionMipThreshold(Settings.bOverride_AmbientOcclusionMipThreshold)
+	, bOverride_RayTracingAOSamplesPerPixel(Settings.bOverride_RayTracingAOSamplesPerPixel)
 	, bOverride_LPVIntensity(Settings.bOverride_LPVIntensity)
 	, bOverride_LPVDirectionalOcclusionIntensity(Settings.bOverride_LPVDirectionalOcclusionIntensity)
 	, bOverride_LPVDirectionalOcclusionRadius(Settings.bOverride_LPVDirectionalOcclusionRadius)
@@ -722,6 +742,20 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, bOverride_ScreenSpaceReflectionQuality(Settings.bOverride_ScreenSpaceReflectionQuality)
 	, bOverride_ScreenSpaceReflectionMaxRoughness(Settings.bOverride_ScreenSpaceReflectionMaxRoughness)
 	, bOverride_ScreenSpaceReflectionRoughnessScale(Settings.bOverride_ScreenSpaceReflectionRoughnessScale)
+	, bOverride_ReflectionsType(Settings.bOverride_ReflectionsType)
+	, bOverride_RayTracingReflectionsMaxRoughness(Settings.bOverride_RayTracingReflectionsMaxRoughness)
+	, bOverride_RayTracingReflectionsMaxBounces(Settings.bOverride_RayTracingReflectionsMaxBounces)
+	, bOverride_RayTracingReflectionsSamplesPerPixel(Settings.bOverride_RayTracingReflectionsSamplesPerPixel)
+	, bOverride_RayTracingReflectionsShadows(Settings.bOverride_RayTracingReflectionsShadows)
+	, bOverride_TranslucencyType(Settings.bOverride_TranslucencyType)
+	, bOverride_RayTracingTranslucencyMaxRoughness(Settings.bOverride_RayTracingTranslucencyMaxRoughness)
+	, bOverride_RayTracingTranslucencyRefractionRays(Settings.bOverride_RayTracingTranslucencyRefractionRays)
+	, bOverride_RayTracingTranslucencySamplesPerPixel(Settings.bOverride_RayTracingTranslucencySamplesPerPixel)
+	, bOverride_RayTracingTranslucencyShadows(Settings.bOverride_RayTracingTranslucencyShadows)
+	, bOverride_RayTracingGIMaxBounces(Settings.bOverride_RayTracingGIMaxBounces)
+	, bOverride_RayTracingGISamplesPerPixel(Settings.bOverride_RayTracingGISamplesPerPixel)
+	, bOverride_PathTracingMaxBounces(Settings.bOverride_PathTracingMaxBounces)
+	, bOverride_PathTracingSamplesPerPixel(Settings.bOverride_PathTracingSamplesPerPixel)
 
 	, bMobileHQGaussian(Settings.bMobileHQGaussian)
 	, BloomMethod(Settings.BloomMethod)
@@ -841,8 +875,11 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, AmbientOcclusionMipBlend(Settings.AmbientOcclusionMipBlend)
 	, AmbientOcclusionMipScale(Settings.AmbientOcclusionMipScale)
 	, AmbientOcclusionMipThreshold(Settings.AmbientOcclusionMipThreshold)
+	, RayTracingAOSamplesPerPixel(Settings.RayTracingAOSamplesPerPixel)
 	, IndirectLightingColor(Settings.IndirectLightingColor)
 	, IndirectLightingIntensity(Settings.IndirectLightingIntensity)
+	, RayTracingGIMaxBounces(Settings.RayTracingGIMaxBounces)
+	, RayTracingGISamplesPerPixel(Settings.RayTracingGISamplesPerPixel)
 	, ColorGradingIntensity(Settings.ColorGradingIntensity)
 	, ColorGradingLUT(Settings.ColorGradingLUT)
 	PRAGMA_DISABLE_DEPRECATION_WARNINGS
@@ -880,11 +917,29 @@ FPostProcessSettings::FPostProcessSettings(const FPostProcessSettings& Settings)
 	, LPVSpecularOcclusionExponent(Settings.LPVSpecularOcclusionExponent)
 	, LPVDiffuseOcclusionIntensity(Settings.LPVDiffuseOcclusionIntensity)
 	, LPVSpecularOcclusionIntensity(Settings.LPVSpecularOcclusionIntensity)
+
+	, ReflectionsType(Settings.ReflectionsType)
 	, ScreenSpaceReflectionIntensity(Settings.ScreenSpaceReflectionIntensity)
 	, ScreenSpaceReflectionQuality(Settings.ScreenSpaceReflectionQuality)
 	, ScreenSpaceReflectionMaxRoughness(Settings.ScreenSpaceReflectionMaxRoughness)
+
+	, RayTracingReflectionsMaxRoughness(Settings.RayTracingReflectionsMaxRoughness)
+	, RayTracingReflectionsMaxBounces(Settings.RayTracingReflectionsMaxBounces)
+	, RayTracingReflectionsSamplesPerPixel(Settings.RayTracingReflectionsSamplesPerPixel)
+	, RayTracingReflectionsShadows(Settings.RayTracingReflectionsShadows)
+
+	, TranslucencyType(Settings.TranslucencyType)
+	, RayTracingTranslucencyMaxRoughness(Settings.RayTracingTranslucencyMaxRoughness)
+	, RayTracingTranslucencyRefractionRays(Settings.RayTracingTranslucencyRefractionRays)
+	, RayTracingTranslucencySamplesPerPixel(Settings.RayTracingTranslucencySamplesPerPixel)
+	, RayTracingTranslucencyShadows(Settings.RayTracingTranslucencyShadows)
+
+	, PathTracingMaxBounces(Settings.PathTracingMaxBounces)
+	, PathTracingSamplesPerPixel(Settings.PathTracingSamplesPerPixel)
+
 	, LPVFadeRange(Settings.LPVFadeRange)
 	, LPVDirectionalOcclusionFadeRange(Settings.LPVDirectionalOcclusionFadeRange)
+
 	, ScreenPercentage(Settings.ScreenPercentage)
 
 	, WeightedBlendables(Settings.WeightedBlendables)

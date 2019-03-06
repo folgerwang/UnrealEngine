@@ -3,7 +3,7 @@
 #include "MeshMaterialShader.h"
 #include "ScenePrivate.h"
 #include "MeshPassProcessor.inl"
-#include "RayTracing/RayTracingDynamicGeometryCollection.h"
+#include "RayTracingDynamicGeometryCollection.h"
 
 #if RHI_RAYTRACING
 
@@ -79,6 +79,11 @@ public:
 
 IMPLEMENT_MATERIAL_SHADER_TYPE(, FRayTracingDynamicGeometryConverterCS, TEXT("/Engine/Private/RayTracing/RayTracingDynamicMesh.usf"), TEXT("RayTracingDynamicGeometryConverterCS"), SF_Compute);
 
+FRayTracingDynamicGeometryCollection::FRayTracingDynamicGeometryCollection()
+{
+	DispatchCommands = MakeUnique<TArray<FMeshComputeDispatchCommand>>();
+}
+
 void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 	const FScene* Scene, 
 	const FSceneView* View, 
@@ -140,7 +145,7 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 	ShaderBindings.Finalize(&ShadersForDebug);
 #endif
 
-	DispatchCommands.Add(DispatchCmd);
+	DispatchCommands->Add(DispatchCmd);
 
 	check(Geometry.IsInitialized());
 	Geometry.Initializer.PositionVertexBuffer = Buffer.Buffer;
@@ -150,11 +155,11 @@ void FRayTracingDynamicGeometryCollection::AddDynamicMeshBatchForGeometryUpdate(
 
 void FRayTracingDynamicGeometryCollection::DispatchUpdates(FRHICommandListImmediate& RHICmdList)
 {
-	if (DispatchCommands.Num() > 0)
+	if (DispatchCommands->Num() > 0)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, RayTracingDynamicGeometryUpdate);
 
-		for (auto& Cmd : DispatchCommands)
+		for (auto& Cmd : *DispatchCommands)
 		{
 			FRayTracingDynamicGeometryConverterCS* Shader = Cmd.MaterialShader;
 
@@ -171,7 +176,7 @@ void FRayTracingDynamicGeometryCollection::DispatchUpdates(FRHICommandListImmedi
 
 		TArray<FAccelerationStructureUpdateParams> BuildParams;
 
-		for (auto& Cmd : DispatchCommands)
+		for (auto& Cmd : *DispatchCommands)
 		{
 			BuildParams.Add(FAccelerationStructureUpdateParams { Cmd.TargetGeometry->RayTracingGeometryRHI, Cmd.TargetBuffer->Buffer });
 		}
@@ -184,7 +189,7 @@ void FRayTracingDynamicGeometryCollection::DispatchUpdates(FRHICommandListImmedi
 
 void FRayTracingDynamicGeometryCollection::Clear()
 {
-	DispatchCommands.Empty();
+	DispatchCommands->Empty();
 }
 
 #endif // RHI_RAYTRACING

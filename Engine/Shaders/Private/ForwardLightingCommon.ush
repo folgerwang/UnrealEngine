@@ -120,6 +120,7 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 	uint LightingChannelMask = GetPrimitiveData(PrimitiveId).LightingChannelMask;
 
 	const FDirectionalLightData DirectionalLightData = GetDirectionalLightData(EyeIndex);
+	FRectTexture RectTexture = InitRectTexture(DeferredLightUniforms.SourceTexture);
 
 	BRANCH
 	if (DirectionalLightData.HasDirectionalLight)
@@ -157,8 +158,8 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 			float DynamicShadowFactor = ComputeDirectionalLightDynamicShadowing(WorldPosition, GBufferData.Depth);
 			float4 LightAttenuation = float4(DynamicShadowFactor.x, DynamicShadowFactor.x, 1, 1);
 		#endif
-
-		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), DeferredLightUniforms.SourceTexture).xyz;
+		
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), RectTexture).xyz;
 
 		FLATTEN
 		if ((DirectionalLightData.DirectionalLightShadowMapChannelMask >> 8) & LightingChannelMask)
@@ -202,7 +203,7 @@ float3 GetForwardDirectLighting(uint GridIndex, float3 WorldPosition, float3 Cam
 		float4 PreviewShadowMapChannelMask = UnpackShadowMapChannelMask(PackedShadowMapChannelMask >> 4);
 		float DynamicShadowing = dot(PreviewShadowMapChannelMask, DynamicShadowFactors);
 		float4 LightAttenuation = float4(1, 1, DynamicShadowing.x, DynamicShadowing.x);
-		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), DeferredLightUniforms.SourceTexture).xyz;
+		float3 NewLighting = GetDynamicLighting(WorldPosition, -CameraVector, GBufferData, 1, GBufferData.ShadingModelID, LightData, LightAttenuation, Dither, uint2(0,0), RectTexture).xyz;
 
 		FLATTEN
 		if ((PackedShadowMapChannelMask >> 8) & LightingChannelMask)

@@ -12,7 +12,8 @@ void SafeCreateTexture2D(FD3D12Device* pDevice,
 	FD3D12ResourceLocation* OutTexture2D, 
 	uint8 Format, 
 	uint32 Flags,
-	D3D12_RESOURCE_STATES InitialState);
+	D3D12_RESOURCE_STATES InitialState,
+	const TCHAR* Name);
 
 
 /** Texture base class. */

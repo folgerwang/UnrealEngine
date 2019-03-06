@@ -31,6 +31,7 @@
 #include "DistanceFieldAmbientOcclusion.h"
 #include "SceneViewFamilyBlackboard.h"
 #include "ScreenSpaceDenoise.h"
+#include "RayTracing/RaytracingOptions.h"
 
 DECLARE_GPU_STAT_NAMED(ReflectionEnvironment, TEXT("Reflection Environment"));
 DECLARE_GPU_STAT_NAMED(RayTracingReflections, TEXT("Ray Tracing Reflections"));
@@ -101,12 +102,13 @@ static TAutoConsoleVariable<float> CVarSkySpecularOcclusionStrength(
 	TEXT("Strength of skylight specular occlusion from DFAO (default is 1.0)"),
 	ECVF_RenderThreadSafe);
 
-static int32 GRayTracingReflections = 1;
+static int32 GRayTracingReflections = -1;
 static FAutoConsoleVariableRef CVarReflectionsMethod(
 	TEXT("r.RayTracing.Reflections"),
 	GRayTracingReflections,
+	TEXT("-1: Value driven by postprocess volume (default) \n")
 	TEXT("0: use traditional rasterized SSR\n")
-	TEXT("1: use ray traced reflections (default when ray tracing is enabled)\n")
+	TEXT("1: use ray traced reflections\n")
 );
 
 static TAutoConsoleVariable<float> CVarReflectionScreenPercentage(
@@ -115,11 +117,11 @@ static TAutoConsoleVariable<float> CVarReflectionScreenPercentage(
 	TEXT("Screen percentage the reflections should be ray traced at (default = 100)."),
 	ECVF_RenderThreadSafe);
 
-static int32 GRayTracingReflectionsSamplesPerPixel = 1;
+static int32 GRayTracingReflectionsSamplesPerPixel = -1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsSamplesPerPixel(
 	TEXT("r.RayTracing.Reflections.SamplesPerPixel"),
 	GRayTracingReflectionsSamplesPerPixel,
-	TEXT("Sets the samples-per-pixel for reflections (default = 1)"));
+	TEXT("Sets the samples-per-pixel for reflections (default = -1 (driven by postprocesing volume))"));
 
 static int32 GRayTracingReflectionsHeightFog = 1;
 static FAutoConsoleVariableRef CVarRayTracingReflectionsHeightFog(
@@ -251,6 +253,16 @@ void SetupReflectionUniformParameters(const FViewInfo& View, FReflectionUniformP
 
 	OutParameters.ReflectionCubemap = CubeArrayTexture;
 	OutParameters.ReflectionCubemapSampler = TStaticSamplerState<SF_Trilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+
+	OutParameters.PreIntegratedGF = GSystemTextures.PreintegratedGF->GetRenderTargetItem().ShaderResourceTexture;
+	OutParameters.PreIntegratedGFSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
+}
+
+TUniformBufferRef<FReflectionUniformParameters> CreateReflectionUniformBuffer(const class FViewInfo& View, EUniformBufferUsage Usage)
+{
+	FReflectionUniformParameters ReflectionStruct;
+	SetupReflectionUniformParameters(View, ReflectionStruct);
+	return CreateUniformBufferImmediate(ReflectionStruct, Usage);
 }
 
 void FReflectionEnvironmentCubemapArray::InitDynamicRHI()
@@ -703,18 +715,21 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 	// If we're currently capturing a reflection capture, output SpecularColor * IndirectIrradiance for metals so they are not black in reflections,
 	// Since we don't have multiple bounce specular reflections
 	bool bReflectionCapture = false;
+	bool bAnyViewWithRaytracingReflections = false;
 	for (int32 ViewIndex = 0, Num = Views.Num(); ViewIndex < Num; ViewIndex++)
 	{
 		const FViewInfo& View = Views[ViewIndex];
 		bReflectionCapture = bReflectionCapture || View.bIsReflectionCapture;
+		//#dxr_todo: multiview case
+		bAnyViewWithRaytracingReflections = bAnyViewWithRaytracingReflections || (View.FinalPostProcessSettings.ReflectionsType == EReflectionsType::RayTracing);
 	}
 
-	bool bRayTracedReflections = IsRayTracingEnabled() && GRayTracingReflections == 1;
+	const bool bRayTracedReflections = IsRayTracingEnabled() && (GRayTracingReflections < 0 ? bAnyViewWithRaytracingReflections : GRayTracingReflections);
 
 	const bool bSkyLight = Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
 		&& !Scene->SkyLight->bHasStaticLighting
-		&& !ShouldRenderRayTracingDynamicSkyLight(Scene, ViewFamily);
+		&& !ShouldRenderRayTracingSkyLight(Scene->SkyLight);
 
 	bool bDynamicSkyLight = ShouldRenderDeferredDynamicSkyLight(Scene, ViewFamily);
 	bool bApplySkyShadowing = false;
@@ -763,8 +778,9 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			IScreenSpaceDenoiser::FReflectionsRayTracingConfig RayTracingConfig;
 			RayTracingConfig.ResolutionFraction = FMath::Clamp(CVarReflectionScreenPercentage.GetValueOnRenderThread() / 100.0f, 0.25f, 1.0f);
 
+			int32 RayTracingReflectionsSPP = GRayTracingReflectionsSamplesPerPixel > -1 ? GRayTracingReflectionsSamplesPerPixel : View.FinalPostProcessSettings.RayTracingReflectionsSamplesPerPixel;
 			int32 DenoiserMode = CVarUseReflectionDenoiser.GetValueOnRenderThread();
-			const bool bDenoise = DenoiserMode != 0 && GRayTracingReflectionsSamplesPerPixel == 1;
+			const bool bDenoise = DenoiserMode != 0 && RayTracingReflectionsSPP == 1;
 
 			if (!bDenoise)
 			{
@@ -773,10 +789,10 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 
 			// Ray trace the reflection.
 			IScreenSpaceDenoiser::FReflectionsInputs DenoiserInputs;
-			RayTraceReflections(
+			RenderRayTracingReflections(
 				GraphBuilder,
 				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance,
-				GRayTracingReflectionsSamplesPerPixel, GRayTracingReflectionsHeightFog, RayTracingConfig.ResolutionFraction);
+				RayTracingReflectionsSPP, GRayTracingReflectionsHeightFog, RayTracingConfig.ResolutionFraction);
 
 
 			// Denoise the reflections.
@@ -794,6 +810,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 				IScreenSpaceDenoiser::FReflectionsOutputs DenoiserOutputs = DenoiserToUse->DenoiseReflections(
 					GraphBuilder,
 					View,
+					&View.PrevViewInfo,
 					SceneBlackboard,
 					DenoiserInputs,
 					RayTracingConfig);

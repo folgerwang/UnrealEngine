@@ -172,14 +172,11 @@ FD3D12DynamicRHI::FD3D12DynamicRHI(TArray<FD3D12Adapter*>& ChosenAdaptersIn) :
 	GMaxShadowDepthBufferSizeY = GMaxTextureDimensions;
 	GRHISupportsResolveCubemapFaces = true;
 
-	// Enable multithreading if not in the editor (editor crashes with multithreading enabled).
-	if (!GIsEditor)
-	{
-		GRHISupportsRHIThread = true;
+	GRHISupportsRHIThread = true;
 #if PLATFORM_XBOXONE
-		GRHISupportsRHIOnTaskThread = true;
+	GRHISupportsRHIOnTaskThread = true;
 #endif
-	}
+
 	GRHISupportsParallelRHIExecute = D3D12_SUPPORTS_PARALLEL_RHI_EXECUTE;
 
 	GSupportsTimestampRenderQueries = true;

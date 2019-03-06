@@ -612,7 +612,8 @@ void GatherToAccumulator(
 	UNROLL
 	for(uint SamplePairId = 0; SamplePairId < GatherParameters.SamplePairCount; SamplePairId++)
 	{
-		float2 E = SobolIndex(InputParameters.SobolRandomBase, SamplePairId << 3, 4 + 3) / 0x10000;
+		//float2 E = SobolIndex(InputParameters.SobolRandomBase, SamplePairId << 3, 4 + 3) / 0x10000;
+		float2 E = SobolIndex(InputParameters.SobolRandomBase, SamplePairId << 3, 4 + 3) * rcp(float(0x10000));
 		float2 DiskRandom = UniformSampleDiskConcentricApprox(E);
 	
 		float2 PixelOffset = GatherParameters.KernelPixelRadius * DiskRandom;
@@ -1031,6 +1032,9 @@ void RecombineMainCS(
 		AmendAdditiveColorWithMaxTranslucency(GatherForegroundAdditiveColor, GatherForegroundTranslucency, MaxTranslucency);
 	}
 	#endif
+	
+	// Compose foreground.
+	OutputFinalSceneColor = OutputFinalSceneColor * GatherForegroundTranslucency + GatherForegroundAdditiveColor;
 
 	// Compose separate translucency.
 	if (1)
@@ -1041,9 +1045,6 @@ void RecombineMainCS(
 
 		OutputFinalSceneColor = OutputFinalSceneColor * SeparateTranslucency + SeparateTranslucencyColor;
 	}
-
-	// Compose foreground.
-	OutputFinalSceneColor = OutputFinalSceneColor * GatherForegroundTranslucency + GatherForegroundAdditiveColor;
 
 	// Convert alpha channel from opacity back to translucency.
 	OutputFinalSceneColor.a = 1 - OutputFinalSceneColor.a;

@@ -288,14 +288,15 @@ public:
 	bool bIsVisibleInReflectionCaptures : 1;
 	bool bIsRayTracingRelevant : 1;
 	bool bIsRayTracingStaticRelevant : 1;
+	bool bIsVisibleInRayTracing : 1;
+
+	TArray<TArray<int32, TInlineAllocator<2>>> CachedRayTracingMeshCommandIndicesPerLOD;
 
 	struct FStaticMeshOrCommandIndex
 	{
 		int32 StaticMeshIndex;
 		int32 CommandIndex;
 	};
-	TArray<TArray<FStaticMeshOrCommandIndex, TInlineAllocator<2>>> RayTracingLodIndexToMeshDrawCommandIndicies;
-	void UpdateRayTracingLodIndexToMeshDrawCommandIndicies();
 #endif
 
 	/** Initialization constructor. */

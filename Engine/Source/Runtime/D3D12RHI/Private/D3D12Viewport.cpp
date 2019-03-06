@@ -221,7 +221,8 @@ FD3D12Texture2D* GetSwapChainSurface(FD3D12Device* Parent, EPixelFormat PixelFor
 				&NewTexture->ResourceLocation,
 				PixelFormat,
 				TexCreate_RenderTargetable |  TexCreate_ShaderResource,
-				D3D12_RESOURCE_STATE_PRESENT);
+				D3D12_RESOURCE_STATE_PRESENT,
+				TEXT("SwapChainSurface"));
 		}
 
 		FD3D12RenderTargetView* BackBufferRenderTargetView = nullptr;

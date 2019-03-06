@@ -93,6 +93,9 @@ UObject* FLevelSequenceActorSpawner::SpawnObject(FMovieSceneSpawnable& Spawnable
 		SpawnInfo.OverrideLevel = WorldContext->PersistentLevel;
 	}
 
+	//Chaos - Avoiding crash in UWorld::SendAllEndOfFrameUpdates due to duplicating template components/re-runing the construction script on a fully formed hierarchy
+	ObjectTemplate->DestroyConstructedComponents();
+
 	FTransform SpawnTransform;
 
 	if (USceneComponent* RootComponent = ObjectTemplate->GetRootComponent())

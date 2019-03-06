@@ -344,6 +344,26 @@ public:
 		}
 	}
 
+	void CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FVertexBufferRHIRef OutVertexBuffer)
+	{
+	#if RHI_RAYTRACING
+		TArray<FCopyBufferRegionParams> CopyParams;
+
+		for (int32 SectionIdx = 0; SectionIdx < DispatchData.Num(); SectionIdx++)
+		{
+			CopyParams.Add(FCopyBufferRegionParams {
+				OutVertexBuffer,
+				DispatchData[SectionIdx].OutputStreamStart * sizeof(FVector),
+				DispatchData[SectionIdx].PositionBuffer->Buffer,
+				DispatchData[SectionIdx].OutputStreamStart * sizeof(FVector),
+				DispatchData[SectionIdx].NumVertices * sizeof(FVector) }
+			);
+		}
+
+		RHICmdList.CopyBufferRegions(CopyParams);
+	#endif
+	}
+
 protected:
 	FGPUSkinCache::FRWBuffersAllocation* PositionAllocation;
 	FGPUSkinCache* SkinCache;
@@ -1321,15 +1341,9 @@ void FGPUSkinCache::ReleaseSkinCacheEntry(FGPUSkinCacheEntry* SkinCacheEntry)
 	delete SkinCacheEntry;
 }
 
-FRWBuffer* FGPUSkinCache::GetUnderlyingPositionBuffer(FGPUSkinCacheEntry* Entry)
+void FGPUSkinCache::CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FGPUSkinCacheEntry* SkinCacheEntry, FVertexBufferRHIRef OutVertexBuffer)
 {
-	FGPUSkinCacheEntry::FSectionDispatchData& DispatchData = Entry->DispatchData[0];
-	
-	// #dxr: we rely on the assumption that all sections share the same underlying vertex buffer
-	for (int i = 0; i < Entry->DispatchData.Num(); i++)
-		ensure(Entry->DispatchData[i].PositionBuffer == nullptr || Entry->DispatchData[i].PositionBuffer == Entry->DispatchData[0].PositionBuffer);
-
-	return DispatchData.PositionBuffer;
+	SkinCacheEntry->CreateMergedPositionVertexBuffer(RHICmdList, OutVertexBuffer);
 }
 
 bool FGPUSkinCache::IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section)

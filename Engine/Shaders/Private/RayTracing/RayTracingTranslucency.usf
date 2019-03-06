@@ -12,7 +12,15 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 }
 
 #define SUPPORT_CONTACT_SHADOWS		0
-#define USE_SOURCE_TEXTURE			0 //Used in RectLight.ush  //#dxr_todo: enable textures
+#define USE_SOURCE_TEXTURE			0
+#define USE_SOURCE_TEXTURE_ARRAY	0
+
+#define LTCMatTexture				RaytracingLightsData.LTCMatTexture
+#define LTCMatSampler				RaytracingLightsData.LTCMatSampler
+#define LTCAmpTexture				RaytracingLightsData.LTCAmpTexture
+#define LTCAmpSampler				RaytracingLightsData.LTCAmpSampler
+#define PreIntegratedGF				ReflectionStruct.PreIntegratedGF			
+#define PreIntegratedGFSampler		ReflectionStruct.PreIntegratedGFSampler	
 
 #include "../DeferredShadingCommon.ush"
 #include "../DeferredLightingCommon.ush"
@@ -22,12 +30,17 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 #include "../HeightFogCommon.ush"
 #include "RayTracingCommon.ush"
 #include "RayTracingHitGroupCommon.ush"
+#include "RayTracingDirectionalLight.ush"
+#include "RayTracingRectLight.ush"
+#include "RayTracingSphereLight.ush"
+#include "RayTracingSpotLight.ush"
+#include "RayTracingPointLight.ush"
 
 uint SamplesPerPixel;
 uint MaxRefractionRays;
 uint HeightFog;
 uint ShouldDoDirectLighting;
-uint ShouldDoReflectedShadows;
+uint ReflectedShadowsType;
 uint ShouldDoEmissiveAndIndirectLighting;
 uint UpscaleFactor;
 
@@ -43,15 +56,6 @@ RWTexture2D<float> RayHitDistanceOutput;
 
 #include "RayTracingLightingCommon.ush"
 
-float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
-{
-	float2 ScreenPosition = (UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * Depth, Depth, 1), View.ScreenToWorld);
-	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-
-	return WorldPosition;
-}
-
 uint2 GetPixelCoord(uint2 DispatchThreadId)
 {
 	uint UpscaleFactorPow2 = UpscaleFactor * UpscaleFactor;
@@ -62,28 +66,42 @@ uint2 GetPixelCoord(uint2 DispatchThreadId)
 	return DispatchThreadId * UpscaleFactor + uint2(SubPixelId & (UpscaleFactor - 1), SubPixelId / UpscaleFactor);
 }
 
-bool RefractRay(float3 V, float3 N, float Eta, out float3 L)
+float FresnelDielectric(float Eta, float IoH, float ToH)
 {
+	float Rs = Square((Eta * IoH - ToH) / (Eta * IoH + ToH));
+	float Rp = Square((Eta * ToH - IoH) / (Eta * ToH + IoH));
+	return (Rs + Rp) / 2;
+}
+
+bool RefractRay(float3 V, float3 N, float Ior1, float Ior2, out float3 L, out float EventThroughput)
+{
+	float Eta = Ior1 / Ior2;
+
+	//#dxr_todo: check HitKind functionality as bool bIsEntering = Payload.HitKind == HIT_KIND_TRIANGLE_FRONT_FACE;
+	bool bIsEntering = (dot(V, N) < 0.0);
+	if (bIsEntering)
+	{
+		Eta = 1.0f / Ior1;
+	}
+
 	V = -V;
 	const float CosThetaI = dot(V, N);
 	const float CosThetaT2 = 1.f - Eta * Eta * (1.0f - CosThetaI * CosThetaI);
 	if (CosThetaT2 < 0.0f)
 	{
 		// Total internal reflection
+		EventThroughput = 1.0f;
 		L = reflect(-V, N); 
 		return false;
 	}
+
 	const float CosThetaT = -(CosThetaI >= 0.0f ? 1.0f : -1.0f) * sqrt(CosThetaT2);
-
 	L = (Eta * CosThetaI + CosThetaT) * N - Eta * V;
-	return true;
-}
 
-float FresnelDielectric(float Eta, float IoH, float ToH)
-{
-	float Rs = Square((Eta * IoH - ToH) / (Eta * IoH + ToH));
-	float Rp = Square((Eta * ToH - IoH) / (Eta * ToH + IoH));
-	return (Rs + Rp) / 2;
+	float VoH = abs(dot(N, V));
+	float ToH = abs(dot(N, L));
+	EventThroughput = 1 - FresnelDielectric(Eta, VoH, ToH);
+	return true;
 }
 
 float3 GetSkyRadiance(float3 Direction, float Roughness)
@@ -131,13 +149,16 @@ void RayTracingTranslucencyRGS()
 	float3 PathRadiance = 0.0;
 	float PathThroughput = 1.0;	// A float for now because UE does not support colored translucency as of today.
 	float LastRoughness = 0.0;
+	float LastIor = 1.0f;
 	float HitDistance = 0.0f;
 	bool bHasScattered = false;
 
 	for (uint RefractionRayIndex = 0; RefractionRayIndex < MaxRefractionRays; ++RefractionRayIndex)
 	{
 		float3 PathVertexRadiance = float3(0, 0, 0);
-		FMaterialClosestHitPayload Payload = TraceRayAndAccumulateResults(Ray, bRefractionBackFaceCulling, MaxNormalBias, RayCone, PathVertexRadiance);
+		//#dxr-todo: RayFlags should be 0 for refraction rays
+		const uint RayFlags = bRefractionBackFaceCulling ? RAY_FLAG_CULL_BACK_FACING_TRIANGLES : 0;
+		FMaterialClosestHitPayload Payload = TraceRayAndAccumulateResults(Ray, RandSequence, RayFlags, MaxNormalBias, RAY_TRACING_MASK_ALL, RayCone, PathVertexRadiance);
 		LastRoughness = Payload.Roughness;
 
 		//
@@ -188,7 +209,8 @@ void RayTracingTranslucencyRGS()
 			ApplyPositionBias(ReflectionRay, Payload.WorldNormal, MaxNormalBias);
 
 			float3 ReflectionRadiance = float3(0, 0, 0);
-			FMaterialClosestHitPayload ReflectionPayload = TraceRayAndAccumulateResults(ReflectionRay, bReflectionBackFaceCulling, MaxNormalBias, RayCone, ReflectionRadiance);
+			const uint RayFlags = bReflectionBackFaceCulling ? RAY_FLAG_CULL_BACK_FACING_TRIANGLES : 0;
+			FMaterialClosestHitPayload ReflectionPayload = TraceRayAndAccumulateResults(ReflectionRay, RandSequence, RayFlags, MaxNormalBias, RAY_TRACING_MASK_ALL, RayCone, ReflectionRadiance);
 
 			// If we have not hit anything, sample the distance sky radiance.
 			if (!IsHit(ReflectionRay, ReflectionPayload))
@@ -198,7 +220,7 @@ void RayTracingTranslucencyRGS()
 
 			// #dxr_todo: reflection IOR and clear coat also? This only handles default material.
 			float NoV = saturate(dot(-Ray.Direction, Payload.WorldNormal));
-			const float ReflectionThroughput = EnvBRDF(Payload.SpecularColor, Payload.Roughness, NoV);
+			const float3 ReflectionThroughput = EnvBRDF(Payload.SpecularColor, Payload.Roughness, NoV);
 
 			PathRadiance += PathThroughput * ReflectionThroughput * ReflectionRadiance * vertexRadianceWeight;
 		}
@@ -217,34 +239,19 @@ void RayTracingTranslucencyRGS()
 		}
 
 		// Set refraction ray for next iteration
-		float Ior1 = Payload.Ior;
-		float Ior2 = 1.0f;
-		float Eta = Ior1/Ior2;
-
-		//#dxr_todo: check HitKind functionality
-		//bool bIsEntering = Payload.HitKind == HIT_KIND_TRIANGLE_FRONT_FACE;
-		bool bIsEntering = (dot(Ray.Direction, Payload.WorldNormal) < 0.0);
-		if (bIsEntering)
+		float Ior1 = DielectricF0ToIor(DielectricSpecularToF0(Payload.Specular)); // Not using Payload.Ior but parameterisation from specular.
+		float Ior2 = LastIor;
+		bHasScattered |= Ior1 != Ior2;
+		float3 RefractedDirection;
+		float ReflectionRefractionEventThroughput;
+		if (!RefractRay(Ray.Direction, Payload.WorldNormal, Ior1, Ior2, RefractedDirection, ReflectionRefractionEventThroughput))
 		{
-			Eta = 1.0/Payload.Ior;
-		}
-
-		float3 RefractedDirection;	
-		if (RefractRay(Ray.Direction, Payload.WorldNormal, Eta, RefractedDirection))
-		{
-			float VoH = abs(dot(Payload.WorldNormal, Ray.Direction));
-			float ToH = abs(dot(Payload.WorldNormal, RefractedDirection));
-			PathThroughput *= 1 - FresnelDielectric(Eta, VoH, ToH);
-		}
-		else
-		{
-			//TIR
-			//#dxr_todo: handle reflection ray
-			// This is a total internal reflection event. We should combine that step with the one above reflection evaluation.
-			// For now we stop tracing.
-			//PathRadiance = float3(1,0,0);
+			//#dxr_todo: handle total internal reflection ray event. We could jsuit continue form this path. And not use the new IOR.
+			// We should combine that step with the one above reflection evaluation. For now we stop tracing.
 			break;
 		}
+		LastIor = Ior1;
+		PathThroughput *= ReflectionRefractionEventThroughput;
 
 
 		//

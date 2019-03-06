@@ -304,22 +304,8 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 #if RHI_RAYTRACING
 			if (IsRayTracingEnabled())
 			{
-				struct Local
-				{
-					static void BuildRayTracingMenu(FMenuBuilder& Menu, TWeakPtr< SViewportToolBar > InParentToolBar)
-					{
-						const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
-
-						Menu.BeginSection("RayTracingViewmodes", LOCTEXT("RayTracingSubMenuHeader", "Ray Tracing Viewmodes"));
-						Menu.AddMenuEntry(BaseViewportCommands.PathTracingMode, NAME_None, LOCTEXT("PathTracingViewModeDisplayName", "Path Tracing"));
-						Menu.EndSection();
-						
-						const FRayTracingDebugVisualizationMenuCommands& RtDebugCommands = FRayTracingDebugVisualizationMenuCommands::Get();
-						RtDebugCommands.BuildVisualisationSubMenu(Menu);
-					}
-				};
-
-				ViewMenuBuilder.AddSubMenu(LOCTEXT("RayTracingSubMenu", "Ray Tracing"), LOCTEXT("RayTracing_ToolTip", "Select ray tracing view modes"), FNewMenuDelegate::CreateStatic(&Local::BuildRayTracingMenu, ParentToolBar));
+				const FEditorViewportCommands& BaseViewportCommands = FEditorViewportCommands::Get();
+				ViewMenuBuilder.AddMenuEntry(BaseViewportCommands.PathTracingMode, NAME_None, LOCTEXT("PathTracingViewModeDisplayName", "Path Tracing"));
 			}
 #endif
 
@@ -373,6 +359,22 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 
 				ViewMenuBuilder.AddSubMenu( LOCTEXT("OptimizationSubMenu", "Optimization Viewmodes"), LOCTEXT("Optimization_ToolTip", "Select optimization visualizer"), FNewMenuDelegate::CreateStatic( &Local::BuildOptimizationMenu, ParentToolBar ) );
 			}
+
+#if RHI_RAYTRACING
+			if (IsRayTracingEnabled())
+			{
+				struct Local
+				{
+					static void BuildRayTracingDebugMenu(FMenuBuilder& Menu, TWeakPtr< SViewportToolBar > InParentToolBar)
+					{
+						const FRayTracingDebugVisualizationMenuCommands& RtDebugCommands = FRayTracingDebugVisualizationMenuCommands::Get();
+						RtDebugCommands.BuildVisualisationSubMenu(Menu);
+					}
+				};
+
+				ViewMenuBuilder.AddSubMenu(LOCTEXT("RayTracingDebugSubMenu", "Ray Tracing Debug"), LOCTEXT("RayTracing_ToolTip", "Select ray tracing buffer visualization view modes"), FNewMenuDelegate::CreateStatic(&Local::BuildRayTracingDebugMenu, ParentToolBar));
+			}
+#endif
 
 			{
 				struct Local

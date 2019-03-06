@@ -7,6 +7,7 @@
 
 #include "Containers/DynamicRHIResourceArray.h"
 #include "GlobalShader.h"
+#include "RayTracingDefinitions.h"
 
 void TestBasicRayTracing(bool bValidateResults)
 {
@@ -102,6 +103,7 @@ void TestBasicRayTracing(bool bValidateResults)
 	FRayTracingSceneInitializer Initializer;
 	Initializer.Instances = Instances;
 	Initializer.bIsDynamic = false;
+	Initializer.ShaderSlotsPerGeometrySegment = RAY_TRACING_NUM_SHADER_SLOTS;
 	FRayTracingSceneRHIParamRef Scene = RHICreateRayTracingScene(Initializer);
 
 	FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();

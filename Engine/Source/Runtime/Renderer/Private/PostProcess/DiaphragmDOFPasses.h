@@ -380,6 +380,9 @@ public:
 		// TODO: distinct shader permutation dimension for hybrid scatter occlusion?
 		HighQualityWithHybridScatterOcclusion,
 
+		// High quality accumulator, with layered full disks and hybrid scatter occlusion.
+		Cinematic,
+
 		MAX,
 	};
 

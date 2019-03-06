@@ -14,17 +14,17 @@
 #include "RayTracing/RayTracingSkyLight.h"
 #include "RayTracing/RaytracingOptions.h"
 
-////static TAutoConsoleVariable<int32> CVarRayTracingPrimaryDebugMaxBounces(
-////	TEXT("r.RayTracing.PrimaryDebug.MaxBounces"),
-////	10,
-////	TEXT("Maximum ray trace bounces"),
-////	ECVF_RenderThreadSafe
-////);
+static int32 GPathTracingMaxBounces = -1;
+static FAutoConsoleVariableRef CVarPathTracingMaxBounces(
+	TEXT("r.PathTracing.MaxBounces"),
+	GPathTracingMaxBounces,
+	TEXT("Sets the maximum number of path tracing bounces (default = -1 (driven by postprocesing volume))")
+);
 
 TAutoConsoleVariable<int32> CVarPathTracingSamplesPerPixel(
 	TEXT("r.PathTracing.SamplesPerPixel"),
-	16384,
-	TEXT("Defines the samples per pixel before resetting the simulation (default = 16384spp)"),
+	-1,
+	TEXT("Defines the samples per pixel before resetting the simulation (default = -1 (driven by postprocesing volume))"),
 	ECVF_RenderThreadSafe
 );
 
@@ -68,7 +68,7 @@ TAutoConsoleVariable<int32> CVarPathTracingRayCountFrequency(
 	ECVF_RenderThreadSafe
 );
 
-
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingData, "PathTracingData");
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingLightData, "SceneLightsData");
 IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingAdaptiveSamplingData, "AdaptiveSamplingData");
 
@@ -96,6 +96,7 @@ public:
 		TLASParameter.Bind(Initializer.ParameterMap, TEXT("TLAS"));
 		ViewParameter.Bind(Initializer.ParameterMap, TEXT("View"));
 		SceneLightsParameters.Bind(Initializer.ParameterMap, TEXT("SceneLightsData"));
+		PathTracingParameters.Bind(Initializer.ParameterMap, TEXT("PathTracingData"));
 		SkyLightParameters.Bind(Initializer.ParameterMap, TEXT("SkyLight"));
 		check(SkyLightParameters.IsBound());
 		AdaptiveSamplingParameters.Bind(Initializer.ParameterMap, TEXT("AdaptiveSamplingData"));
@@ -109,20 +110,13 @@ public:
 
 	void SetParameters(
 		FScene* Scene,
+		const FViewInfo& View,
 		FRayTracingShaderBindingsWriter& GlobalResources,
 		const FRayTracingScene& RayTracingScene,
 		FUniformBufferRHIParamRef ViewUniformBuffer,
 		FUniformBufferRHIParamRef SceneTexturesUniformBuffer,
 		// Light buffer
 		const TSparseArray<FLightSceneInfoCompact>& Lights,
-		// Environment light
-		FLinearColor SkyLightColorData,
-		FTexture* SkyLightTextureData,
-		uint32 SkyLightRowCount,
-		uint32 SkyLightColumnCount,
-		const FRWBuffer& SkyLightRowCdf,
-		const FRWBuffer& SkyLightColumnCdf,
-		const FRWBuffer& SkyLightCubeFaceCdf,
 		// Adaptive sampling
 		uint32 Iteration,
 		FIntVector VarianceDimensions,
@@ -137,6 +131,32 @@ public:
 		GlobalResources.Set(TLASParameter, RayTracingScene.RayTracingSceneRHI->GetShaderResourceView());
 		GlobalResources.Set(ViewParameter, ViewUniformBuffer);
 
+		// Path tracing data
+		{
+			FPathTracingData PathTracingData;
+
+			int32 PathTracingMaxBounces = GPathTracingMaxBounces > -1 ? GPathTracingMaxBounces : View.FinalPostProcessSettings.PathTracingMaxBounces;
+			PathTracingData.MaxBounces = PathTracingMaxBounces;
+			static uint32 PrevMaxBounces = PathTracingMaxBounces;
+			if (PathTracingData.MaxBounces != PrevMaxBounces)
+			{
+				Scene->bPathTracingNeedsInvalidation = true;
+				PrevMaxBounces = PathTracingData.MaxBounces;
+			}
+
+			FUniformBufferRHIRef PathTracingDataUniformBuffer = RHICreateUniformBuffer(&PathTracingData, FPathTracingData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
+			GlobalResources.Set(PathTracingParameters, PathTracingDataUniformBuffer);
+		}
+
+		// Sky light
+		FSkyLightData SkyLightData;
+		{
+			SetupSkyLightParameters(*Scene, &SkyLightData);
+
+			FUniformBufferRHIRef SkyLightUniformBuffer = RHICreateUniformBuffer(&SkyLightData, FSkyLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
+			GlobalResources.Set(SkyLightParameters, SkyLightUniformBuffer);
+		}
+
 		// Lights
 		{
 			FPathTracingLightData LightData;
@@ -146,7 +166,7 @@ public:
 			// WARNING: Until ray payload encodes Light data buffer, the execution depends on this ordering!
 			uint32 SkyLightIndex = 0;
 			LightData.Type[SkyLightIndex] = 0;
-			LightData.Color[SkyLightIndex] = FVector(SkyLightColorData);
+			LightData.Color[SkyLightIndex] = FVector(SkyLightData.Color);
 			LightData.Count++;
 
 			for (auto Light : Lights)
@@ -167,6 +187,7 @@ public:
 						LightData.Type[LightData.Count] = 2;
 						LightData.Normal[LightData.Count] = LightParameters.Direction;
 						LightData.Color[LightData.Count] = LightParameters.Color;
+						LightData.Attenuation[LightData.Count] = 1.0 / LightParameters.InvRadius;
 						break;
 					}
 					case LightType_Rect:
@@ -176,8 +197,10 @@ public:
 						LightData.Normal[LightData.Count] = -LightParameters.Direction;
 						LightData.dPdu[LightData.Count] = FVector::CrossProduct(LightParameters.Tangent, LightParameters.Direction);
 						LightData.dPdv[LightData.Count] = LightParameters.Tangent;
+						// #dxr_todo: define these differences from Lit..
 						LightData.Color[LightData.Count] = LightParameters.Color / 4.0;
 						LightData.Dimensions[LightData.Count] = FVector(2.0f * LightParameters.SourceRadius, 2.0f * LightParameters.SourceLength, 0.0f);
+						LightData.Attenuation[LightData.Count] = 1.0 / LightParameters.InvRadius;
 						break;
 					}
 					case LightType_Spot:
@@ -185,9 +208,10 @@ public:
 						LightData.Type[LightData.Count] = 4;
 						LightData.Position[LightData.Count] = LightParameters.Position;
 						LightData.Normal[LightData.Count] = -LightParameters.Direction;
-						// #dxr_todo: define these differences..
+						// #dxr_todo: define these differences from Lit..
 						LightData.Color[LightData.Count] = 4.0 * PI * LightParameters.Color;
-						LightData.Dimensions[LightData.Count] = FVector(LightParameters.SpotAngles, 0.0);
+						LightData.Dimensions[LightData.Count] = FVector(LightParameters.SpotAngles, LightParameters.SourceRadius);
+						LightData.Attenuation[LightData.Count] = 1.0 / LightParameters.InvRadius;
 						break;
 					}
 					case LightType_Point:
@@ -195,7 +219,10 @@ public:
 					{
 						LightData.Type[LightData.Count] = 1;
 						LightData.Position[LightData.Count] = LightParameters.Position;
-						LightData.Color[LightData.Count] = LightParameters.Color;
+						// #dxr_todo: define these differences from Lit..
+						LightData.Color[LightData.Count] = LightParameters.Color / (4.0 * PI);
+						LightData.Dimensions[LightData.Count] = FVector(0.0, 0.0, LightParameters.SourceRadius);
+						LightData.Attenuation[LightData.Count] = 1.0 / LightParameters.InvRadius;
 						break;
 					}
 				};
@@ -205,67 +232,6 @@ public:
 
 			FUniformBufferRHIRef SceneLightsUniformBuffer = RHICreateUniformBuffer(&LightData, FPathTracingLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
 			GlobalResources.Set(SceneLightsParameters, SceneLightsUniformBuffer);
-		}
-
-		// Sky light
-		{
-			FSkyLightData SkyLightData;
-			if (SkyLightTextureData)
-			{
-				SkyLightData.Color = FVector(Scene->SkyLight->LightColor);
-				SkyLightData.Texture = Scene->SkyLight->ProcessedTexture->TextureRHI;
-				SkyLightData.TextureSampler = Scene->SkyLight->ProcessedTexture->SamplerStateRHI;
-
-#if 0
-				// For when data is actually hooked up..
-				SkyLightData.MipDimensions = Scene->SkyLight->SkyLightMipDimensions;
-				SkyLightData.MipTreePosX = Scene->SkyLight->SkyLightMipTreePosX.SRV;
-				SkyLightData.MipTreeNegX = Scene->SkyLight->SkyLightMipTreeNegX.SRV;
-				SkyLightData.MipTreePosY = Scene->SkyLight->SkyLightMipTreePosY.SRV;
-				SkyLightData.MipTreeNegY = Scene->SkyLight->SkyLightMipTreeNegY.SRV;
-				SkyLightData.MipTreePosZ = Scene->SkyLight->SkyLightMipTreePosZ.SRV;
-				SkyLightData.MipTreeNegZ = Scene->SkyLight->SkyLightMipTreeNegZ.SRV;
-
-				SkyLightData.MipTreePdfPosX = Scene->SkyLight->SkyLightMipTreePdfPosX.SRV;
-				SkyLightData.MipTreePdfNegX = Scene->SkyLight->SkyLightMipTreePdfNegX.SRV;
-				SkyLightData.MipTreePdfPosY = Scene->SkyLight->SkyLightMipTreePdfPosY.SRV;
-				SkyLightData.MipTreePdfNegY = Scene->SkyLight->SkyLightMipTreePdfNegY.SRV;
-				SkyLightData.MipTreePdfPosZ = Scene->SkyLight->SkyLightMipTreePdfPosZ.SRV;
-				SkyLightData.MipTreePdfNegZ = Scene->SkyLight->SkyLightMipTreePdfNegZ.SRV;
-				SkyLightData.SolidAnglePdf = Scene->SkyLight->SolidAnglePdf.SRV;
-#endif
-			}
-			else
-			{
-				SkyLightData.Color = FVector(0.0);
-				SkyLightData.Texture = GBlackTextureCube->TextureRHI;
-				SkyLightData.TextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-			}
-
-			// dxr_todo: factor out these pass constants
-			SkyLightData.SamplesPerPixel = 0;
-			SkyLightData.SamplingStopLevel = 0;
-			// dxr_todo
-
-			SkyLightData.MipDimensions = FIntVector(0);
-			auto BlackTextureBuffer = RHICreateShaderResourceView(GBlackTexture->TextureRHI->GetTexture2D(), 0);
-			SkyLightData.MipTreePosX = BlackTextureBuffer;
-			SkyLightData.MipTreeNegX = BlackTextureBuffer;
-			SkyLightData.MipTreePosY = BlackTextureBuffer;
-			SkyLightData.MipTreeNegY = BlackTextureBuffer;
-			SkyLightData.MipTreePosZ = BlackTextureBuffer;
-			SkyLightData.MipTreeNegZ = BlackTextureBuffer;
-
-			SkyLightData.MipTreePdfPosX = BlackTextureBuffer;
-			SkyLightData.MipTreePdfNegX = BlackTextureBuffer;
-			SkyLightData.MipTreePdfPosY = BlackTextureBuffer;
-			SkyLightData.MipTreePdfNegY = BlackTextureBuffer;
-			SkyLightData.MipTreePdfPosZ = BlackTextureBuffer;
-			SkyLightData.MipTreePdfNegZ = BlackTextureBuffer;
-			SkyLightData.SolidAnglePdf = BlackTextureBuffer;
-
-			FUniformBufferRHIRef SkyLightUniformBuffer = RHICreateUniformBuffer(&SkyLightData, FSkyLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
-			GlobalResources.Set(SkyLightParameters, SkyLightUniformBuffer);
 		}
 
 		// Adaptive sampling
@@ -308,6 +274,7 @@ public:
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << TLASParameter;
 		Ar << ViewParameter;
+		Ar << PathTracingParameters;
 		Ar << SceneLightsParameters;
 		Ar << SkyLightParameters;
 		Ar << AdaptiveSamplingParameters;
@@ -322,6 +289,7 @@ public:
 
 	FShaderResourceParameter		TLASParameter;   // RaytracingAccelerationStructure
 	FShaderUniformBufferParameter	ViewParameter;
+	FShaderUniformBufferParameter	PathTracingParameters;
 	FShaderUniformBufferParameter	SceneLightsParameters;
 	FShaderUniformBufferParameter	SkyLightParameters;
 	FShaderUniformBufferParameter	AdaptiveSamplingParameters;
@@ -466,6 +434,12 @@ public:
 
 IMPLEMENT_SHADER_TYPE(, FPathTracingCompositorPS, TEXT("/Engine/Private/PathTracing/PathTracingCompositingPixelShader.usf"), TEXT("CompositeMain"), SF_Pixel);
 
+void FDeferredShadingSceneRenderer::PreparePathTracing(const FViewInfo& View, TArray<FRayTracingShaderRHIParamRef>& OutRayGenShaders)
+{
+	// Declare all RayGen shaders that require material closest hit shaders to be bound
+	auto RayGenShader = View.ShaderMap->GetShader<FPathTracingRG>();
+	OutRayGenShaders.Add(RayGenShader->GetRayTracingShader());
+}
 
 void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
@@ -477,28 +451,10 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 	static int32 SPPCount = 0;
 
 	// Conditionally rebuild sky light CDFs
-	FRWBuffer SkyLightRowCdf;
-	FRWBuffer SkyLightColumnCdf;
-	FRWBuffer SkyLightCubeFaceCdf;
-#if 0
-	// #dxr_todo: Compute shader dependencies will be removed in a subsequent submission
-	if (Scene->SkyLight)
+	if (Scene->SkyLight && Scene->SkyLight->ShouldRebuildCdf())
 	{
-		if (Scene->SkyLight->ShouldRebuildCdf())
-		{
-			SCOPED_GPU_STAT(RHICmdList, Stat_GPU_PathTracingBuildSkyLightCDF);
-
-			BuildSkyLightCdf(RHICmdList, View, *Scene->SkyLight->ProcessedTexture, Scene->SkyLight->RowCdf, Scene->SkyLight->ColumnCdf, Scene->SkyLight->CubeFaceCdf);
-			Scene->SkyLight->IsDirtyImportanceSamplingData = false;
-		}
-		SkyLightRowCdf = Scene->SkyLight->RowCdf;
-		SkyLightColumnCdf = Scene->SkyLight->ColumnCdf;
-		SkyLightCubeFaceCdf = Scene->SkyLight->CubeFaceCdf;
-
-		FIntVector Dimensions = FIntVector(Scene->SkyLight->ProcessedTexture->GetSizeX(), Scene->SkyLight->ProcessedTexture->GetSizeY(), 6);
-		VisualizeSkyLightCdf(RHICmdList, View, Dimensions, SkyLightRowCdf, SkyLightColumnCdf, SkyLightCubeFaceCdf);
+		BuildSkyLightCdfs(RHICmdList, Scene->SkyLight);
 	}
-#endif
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 	auto ViewSize = View.ViewRect.Size();
@@ -531,49 +487,20 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 	auto MissShader = GetGlobalShaderMap(FeatureLevel)->GetShader<FPathTracingMS>();
 	auto ClosestHitShader = GetGlobalShaderMap(FeatureLevel)->GetShader<FPathTracingCHS>();
 
-#if 0
-	FRayTracingPipelineStateInitializer Initializer;
-	FRayTracingShaderRHIParamRef RayGenShaderTable[] = { RayGenShader->GetRayTracingShader() };
-	Initializer.SetRayGenShaderTable(RayGenShaderTable);
-	FRayTracingShaderRHIParamRef MissShaderTable[] = { MissShader->GetRayTracingShader() };
-	Initializer.SetMissShaderTable(MissShaderTable);
-	FRayTracingShaderRHIParamRef HitGroupTable[] = { ClosestHitShader->GetRayTracingShader() };
-	Initializer.SetHitGroupTable(HitGroupTable);
-	Initializer.HitGroupStride = 0; // Use the same hit shader for all geometry in the scene by disabling SBT indexing.
-	FRHIRayTracingPipelineState* Pipeline = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer); // #dxr_todo: this should be done once at load-time and cached
-#else
-	FRHIRayTracingPipelineState* Pipeline = BindRayTracingPipeline(RHICmdList, View,
-		RayGenShader->GetRayTracingShader(),
-		MissShader->GetRayTracingShader(),
-		ClosestHitShader->GetRayTracingShader()); // #dxr_todo: this should be done once at load-time and cached
-#endif
-
 	FRayTracingShaderBindingsWriter GlobalResources;
 
 	FSceneTexturesUniformParameters SceneTextures;
 	SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, ESceneTextureSetupMode::All, SceneTextures);
 	FUniformBufferRHIParamRef SceneTexturesUniformBuffer = RHICreateUniformBuffer(&SceneTextures, FSceneTexturesUniformParameters::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);
 
-	FLinearColor SkyLightColor(0.0f, 0.0f, 0.0f);
-	FTexture* SkyLightTexture = nullptr;
-	uint32 SkyLightRowCount = 0;
-	uint32 SkyLightColumnCount = 0;
-	if (Scene->SkyLight)
-	{
-		SkyLightColor = Scene->SkyLight->LightColor;
-		SkyLightTexture = Scene->SkyLight->ProcessedTexture;
-		SkyLightColumnCount = SkyLightTexture->GetSizeX();
-		SkyLightRowCount = SkyLightTexture->GetSizeY();
-	}
-
 	RayGenShader->SetParameters(
 		Scene,
+		View,
 		GlobalResources,
-		View.PerViewRayTracingScene,
+		View.RayTracingScene,
 		View.ViewUniformBuffer,
 		SceneTexturesUniformBuffer,
 		Scene->Lights,
-		SkyLightColor, SkyLightTexture, SkyLightRowCount, SkyLightColumnCount, SkyLightRowCdf, SkyLightColumnCdf, SkyLightCubeFaceCdf,
 		SPPCount, ViewState->VarianceMipTreeDimensions, *ViewState->VarianceMipTree,
 		RadianceRT->GetRenderTargetItem().UAV,
 		SampleCountRT->GetRenderTargetItem().UAV,
@@ -581,10 +508,8 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 		RayCountPerPixelRT->GetRenderTargetItem().UAV
 	);
 
-	FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
-
-	const uint32 RayGenShaderIndex = 0;
-	RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, View.ViewRect.Size().X, View.ViewRect.Size().Y);
+	FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.RayTracingScene.RayTracingSceneRHI;
+	RHICmdList.RayTraceDispatch(View.RayTracingMaterialPipeline, RayGenShader->GetRayTracingShader(), RayTracingSceneRHI, GlobalResources, View.ViewRect.Size().X, View.ViewRect.Size().Y);
 
 	// Save RayTracingIndirect for compositing
 	RHICmdList.CopyToResolveTarget(RadianceRT->GetRenderTargetItem().TargetableTexture, RadianceRT->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
@@ -662,7 +587,8 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 		OutputRadianceRT->GetRenderTargetItem().TargetableTexture,
 		OutputSampleCountRT->GetRenderTargetItem().TargetableTexture
 	};
-	SetRenderTargets(RHICmdList, 3, RenderTargets, SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilNop);
+	FRHIRenderPassInfo RenderPassInfo(3, RenderTargets, ERenderTargetActions::Load_Store);
+	RHICmdList.BeginRenderPass(RenderPassInfo, TEXT("PathTracing"));
 
 	// DEBUG: Inspect render target in isolation
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
@@ -688,7 +614,9 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 		FTextureRHIRef CumulativeRadianceTexture = GBlackTexture->TextureRHI;
 		FTextureRHIRef CumulativeSampleCount = GBlackTexture->TextureRHI;
 
-		if (ViewState->PathTracingIrradianceRT && SPPCount < CVarPathTracingSamplesPerPixel.GetValueOnRenderThread())
+		int32 SamplesPerPixelCVar = CVarPathTracingSamplesPerPixel.GetValueOnRenderThread();
+		int32 PathTracingSamplesPerPixel = SamplesPerPixelCVar > -1 ? SamplesPerPixelCVar : View.FinalPostProcessSettings.PathTracingSamplesPerPixel;
+		if (ViewState->PathTracingIrradianceRT && SPPCount < PathTracingSamplesPerPixel)
 		{
 			CumulativeRadianceTexture = ViewState->PathTracingIrradianceRT->GetRenderTargetItem().ShaderResourceTexture;
 			CumulativeSampleCount = ViewState->PathTracingSampleCountRT->GetRenderTargetItem().ShaderResourceTexture;
@@ -710,6 +638,7 @@ void FDeferredShadingSceneRenderer::RenderPathTracing(FRHICommandListImmediate& 
 			SceneContext.GetBufferSizeXY(),
 			*VertexShader);
 	}
+	RHICmdList.EndRenderPass();
 
 	RHICmdList.CopyToResolveTarget(OutputRadianceRT->GetRenderTargetItem().TargetableTexture, OutputRadianceRT->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());
 	RHICmdList.CopyToResolveTarget(OutputSampleCountRT->GetRenderTargetItem().TargetableTexture, OutputSampleCountRT->GetRenderTargetItem().ShaderResourceTexture, FResolveParams());

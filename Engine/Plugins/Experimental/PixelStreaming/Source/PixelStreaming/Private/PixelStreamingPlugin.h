@@ -11,6 +11,7 @@ class APlayerController;
 class FSceneViewport;
 class FStreamer;
 class UPixelStreamingInputComponent;
+class SWindow;
 
 /**
  * This plugin allows the back buffer to be sent as a compressed video across
@@ -40,7 +41,7 @@ public:
 private:
 
 	void UpdateViewport(FSceneViewport* Viewport);
-	void OnBackBufferReady_RenderThread(const FTexture2DRHIRef& BackBuffer);
+	void OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer);
 	void OnPreResizeWindowBackbuffer(void* BackBuffer);
 	void OnPreResizeWindowBackbuffer_RenderThread();
 	void OnGameModePostLogin(AGameModeBase* GameMode, APlayerController* NewPlayer);

@@ -99,7 +99,7 @@ FDirectLighting IntegrateBxDF( FGBufferData GBuffer, half3 N, half3 V, FCapsuleL
 	AreaLight.FalloffColor = 1;
 	AreaLight.Rect = (FRect)0;
 	AreaLight.bIsRect = false;
-	AreaLight.Texture = DummyRectLightTextureForCapsuleCompilerWarning;
+	AreaLight.Texture = InitRectTexture(DummyRectLightTextureForCapsuleCompilerWarning);
 
 	return IntegrateBxDF( GBuffer, N, V, L, Falloff, NoL, AreaLight, Shadow );
 }

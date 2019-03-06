@@ -21,7 +21,15 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 }
 
 #define SUPPORT_CONTACT_SHADOWS		0
-#define USE_SOURCE_TEXTURE			0 //Used in RectLight.ush  //#dxr_todo: enable textures
+#define USE_SOURCE_TEXTURE			1
+#define USE_SOURCE_TEXTURE_ARRAY	1
+
+#define LTCMatTexture				RaytracingLightsData.LTCMatTexture
+#define LTCMatSampler				RaytracingLightsData.LTCMatSampler
+#define LTCAmpTexture				RaytracingLightsData.LTCAmpTexture
+#define LTCAmpSampler				RaytracingLightsData.LTCAmpSampler
+#define PreIntegratedGF				ReflectionStruct.PreIntegratedGF			
+#define PreIntegratedGFSampler		ReflectionStruct.PreIntegratedGFSampler	
 
 #include "../DeferredShadingCommon.ush"
 #include "../DeferredLightingCommon.ush"
@@ -31,12 +39,17 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 #include "../HeightFogCommon.ush"
 #include "RayTracingCommon.ush"
 #include "RayTracingHitGroupCommon.ush"
+#include "RayTracingDirectionalLight.ush"
+#include "RayTracingRectLight.ush"
+#include "RayTracingSphereLight.ush"
+#include "RayTracingSpotLight.ush"
+#include "RayTracingPointLight.ush"
 
 uint SamplesPerPixel;
 uint MaxBounces;
 uint HeightFog;
 uint ShouldDoDirectLighting;
-uint ShouldDoReflectedShadows;
+uint ReflectedShadowsType;
 uint ShouldDoEmissiveAndIndirectLighting;
 uint UpscaleFactor;
 uint SortTileSize;
@@ -58,16 +71,6 @@ RWTexture2D<float> RayHitDistanceOutput;
 
 // Material buffer and tile size are used for sorted materials.
 RWStructuredBuffer<FDeferredMaterialPayload> MaterialBuffer;
-
-// #dxr-todo: move to RayTracingCommon.ush
-float3 ReconstructWorldPositionFromDepth(float2 UV, float Depth)
-{
-	float2 ScreenPosition = (UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * Depth, Depth, 1), View.ScreenToWorld);
-	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-
-	return WorldPosition;
-}
 
 uint2 GetPixelCoord(uint2 DispatchThreadId)
 {
@@ -114,8 +117,16 @@ void RayTracingReflectionsRGS()
 
 	uint LocalSamplesPerPixel = SamplesPerPixel;
 
-	// Mask out depth values at or beyond far plane
-	if (Depth >= SCENE_TEXTURES_DISABLED_SCENE_DEPTH_VALUE)
+	// Mask out depth values that are infinitely far away
+	float DeviceZ = SceneTexturesStruct.SceneDepthTexture.Load(int3(PixelCoord, 0)).r;
+	bool IsFiniteDepth = DeviceZ > 0.0;
+	if (!IsFiniteDepth)
+	{
+		LocalSamplesPerPixel = 0;
+	}
+
+	// Mask out samples from rounding to tile boundaries
+	if (DIM_DEFERRED_MATERIAL_MODE == DEFERRED_MATERIAL_MODE_GATHER && any(DispatchThreadId >= RayTracingResolution))
 	{
 		LocalSamplesPerPixel = 0;
 	}
@@ -134,7 +145,12 @@ void RayTracingReflectionsRGS()
 	// When a shortened ray misses the geometry, we fall back to local reflection capture sampling (similar to SSR).
 	const float LocalMaxRayDistance = bAllowSkySampling ? 1e27f : lerp(ReflectionMaxRayDistance, ReflectionMinRayDistance, ScreenSpaceData.GBuffer.Roughness);
 
-	if (RoughnessFade > 0 || ClearCoatRoughnessFade > 0)
+	// Cutoff
+	// * Roughness value
+	// * Hair material is not for RT reflection at the moment. Their indirect contributuion is based on diffuse SH evaluation in ReflectionEnvironemenPixelShader.usf
+    const bool bIsValidPixel = (RoughnessFade > 0 || ClearCoatRoughnessFade > 0) && ScreenSpaceData.GBuffer.ShadingModelID != SHADINGMODELID_HAIR;
+	   
+	if (bIsValidPixel)
 	{
 		for (uint SampleIndex = 0; SampleIndex < LocalSamplesPerPixel; ++SampleIndex)
 		{
@@ -151,10 +167,10 @@ void RayTracingReflectionsRGS()
 			float Roughness = ScreenSpaceData.GBuffer.Roughness;
 			float3 SpecularColor = ScreenSpaceData.GBuffer.SpecularColor;
 			float3 IncidentDirection = CameraDirection;
-			float ClearCoat;
-			float ClearCoatRoughness;
+			float ClearCoat = 1.0f;
+			float ClearCoatRoughness = 1.0f;
 			#if CLEAR_COAT_BOTTOM_NORMAL
-			float3 ClearCoatBottomNormal;
+			float3 ClearCoatBottomNormal = WorldNormal;
 			#endif
 			
 			uint ShadingModelID = ScreenSpaceData.GBuffer.ShadingModelID;
@@ -165,14 +181,6 @@ void RayTracingReflectionsRGS()
 				#if CLEAR_COAT_BOTTOM_NORMAL
 					const float2 oct1 = ((float2(ScreenSpaceData.GBuffer.CustomData.a, ScreenSpaceData.GBuffer.CustomData.z) * 2) - (256.0/255.0)) + UnitVectorToOctahedron(ScreenSpaceData.GBuffer.WorldNormal);
 					ClearCoatBottomNormal = OctahedronToUnitVector(oct1);
-				#endif
-			}
-			else
-			{
-				ClearCoat = 1.0f;
-				ClearCoatRoughness = 1.0f;
-				#if CLEAR_COAT_BOTTOM_NORMAL
-					ClearCoatBottomNormal = WorldNormal;
 				#endif
 			}
 
@@ -255,9 +263,9 @@ void RayTracingReflectionsRGS()
 						TraceRay(
 							TLAS,      // AccelerationStructure
 							RayFlags,
-							0xFF,      // InstanceInclusionMask
-							0,         // RayContributionToHitGroupIndex
-							1,         // MultiplierForGeometryContributionToShaderIndex
+							RAY_TRACING_MASK_OPAQUE,          // InstanceInclusionMask -- NOTE: Reflection rays are traced only against opaque geometry. Blended geometry needs special handling (#dxr_todo).
+							RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+							RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 							0,         // MissShaderIndex
 							Ray,       // RayDesc
 							DeferredMaterialPayload
@@ -288,7 +296,8 @@ void RayTracingReflectionsRGS()
 				// Force the ray to miss on the MaxBounces + 1 fake bounce, so that we fallback to cubemap there
 				if (BounceIndex < MaxBounces)
 				{
-					Payload = TraceRayAndAccumulateResults(Ray, false, ReflectionMaxNormalBias, RayCone, Radiance);
+					const uint RayFlags = 0;					
+					Payload = TraceRayAndAccumulateResults(Ray, RandSequence, RayFlags, ReflectionMaxNormalBias, RAY_TRACING_MASK_OPAQUE, RayCone, Radiance);
 				}
 
 				bool bApplyHeightFog = false;

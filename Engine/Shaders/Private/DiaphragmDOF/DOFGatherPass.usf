@@ -352,13 +352,19 @@ void GatherMainCS(
 	else
 	{
 		// Drives kernel sampling density.
-		#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER > 0
+		#if CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER == 0
+			// NOP
+		#elif CONFIG_KERNEL_SAMPLING_DENSITY_DRIVER == 1
 		{
 			#if DIM_LAYER_PROCESSING != LAYER_PROCESSING_BACKGROUND_ONLY
 				#error Kernel sampling density driver only available for background.
 			#endif
 
-			GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
+			#if CONFIG_LAYER_GATHERING
+				GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_RECURSIVE_DISKS;
+			#else
+				GatherParameters.KernelSamplingDensityMode = KERNEL_DENSITY_HIGHER_IN_CENTER_DISK;
+			#endif
 		}
 		#endif
 

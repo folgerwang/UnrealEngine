@@ -78,9 +78,16 @@ struct FRHIFlipDetails
 
 struct FRayTracingGeometryInstance
 {
-	const FRayTracingGeometryRHIParamRef GeometryRHI;
-	FMatrix Transform;
-	uint32 UserData;
+	FRayTracingGeometryRHIParamRef GeometryRHI = nullptr;
+	FMatrix Transform = FMatrix(EForceInit::ForceInitToZero);
+	uint32 UserData = 0;
+	uint8 Mask = 0;
+
+	// No any-hit shaders will be invoked for this geometry instance (only closest hit)
+	bool bForceOpaque = false;
+
+	// Disabling this will allow ray hits to be registered for front and back faces
+	bool bDoubleSided = false;
 };
 
 struct FRayTracingGeometrySegment
@@ -116,6 +123,13 @@ struct FRayTracingSceneInitializer
 {
 	TArrayView<FRayTracingGeometryInstance> Instances;
 	bool bIsDynamic = false;
+
+	// This value controls how many elements will be allocated in the shader binding table per geometry segment.
+	// Changing this value allows different hit shaders to be used for different effects.
+	// For example, setting this to 2 allows one hit shader for regular material evaluation and a different one for shadows.
+	// Desired hit shader can be selected by providing appropriate RayContributionToHitGroupIndex to TraceRay() function.
+	// Use ShaderSlot argument in SetRayTracingHitGroup() to assign shaders and resources for specific part of the shder binding table record.
+	uint32 ShaderSlotsPerGeometrySegment = 1;
 };
 
 /** The interface which is implemented by the dynamically bound RHI. */

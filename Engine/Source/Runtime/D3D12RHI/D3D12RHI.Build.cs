@@ -7,16 +7,16 @@ public class D3D12RHI : ModuleRules
 	public D3D12RHI(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateIncludePaths.Add("Runtime/D3D12RHI/Private");
-        PrivateIncludePaths.Add("../Shaders/Private/RayTracing");
+		PrivateIncludePaths.Add("../Shaders/Shared");
 
-        PrivateDependencyModuleNames.AddRange(
+		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
 				"Engine",
 				"RHI",
 				"RenderCore",
 				"UtilityShaders",
-			    }
+				}
 			);
 
 		if (Target.Configuration != UnrealTargetConfiguration.Shipping)

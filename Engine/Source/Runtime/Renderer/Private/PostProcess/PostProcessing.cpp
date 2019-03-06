@@ -39,6 +39,7 @@
 #include "PostProcess/PostProcessCircleDOF.h"
 #include "PostProcess/PostProcessUpscale.h"
 #include "PostProcess/PostProcessHMD.h"
+#include "PostProcess/PostProcessMitchellNetravali.h"
 #include "PostProcess/PostProcessVisualizeComplexity.h"
 #include "PostProcess/PostProcessCompositeEditorPrimitives.h"
 #include "CompositionLighting/PostProcessPassThrough.h"
@@ -218,6 +219,13 @@ TAutoConsoleVariable<int32> CVarUseDiaphragmDOF(
 	TEXT(" 0: Circle DOF (old implementation);")
 	TEXT(" 1: Diaphragm DOF (default).\n"),
 	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarTemporalAAHistorySP(
+	TEXT("r.TemporalAA.HistoryScreenPercentage"),
+	100.0f,
+	TEXT("Size of temporal AA's history."),
+	ECVF_RenderThreadSafe
+);
 
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("/Engine/Private/PostProcessBloom.usf"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
@@ -937,7 +945,7 @@ static void AddTemporalAA( FPostprocessContext& Context, FRenderingCompositeOutp
 		Context,
 		Parameters,
 		Context.View.PrevViewInfo.TemporalAAHistory,
-		&ViewState->PendingPrevFrameViewInfo.TemporalAAHistory));
+		&ViewState->PrevFrameViewInfo.TemporalAAHistory));
 
 	TemporalAAPass->SetInput( ePId_Input0, Context.FinalOutput );
 	TemporalAAPass->SetInput( ePId_Input2, VelocityInput );
@@ -1433,6 +1441,8 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 		//
 		FSceneViewState* ViewState = (FSceneViewState*)Context.View.State;
 
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+
 		{
 			if (FSceneRenderTargets::Get(RHICmdList).SeparateTranslucencyRT)
 			{
@@ -1605,31 +1615,77 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 
 			if( AntiAliasingMethod == AAM_TemporalAA && ViewState)
 			{
-				FTAAPassParameters Parameters = MakeTAAPassParametersForView(Context.View);
+				FTAAPassParameters TAAParameters = MakeTAAPassParametersForView(Context.View);
+
+				float HistoryUpscaleSize = FMath::Clamp(CVarTemporalAAHistorySP.GetValueOnRenderThread() / 100.0f, 1.0f, 2.0f);
+				if (!IsPCPlatform(View.GetShaderPlatform()) || !IsFeatureLevelSupported(View.GetShaderPlatform(), ERHIFeatureLevel::SM5))
+				{
+					HistoryUpscaleSize = 1;
+				}
 
 				// Downsample pass may be merged with with TemporalAA when there is no motion blur and compute shader is used.
 				// This is currently only possible for r.Downsample.Quality = 0 (box filter).
-				const bool bDownsampleDuringTemporalAA = (CVarTemporalAAAllowDownsampling.GetValueOnRenderThread() != 0)
+				TAAParameters.bDownsample = (CVarTemporalAAAllowDownsampling.GetValueOnRenderThread() != 0)
 					&& !IsMotionBlurEnabled(View)
 					&& !bVisualizeMotionBlur
-					&& Parameters.bIsComputePass
-					&& (DownsampleQuality == 0);
+					&& TAAParameters.bIsComputePass
+					&& (DownsampleQuality == 0)
+					&& TAAParameters.bUseFast;
 
-				Parameters.bDownsample = bDownsampleDuringTemporalAA;
-				Parameters.DownsampleOverrideFormat = SceneColorHalfResFormat;
+				TAAParameters.DownsampleOverrideFormat = SceneColorHalfResFormat;
+
+				FIntPoint SecondaryViewRectSize(TAAParameters.OutputViewRect.Width(), TAAParameters.OutputViewRect.Height());
+
+				if (HistoryUpscaleSize > 1.0f)
+				{
+					FIntPoint HistoryViewSize(
+						SecondaryViewRectSize.X * HistoryUpscaleSize,
+						SecondaryViewRectSize.Y * HistoryUpscaleSize);
+
+					FIntPoint QuantizedMinHistorySize;
+					QuantizeSceneBufferSize(HistoryViewSize, QuantizedMinHistorySize);
+
+					TAAParameters.Pass = ETAAPassConfig::MainSuperSampling;
+					TAAParameters.bDownsample = false;
+					TAAParameters.bUseFast = false;
+
+					TAAParameters.OutputViewRect.Min.X = 0;
+					TAAParameters.OutputViewRect.Min.Y = 0;
+					TAAParameters.OutputViewRect.Max = HistoryViewSize;
+				}
 
 				if(VelocityInput.IsValid())
 				{
-					AddTemporalAA( Context, VelocityInput, Parameters, bDownsampleDuringTemporalAA ? &SceneColorHalfRes : nullptr);
+					AddTemporalAA( Context, VelocityInput, TAAParameters, TAAParameters.bDownsample ? &SceneColorHalfRes : nullptr);
 				}
 				else
 				{
 					// black is how we clear the velocity buffer so this means no velocity
 					FRenderingCompositePass* NoVelocity = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(GSystemTextures.BlackDummy));
 					FRenderingCompositeOutputRef NoVelocityRef(NoVelocity);
-					AddTemporalAA( Context, NoVelocityRef, Parameters, bDownsampleDuringTemporalAA ? &SceneColorHalfRes : nullptr);
+					AddTemporalAA( Context, NoVelocityRef, TAAParameters, TAAParameters.bDownsample ? &SceneColorHalfRes : nullptr);
 				}
 
+				if (HistoryUpscaleSize > 1.0f)
+				{
+					FIntPoint QuantizedOutputSize;
+					QuantizeSceneBufferSize(SecondaryViewRectSize, QuantizedOutputSize);
+
+					FRCPassMitchellNetravaliDownsample::FParameters Parameters;
+					Parameters.InputViewRect = TAAParameters.OutputViewRect;
+					Parameters.OutputViewRect.Min.X = 0;
+					Parameters.OutputViewRect.Min.Y = 0;
+					Parameters.OutputViewRect.Max = SecondaryViewRectSize;
+
+					Parameters.OutputExtent.X = FMath::Max(SceneContext.GetBufferSizeXY().X, QuantizedOutputSize.X);
+					Parameters.OutputExtent.Y = FMath::Max(SceneContext.GetBufferSizeXY().Y, QuantizedOutputSize.Y);
+
+					FRenderingCompositePass* TemporalAADownsample = Context.Graph.RegisterPass(
+						new(FMemStack::Get()) FRCPassMitchellNetravaliDownsample(Parameters));
+					TemporalAADownsample->SetInput(ePId_Input0, Context.FinalOutput);
+
+					Context.FinalOutput = FRenderingCompositeOutputRef(TemporalAADownsample);
+				}
 
 				SSRInputChain = AddPostProcessMaterialChain(Context, BL_SSRInput);
 			}
@@ -2243,10 +2299,10 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, const FViewI
 				}
 			}
 
-			if (SSRInputChain.IsValid())
+			if (SSRInputChain.IsValid() && !View.bViewStateIsReadOnly)
 			{
 				check(ViewState);
-				ViewState->PendingPrevFrameViewInfo.CustomSSRInput = SSRInputChain.GetOutput()->PooledRenderTarget;
+				ViewState->PrevFrameViewInfo.CustomSSRInput = SSRInputChain.GetOutput()->PooledRenderTarget;
 			}
 		}
 	}

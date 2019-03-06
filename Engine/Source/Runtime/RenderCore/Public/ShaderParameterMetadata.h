@@ -80,15 +80,32 @@ public:
 		,	NumElements(InNumElements)
 		,	Struct(InStruct)
 		{}
-	
+
+		/** Returns the string of the name of the element or name of the array of elements. */
 		const TCHAR* GetName() const { return Name; }
+
+		/** Returns the string of the type. */
 		const TCHAR* GetShaderType() const { return ShaderType; }
+
+		/** Returns the offset of the element in the shader parameter struct in bytes. */
 		uint32 GetOffset() const { return Offset; }
+
+		/** Returns the type of the elements, int, UAV... */
 		EUniformBufferBaseType GetBaseType() const { return BaseType; }
+
+		/** Floating point the element is being stored. */
 		EShaderPrecisionModifier::Type GetPrecision() const { return Precision; }
+
+		/** Returns the number of row in the element. For instance FMatrix would return 4, or FVector would return 1. */
 		uint32 GetNumRows() const { return NumRows; }
+
+		/** Returns the number of column in the element. For instance FMatrix would return 4, or FVector would return 3. */
 		uint32 GetNumColumns() const { return NumColumns; }
+
+		/** Returns the number of elements in array, or 0 if this is not an array. */
 		uint32 GetNumElements() const { return NumElements; }
+
+		/** Returns the metadata of the struct. */
 		const FShaderParametersMetadata* GetStructMetadata() const { return Struct; }
 
 		/** Returns the size of the member. */
@@ -149,7 +166,11 @@ public:
 	const TArray<FMember>& GetMembers() const { return Members; }
 
 	/** Find a member for a given offset. */
-	void FindMemberFromOffset(uint16 MemberOffset, const FShaderParametersMetadata** OutContainingStruct, const FShaderParametersMetadata::FMember** OutMember) const;
+	void FindMemberFromOffset(
+		uint16 MemberOffset,
+		const FShaderParametersMetadata** OutContainingStruct,
+		const FShaderParametersMetadata::FMember** OutMember,
+		int32* ArrayElementId, FString* NamePrefix) const;
 
 	static TLinkedList<FShaderParametersMetadata*>*& GetStructList();
 	/** Speed up finding the uniform buffer by its name */

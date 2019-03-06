@@ -9,71 +9,90 @@
 #elif DIM_SORT_SIZE == 2
 	#define NUM_ELEMENTS 1024
 
+#elif DIM_SORT_SIZE == 3
+#define NUM_ELEMENTS 2048
+
+#elif DIM_SORT_SIZE == 4
+#define NUM_ELEMENTS 4096
+
+
 #else
 	#error Unknown sorting size
 #endif
 
-groupshared FDeferredMaterialPayload Entries[NUM_ELEMENTS];
+#define NUM_BINS  64
+
+groupshared uint Bins[NUM_BINS];
+groupshared uint Offsets[NUM_BINS];
+
 
 int NumTotalEntries;
 RWStructuredBuffer<FDeferredMaterialPayload> MaterialBuffer;
 
-void SwapMaterials(inout FDeferredMaterialPayload A, inout FDeferredMaterialPayload B)
+#if NUM_ELEMENTS < 1024
+#define NUM_THREADS 256
+#else
+#define NUM_THREADS  512
+#endif
+
+// Simple local bin sort based on shared atomics
+[numthreads(NUM_THREADS, 1, 1)]
+void MaterialSortLocal(uint3 DispatchThread : SV_DispatchThreadID, uint3 GroupThread : SV_GroupThreadID, uint3 GroupIndex : SV_GroupID)
 {
-	FDeferredMaterialPayload C = A;
-	A = B;
-	B = C;
-}
+	const uint GroupBase = GroupIndex.x * NUM_ELEMENTS;
 
-// #dxr_todo: Placeholder sorting within a window of up to 1024 elements. Needs to be replaced with an optimized counting / bucket sort.
-[numthreads(NUM_ELEMENTS, 1, 1)]
-void MaterialSortLocal(uint3 DispatchThread : SV_DispatchThreadID, uint3 GroupThread : SV_GroupThreadID)
-{
-	FDeferredMaterialPayload A = (FDeferredMaterialPayload)0;
-	FDeferredMaterialPayload B = (FDeferredMaterialPayload)0;
-
-	if (DispatchThread.x < NumTotalEntries)
+	if (GroupThread.x < NUM_BINS)
 	{
-		A = MaterialBuffer[DispatchThread.x];
+		Bins[GroupThread.x] = 0;
+		Offsets[GroupThread.x] = 0;
 	}
-	else
-	{
-		// ensure invalid entries sort to the end
-		A.SortKey = RAY_TRACING_DEFERRED_MATERIAL_KEY_INVALID;
-	}
-
-	Entries[GroupThread.x] = A;
 
 	GroupMemoryBarrierWithGroupSync();
 
-	int i, j, k;
+	FDeferredMaterialPayload Data[NUM_ELEMENTS / NUM_THREADS];
+	uint Slot[NUM_ELEMENTS / NUM_THREADS];
+
+	//get counts
 	[unroll]
-	for (k = 2; k <= NUM_ELEMENTS; k = 2 * k) // Outer loop, double size for each step
+	for (int i = GroupThread.x; i < NUM_ELEMENTS ; i += NUM_THREADS)
 	{
-		[unroll]
-		for (j = k >> 1; j > 0; j = j >> 1) // Inner loop, half size for each step
+		uint Index = GroupBase + i;
+		if (Index < NumTotalEntries)
 		{
-			i = GroupThread.x;
+			Data[i/ NUM_THREADS] = MaterialBuffer[Index];
+			uint Bin = Data[i / NUM_THREADS].SortKey % NUM_BINS;
 
-			int ixj = i ^ j; // Calculate indexing!
-			if ((ixj) > i)
-			{
-				A = Entries[i];
-				B = Entries[ixj];
-
-				if ((i&k) == 0 && A.SortKey > B.SortKey) SwapMaterials(A, B);
-				if ((i&k) != 0 && A.SortKey < B.SortKey) SwapMaterials(A, B);
-
-				Entries[i] = A;
-				Entries[ixj] = B;
-			}
-
-			GroupMemoryBarrierWithGroupSync();
+			InterlockedAdd(Bins[Bin], 1, Slot[i/ NUM_THREADS]);
 		}
 	}
 
-	if (DispatchThread.x < NumTotalEntries)
+	GroupMemoryBarrierWithGroupSync();
+
+	// compute prefix sum
+	// Naive implementation that trades instructions for fewer barriers
+	// Can be improved by WaveOps if compiled as SM6
+	if (GroupThread.x < NUM_BINS)
 	{
-		MaterialBuffer[DispatchThread.x] = Entries[GroupThread.x];
+		for (int i = 0; i < GroupThread.x; i++)
+		{
+			Offsets[GroupThread.x] += Bins[i];
+		}
+	}
+
+	DeviceMemoryBarrier();
+	GroupMemoryBarrierWithGroupSync();
+	
+	//write data
+	[unroll]
+	for (int i = GroupThread.x; i < NUM_ELEMENTS; i += NUM_THREADS)
+	{
+		uint Index = GroupBase + i;
+		if (Index < NumTotalEntries)
+		{
+			uint Bin = Data[i / NUM_THREADS].SortKey % NUM_BINS;
+			uint DestIndex = GroupBase + Offsets[Bin] + Slot[i / NUM_THREADS];
+
+			MaterialBuffer[DestIndex] = Data[i / NUM_THREADS];
+		}
 	}
 }

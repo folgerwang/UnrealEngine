@@ -190,9 +190,10 @@ public:
 #if RHI_RAYTRACING
 	virtual bool IsRayTracingRelevant() const { return false; }
 	virtual bool IsRayTracingStaticRelevant() const { return false; }
+
 	/** Gathers dynamic ray tracing instances from this proxy. */
-	ENGINE_API virtual FRayTracingGeometryRHIRef GetDynamicRayTracingGeometryInstance() const { return nullptr; }
-	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) {}
+	virtual void GetDynamicRayTracingInstances(struct FRayTracingMaterialGatheringContext& Context, TArray<struct FRayTracingInstance>& OutRayTracingInstances) {}
+
 	TArray<FRayTracingGeometryRHIRef>&& MoveRayTracingGeometries()
 	{
 		return static_cast<TArray<FRayTracingGeometryRHIRef>&&>(RayTracingGeometries);
@@ -467,6 +468,7 @@ public:
 		return (LightingChannelMask & 0x6) | (~LightingChannelMask & 0x1); 
 	}
 	inline bool IsVisibleInReflectionCaptures() const { return bVisibleInReflectionCaptures; }
+	inline bool IsVisibleInRayTracing() const { return bVisibleInRayTracing; }
 	inline bool ShouldRenderInMainPass() const { return bRenderInMainPass; }
 	inline bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	inline bool IsHovered() const { return bHovered; }
@@ -785,6 +787,9 @@ private:
 
 	/** True if the primitive should be visible in reflection captures. */
 	uint8 bVisibleInReflectionCaptures : 1;
+
+	/** If true, this component will be visible in ray tracing effects. Turning this off will remove it from ray traced reflections, shadows, etc. */
+	uint8 bVisibleInRayTracing : 1;
 
 	/** If true this primitive Renders in the mainPass */
 	uint8 bRenderInMainPass : 1;

@@ -20,7 +20,7 @@ inline FD3D12UnorderedAccessView* CreateUAV(D3D12_UNORDERED_ACCESS_VIEW_DESC& De
 		if (bNeedsCounterResource)
 		{
 			const FRHIGPUMask Node = Device->GetGPUMask();
-			Device->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, Node, Node, 4, &CounterResource, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			Device->GetParentAdapter()->CreateBuffer(D3D12_HEAP_TYPE_DEFAULT, Node, Node, 4, &CounterResource,  TEXT("Counter"), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 		}
 
 		return new FD3D12UnorderedAccessView(Device, Desc, Resource->ResourceLocation, CounterResource);

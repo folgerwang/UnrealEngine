@@ -429,8 +429,8 @@ void FD3D12QueryHeap::CreateResultBuffer()
 		ResultBufferHeapProperties,
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
-		ResultBuffer.GetInitReference()));
-	SetName(ResultBuffer, L"Query Heap Result Buffer");
+		ResultBuffer.GetInitReference(),
+		TEXT("Query Heap Result Buffer")));
 
 	// Map the result buffer (and keep it mapped)
 	VERIFYD3D12RESULT(ResultBuffer->GetResource()->Map(0, nullptr, &pResultData));
@@ -530,8 +530,7 @@ void FD3D12BufferedGPUTiming::InitDynamicRHI()
 
 		// Multi-GPU support : GPU timing only profile GPU0 currently.
 		const uint64 Size = 8 * QueryHeapDesc.Count; // Each timestamp query occupies 8 bytes.
-		Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, FRHIGPUMask::GPU0(), Node, D3D12_RESOURCE_STATE_COPY_DEST, Size, TimestampQueryHeapBuffer.GetInitReference());
-		SetName(TimestampQueryHeapBuffer, L"FD3D12BufferedGPUTiming: Timestamp Query Result Buffer");
+		Adapter->CreateBuffer(D3D12_HEAP_TYPE_READBACK, FRHIGPUMask::GPU0(), Node, D3D12_RESOURCE_STATE_COPY_DEST, Size, TimestampQueryHeapBuffer.GetInitReference(), TEXT("FD3D12BufferedGPUTiming: Timestamp Query Result Buffer"));
 
 		TimestampListHandles.AddZeroed(QueryHeapDesc.Count);
 	}

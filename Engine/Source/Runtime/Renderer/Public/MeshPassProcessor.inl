@@ -131,7 +131,7 @@ void FMeshPassProcessor::BuildMeshDrawCommands(
 
 			const int32 DrawPrimitiveId = GetDrawCommandPrimitiveId(PrimitiveSceneInfo, BatchElement);
 			FMeshProcessorShaders ShadersForDebugging = PassShaders.GetUntypedShaders();
-			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, SortKey, PipelineState, &ShadersForDebugging, MeshDrawCommand, true);
+			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, SortKey, PipelineState, &ShadersForDebugging, MeshDrawCommand);
 		}
 	}
 }
@@ -153,68 +153,4 @@ void DrawDynamicMeshPass(const FSceneView& View, FRHICommandList& RHICmdList, co
 	// We assume all dynamic passes are in stereo if it is enabled in the view, so we apply ISR to them
 	const uint32 InstanceFactor = View.IsInstancedStereoPass() ? 2 : 1;
 	DrawDynamicMeshPassPrivate(View, RHICmdList, VisibleMeshDrawCommands, DynamicMeshDrawCommandStorage, InstanceFactor);
-}
-
-template<typename PassShadersType, typename ShaderElementDataType>
-void FMeshPassProcessor::BuildRayTracingDrawCommands(
-	const FMeshBatch& RESTRICT MeshBatch,
-	uint64 BatchElementMask,
-	const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
-	const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
-	const FMaterial& RESTRICT MaterialResource,
-	const FMeshPassProcessorRenderState& RESTRICT DrawRenderState,
-	PassShadersType PassShaders,
-	ERasterizerFillMode MeshFillMode,
-	ERasterizerCullMode MeshCullMode,
-	FMeshDrawCommandSortKey SortKey,
-	EMeshPassFeatures MeshPassFeatures,
-	const ShaderElementDataType& ShaderElementData)
-{
-	const FVertexFactory* RESTRICT VertexFactory = MeshBatch.VertexFactory;
-
-	checkf(MaterialRenderProxy.ImmutableSamplerState.ImmutableSamplers[0] == nullptr, TEXT("Immutable samplers not yet supported in Mesh Draw Command pipeline"));
-
-	FGraphicsMinimalPipelineStateInitializer DummyPipelineState;
-	FMeshDrawCommand SharedMeshDrawCommand;
-
-	check(VertexFactory && VertexFactory->IsInitialized());
-	VertexFactory->GetStreams(FeatureLevel, SharedMeshDrawCommand.VertexStreams);
-
-#if RHI_RAYTRACING
-	SharedMeshDrawCommand.SetRayTracingShaders(PassShaders.GetUntypedShaders());
-#endif
-
-	SharedMeshDrawCommand.SetDebugData(PrimitiveSceneProxy, &MaterialResource, &MaterialRenderProxy, PassShaders.GetUntypedShaders());
-
-#if RHI_RAYTRACING
-	if (PassShaders.RayHitGroupShader)
-	{
-		FMeshDrawSingleShaderBindings ShaderBindings = SharedMeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
-		PassShaders.RayHitGroupShader->GetShaderBindings(Scene, FeatureLevel, PrimitiveSceneProxy, MaterialRenderProxy, MaterialResource, DrawRenderState, ShaderElementData, ShaderBindings);
-	}
-#endif
-
-	const int32 NumElements = MeshBatch.Elements.Num();
-
-	for (int32 BatchElementIndex = 0; BatchElementIndex < NumElements; BatchElementIndex++)
-	{
-		if ((1ull << BatchElementIndex) & BatchElementMask)
-		{
-			const FMeshBatchElement& BatchElement = MeshBatch.Elements[BatchElementIndex];
-			FMeshDrawCommand& MeshDrawCommand = DrawListContext->AddCommand(SharedMeshDrawCommand);
-
-#if RHI_RAYTRACING
-			if (PassShaders.RayHitGroupShader)
-			{
-				FMeshDrawSingleShaderBindings RayHitGroupShaderBindings = MeshDrawCommand.ShaderBindings.GetSingleShaderBindings(SF_RayHitGroup);
-				PassShaders.RayHitGroupShader->GetElementShaderBindings(Scene, ViewIfDynamicMeshCommand, VertexFactory, false, FeatureLevel, PrimitiveSceneProxy, MeshBatch, BatchElement, ShaderElementData, RayHitGroupShaderBindings, MeshDrawCommand.VertexStreams);
-			}
-#endif
-
-			const int32 DrawPrimitiveId = 0;
-			const int32 ScenePrimitiveId = 0;
-			FMeshProcessorShaders ShadersForDebugging = PassShaders.GetUntypedShaders();
-			DrawListContext->FinalizeCommand(MeshBatch, BatchElementIndex, DrawPrimitiveId, MeshFillMode, MeshCullMode, SortKey, DummyPipelineState, &ShadersForDebugging, MeshDrawCommand, false);
-		}
-	}
 }

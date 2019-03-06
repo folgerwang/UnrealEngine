@@ -30,7 +30,6 @@ namespace EMeshPass
 		CustomDepth,
 		MobileBasePassCSM,  /** Mobile base pass with CSM shading enabled */
 		MobileInverseOpacity,  /** Mobile specific scene capture, Non-cached */
-		RayTracing,
 
 #if WITH_EDITOR
 		HitProxy,
@@ -61,7 +60,6 @@ inline const TCHAR* GetMeshPassName(EMeshPass::Type MeshPass)
 	case EMeshPass::CustomDepth: return TEXT("CustomDepth");
 	case EMeshPass::MobileBasePassCSM: return TEXT("MobileBasePassCSM");
 	case EMeshPass::MobileInverseOpacity: return TEXT("MobileInverseOpacity");
-	case EMeshPass::RayTracing: return TEXT("RayTracing");
 #if WITH_EDITOR
 	case EMeshPass::HitProxy: return TEXT("HitProxy");
 	case EMeshPass::HitProxyOpaqueOnly: return TEXT("HitProxyOpaqueOnly");
@@ -330,7 +328,7 @@ public:
 	void SetOnCommandListForCompute(FRHICommandList& RHICmdList, FComputeShaderRHIParamRef Shader) const;
 
 #if RHI_RAYTRACING
-	void SetOnRayTracingStructure(FRHICommandList& RHICmdList, FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex) const;
+	void SetRayTracingShaderBindingsForHitGroup(FRHICommandList& RHICmdList, FRayTracingSceneRHIParamRef Scene, uint32 InstanceIndex, uint32 SegmentIndex, FRayTracingPipelineStateRHIParamRef Pipeline, uint32 HitGroupIndex, uint32 ShaderSlot) const;
 #endif // RHI_RAYTRACING
 
 	/** Returns whether this set of shader bindings can be merged into an instanced draw call with another. */
@@ -467,12 +465,6 @@ public:
 	/** Non-pipeline state */
 	uint8 StencilRef;
 
-    /**
-	 * Ray tracing specific
-	 */
-	uint8 RayTracedSegmentIndex;
-	uint32 RayTracingMaterialLibraryIndex = UINT_MAX;
-
 	FMeshDrawCommand()
 	{}
 
@@ -493,11 +485,6 @@ public:
 
 	/** Sets shaders on the mesh draw command and allocates room for the shader bindings. */
 	RENDERER_API void SetShaders(FVertexDeclarationRHIParamRef VertexDeclaration, const FMeshProcessorShaders& Shaders, FGraphicsMinimalPipelineStateInitializer& PipelineState);
-
-#if RHI_RAYTRACING
-	/** Sets ray hit group shaders on the mesh draw command and allocates room for the shader bindings. */
-	RENDERER_API void SetRayTracingShaders(const FMeshProcessorShaders& Shaders);
-#endif // RHI_RAYTRACING
 
 	inline void SetStencilRef(uint32 InStencilRef)
 	{
@@ -563,7 +550,6 @@ private:
 #endif
 };
 
-
 /** FVisibleMeshDrawCommand sort key. */
 class RENDERER_API FMeshDrawCommandSortKey
 {
@@ -624,8 +610,7 @@ public:
 		FMeshDrawCommandSortKey SortKey,
 		const FGraphicsMinimalPipelineStateInitializer& PipelineState,
 		const FMeshProcessorShaders* ShadersForDebugging,
-		FMeshDrawCommand& MeshDrawCommand,
-		bool bDoSetupPsoStateForRasterization) = 0;
+		FMeshDrawCommand& MeshDrawCommand) = 0;
 };
 
 /** Storage for Mesh Draw Commands built every frame. */
@@ -675,10 +660,6 @@ public:
 	// A value of -1 means the draw is not in any state bucket and should be sorted by other factors instead.
 	int32 StateBucketId;
 
-#if RHI_RAYTRACING
-	uint32 RayTracedInstanceIndex;
-#endif
-
 	// Needed for view overrides
 	ERasterizerFillMode MeshFillMode : ERasterizerFillMode_NumBits + 1;
 	ERasterizerCullMode MeshCullMode : ERasterizerCullMode_NumBits + 1;
@@ -723,14 +704,10 @@ public:
 		FMeshDrawCommandSortKey SortKey,
 		const FGraphicsMinimalPipelineStateInitializer& PipelineState,
 		const FMeshProcessorShaders* ShadersForDebugging,
-		FMeshDrawCommand& MeshDrawCommand,
-		bool bDoSetupPsoStateForRasterization) override final
+		FMeshDrawCommand& MeshDrawCommand) override final
 	{
 		FGraphicsMinimalPipelineStateId PipelineId;
-		if (bDoSetupPsoStateForRasterization)
-		{
-			PipelineId = FGraphicsMinimalPipelineStateId::GetOneFrameId(PipelineState);
-		}
+		PipelineId = FGraphicsMinimalPipelineStateId::GetOneFrameId(PipelineState);
 
 		MeshDrawCommand.SetDrawParametersAndFinalize(MeshBatch, BatchElementIndex, PipelineId, ShadersForDebugging);
 
@@ -817,8 +794,7 @@ public:
 		FMeshDrawCommandSortKey SortKey,
 		const FGraphicsMinimalPipelineStateInitializer& PipelineState,
 		const FMeshProcessorShaders* ShadersForDebugging,
-		FMeshDrawCommand& MeshDrawCommand,
-		bool bDoSetupPsoStateForRasterization) override final;
+		FMeshDrawCommand& MeshDrawCommand) override final;
 
 private:
 	FMeshDrawCommand MeshDrawCommandForStateBucketing;
@@ -1055,20 +1031,6 @@ public:
 		EMeshPassFeatures MeshPassFeatures,
 		const ShaderElementDataType& ShaderElementData);
 
-	template<typename PassShadersType, typename ShaderElementDataType>
-	void BuildRayTracingDrawCommands(
-		const FMeshBatch& RESTRICT MeshBatch,
-		uint64 BatchElementMask,
-		const FPrimitiveSceneProxy* RESTRICT PrimitiveSceneProxy,
-		const FMaterialRenderProxy& RESTRICT MaterialRenderProxy,
-		const FMaterial& RESTRICT MaterialResource,
-		const FMeshPassProcessorRenderState& RESTRICT DrawRenderState,
-		PassShadersType PassShaders,
-		ERasterizerFillMode MeshFillMode,
-		ERasterizerCullMode MeshCullMode,
-		FMeshDrawCommandSortKey SortKey,
-		EMeshPassFeatures MeshPassFeatures,
-		const ShaderElementDataType& ShaderElementData);
 private:
 	RENDERER_API int32 GetDrawCommandPrimitiveId(const FPrimitiveSceneInfo* RESTRICT PrimitiveSceneInfo, const FMeshBatchElement& BatchElement) const;
 };
@@ -1155,3 +1117,119 @@ RENDERER_API extern void DrawDynamicMeshPassPrivate(
 	uint32 InstanceFactor);
 
 RENDERER_API extern FMeshDrawCommandSortKey CalculateMeshStaticSortKey(const FMeshMaterialShader* VertexShader, const FMeshMaterialShader* PixelShader);
+
+#if RHI_RAYTRACING
+class FRayTracingMeshCommand
+{
+public:
+	FMeshDrawShaderBindings ShaderBindings;
+
+	uint32 MaterialShaderIndex = UINT_MAX;
+
+	uint8 GeometrySegmentIndex = 0xFF;
+	uint8 InstanceMask = 0xFF;
+
+	bool bCastRayTracedShadows = true;
+	bool bOpaque = true;
+
+	/** Sets ray hit group shaders on the mesh command and allocates room for the shader bindings. */
+	RENDERER_API void SetShaders(const FMeshProcessorShaders& Shaders);
+};
+
+class FVisibleRayTracingMeshCommand
+{
+public:
+	const FRayTracingMeshCommand* RayTracingMeshCommand;
+
+	uint32 InstanceIndex;
+};
+
+template <>
+struct TUseBitwiseSwap<FVisibleRayTracingMeshCommand>
+{
+	// Prevent Memcpy call overhead during FVisibleRayTracingMeshCommand sorting
+	enum { Value = false };
+};
+
+typedef TArray<FVisibleRayTracingMeshCommand, SceneRenderingAllocator> FRayTracingMeshCommandOneFrameArray;
+
+class FRayTracingMeshCommandContext
+{
+public:
+
+	virtual ~FRayTracingMeshCommandContext() {}
+
+	virtual FRayTracingMeshCommand& AddCommand(const FRayTracingMeshCommand& Initializer) = 0;
+
+	virtual void FinalizeCommand(FRayTracingMeshCommand& RayTracingMeshCommand) = 0;
+};
+
+struct FCachedRayTracingMeshCommandStorage
+{
+	TSparseArray<FRayTracingMeshCommand> RayTracingMeshCommands;
+};
+
+struct FDynamicRayTracingMeshCommandStorage
+{
+	TChunkedArray<FRayTracingMeshCommand> RayTracingMeshCommands;
+};
+
+class FCachedRayTracingMeshCommandContext : public FRayTracingMeshCommandContext
+{
+public:
+	FCachedRayTracingMeshCommandContext(FCachedRayTracingMeshCommandStorage& InDrawListStorage) : DrawListStorage(InDrawListStorage) {}
+
+	virtual FRayTracingMeshCommand& AddCommand(const FRayTracingMeshCommand& Initializer) override final
+	{
+		CommandIndex = DrawListStorage.RayTracingMeshCommands.Add(Initializer);
+		return DrawListStorage.RayTracingMeshCommands[CommandIndex];
+	}
+
+	virtual void FinalizeCommand(FRayTracingMeshCommand& RayTracingMeshCommand) override final {}
+
+	int32 CommandIndex = -1;
+
+private:
+	FCachedRayTracingMeshCommandStorage& DrawListStorage;
+};
+
+class FDynamicRayTracingMeshCommandContext : public FRayTracingMeshCommandContext
+{
+public:
+	FDynamicRayTracingMeshCommandContext
+	(
+		FDynamicRayTracingMeshCommandStorage& InDynamicCommandStorage,
+		FRayTracingMeshCommandOneFrameArray& InVisibleCommands,
+		uint8 InGeometrySegmentIndex = 0xFF,
+		uint32 InRayTracingInstanceIndex = ~0u
+	) :
+		DynamicCommandStorage(InDynamicCommandStorage),
+		VisibleCommands(InVisibleCommands),
+		GeometrySegmentIndex(InGeometrySegmentIndex),
+		RayTracingInstanceIndex(InRayTracingInstanceIndex)
+	{}
+
+	virtual FRayTracingMeshCommand& AddCommand(const FRayTracingMeshCommand& Initializer) override final
+	{
+		const int32 Index = DynamicCommandStorage.RayTracingMeshCommands.AddElement(Initializer);
+		FRayTracingMeshCommand& NewCommand = DynamicCommandStorage.RayTracingMeshCommands[Index];
+		NewCommand.GeometrySegmentIndex = GeometrySegmentIndex;
+		return NewCommand;
+	}
+
+	virtual void FinalizeCommand(FRayTracingMeshCommand& RayTracingMeshCommand) override final
+	{
+		FVisibleRayTracingMeshCommand NewVisibleMeshCommand;
+		NewVisibleMeshCommand.RayTracingMeshCommand = &RayTracingMeshCommand;
+		NewVisibleMeshCommand.InstanceIndex = RayTracingInstanceIndex;
+		VisibleCommands.Add(NewVisibleMeshCommand);
+	}
+
+private:
+	FDynamicRayTracingMeshCommandStorage& DynamicCommandStorage;
+	FRayTracingMeshCommandOneFrameArray& VisibleCommands;
+	uint8 GeometrySegmentIndex;
+	uint32 RayTracingInstanceIndex;
+};
+
+#endif

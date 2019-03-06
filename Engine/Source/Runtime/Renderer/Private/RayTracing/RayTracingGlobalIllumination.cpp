@@ -27,11 +27,11 @@ static FAutoConsoleVariableRef CVarRayTracingGlobalIllumination(
 	TEXT("Enabled ray tracing global illumination (default = 0)")
 );
 
-static int32 GRayTracingGlobalIlluminationSamplesPerPixel = 1;
+static int32 GRayTracingGlobalIlluminationSamplesPerPixel = -1;
 static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationSamplesPerPixel(
 	TEXT("r.RayTracing.GlobalIllumination.SamplesPerPixel"),
 	GRayTracingGlobalIlluminationSamplesPerPixel,
-	TEXT("Samples per pixel (default = 1)")
+	TEXT("Samples per pixel (default = -1 (driven by postprocesing volume))")
 );
 
 static float GRayTracingGlobalIlluminationMaxRayDistance = 1.0e27;
@@ -41,11 +41,27 @@ static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationMaxRayDistance(
 	TEXT("Max ray distance (default = 1.0e27)")
 );
 
-static int32 GRayTracingGlobalIlluminationMaxBounces = 1;
+static int32 GRayTracingGlobalIlluminationMaxBounces = -1;
 static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationMaxBounces(
 	TEXT("r.RayTracing.GlobalIllumination.MaxBounces"),
 	GRayTracingGlobalIlluminationMaxBounces,
-	TEXT("Max bounces (default = 1)")
+	TEXT("Max bounces (default = -1 (driven by postprocesing volume))")
+);
+
+static int32 GRayTracingGlobalIlluminationNextEventEstimationSamples = 2;
+static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationNextEventEstimationSamples(
+	TEXT("r.RayTracing.GlobalIllumination.NextEventEstimationSamples"),
+	GRayTracingGlobalIlluminationNextEventEstimationSamples,
+	TEXT("Number of sample draws for next-event estimation (default = 2)")
+	TEXT("NOTE: This parameter is experimental")
+);
+
+static float GRayTracingGlobalIlluminationDiffuseThreshold = 0.05;
+static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationDiffuseThreshold(
+	TEXT("r.RayTracing.GlobalIllumination.DiffuseThreshold"),
+	GRayTracingGlobalIlluminationDiffuseThreshold,
+	TEXT("Diffuse luminance threshold for evaluating global illumination")
+	TEXT("NOTE: This parameter is experimental")
 );
 
 static int32 GRayTracingGlobalIlluminationDenoiser = 1;
@@ -60,6 +76,15 @@ static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationEvalSkyLight(
 	TEXT("r.RayTracing.GlobalIllumination.EvalSkyLight"),
 	GRayTracingGlobalIlluminationEvalSkyLight,
 	TEXT("Evaluate SkyLight multi-bounce contribution")
+	TEXT("NOTE: This parameter is experimental")
+);
+
+static int32 GRayTracingGlobalIlluminationUseRussianRoulette = 0;
+static FAutoConsoleVariableRef CVarRayTracingGlobalIlluminationUseRussianRoulette(
+	TEXT("r.RayTracing.GlobalIllumination.UseRussianRoulette"),
+	GRayTracingGlobalIlluminationUseRussianRoulette,
+	TEXT("Perform Russian Roulette to only cast diffuse rays on surfaces with brighter albedos (default = 0)")
+	TEXT("NOTE: This parameter is experimental")
 );
 
 static float GRayTracingGlobalIlluminationScreenPercentage = 100.0;
@@ -79,6 +104,14 @@ void SetupLightParameters(
 	FPathTracingLightData* LightParameters)
 {
 	LightParameters->Count = 0;
+
+	// Prepend SkyLight to light buffer
+	// WARNING: Until ray payload encodes Light data buffer, the execution depends on this ordering!
+	uint32 SkyLightIndex = 0;
+	LightParameters->Type[SkyLightIndex] = 0;
+	LightParameters->Color[SkyLightIndex] = FVector(1.0);
+	LightParameters->Count++;
+
 	for (auto Light : Lights)
 	{
 		if (LightParameters->Count >= GLightCountMax) break;
@@ -96,6 +129,7 @@ void SetupLightParameters(
 			LightParameters->Type[LightParameters->Count] = 2;
 			LightParameters->Normal[LightParameters->Count] = LightShaderParameters.Direction;
 			LightParameters->Color[LightParameters->Count] = LightShaderParameters.Color;
+			LightParameters->Attenuation[LightParameters->Count] = 1.0 / LightShaderParameters.InvRadius;
 			break;
 		}
 		case LightType_Rect:
@@ -105,8 +139,10 @@ void SetupLightParameters(
 			LightParameters->Normal[LightParameters->Count] = -LightShaderParameters.Direction;
 			LightParameters->dPdu[LightParameters->Count] = FVector::CrossProduct(LightShaderParameters.Direction, LightShaderParameters.Tangent);
 			LightParameters->dPdv[LightParameters->Count] = LightShaderParameters.Tangent;
+			// #dxr_todo: define these differences from Lit..
 			LightParameters->Color[LightParameters->Count] = LightShaderParameters.Color / 4.0;
 			LightParameters->Dimensions[LightParameters->Count] = FVector(2.0f * LightShaderParameters.SourceRadius, 2.0f * LightShaderParameters.SourceLength, 0.0f);
+			LightParameters->Attenuation[LightParameters->Count] = 1.0 / LightShaderParameters.InvRadius;
 			break;
 		}
 		case LightType_Point:
@@ -114,7 +150,11 @@ void SetupLightParameters(
 		{
 			LightParameters->Type[LightParameters->Count] = 1;
 			LightParameters->Position[LightParameters->Count] = LightShaderParameters.Position;
-			LightParameters->Color[LightParameters->Count] = LightShaderParameters.Color;
+			// #dxr_todo: define these differences from Lit..
+			LightParameters->Color[LightParameters->Count] = LightShaderParameters.Color / (4.0 * PI);
+			float SourceRadius = 0.0; // LightShaderParameters.SourceRadius causes too much noise for little pay off at this time
+			LightParameters->Dimensions[LightParameters->Count] = FVector(0.0, 0.0, SourceRadius);
+			LightParameters->Attenuation[LightParameters->Count] = 1.0 / LightShaderParameters.InvRadius;
 			break;
 		}
 		case LightType_Spot:
@@ -122,56 +162,17 @@ void SetupLightParameters(
 			LightParameters->Type[LightParameters->Count] = 4;
 			LightParameters->Position[LightParameters->Count] = LightShaderParameters.Position;
 			LightParameters->Normal[LightParameters->Count] = -LightShaderParameters.Direction;
+			// #dxr_todo: define these differences from Lit..
 			LightParameters->Color[LightParameters->Count] = 4.0 * PI * LightShaderParameters.Color;
-			LightParameters->Dimensions[LightParameters->Count] = FVector(LightShaderParameters.SpotAngles, 0.0);
+			float SourceRadius = 0.0; // LightShaderParameters.SourceRadius causes too much noise for little pay off at this time
+			LightParameters->Dimensions[LightParameters->Count] = FVector(LightShaderParameters.SpotAngles, SourceRadius);
+			LightParameters->Attenuation[LightParameters->Count] = 1.0 / LightShaderParameters.InvRadius;
 			break;
 		}
 		};
 
 		LightParameters->Count++;
 	}
-}
-
-void SetupSkyLightParameters(
-	const FScene& Scene,
-	FSkyLightData* SkyLight
-)
-{
-	// dxr_todo: factor out these pass constants
-	SkyLight->SamplesPerPixel = 0;
-	SkyLight->SamplingStopLevel = 0;
-
-	if (Scene.SkyLight)
-	{
-		SkyLight->Color = FVector(Scene.SkyLight->LightColor);
-		SkyLight->Texture = Scene.SkyLight->ProcessedTexture->TextureRHI;
-		SkyLight->TextureSampler = Scene.SkyLight->ProcessedTexture->SamplerStateRHI;
-		SkyLight->MipDimensions = Scene.SkyLight->SkyLightMipDimensions;
-	}
-	else
-	{
-		SkyLight->Color = FVector(0.0);
-		SkyLight->Texture = GBlackTextureCube->TextureRHI;
-		SkyLight->TextureSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
-		SkyLight->MipDimensions = FIntVector(0);
-	}
-
-	// dxr_todo: Sky light importance sampling is currently disabled
-	auto BlackTextureBuffer = RHICreateShaderResourceView(GBlackTexture->TextureRHI->GetTexture2D(), 0);
-	SkyLight->MipTreePosX = BlackTextureBuffer;
-	SkyLight->MipTreeNegX = BlackTextureBuffer;
-	SkyLight->MipTreePosY = BlackTextureBuffer;
-	SkyLight->MipTreeNegY = BlackTextureBuffer;
-	SkyLight->MipTreePosZ = BlackTextureBuffer;
-	SkyLight->MipTreeNegZ = BlackTextureBuffer;
-
-	SkyLight->MipTreePdfPosX = BlackTextureBuffer;
-	SkyLight->MipTreePdfNegX = BlackTextureBuffer;
-	SkyLight->MipTreePdfPosY = BlackTextureBuffer;
-	SkyLight->MipTreePdfNegY = BlackTextureBuffer;
-	SkyLight->MipTreePdfPosZ = BlackTextureBuffer;
-	SkyLight->MipTreePdfNegZ = BlackTextureBuffer;
-	SkyLight->SolidAnglePdf = BlackTextureBuffer;
 }
 
 bool ShouldRenderRayTracingGlobalIllumination()
@@ -184,7 +185,10 @@ class FGlobalIlluminationRGS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FGlobalIlluminationRGS)
 	SHADER_USE_ROOT_PARAMETER_STRUCT(FGlobalIlluminationRGS, FGlobalShader)
 
-	using FPermutationDomain = TShaderPermutationDomain<>;
+	class FUseAttenuationTermDim : SHADER_PERMUTATION_BOOL("USE_ATTENUATION_TERM");
+
+	using FPermutationDomain = TShaderPermutationDomain<FUseAttenuationTermDim>;
+
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
@@ -194,8 +198,12 @@ class FGlobalIlluminationRGS : public FGlobalShader
 		SHADER_PARAMETER(uint32, SamplesPerPixel)
 		SHADER_PARAMETER(uint32, MaxBounces)
 		SHADER_PARAMETER(uint32, UpscaleFactor)
-		SHADER_PARAMETER(float, MaxRayDistance)
+		SHADER_PARAMETER(float, MaxRayDistanceForGI)
+		SHADER_PARAMETER(float, MaxRayDistanceForAO)
+		SHADER_PARAMETER(float, NextEventEstimationSamples)
+		SHADER_PARAMETER(float, DiffuseThreshold)
 		SHADER_PARAMETER(bool, EvalSkyLight)
+		SHADER_PARAMETER(bool, UseRussianRoulette)
 		SHADER_PARAMETER(float, MaxNormalBias)
 
 		SHADER_PARAMETER_SRV(RaytracingAccelerationStructure, TLAS)
@@ -205,6 +213,9 @@ class FGlobalIlluminationRGS : public FGlobalShader
 		SHADER_PARAMETER_STRUCT_REF(FSceneTexturesUniformParameters, SceneTexturesStruct)
 		SHADER_PARAMETER_STRUCT_REF(FPathTracingLightData, LightParameters)
 		SHADER_PARAMETER_STRUCT_REF(FSkyLightData, SkyLight)
+
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SSProfilesTexture)
+		SHADER_PARAMETER_SAMPLER(SamplerState, TransmissionProfilesLinearSampler)
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -232,7 +243,7 @@ class FRayTracingGlobalIlluminationSceneColorCompositePS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FRayTracingGlobalIlluminationSceneColorCompositePS)
 	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingGlobalIlluminationSceneColorCompositePS, FGlobalShader)
 
-		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
@@ -247,10 +258,10 @@ class FRayTracingGlobalIlluminationSceneColorCompositePS : public FGlobalShader
 
 class FRayTracingGlobalIlluminationCHS : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FRayTracingGlobalIlluminationCHS);
+	DECLARE_GLOBAL_SHADER(FRayTracingGlobalIlluminationCHS)
 	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingGlobalIlluminationCHS, FGlobalShader)
 
-		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
@@ -260,10 +271,10 @@ class FRayTracingGlobalIlluminationCHS : public FGlobalShader
 
 class FRayTracingGlobalIlluminationMS : public FGlobalShader
 {
-	DECLARE_GLOBAL_SHADER(FRayTracingGlobalIlluminationMS);
+	DECLARE_GLOBAL_SHADER(FRayTracingGlobalIlluminationMS)
 	SHADER_USE_ROOT_PARAMETER_STRUCT(FRayTracingGlobalIlluminationMS, FGlobalShader)
 
-		static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		return ShouldCompileRayTracingShadersForProject(Parameters.Platform);
 	}
@@ -277,9 +288,20 @@ IMPLEMENT_GLOBAL_SHADER(FRayTracingGlobalIlluminationMS, "/Engine/Private/RayTra
 IMPLEMENT_GLOBAL_SHADER(FRayTracingGlobalIlluminationCompositePS, "/Engine/Private/RayTracing/RayTracingGlobalIlluminationCompositePS.usf", "GlobalIlluminationCompositePS", SF_Pixel);
 IMPLEMENT_GLOBAL_SHADER(FRayTracingGlobalIlluminationSceneColorCompositePS, "/Engine/Private/RayTracing/RayTracingGlobalIlluminationCompositePS.usf", "GlobalIlluminationSceneColorCompositePS", SF_Pixel);
 
+void FDeferredShadingSceneRenderer::PrepareRayTracingGlobalIllumination(const FViewInfo& View, TArray<FRayTracingShaderRHIParamRef>& OutRayGenShaders)
+{
+	// Declare all RayGen shaders that require material closest hit shaders to be bound
+
+	FGlobalIlluminationRGS::FPermutationDomain PermutationVector;
+	PermutationVector.Set<FGlobalIlluminationRGS::FUseAttenuationTermDim>(true);
+	auto RayGenerationShader = View.ShaderMap->GetShader<FGlobalIlluminationRGS>();
+	OutRayGenShaders.Add(RayGenerationShader->GetRayTracingShader());
+
+}
+
 void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 	FRHICommandListImmediate& RHICmdList,
-	const FViewInfo& View,
+	FViewInfo& View,
 	TRefCountPtr<IPooledRenderTarget>& GlobalIlluminationRT,
 	TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT
 )
@@ -303,7 +325,9 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 	{
 		RayTracingConfig.ResolutionFraction = FMath::Clamp(GRayTracingGlobalIlluminationScreenPercentage / 100.0, 0.25, 1.0);
 	}
-	RayTracingConfig.RayCountPerPixel = GRayTracingGlobalIlluminationSamplesPerPixel;
+
+	int32 RayTracingGISamplesPerPixel = GRayTracingGlobalIlluminationSamplesPerPixel > -1 ? GRayTracingGlobalIlluminationSamplesPerPixel : View.FinalPostProcessSettings.RayTracingGISamplesPerPixel;
+	RayTracingConfig.RayCountPerPixel = RayTracingGISamplesPerPixel;
 	int32 UpscaleFactor = int32(1.0 / RayTracingConfig.ResolutionFraction);
 
 	// Render targets
@@ -333,24 +357,46 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 		FPathTracingLightData LightParameters;
 		SetupLightParameters(Scene->Lights, View, &LightParameters);
 
+		if (Scene->SkyLight && Scene->SkyLight->ShouldRebuildCdf())
+		{
+			BuildSkyLightCdfs(RHICmdList, Scene->SkyLight);
+		}
 		FSkyLightData SkyLightParameters;
 		SetupSkyLightParameters(*Scene, &SkyLightParameters);
 
 		FGlobalIlluminationRGS::FParameters* PassParameters = GraphBuilder.AllocParameters<FGlobalIlluminationRGS::FParameters>();
-		PassParameters->SamplesPerPixel = GRayTracingGlobalIlluminationSamplesPerPixel;
-		PassParameters->MaxBounces = GRayTracingGlobalIlluminationMaxBounces;
+		PassParameters->SamplesPerPixel = RayTracingGISamplesPerPixel;
+		PassParameters->MaxBounces = GRayTracingGlobalIlluminationMaxBounces > -1? GRayTracingGlobalIlluminationMaxBounces : View.FinalPostProcessSettings.RayTracingGIMaxBounces;
 		PassParameters->MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
-		PassParameters->MaxRayDistance = GRayTracingGlobalIlluminationMaxRayDistance;
+		float MaxRayDistanceForGI = GRayTracingGlobalIlluminationMaxRayDistance;
+		if (MaxRayDistanceForGI == -1.0)
+		{
+			MaxRayDistanceForGI = View.FinalPostProcessSettings.AmbientOcclusionRadius;
+		}
+		PassParameters->MaxRayDistanceForGI = MaxRayDistanceForGI;
+		PassParameters->MaxRayDistanceForAO = View.FinalPostProcessSettings.AmbientOcclusionRadius;
 		PassParameters->UpscaleFactor = UpscaleFactor;
-		PassParameters->EvalSkyLight = GRayTracingGlobalIlluminationEvalSkyLight;
-		PassParameters->TLAS = View.PerViewRayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
+		PassParameters->EvalSkyLight = GRayTracingGlobalIlluminationEvalSkyLight != 0;
+		PassParameters->UseRussianRoulette = GRayTracingGlobalIlluminationUseRussianRoulette != 0;
+		PassParameters->DiffuseThreshold = GRayTracingGlobalIlluminationDiffuseThreshold;
+		PassParameters->NextEventEstimationSamples = GRayTracingGlobalIlluminationNextEventEstimationSamples;
+		PassParameters->TLAS = View.RayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
 		PassParameters->ViewUniformBuffer = View.ViewUniformBuffer;
 		PassParameters->SceneTexturesStruct = CreateUniformBufferImmediate(SceneTextures, EUniformBufferUsage::UniformBuffer_SingleDraw);
 		PassParameters->LightParameters = CreateUniformBufferImmediate(LightParameters, EUniformBufferUsage::UniformBuffer_SingleDraw);
 		PassParameters->SkyLight = CreateUniformBufferImmediate(SkyLightParameters, EUniformBufferUsage::UniformBuffer_SingleDraw);
+		TRefCountPtr<IPooledRenderTarget> SubsurfaceProfileRT((IPooledRenderTarget*) GetSubsufaceProfileTexture_RT(RHICmdList));
+		if (!SubsurfaceProfileRT)
+		{
+			SubsurfaceProfileRT = GSystemTextures.BlackDummy;
+		}
+		PassParameters->SSProfilesTexture = GraphBuilder.RegisterExternalTexture(SubsurfaceProfileRT);
+		PassParameters->TransmissionProfilesLinearSampler = TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI();
 		PassParameters->RWGlobalIlluminationUAV = GraphBuilder.CreateUAV(GlobalIlluminationTexture);
 		PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(RayDistanceTexture);
 
+		FGlobalIlluminationRGS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FGlobalIlluminationRGS::FUseAttenuationTermDim>(true);
 		auto RayGenerationShader = View.ShaderMap->GetShader<FGlobalIlluminationRGS>();
 		ClearUnusedGraphResources(RayGenerationShader, PassParameters);
 
@@ -361,21 +407,11 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 			ERenderGraphPassFlags::Compute,
 			[PassParameters, this, &View, RayGenerationShader, RayTracingResolution](FRHICommandList& RHICmdList)
 		{
-			auto ClosestHitShader = View.ShaderMap->GetShader<FRayTracingGlobalIlluminationCHS>();
-			auto MissShader = View.ShaderMap->GetShader<FRayTracingGlobalIlluminationMS>();
-
-			FRHIRayTracingPipelineState* Pipeline = BindRayTracingPipeline(
-				RHICmdList, View,
-				RayGenerationShader->GetRayTracingShader(),
-				MissShader->GetRayTracingShader(),
-				ClosestHitShader->GetRayTracingShader()); // #dxr_todo: this should be done once at load-time and cached
-
 			FRayTracingShaderBindingsWriter GlobalResources;
 			SetShaderParameters(GlobalResources, RayGenerationShader, *PassParameters);
 
-			FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.PerViewRayTracingScene.RayTracingSceneRHI;
-			uint32 RayGenShaderIndex = 0;
-			RHICmdList.RayTraceDispatch(Pipeline, RayGenShaderIndex, RayTracingSceneRHI, GlobalResources, RayTracingResolution.X, RayTracingResolution.Y);
+			FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.RayTracingScene.RayTracingSceneRHI;
+			RHICmdList.RayTraceDispatch(View.RayTracingMaterialPipeline, RayGenerationShader->GetRayTracingShader(), RayTracingSceneRHI, GlobalResources, RayTracingResolution.X, RayTracingResolution.Y);
 		});
 	}
 
@@ -401,6 +437,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 			IScreenSpaceDenoiser::FGlobalIlluminationOutputs DenoiserOutputs = DenoiserToUse->DenoiseGlobalIllumination(
 				GraphBuilder,
 				View,
+				&View.PrevViewInfo,
 				SceneBlackboard,
 				DenoiserInputs,
 				RayTracingConfig);

@@ -521,7 +521,7 @@ protected:
 	void PlayInternal();
 	void StopInternal(FFrameTime TimeToResetTo);
 
-	void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
+	virtual void UpdateMovieSceneInstance(FMovieSceneEvaluationRange InRange, EMovieScenePlayerStatus::Type PlayerStatus, bool bHasJumped = false);
 
 	void UpdateTimeCursorPosition(FFrameTime NewPosition, EUpdatePositionMethod Method);
 	bool ShouldStopOrLoop(FFrameTime NewPosition) const;

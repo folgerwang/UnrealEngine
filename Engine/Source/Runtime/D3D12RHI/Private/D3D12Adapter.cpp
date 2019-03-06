@@ -6,10 +6,6 @@ D3D12Adapter.cpp:D3D12 Adapter implementation.
 
 #include "D3D12RHIPrivate.h"
 
-#if ENABLE_RESIDENCY_MANAGEMENT
-bool GEnableResidencyManagement = true;
-#endif
-
 static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
 	TEXT("D3D12.TransientUniformBufferAllocatorSizeKB"),
 	2 * 1024,
@@ -17,6 +13,15 @@ static TAutoConsoleVariable<int32> CVarTransientUniformBufferAllocatorSizeKB(
 	ECVF_ReadOnly
 );
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+bool GEnableResidencyManagement = true;
+static TAutoConsoleVariable<int32> CVarResidencyManagement(
+	TEXT("D3D12.ResidencyManagement"),
+	1,
+	TEXT("Controls whether D3D12 resource residency management is active (default = on)."),
+	ECVF_ReadOnly
+);
+#endif // ENABLE_RESIDENCY_MANAGEMENT
 
 struct FRHICommandSignalFrameFence final : public FRHICommand<FRHICommandSignalFrameFence>
 {
@@ -146,6 +151,15 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		GRHISupportsWaveOperations = Features.WaveOps;
 	}
 
+#if ENABLE_RESIDENCY_MANAGEMENT
+	if (!CVarResidencyManagement.GetValueOnAnyThread())
+	{
+		UE_LOG(LogD3D12RHI, Log, TEXT("D3D12 resource residency management is disabled."));
+		GEnableResidencyManagement = false;
+	}
+#endif // ENABLE_RESIDENCY_MANAGEMENT
+
+
 #if D3D12_RHI_RAYTRACING
 	bool bRayTracingSupported = false;
 
@@ -170,11 +184,6 @@ void FD3D12Adapter::CreateRootDevice(bool bWithDebug)
 		if (RootRayTracingDevice)
 		{
 			UE_LOG(LogD3D12RHI, Log, TEXT("D3D12 ray tracing enabled."));
-#if ENABLE_RESIDENCY_MANAGEMENT
-			// #dxr_todo: implement resource residency management for ray tracing resources
-			UE_LOG(LogD3D12RHI, Log, TEXT("Ray tracing resource residency tracking is not implemented. Disabling D3D12 residency management."));
-			GEnableResidencyManagement = false;
-#endif // ENABLE_RESIDENCY_MANAGEMENT
 		}
 		else
 		{

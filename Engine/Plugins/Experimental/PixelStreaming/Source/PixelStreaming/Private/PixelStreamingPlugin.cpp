@@ -37,10 +37,7 @@ void FPixelStreamingPlugin::StartupModule()
 	{
 		if (FSlateApplication::IsInitialized())
 		{
-			FSlateRenderer::FOnBackBufferReadyToPresent OnBackBufferReadyDelegate;
-			OnBackBufferReadyDelegate.BindRaw(this, &FPixelStreamingPlugin::OnBackBufferReady_RenderThread);
-			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent() = OnBackBufferReadyDelegate;
-
+			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddRaw(this, &FPixelStreamingPlugin::OnBackBufferReady_RenderThread);
 			FSlateApplication::Get().GetRenderer()->OnPreResizeWindowBackBuffer().AddRaw(this, &FPixelStreamingPlugin::OnPreResizeWindowBackbuffer);
 		}
 
@@ -58,7 +55,7 @@ void FPixelStreamingPlugin::ShutdownModule()
 {
 	if (FSlateApplication::IsInitialized())
 	{
-		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().Unbind();
+		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().RemoveAll(this);
 		FSlateApplication::Get().GetRenderer()->OnPreResizeWindowBackBuffer().RemoveAll(this);
 	}
 
@@ -70,7 +67,7 @@ void FPixelStreamingPlugin::UpdateViewport(FSceneViewport* Viewport)
 	FRHIViewport* const ViewportRHI = Viewport->GetViewportRHI().GetReference();
 }
 
-void FPixelStreamingPlugin::OnBackBufferReady_RenderThread(const FTexture2DRHIRef& BackBuffer)
+void FPixelStreamingPlugin::OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer)
 {
 	check(IsInRenderingThread());
 

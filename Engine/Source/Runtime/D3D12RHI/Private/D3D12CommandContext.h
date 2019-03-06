@@ -348,6 +348,8 @@ public:
 	virtual void RHIBroadcastTemporalEffect(const FName& InEffectName, FTextureRHIParamRef* InTextures, int32 NumTextures) final AFR_API_OVERRIDE;
 
 #if D3D12_RHI_RAYTRACING
+	virtual void RHICopyBufferRegion(FVertexBufferRHIParamRef DestBuffer, uint64 DstOffset, FVertexBufferRHIParamRef SourceBuffer, uint64 SrcOffset, uint64 NumBytes) final override;
+	virtual void RHICopyBufferRegions(const TArrayView<const FCopyBufferRegionParams> Params) final override;
 	virtual void RHIBuildAccelerationStructure(FRayTracingGeometryRHIParamRef Geometry) final override;
 	virtual void RHIUpdateAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params) final override;
 	virtual void RHIBuildAccelerationStructures(const TArrayView<const FAccelerationStructureUpdateParams> Params) final override;
@@ -360,11 +362,8 @@ public:
 		FShaderResourceViewRHIParamRef Rays,
 		FUnorderedAccessViewRHIParamRef Output,
 		uint32 NumRays) final override;
-	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, uint32 RayGenShaderIndex,
-		const FRayTracingShaderBindings& GlobalResourceBindings,
-		uint32 Width, uint32 Height) final override;
-	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, uint32 RayGenShaderIndex,
-		FRayTracingSceneRHIParamRef Scene, // #dxr_todo: replace this with explicit shader table parameter
+	virtual void RHIRayTraceDispatch(FRayTracingPipelineStateRHIParamRef RayTracingPipelineState, FRayTracingShaderRHIParamRef RayGenShader,
+		FRayTracingSceneRHIParamRef Scene,
 		const FRayTracingShaderBindings& GlobalResourceBindings,
 		uint32 Width, uint32 Height) final override;
 	virtual void RHISetRayTracingHitGroup(

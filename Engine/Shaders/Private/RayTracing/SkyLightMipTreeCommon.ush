@@ -103,7 +103,7 @@ uint3 GetTextureCubeCoordinate(float3 WorldDirection, uint2 TextureRes)
 }
 
 /**
-* Cube texel solid angle computation based on formula from Manne Öhrström's
+* Cube texel solid angle computation based on formula from Manne Ã–hrstrÃ¶m's
 * thesis - "Spherical Harmonics, Precomputed Radiance Transfer and Realtime Radiosity in Computer Games".
 */
 float AreaElement(float x, float y)
@@ -130,3 +130,144 @@ float TexelCoordSolidAngle(uint2 TextureCoord, uint2 TextureRes)
 	float SolidAngle = AreaElement(x0, y0) - AreaElement(x0, y1) - AreaElement(x1, y0) + AreaElement(x1, y1);
 	return SolidAngle;
 }
+
+uint SampleFace(uint MipCount, float RandSample, out float FacePdf)
+{
+	uint BufferOffset = BufferOffsetAtPixel(uint2(0, 0), MipCount, SkyLight.MipDimensions.xy);
+
+	float FaceCdf[6];
+	FaceCdf[0] = SkyLight.MipTreePosX[BufferOffset];
+	FaceCdf[1] = FaceCdf[0] + SkyLight.MipTreeNegX[BufferOffset];
+	FaceCdf[2] = FaceCdf[1] + SkyLight.MipTreePosY[BufferOffset];
+	FaceCdf[3] = FaceCdf[2] + SkyLight.MipTreeNegY[BufferOffset];
+	FaceCdf[4] = FaceCdf[3] + SkyLight.MipTreePosZ[BufferOffset];
+	FaceCdf[5] = FaceCdf[4] + SkyLight.MipTreeNegZ[BufferOffset];
+	float Sum = FaceCdf[5];
+
+	for (uint Index = 0; Index < 5; ++Index)
+	{
+		FaceCdf[Index] /= Sum;
+	}
+	FaceCdf[5] = 1.0;
+
+	// Determine CDF entry
+	uint FaceIndex = 0;
+	while (RandSample > FaceCdf[FaceIndex])
+	{
+		FaceIndex++;
+	}
+
+	// Calculate PDF and return entry
+	FacePdf = FaceCdf[FaceIndex];
+	if (FaceIndex > 0)
+		FacePdf -= FaceCdf[FaceIndex - 1];
+	return FaceIndex;
+}
+
+float PdfFace(uint MipCount, uint FaceIndex)
+{
+	// Build Cdf
+	uint BufferOffset = BufferOffsetAtPixel(uint2(0, 0), MipCount, SkyLight.MipDimensions.xy);
+
+	float FaceCdf[6];
+	FaceCdf[0] = SkyLight.MipTreePosX[BufferOffset];
+	FaceCdf[1] = FaceCdf[0] + SkyLight.MipTreeNegX[BufferOffset];
+	FaceCdf[2] = FaceCdf[1] + SkyLight.MipTreePosY[BufferOffset];
+	FaceCdf[3] = FaceCdf[2] + SkyLight.MipTreeNegY[BufferOffset];
+	FaceCdf[4] = FaceCdf[3] + SkyLight.MipTreePosZ[BufferOffset];
+	FaceCdf[5] = FaceCdf[4] + SkyLight.MipTreeNegZ[BufferOffset];
+	float Sum = FaceCdf[5];
+
+	for (uint Index = 0; Index < 5; ++Index)
+	{
+		FaceCdf[Index] /= Sum;
+	}
+	FaceCdf[5] = 1.0;
+
+	float Pdf = FaceCdf[FaceIndex];
+	if (FaceIndex > 0)
+		Pdf -= FaceCdf[FaceIndex - 1];
+	return Pdf;
+}
+
+float4 SampleMipTree(uint FaceIndex, uint4 BufferOffset)
+{
+	float4 Values;
+	if (FaceIndex == 0)
+	{
+		Values.x = SkyLight.MipTreePosX[BufferOffset.x];
+		Values.y = SkyLight.MipTreePosX[BufferOffset.y];
+		Values.z = SkyLight.MipTreePosX[BufferOffset.z];
+		Values.w = SkyLight.MipTreePosX[BufferOffset.w];
+	}
+	else if (FaceIndex == 1)
+	{
+		Values.x = SkyLight.MipTreeNegX[BufferOffset.x];
+		Values.y = SkyLight.MipTreeNegX[BufferOffset.y];
+		Values.z = SkyLight.MipTreeNegX[BufferOffset.z];
+		Values.w = SkyLight.MipTreeNegX[BufferOffset.w];
+	}
+	else if (FaceIndex == 2)
+	{
+		Values.x = SkyLight.MipTreePosY[BufferOffset.x];
+		Values.y = SkyLight.MipTreePosY[BufferOffset.y];
+		Values.z = SkyLight.MipTreePosY[BufferOffset.z];
+		Values.w = SkyLight.MipTreePosY[BufferOffset.w];
+	}
+	else if (FaceIndex == 3)
+	{
+		Values.x = SkyLight.MipTreeNegY[BufferOffset.x];
+		Values.y = SkyLight.MipTreeNegY[BufferOffset.y];
+		Values.z = SkyLight.MipTreeNegY[BufferOffset.z];
+		Values.w = SkyLight.MipTreeNegY[BufferOffset.w];
+	}
+	else if (FaceIndex == 4)
+	{
+		Values.x = SkyLight.MipTreePosZ[BufferOffset.x];
+		Values.y = SkyLight.MipTreePosZ[BufferOffset.y];
+		Values.z = SkyLight.MipTreePosZ[BufferOffset.z];
+		Values.w = SkyLight.MipTreePosZ[BufferOffset.w];
+	}
+	else
+	{
+		Values.x = SkyLight.MipTreeNegZ[BufferOffset.x];
+		Values.y = SkyLight.MipTreeNegZ[BufferOffset.y];
+		Values.z = SkyLight.MipTreeNegZ[BufferOffset.z];
+		Values.w = SkyLight.MipTreeNegZ[BufferOffset.w];
+	}
+
+	return Values;
+}
+
+float PdfMipTree(uint3 TextureCoord, uint StopLevel)
+{
+	float MipPdf = 1.0;
+	uint BufferOffset = BufferOffsetAtPixel(TextureCoord.xy, StopLevel, SkyLight.MipDimensions.xy);
+	if (TextureCoord.z == 0)
+	{
+		MipPdf = SkyLight.MipTreePdfPosX[BufferOffset];
+	}
+	else if (TextureCoord.z == 1)
+	{
+		MipPdf = SkyLight.MipTreePdfNegX[BufferOffset];
+	}
+	else if (TextureCoord.z == 2)
+	{
+		MipPdf = SkyLight.MipTreePdfPosY[BufferOffset];
+	}
+	else if (TextureCoord.z == 3)
+	{
+		MipPdf = SkyLight.MipTreePdfNegY[BufferOffset];
+	}
+	else if (TextureCoord.z == 4)
+	{
+		MipPdf = SkyLight.MipTreePdfPosZ[BufferOffset];
+	}
+	else // if (TextureCoord.z == 5)
+	{
+		MipPdf = SkyLight.MipTreePdfNegZ[BufferOffset];
+	}
+	return MipPdf;
+}
+
+

@@ -34,6 +34,7 @@
 #define GATHER_QUALITY_LOW_QUALITY 0
 #define GATHER_QUALITY_HIGH_QUALITY 1
 #define GATHER_QUALITY_SCATTER_OCCLUSION_OUTPUT 2
+#define GATHER_QUALITY_CINEMATIC 3
 
 
 //------------------------------------------------------- ENUM VALUES
@@ -70,6 +71,9 @@
 	// The kernel is hexagonal web, that have 1/4 sampling density everywhere but the last ring, particularily useful
 	// for fast gathering on hardware that can particularily be texture fetch bound.
 	#define KERNEL_DENSITY_LOWER_IN_CENTER_HEXAWEB 3
+
+	// Kernel that does multiple passes of entire disks at different mip levels.
+	#define KERNEL_DENSITY_RECURSIVE_DISKS 4
 
 
 /** Technic to use with mip level. */
@@ -133,6 +137,12 @@
 	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
 	#define CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER 1
 	#define CONFIG_MIRRORED_SAMPLER 1
+
+#elif DIM_GATHER_QUALITY == GATHER_QUALITY_CINEMATIC
+	#define CONFIG_WEIGHT_SAMPLE_FROM_COC 1
+	#define CONFIG_GENERATE_SCATTER_OCCLUSION_BUFFER 1
+	#define CONFIG_MIRRORED_SAMPLER 1
+	#define CONFIG_LAYER_GATHERING 1
 
 #else
 	#error Unknon gathering quality.
@@ -235,6 +245,11 @@
  * that improves highlight post filtering. */
 #ifndef CONFIG_SLIGHT_RING_ROTATION
 	#define CONFIG_SLIGHT_RING_ROTATION 0
+#endif
+
+/** Whether the gathering is done in multiple layer over the kernel. */
+#ifndef CONFIG_LAYER_GATHERING
+	#define CONFIG_LAYER_GATHERING 0
 #endif
 
 

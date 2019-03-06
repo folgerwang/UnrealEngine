@@ -229,7 +229,11 @@ void FVisualizeTexturePresent::PresentContent(FRHICommandListImmediate& RHICmdLi
 		{
 			FRenderTargetPool::SMemoryStats MemoryStats = GRenderTargetPool.ComputeView();
 
-			SetRenderTarget(RHICmdList, View.Family->RenderTarget->GetRenderTargetTexture(), FTextureRHIRef());
+			FRHIRenderPassInfo RPInfos;
+			RPInfos.ColorRenderTargets[0].RenderTarget = View.Family->RenderTarget->GetRenderTargetTexture();
+			RPInfos.ColorRenderTargets[0].ResolveTarget = View.Family->RenderTarget->GetRenderTargetTexture();
+			RPInfos.ColorRenderTargets[0].Action = ERenderTargetActions::Load_Store;
+			RHICmdList.BeginRenderPass(RPInfos, TEXT("PresentVisualizeTexture"));
 			RHICmdList.SetViewport(0, 0, 0.0f, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().X, FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().Y, 1.0f);
 
 
@@ -364,6 +368,8 @@ void FVisualizeTexturePresent::PresentContent(FRHICommandListImmediate& RHICmdLi
 
 			GRenderTargetPool.CurrentEventRecordingTime = 0;
 			GRenderTargetPool.RenderTargetPoolEvents.Empty();
+
+			RHICmdList.EndRenderPass();
 		}
 	}
 

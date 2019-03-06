@@ -133,6 +133,8 @@ static bool GCsvProfilerIsCapturing = false;
 static bool GCsvProfilerIsCapturingRT = false; // Renderthread version of the above
 
 static bool GCsvProfilerIsWritingFile = false;
+static FString GCsvFileName = FString();
+static bool GCsvExitOnCompletion = false;
 
 bool IsContinuousWriteEnabled(bool bGameThread)
 {
@@ -254,21 +256,30 @@ static void HandleCSVProfileCommand(const TArray<FString>& Args)
 	{
 		return;
 	}
+
 	FString Param = Args[0];
+
 	if (Param == TEXT("START"))
 	{
-		FCsvProfiler::Get()->BeginCapture();
+		FCsvProfiler::Get()->BeginCapture(-1, FString(), GCsvFileName);
 	}
 	else if (Param == TEXT("STOP"))
 	{
 		FCsvProfiler::Get()->EndCapture();
+	}
+	else if (FParse::Value(*Param, TEXT("STARTFILE="), GCsvFileName))
+	{
+	}
+	else if (Param == TEXT("EXITONCOMPLETION"))
+	{
+		GCsvExitOnCompletion = true;
 	}
 	else
 	{
 		int32 CaptureFrames = 0;
 		if (FParse::Value(*Param, TEXT("FRAMES="), CaptureFrames))
 		{
-			FCsvProfiler::Get()->BeginCapture(CaptureFrames);
+			FCsvProfiler::Get()->BeginCapture(CaptureFrames, FString(), GCsvFileName);
 		}
 		int32 RepeatCount = 0;
 		if (FParse::Value(*Param, TEXT("REPEAT="), RepeatCount))
@@ -2454,7 +2465,7 @@ void FCsvProfiler::EndFrame()
 				}
 			}
 
-			if (bCaptureEnded && FParse::Param(FCommandLine::Get(), TEXT("ExitAfterCsvProfiling")))
+			if (bCaptureEnded && (GCsvExitOnCompletion || FParse::Param(FCommandLine::Get(), TEXT("ExitAfterCsvProfiling"))))
 			{
 				FPlatformMisc::RequestExit(false);
 			}

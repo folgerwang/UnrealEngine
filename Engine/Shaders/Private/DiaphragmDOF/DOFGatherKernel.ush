@@ -328,7 +328,7 @@ float2 SampleConstFromBatchConst(const uint BatchSampleId, float2 BatchConst)
 
 
 // Gather a ring into the accumulator.
-void GatherRing(
+void GatherRingSamples(
 	in FGatherInputParameters GatherParameters,
 	in FPrivateKernelSharedScope KernelScope,
 	in uint RingId,
@@ -336,28 +336,8 @@ void GatherRing(
 	inout FGatherAccumulator Accumulator,
 	inout FFastAccumulatorOutput FastAccumulator)
 {
-	// Gives hints to the compiler that these var can be shifted to SGPR.
-	#if CONFIG_SGPR_HINTS
-	{
-		GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
-	}
-	#endif
-
 	// Number of sample iteration for this ring.
-	const uint RingSamplePairCount = GetRingSamplingPairCount(GatherParameters.KernelSamplingDensityMode, uint(RingId));
-
-	// Distance of the ring from the center of the kernel in sample count.
-	const uint RingDistance = uint(RingId + 1);
-		
-	FGatherRingInfos RingInfos;
-	RingInfos.RingId = RingId;
-	RingInfos.bIsFirstRing = bIsFirstRing;
-	RingInfos.Radius = RingDistance * KernelScope.SampleCountToSamplePosition;
-	RingInfos.SampleCount = RingSamplePairCount * 2;
-	RingInfos.Weight = RingInfos.SampleCount * ComputeSampleWeight(RingInfos.Radius);
-
-	// Start accumulating ring samples
-	StartRingSamples(Accumulator, RingInfos);
+	const uint RingSamplePairCount = GetRingSamplingPairCount(GatherParameters.KernelSamplingDensityMode, RingId);
 
 	// Number of sample pair to process per batch.
 	// TODO: Could potentially do 4 using symetries? Might be unpracticable because of VGPR pressure. 
@@ -365,10 +345,15 @@ void GatherRing(
 
 	// Number of batch to process.
 	const uint BatchCount = RingSamplePairCount / SamplePairBatchSize;
-	
+
+	// Distance of the ring from the center of the kernel in sample count.
+	const uint RingDistance = uint(RingId + 1);
+
+	float RingRadius = ToScalarMemory(RingDistance * KernelScope.SampleCountToSamplePosition);
+
 	#if CONFIG_SGPR_HINTS
 	{
-		RingInfos.Radius = ToScalarMemory(RingInfos.Radius);
+		GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
 	}
 	#endif
 
@@ -381,7 +366,7 @@ void GatherRing(
 		const float2 FirstCircleUnitPos = GetDiskSampleOnUnitCirle(RingId, RingSamplePairCount, /* BatchId = */ 0);
 
 		// Position of the first sample on circle with radius according to KernelRadius.
-		float2 FirstCircleSamplePosOffset = FirstCircleUnitPos * RingInfos.Radius;
+		float2 FirstCircleSamplePosOffset = FirstCircleUnitPos * RingRadius;
 
 		// Setup iteratable SGPR
 		float2 CurrentCircleUnitPos = FirstCircleUnitPos;
@@ -412,7 +397,7 @@ void GatherRing(
 
 			// Position of sample on circle with radius according to KernelRadius.
 			// TODO: ALU could be optimised since SampleCountToSamplePosition has some constant part as well.
-			float2 BatchCircleSamplePosOffset = BatchCirleUnitPos * RingInfos.Radius;
+			float2 BatchCircleSamplePosOffset = BatchCirleUnitPos * RingRadius;
 		#else
 			// Rotate the samples position along the ring.
 			CurrentCircleUnitPos = mul(CurrentCircleUnitPos, SampleRotationMatrix);
@@ -490,7 +475,7 @@ void GatherRing(
 						GlobalBilinearWrappedSampler, LookUpUV[1], 0).xy;
 				#endif
 				
-				SampleDistance = RingInfos.Radius;
+				SampleDistance = RingRadius;
 			}
 			#elif 0 // TODO
 			{
@@ -542,7 +527,7 @@ void GatherRing(
 				// Always keep a disk shaped kernel.
 				SamplePosOffset[0] = CircleSamplePosOffset;
 				SamplePosOffset[1] = -CircleSamplePosOffset;
-				SampleDistance = RingInfos.Radius;
+				SampleDistance = RingRadius;
 			}
 			#else
 				#error Unknown gathering kernel layout.
@@ -591,11 +576,50 @@ void GatherRing(
 			AccumulateMirrorSamples(Accumulator, Sample[0], Sample[1]);
 		} // for (uint BatchSampleId = 0; BatchSampleId < SamplePairBatchSize; BatchSampleId++)
 	} // for (uint BatchId = 0; BatchId < RingSampleIteration; BatchId++)
-
-	// End accumulating ring samples.
-	EndRingSamples(Accumulator, RingInfos);
 }
 
+// Gather a ring into the accumulator.
+void GatherRing(
+	in FGatherInputParameters GatherParameters,
+	in FPrivateKernelSharedScope KernelScope,
+	in uint RingId,
+	in bool bIsFirstRing,
+	inout FGatherAccumulator Accumulator,
+	inout FFastAccumulatorOutput FastAccumulator)
+{
+	// Number of sample iteration for this ring.
+	const uint RingSamplePairCount = GetRingSamplingPairCount(GatherParameters.KernelSamplingDensityMode, uint(RingId));
+
+	// Distance of the ring from the center of the kernel in sample count.
+	const uint RingDistance = uint(RingId + 1);
+		
+	FGatherRingInfos RingInfos;
+	RingInfos.RingId = RingId;
+	RingInfos.bIsFirstRing = bIsFirstRing;
+	RingInfos.Radius = RingDistance * KernelScope.SampleCountToSamplePosition;
+	RingInfos.SampleCount = RingSamplePairCount * 2;
+	RingInfos.Weight = RingInfos.SampleCount * ComputeSampleWeight(RingInfos.Radius);
+
+	#if CONFIG_SGPR_HINTS
+	{
+		RingInfos.Radius = ToScalarMemory(RingInfos.Radius);
+	}
+	#endif
+
+	// Start accumulating ring samples
+	StartRingSamples(Accumulator, RingInfos);
+	
+	GatherRingSamples(
+		GatherParameters,
+		KernelScope,
+		RingId,
+		bIsFirstRing,
+		/* inout */ Accumulator,
+		/* inout */ FastAccumulator);
+	
+	// End accumulating ring samples.
+	EndRingSamples(Accumulator, RingInfos);
+} // GatherRing()
 
 // Gathers samples with an preconfigured accumulator and resolve its output.
 uint GatherSamplesAndResolve(
@@ -635,7 +659,7 @@ uint GatherSamplesAndResolve(
 	{
 		FGatherSample CenterSample = FetchGatherSample(KernelScope, KernelScope.KernelCenterUV);
 
-		AccumulateCenterSample(Accumulator, CenterSample);
+		AccumulateCenterSampleAsItsOwnRing(Accumulator, CenterSample);
 		FastAccumulator.Color += CenterSample.Color;
 	}
 	
@@ -643,6 +667,13 @@ uint GatherSamplesAndResolve(
 	bool bIsFirstRing = LARGEST_RINGS_FIRST != 0;
 		
 	FGatherResolveInfos GatherResolveInfos;
+
+	// Computes compile time known values about radius changes
+	const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
+	const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - GatherParameters.DensityChangeRingCount);
+
+	const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
+					
 
 	// TODO: reduce number of iteration as KernelRadius is getting lower than MaxCircleRingCount.
 	// TODO: reduce density of at the center of kernel for fast accumulator, to reduce load on texture unit.
@@ -694,13 +725,6 @@ uint GatherSamplesAndResolve(
 		UNROLL // TODO: LOOP instead? should be totally fine perf wise...
 		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < GatherParameters.MaxDensityChangeCount; SamplingDensityChangeId++)
 		{
-			const int LargerRingCount = GatherParameters.MaxRingCount - LowerRingId;
-
-			const float LargeKernelRadius = 1 + 2 * GatherParameters.MaxRingCount;
-			const float SmallKernelRadius = 1 + 2 * (GatherParameters.MaxRingCount - LargerRingCount);
-
-			const float RadiusDownScaleFactor = SmallKernelRadius / LargeKernelRadius;
-					
 			float MipTexelSize = pow(2.0, uint(KernelScope.GatherInputMipLevel));
 			
 			const float MinConvolutionRadius = GatherParameters.MaxRingCount;
@@ -816,13 +840,150 @@ uint GatherSamplesAndResolve(
 				/* inout */ FastAccumulator);
 		} // for (int RingId)
 	}
+	#if CONFIG_LAYER_GATHERING && GATHER_ACCUMULATOR_METHOD == GATHER_ACCUMULATOR_METHOD_RINGBINNING
+	else if (static_condition(GatherParameters.KernelSamplingDensityMode == KERNEL_DENSITY_RECURSIVE_DISKS))
+	{
+		//static_assert(GatherParameters.MaxRingCount >= 2, "Assumes this LARGEST_RINGS_FIRST.");
+		
+		{
+			// Error in coc radius error introduced by the under sampling of the kernel
+			const float CocRadiusError = 0.0;
+
+			Accumulator.CloseBorderingRadius = ((GatherParameters.RingCount - GatherParameters.DensityChangeRingCount) + (0.5 + CocRadiusError)) * (Accumulator.GatherParameters.KernelRadius * rcp(0.5 + Accumulator.GatherParameters.RingCount));
+			Accumulator.FarBorderingRadius = Accumulator.CloseBorderingRadius/ RadiusDownScaleFactor;
+
+			#if CONFIG_SGPR_HINTS
+			{
+				Accumulator.FarBorderingRadius = ToScalarMemory(Accumulator.FarBorderingRadius);
+				Accumulator.CloseBorderingRadius = ToScalarMemory(Accumulator.CloseBorderingRadius);
+			}
+			#endif
+		}
+
+		// Gather very first ring.
+		{
+			const uint RingId = GatherParameters.MaxRingCount - 1;
+			GatherRing(
+				GatherParameters,
+				KernelScope,
+				RingId,
+				/* bIsFirstRing = */ true,
+				/* inout */ Accumulator,
+				/* inout */ FastAccumulator);
+		}
+
+		LOOP
+		for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < GatherParameters.MaxDensityChangeCount; SamplingDensityChangeId++)
+		{
+			// Gather all remaining rings as single cluster of sample to the accumulator.
+			{
+				const uint RemainingRingCount = GatherParameters.MaxRingCount - 1;
+
+				// Distance of the ring from the center of the kernel in sample count.
+				const uint SecondRingId = GatherParameters.MaxRingCount - 2;
+		
+				// Number of sample iteration for this ring.
+				const uint DiskSampleCount = GetKernelSampleCount(GatherParameters.KernelSamplingDensityMode, RemainingRingCount);
+
+				// Distance of the ring from the center of the kernel in sample count.
+				const uint RingDistance = uint(SecondRingId + 1);
+		
+				FGatherRingInfos RingInfos;
+				RingInfos.RingId = SecondRingId;
+				RingInfos.bIsFirstRing = false;
+				RingInfos.Radius = RingDistance * KernelScope.SampleCountToSamplePosition;
+				RingInfos.SampleCount = DiskSampleCount;
+				RingInfos.Weight = DiskSampleCount * ComputeSampleWeight(RingInfos.Radius);
+	
+				// Start accumulating ring samples
+				StartRingSamples(Accumulator, RingInfos);
+	
+				UNROLL // Perhaps loop is ok?
+				for (uint RingId = 0; RingId < RemainingRingCount; RingId++)
+				{
+					GatherRingSamples(
+						GatherParameters,
+						KernelScope,
+						RingId,
+						/* bIsFirstRing = */ false,
+						/* inout */ Accumulator,
+						/* inout */ FastAccumulator);
+				}
+				
+				// Feed the center sample to the accumulator.
+				{
+					FGatherSample CenterSample = FetchGatherSample(KernelScope, KernelScope.KernelCenterUV);
+					AccumulateCenterSample(Accumulator, CenterSample);
+				}
+
+				// End accumulating ring samples.
+				EndRingSamples(Accumulator, RingInfos);
+			}
+
+			// Change density or stop.
+			{
+				float MipTexelSize = pow(2.0, uint(KernelScope.GatherInputMipLevel));
+			
+				const float MinConvolutionRadius = GatherParameters.MaxRingCount;
+				const float SmallestConvolutionRadius = GatherParameters.KernelRadius * RadiusDownScaleFactor + MipTexelSize;
+	
+				bool bChangeDensity = (
+					GatherParameters.KernelRadius * RadiusDownScaleFactor > MinConvolutionRadius &&
+					GatherParameters.MinIntersectableCocRadiusAbs < SmallestConvolutionRadius);
+
+				BRANCH
+				if (bChangeDensity)
+				{
+					// Decrease kernel size.
+					GatherParameters.KernelRadius *= RadiusDownScaleFactor;
+
+					Accumulator.FarBorderingRadius = Accumulator.CloseBorderingRadius;
+					Accumulator.CloseBorderingRadius = Accumulator.FarBorderingRadius * RadiusDownScaleFactor;
+
+					// Gives hints to the compiler that these var can be shifted to SGPR.
+					#if CONFIG_SGPR_HINTS
+					{
+						GatherParameters.KernelRadius = ToScalarMemory(GatherParameters.KernelRadius);
+						Accumulator.FarBorderingRadius = ToScalarMemory(Accumulator.FarBorderingRadius);
+						Accumulator.CloseBorderingRadius = ToScalarMemory(Accumulator.CloseBorderingRadius);
+					}
+					#endif
+					
+					const float AccumulatedWeightMultiplier = rcp(RadiusDownScaleFactor * RadiusDownScaleFactor);
+					AmendAccumulatedRingsWeight(/* inout */ Accumulator, GatherParameters, AccumulatedWeightMultiplier);
+
+					UpdateRuntimeKernelScope(GatherParameters, /* inout */ KernelScope);
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			// Gather largest ring of this smaller ring.
+			{
+				const uint RingId = GatherParameters.MaxRingCount - 1;
+				GatherRing(
+					GatherParameters,
+					KernelScope,
+					RingId,
+					/* bIsFirstRing = */ false,
+					/* inout */ Accumulator,
+					/* inout */ FastAccumulator);
+			}
+		} // for (uint SamplingDensityChangeId = 0; SamplingDensityChangeId < GatherParameters.MaxDensityChangeCount; SamplingDensityChangeId++)
+
+		// TODO: this is not right, but that is fine since the only accumulator that uses that is not using this kernel density.
+		GatherResolveInfos.SamplesCount = GetKernelSampleCount(GatherParameters.KernelSamplingDensityMode, GatherParameters.MaxRingCount);
+	}
+	#endif // CONFIG_LAYER_GATHERING && GATHER_ACCUMULATOR_METHOD == GATHER_ACCUMULATOR_METHOD_RINGBINNING
 
 	// Feed the center sample to the accumulator at the end if largest rings first.
-	if (bLargestRingFirst)
+	if (static_condition(bLargestRingFirst && GatherParameters.KernelSamplingDensityMode != KERNEL_DENSITY_RECURSIVE_DISKS))
 	{
 		FGatherSample CenterSample = FetchGatherSample(KernelScope, KernelScope.KernelCenterUV);
 
-		AccumulateCenterSample(Accumulator, CenterSample);
+		AccumulateCenterSampleAsItsOwnRing(Accumulator, CenterSample);
 		FastAccumulator.Color += CenterSample.Color;
 	}
 

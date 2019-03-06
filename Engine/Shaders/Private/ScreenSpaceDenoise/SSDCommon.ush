@@ -7,19 +7,18 @@
 #pragma once
 
 #include "../Common.ush"
-#include "../DataStructures/SceneViewFamilyBlackboard.ush"
+#include "../SceneViewFamilyBlackboard.ush"
 #include "../ColorSpace.ush"
 #include "../SphericalGaussian.ush"
 #include "SSDDefinitions.ush"
 
 
+#define FIX_UNROLL(N) [unroll(N)]
+
+
 //------------------------------------------------------- SHARED SHADER PARAMETERS
 
 float4x4  PrevScreenToTranslatedWorld;
-Texture2D PrevHistory0;
-Texture2D PrevHistory1;
-Texture2D PrevHistory2;
-Texture2D<uint> PrevTileClassificationTexture;
 Texture2D PrevDepthBuffer;
 Texture2D PrevGBufferA;
 Texture2D PrevGBufferB;
@@ -154,7 +153,7 @@ float ComputeSignalMipLevel(FSSFSampleSceneInfos SceneMetadata, float WorldBluri
 
 /** Returns the radius of a pixel in world space. */
 // TODO: move that to CPU
-float ComputePixelWorldRadius(FSSFSampleSceneInfos SceneMetadata)
+float ComputeWorldBluringRadiusCausedByPixelSize(FSSFSampleSceneInfos SceneMetadata)
 {
 	// Should be multiplied 0.5* for the diameter to radius, and by 2.0 because GetTanHalfFieldOfView() cover only half of the pixels.
 	return (View.ViewSizeAndInvSize.z * GetTanHalfFieldOfView().x) * SceneMetadata.WorldDepth;
@@ -175,75 +174,4 @@ float WorldBluringRadiusToBilateralWorldDistance(float WorldBluringRadius)
 	Multiplier *= BLURING_ESTIMATION_MULTIPLIER;
 
 	return WorldBluringRadius * Multiplier;
-}
-
-
-//------------------------------------------------------- COMMON TILE CLASSIFICATION
-
-Texture2D<uint> TileClassificationTexture;
-
-#define TILE_MODE_BRUTE_FORCE 0
-#define TILE_MODE_FAST 1
-#define TILE_MODE_FULLY_OCCLUDED 2
-#define TILE_MODE_FULLY_LIGHTED 3
-#define TILE_MODE_FULLY_INVALID 4
-
-#define TILE_MODE_FULLY_UNSURE 5
-
-
-/** Contains all the information for tile classification. */
-struct FSSFTileInfos
-{
-	// Mode of the tile
-	uint TileMode;
-
-	// Whether a mip level should be procesed.
-	bool bProcessMipLevel[MAX_MIP_LEVEL_COUNT];
-};
-
-FSSFTileInfos CreateTileInfos()
-{
-	FSSFTileInfos TileInfos;
-	TileInfos.TileMode = TILE_MODE_BRUTE_FORCE;
-	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
-	{
-		TileInfos.bProcessMipLevel[MipLevel] = 0;
-	}
-	return TileInfos;
-}
-
-FSSFTileInfos DecodeTileInfos(uint Content)
-{
-	FSSFTileInfos TileInfos;
-	if (!DEBUG_ENABLE_TILE_CLASSIFICATION)
-	{
-		Content = 0x78 | TILE_MODE_FAST;
-	}
-
-	TileInfos.TileMode = Content & 0x7;
-
-	UNROLL
-	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
-	{
-		TileInfos.bProcessMipLevel[MipLevel] = (Content & (8 << MipLevel)) != 0;
-	}
-	return TileInfos;
-}
-
-FSSFTileInfos LoadTileInfos(uint2 TilePos)
-{
-	return DecodeTileInfos(TileClassificationTexture[TilePos]);
-}
-
-void WriteTileInfos(RWTexture2D<uint> TileClassificationOutput, uint2 TilePos, FSSFTileInfos TileInfos)
-{
-	uint Content = TileInfos.TileMode;
-
-	UNROLL
-	for (uint MipLevel = 0; MipLevel < MAX_MIP_LEVEL_COUNT; MipLevel++)
-	{
-		Content |= TileInfos.bProcessMipLevel[MipLevel] ? (8 << MipLevel) : 0;
-	}
-
-	TileClassificationOutput[TilePos] = Content;
 }

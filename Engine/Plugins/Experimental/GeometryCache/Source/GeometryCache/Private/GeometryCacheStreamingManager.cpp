@@ -25,6 +25,12 @@ static TAutoConsoleVariable<float> CVarLookaheadSeconds(
 	TEXT("The amount of data (expressed in seconds of animation) to try and keep resident in advance for geometry caches. Note this works regardless of the playback direction."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarTrailingSeconds(
+	TEXT("GeometryCache.TrailingSeconds"),
+	2.5,
+	TEXT("The amount of data (expressed in seconds of animation) to try and keep resident inverse to the playback direction for geometry caches."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 
 struct FGeometryCacheStreamingManager : public IGeometryCacheStreamingManager
 {
@@ -119,7 +125,7 @@ void FGeometryCacheStreamingManager::UpdateResourceStreaming(float DeltaTime, bo
 					FStreamingGeometryCacheData** DataPtr = StreamingGeometryCaches.Find(GCTS);
 					if (DataPtr)
 					{
-						float RequestStartTime = Component->GetAnimationTime();
+						float RequestStartTime = Component->GetAnimationTime() - (Component->GetPlaybackDirection() * CVarTrailingSeconds.GetValueOnGameThread());
 
 						// We currently simply stream the next 5 seconds in animation time. Note that due to the playback speed
 						// in wall-time this may be longer/shorter. It would be easy enough to change... need to test what's better

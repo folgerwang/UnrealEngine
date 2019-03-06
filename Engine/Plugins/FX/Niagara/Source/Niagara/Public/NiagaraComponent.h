@@ -412,7 +412,7 @@ public:
 	void SetRenderingEnabled(bool bInRenderingEnabled);
 
 #if RHI_RAYTRACING
-	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances) override;
 	virtual bool IsRayTracingRelevant() const override { return true; }
 #endif
 

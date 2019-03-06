@@ -11,6 +11,7 @@ RaytracingOptions.h declares ray tracing options for use in rendering
 BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FSkyLightData, )
 SHADER_PARAMETER(int, SamplesPerPixel)
 SHADER_PARAMETER(int, SamplingStopLevel)
+SHADER_PARAMETER(float, MaxRayDistance)
 SHADER_PARAMETER(FVector, Color)
 SHADER_PARAMETER(FIntVector, MipDimensions)
 SHADER_PARAMETER(float, MaxNormalBias)
@@ -30,3 +31,9 @@ SHADER_PARAMETER_SRV(Buffer<float>, MipTreePdfPosZ)
 SHADER_PARAMETER_SRV(Buffer<float>, MipTreePdfNegZ)
 SHADER_PARAMETER_SRV(Buffer<float>, SolidAnglePdf)
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+#if RHI_RAYTRACING
+
+extern void SetupSkyLightParameters(const FScene& Scene, FSkyLightData* SkyLight);
+
+#endif // RHI_RAYTRACING

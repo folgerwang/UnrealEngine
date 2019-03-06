@@ -206,7 +206,9 @@ FStaticMeshSceneProxy::FStaticMeshSceneProxy(UStaticMeshComponent* InComponent, 
 				MaterialRelevance |= UMaterial::GetDefaultMaterial(MD_Surface)->GetRelevance(FeatureLevel);
 			}
 
-			// #dxr_todo: also consider materials that are both Unlit and Translucent - however translucency requires anyhit shaders, so omit them currently
+			// #dxr_todo warning this is a hack:
+			//  - The only reason we exclude unlit from any RT acceleration structure right now is to not hit the sky dome. 
+			//  - It works but this would need consideration (e.g. infinite RTAO would not work if the sky dome is hit, double reflection due sky light cubemap, reflection testing no intersection, etc.).
 			if (SectionInfo.Material->GetShadingModel() != MSM_Unlit)
 			{
 				bHasNonUnlitSections = true;
@@ -481,6 +483,9 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 #endif
 		OutMeshBatch.ReverseCulling = (bReverseCulling || IsLocalToWorldDeterminantNegative()) && !bUseReversedIndices;
 		OutMeshBatch.CastShadow = bCastShadow && Section.bCastShadow;
+#if RHI_RAYTRACING
+		OutMeshBatch.CastRayTracedShadow = OutMeshBatch.CastShadow;
+#endif
 		OutMeshBatch.DepthPriorityGroup = (ESceneDepthPriorityGroup)InDepthPriorityGroup;
 		if (ForcedLodModel > 0) 
 		{

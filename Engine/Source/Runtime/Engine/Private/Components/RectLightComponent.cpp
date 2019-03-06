@@ -18,6 +18,11 @@
 
 extern int32 GAllowPointLightCubemapShadows;
 
+float GetRectLightBarnDoorMaxAngle()
+{
+	return 88.f;
+}
+
 URectLightComponent::URectLightComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -37,6 +42,8 @@ URectLightComponent::URectLightComponent(const FObjectInitializer& ObjectInitial
 	SourceWidth = 64.0f;
 	SourceHeight = 64.0f;
 	SourceTexture = nullptr;
+	BarnDoorAngle = GetRectLightBarnDoorMaxAngle();
+	BarnDoorLength = 20.0f;
 }
 
 FLightSceneProxy* URectLightComponent::CreateSceneProxy() const
@@ -60,6 +67,27 @@ void URectLightComponent::SetSourceHeight(float NewValue)
 		&& SourceHeight != NewValue)
 	{
 		SourceHeight = NewValue;
+		MarkRenderStateDirty();
+	}
+}
+
+void URectLightComponent::SetBarnDoorLength(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& BarnDoorLength != NewValue)
+	{
+		BarnDoorLength = FMath::Max(NewValue, 0.1f);
+		MarkRenderStateDirty();
+	}
+}
+
+void URectLightComponent::SetBarnDoorAngle(float NewValue)
+{
+	if (AreDynamicDataChangesAllowed()
+		&& BarnDoorAngle != NewValue)
+	{
+		const float MaxAngle = GetRectLightBarnDoorMaxAngle();
+		BarnDoorAngle = FMath::Clamp(NewValue, 0.f, MaxAngle);
 		MarkRenderStateDirty();
 	}
 }
@@ -144,6 +172,8 @@ FRectLightSceneProxy::FRectLightSceneProxy(const URectLightComponent* Component)
 	: FLocalLightSceneProxy(Component)
 	, SourceWidth(Component->SourceWidth)
 	, SourceHeight(Component->SourceHeight)
+	, BarnDoorAngle(FMath::Clamp(Component->BarnDoorAngle, 0.f, GetRectLightBarnDoorMaxAngle()))
+	, BarnDoorLength(FMath::Max(0.1f, Component->BarnDoorLength))
 	, SourceTexture(Component->SourceTexture)
 {
 #if RHI_RAYTRACING
@@ -189,6 +219,8 @@ void FRectLightSceneProxy::GetLightShaderParameters(FLightShaderParameters& Ligh
 	LightParameters.SoftSourceRadius = 0.0f;
 	LightParameters.SourceLength = SourceHeight * 0.5f;
 	LightParameters.SourceTexture = SourceTexture ? SourceTexture->Resource->TextureRHI : GWhiteTexture->TextureRHI;
+	LightParameters.RectLightBarnCosAngle = FMath::Cos(FMath::DegreesToRadians(BarnDoorAngle));
+	LightParameters.RectLightBarnLength = BarnDoorLength;
 }
 
 /**

@@ -153,6 +153,13 @@
 #define PLATFORM_SUPPORTS_SRV_UB_MACRO(...)
 #endif
 
+// Whether the platforms support official SM6 wave intrinsics
+// https://github.com/Microsoft/DirectXShaderCompiler/wiki/Wave-Intrinsics
+#ifndef PLATFORM_SUPPORTS_SM6_0_WAVE_OPERATIONS
+#define PLATFORM_SUPPORTS_SM6_0_WAVE_OPERATIONS 0
+#endif
+
+
 // ---------------------------------------------------- Alternative floating point types
 
 #ifndef FORCE_FLOATS
@@ -634,6 +641,16 @@ float4 max3( float4 a, float4 b, float4 c )
 #define ddx_fine(x) ddx(x)
 #define ddy_fine(y) ddy(y)
 #endif
+
+#if PLATFORM_SUPPORTS_SM6_0_WAVE_OPERATIONS
+#ifdef COMPILER_SUPPORTS_TO_SCALAR_MEMORY
+#error Conflict of the ToScalarMemory definition.
+#endif
+
+#define COMPILER_SUPPORTS_TO_SCALAR_MEMORY 1
+#define ToScalarMemory(x) WaveReadLaneFirst(x)
+
+#endif // PLATFORM_SUPPORTS_SM6_0_WAVE_OPERATIONS
 
 // Give hint to compiler to move one value to scalar unit.
 #if !defined(ToScalarMemory) && !defined(COMPILER_SUPPORTS_TO_SCALAR_MEMORY)

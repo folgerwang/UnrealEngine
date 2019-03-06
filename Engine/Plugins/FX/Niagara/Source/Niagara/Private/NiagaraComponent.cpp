@@ -281,13 +281,13 @@ void FNiagaraSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 }
 
 #if RHI_RAYTRACING
-void FNiagaraSceneProxy::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
+void FNiagaraSceneProxy::GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances)
 {
 	for (NiagaraRenderer* Renderer : EmitterRenderers)
 	{
 		if (Renderer)
 		{
-			Renderer->GetRayTracingGeometryInstances(OutInstanceCollections);
+			Renderer->GetDynamicRayTracingInstances(Context, OutRayTracingInstances, this);
 		}
 	}
 }

@@ -207,10 +207,7 @@ class FRHIHullShader : public FRHIShader {};
 class FRHIDomainShader : public FRHIShader {};
 class FRHIPixelShader : public FRHIShader {};
 class FRHIGeometryShader : public FRHIShader {};
-
-#if RHI_RAYTRACING
 class FRHIRayTracingShader : public FRHIShader {};
-#endif // RHI_RAYTRACING
 
 class RHI_API FRHIComputeShader : public FRHIShader
 {
@@ -1031,10 +1028,8 @@ typedef TRefCountPtr<FRHIGeometryShader> FGeometryShaderRHIRef;
 typedef FRHIComputeShader*              FComputeShaderRHIParamRef;
 typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
 
-#if RHI_RAYTRACING
 typedef FRHIRayTracingShader*                       FRayTracingShaderRHIParamRef;
 typedef TRefCountPtr<FRHIRayTracingShader>          FRayTracingShaderRHIRef;
-#endif // RHI_RAYTRACING
 
 typedef FRHIComputeFence*				FComputeFenceRHIParamRef;
 typedef TRefCountPtr<FRHIComputeFence>	FComputeFenceRHIRef;
@@ -2011,7 +2006,7 @@ public:
 	bool operator==(const FRayTracingPipelineStateInitializer& rhs) const
 	{
 		return MaxPayloadSizeInBytes == rhs.MaxPayloadSizeInBytes
-			&& HitGroupStride == rhs.HitGroupStride
+			&& bAllowHitGroupIndexing == rhs.bAllowHitGroupIndexing
 			&& RayGenHash == rhs.RayGenHash
 			&& MissHash == rhs.MissHash
 			&& HitGroupHash == rhs.HitGroupHash;
@@ -2019,13 +2014,7 @@ public:
 
 	uint32 MaxPayloadSizeInBytes = 32; // sizeof FDefaultPayload declared in RayTracingCommon.ush
 
-	// Hit group stride controls how many slots will be allocated in the shader binding table per geometry segment.
-	// Changing this value allows different hit shaders to be used for different effects.
-	// For example, setting this to 2 allows one hit shader for regular material evaluation and a different one for shadows.
-	// Desired hit shader can be selected by providing appropriate RayContributionToHitGroupIndex to TraceRay() function.
-	// Setting hit group stride to 0 effectively disables hit group indexing entirely, forcing the same hit shader to be used for all ray hits.
-	// Use ShaderSlot argument in SetRayTracingHitGroup() to assign shaders and resources for specific part of the shder binding table record.
-	uint32 HitGroupStride = 1;
+	bool bAllowHitGroupIndexing = true;
 
 	const TArrayView<const FRayTracingShaderRHIParamRef>& GetRayGenTable()   const { return RayGenTable; }
 	const TArrayView<const FRayTracingShaderRHIParamRef>& GetMissTable()     const { return MissTable; }

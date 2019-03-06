@@ -96,6 +96,10 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 	UPROPERTY(BlueprintReadOnly, interp, Category=Light, meta=(UIMin = "0.25", UIMax = "4.0"))
 	float VolumetricScatteringIntensity;
 
+	/** Samples per pixel for ray tracing */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RayTracing)
+	int SamplesPerPixel;
+
 #if WITH_EDITORONLY_DATA
 	/** Sprite for static light in the editor. */
 	UPROPERTY(transient)
@@ -130,6 +134,9 @@ class ENGINE_API ULightComponentBase : public USceneComponent
 
 	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
 	void SetCastRaytracedShadow(bool bNewValue);
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Components|Light")
+	void SetSamplesPerPixel(int NewValue);
 
 	virtual void Serialize(FArchive& Ar) override;
 

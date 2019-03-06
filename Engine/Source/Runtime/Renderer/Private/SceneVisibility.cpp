@@ -2915,6 +2915,9 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 
 		if (ViewState)
 		{
+			check(View.bViewStateIsReadOnly);
+			View.bViewStateIsReadOnly = ViewFamily.bWorldIsPaused || ViewFamily.EngineShowFlags.HitProxies;
+
 			ViewState->SetupDistanceFieldTemporalOffset(ViewFamily);
 		}
 
@@ -3052,13 +3055,12 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				View.ViewMatrices.HackAddTemporalAAProjectionJitter(FVector2D(SampleX * 2.0f / View.ViewRect.Width(), SampleY * -2.0f / View.ViewRect.Height()));
 			}
 		}
-		else if(ViewState)
+		else if(ViewState && !View.bViewStateIsReadOnly)
 		{
 			// no TemporalAA
 			ViewState->OnFrameRenderingSetup(1, ViewFamily);
 
 			ViewState->PrevFrameViewInfo.TemporalAAHistory.SafeRelease();
-			ViewState->PendingPrevFrameViewInfo.TemporalAAHistory.SafeRelease();
 		}
 
 		// Setup a new FPreviousViewInfo from current frame infos.
@@ -3069,27 +3071,63 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 
 		if ( ViewState )
 		{
-			if (!ViewFamily.EngineShowFlags.HitProxies)
-			{
-				// If world is not pause, commit pending previous frame info to ViewState.
-				if (!ViewFamily.bWorldIsPaused)
-				{
-					ViewState->PrevFrameViewInfo = ViewState->PendingPrevFrameViewInfo;
-				}
-
-				// Setup new PendingPrevFrameViewInfo for next frame.
-				ViewState->PendingPrevFrameViewInfo = NewPrevViewInfo;
-			}
-
 			// update previous frame matrices in case world origin was rebased on this frame
 			if (!View.OriginOffsetThisFrame.IsZero())
 			{
 				ViewState->PrevFrameViewInfo.ViewMatrices.ApplyWorldOffset(View.OriginOffsetThisFrame);
 			}
-			
+
 			// determine if we are initializing or we should reset the persistent state
 			const float DeltaTime = View.Family->CurrentRealTime - ViewState->LastRenderTime;
 			const bool bFirstFrameOrTimeWasReset = DeltaTime < -0.0001f || ViewState->LastRenderTime < 0.0001f;
+
+			bool bIsLargeCameraMovement = IsLargeCameraMovement(
+				View,
+				ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(),
+				ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(),
+				45.0f, 10000.0f);
+
+			bool bResetCamera = (
+				bFirstFrameOrTimeWasReset ||
+				View.bCameraCut ||
+				IsLargeCameraMovement(View,
+					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(),
+					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(),
+					45.0f, 10000.0f) ||
+#if RHI_RAYTRACING
+				(View.RayTracingRenderMode == ERayTracingRenderMode::PathTracing && (Scene->bPathTracingNeedsInvalidation || IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 0.1f, 0.1f))) ||
+#endif // RHI_RAYTRACING
+				0);
+
+			if (bResetCamera)
+			{
+				View.PrevViewInfo = NewPrevViewInfo;
+
+				// PT: If the motion blur shader is the last shader in the post-processing chain then it is the one that is
+				//     adjusting for the viewport offset.  So it is always required and we can't just disable the work the
+				//     shader does.  The correct fix would be to disable the effect when we don't need it and to properly mark
+				//     the uber-postprocessing effect as the last effect in the chain.
+
+				View.bPrevTransformsReset = true;
+
+#if RHI_RAYTRACING
+				ViewState->PathTracingIrradianceRT.SafeRelease();
+				ViewState->PathTracingSampleCountRT.SafeRelease();
+				ViewState->VarianceMipTreeDimensions = FIntVector(0);
+				ViewState->TotalRayCount = 0;
+				Scene->bPathTracingNeedsInvalidation = false;
+#endif // RHI_RAYTRACING
+			}
+			else
+			{
+				View.PrevViewInfo = ViewState->PrevFrameViewInfo;
+			}
+
+			// Replace previous view info of the view state with this frame, clearing out references over render target.
+			if (!View.bViewStateIsReadOnly)
+			{
+				ViewState->PrevFrameViewInfo = NewPrevViewInfo;
+			}
 
 			// detect conditions where we should reset occlusion queries
 			if (bFirstFrameOrTimeWasReset || 
@@ -3118,48 +3156,27 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 			ViewState->PrevViewOriginForOcclusionQuery = View.ViewMatrices.GetViewOrigin();
 				
 			// store old view matrix and detect conditions where we should reset motion blur 
+#if RHI_RAYTRACING
 			{
-				bool bResetCamera = bFirstFrameOrTimeWasReset
-					|| View.bCameraCut
-					|| IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 45.0f, 10000.0f)
-#if RHI_RAYTRACING
-					|| (View.RayTracingRenderMode == ERayTracingRenderMode::PathTracing && IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 0.1f, 0.1f))
-#endif // RHI_RAYTRACING
-					;
-
-				if (bResetCamera)
+				if (bResetCamera || IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 0.1f, 0.1f))
 				{
-					View.PrevViewInfo = NewPrevViewInfo;
-					ViewState->PrevFrameViewInfo = NewPrevViewInfo;
-
-					// PT: If the motion blur shader is the last shader in the post-processing chain then it is the one that is
-					//     adjusting for the viewport offset.  So it is always required and we can't just disable the work the
-					//     shader does.  The correct fix would be to disable the effect when we don't need it and to properly mark
-					//     the uber-postprocessing effect as the last effect in the chain.
-
-					View.bPrevTransformsReset = true;
-
-#if RHI_RAYTRACING
-					ViewState->PathTracingIrradianceRT.SafeRelease();
-					ViewState->PathTracingSampleCountRT.SafeRelease();
-					ViewState->VarianceMipTreeDimensions = FIntVector(0);
-					ViewState->TotalRayCount = 0;
-#endif // RHI_RAYTRACING
+					ViewState->RayTracingNumIterations = 1;
 				}
 				else
 				{
-					View.PrevViewInfo = ViewState->PrevFrameViewInfo;
+					ViewState->RayTracingNumIterations++;
 				}
+			}
+#endif // RHI_RAYTRACING
 
-				// we don't use DeltaTime as it can be 0 (in editor) and is computed by subtracting floats (loses precision over time)
-				// Clamp DeltaWorldTime to reasonable values for the purposes of motion blur, things like TimeDilation can make it very small
-				if (!ViewFamily.bWorldIsPaused)
-				{
-					const bool bEnableTimeScale = !ViewState->bSequencerIsPaused;
-					const float FixedBlurTimeScale = 2.0f;// 1 / (30 * 1 / 60)
+			// we don't use DeltaTime as it can be 0 (in editor) and is computed by subtracting floats (loses precision over time)
+			// Clamp DeltaWorldTime to reasonable values for the purposes of motion blur, things like TimeDilation can make it very small
+			if (View.bViewStateIsReadOnly)
+			{
+				const bool bEnableTimeScale = !ViewState->bSequencerIsPaused;
+				const float FixedBlurTimeScale = 2.0f;// 1 / (30 * 1 / 60)
 
-					ViewState->MotionBlurTimeScale = bEnableTimeScale ? (1.0f / (FMath::Max(View.Family->DeltaWorldTime, .00833f) * 30.0f)) : FixedBlurTimeScale;
-				}
+				ViewState->MotionBlurTimeScale = bEnableTimeScale ? (1.0f / (FMath::Max(View.Family->DeltaWorldTime, .00833f) * 30.0f)) : FixedBlurTimeScale;
 			}
 
 			ViewState->PrevFrameNumber = ViewState->PendingPrevFrameNumber;
@@ -3978,6 +3995,9 @@ bool FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 				View.ForwardLightingResources = View.ForwardLightingResourcesStorage.Get();
 			}
 
+#if RHI_RAYTRACING
+			View.IESLightProfileResource = View.ViewState ? &View.ViewState->IESLightProfileResources : nullptr;
+#endif
 			// Set the pre-exposure before initializing the constant buffers.
 			if (View.ViewState)
 			{

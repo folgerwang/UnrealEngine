@@ -542,6 +542,16 @@ void FRHICommandPollOcclusionQueries::Execute(FRHICommandListBase& CmdList)
 
 #if RHI_RAYTRACING
 
+void FRHICommandCopyBufferRegion::Execute(FRHICommandListBase& CmdList)
+{
+	INTERNAL_DECORATOR(RHICopyBufferRegion)(DestBuffer, DstOffset, SourceBuffer, SrcOffset, NumBytes);
+}
+
+void FRHICommandCopyBufferRegions::Execute(FRHICommandListBase& CmdList)
+{
+	INTERNAL_DECORATOR(RHICopyBufferRegions)(Params);
+}
+
 void FRHICommandBuildAccelerationStructure::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(BuildAccelerationStructure);
@@ -582,18 +592,7 @@ void FRHICommandRayTraceIntersection::Execute(FRHICommandListBase& CmdList)
 void FRHICommandRayTraceDispatch::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(RayTraceDispatch);
-
-	if (Scene)
-	{
-		// Dispatch rays using SBT associated with the given scene and pipeline.
-		INTERNAL_DECORATOR(RHIRayTraceDispatch)(Pipeline, RayGenShaderIndex, Scene, GlobalResourceBindings, Width, Height);
-	}
-	else
-	{
-		// Dispatch rays with default shader binding table
-		// #dxr_todo: we should remove this code path entirely and always require an explicit SBT.
-		INTERNAL_DECORATOR(RHIRayTraceDispatch)(Pipeline, RayGenShaderIndex, GlobalResourceBindings, Width, Height);
-	}
+	INTERNAL_DECORATOR(RHIRayTraceDispatch)(Pipeline, RayGenShader, Scene, GlobalResourceBindings, Width, Height);
 }
 
 void FRHICommandSetRayTracingHitGroup::Execute(FRHICommandListBase& CmdList)

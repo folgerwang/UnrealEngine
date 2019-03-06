@@ -24,6 +24,17 @@ void SetupSceneViewFamilyBlackboard(
 	OutBlackboard->SceneGBufferC = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferC, GSystemTextures.BlackDummy, TEXT("GBufferC"));
 	OutBlackboard->SceneGBufferD = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferD, GSystemTextures.BlackDummy, TEXT("GBufferD"));
 	OutBlackboard->SceneGBufferE = RegisterExternalTextureWithFallback(GraphBuilder, SceneContext.GBufferE, GSystemTextures.BlackDummy, TEXT("GBufferE"));
+
+	if (SceneContext.LightingChannels)
+	{
+		OutBlackboard->SceneLightingChannels = GraphBuilder.RegisterExternalTexture(SceneContext.LightingChannels, TEXT("LightingChannels"));
+		OutBlackboard->bIsSceneLightingChannelsValid = true;
+	}
+	else
+	{
+		OutBlackboard->SceneLightingChannels = GraphBuilder.RegisterExternalTexture(GSystemTextures.WhiteDummy, TEXT("LightingChannels"));
+		OutBlackboard->bIsSceneLightingChannelsValid = false;
+	}
 }
 
 FRDGTextureRef GetEyeAdaptationTexture(FRDGBuilder& GraphBuilder, const FViewInfo& View)

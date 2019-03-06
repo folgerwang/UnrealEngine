@@ -120,7 +120,7 @@
 	#define AA_LOWER_RESOLUTION 1
 	#define AA_BORDER 1
 
-#elif TAA_PASS_CONFIG == 4 // MainUpsampling
+#elif TAA_PASS_CONFIG == 4 || TAA_PASS_CONFIG == 7 // MainUpsampling & MainSuperSampling
 	#if POST_PROCESS_ALPHA
 		#define AA_HISTORY_PAYLOAD (HISTORY_PAYLOAD_RGB_TRANSLUCENCY)
 	#else
@@ -161,9 +161,11 @@
 
 	#endif
 
-	// Do not use LDS caching for screen percentage > 100%.
-	#if TAA_SCREEN_PERCENTAGE_RANGE == 2
+	// Do not use LDS caching for screen percentage > 100% or < 50%.
+	#if TAA_SCREEN_PERCENTAGE_RANGE == 2 || TAA_SCREEN_PERCENTAGE_RANGE == 3
 		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_VGPR_3X3)
+
+
 	#else
 		#define AA_SAMPLE_CACHE_METHOD (AA_SAMPLE_CACHE_METHOD_LDS)
 	#endif

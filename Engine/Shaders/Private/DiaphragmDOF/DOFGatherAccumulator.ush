@@ -82,6 +82,11 @@ struct FGatherAccumulator
 		#error Unknown gather accumulator.
 
 	#endif
+
+	#if CONFIG_LAYER_GATHERING 
+		float FarBorderingRadius;
+		float CloseBorderingRadius;
+	#endif
 };
 
 /** Create an accumulator for gathering. */
@@ -133,6 +138,13 @@ FGatherAccumulator CreateGatherAccumulator(
 		Accumulator.Opacity = 0;
 		Accumulator.OpacityWeight = 0;
 		Accumulator.DistanceToClosestForeground = EXTREMELY_LARGE_COC_RADIUS;
+	}
+	#endif
+	
+	#if CONFIG_LAYER_GATHERING
+	{
+		Accumulator.FarBorderingRadius = 0;
+		Accumulator.CloseBorderingRadius = 0;
 	}
 	#endif
 
@@ -255,6 +267,11 @@ void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSamp
 {
 	FGatherSampleDerivedParameters DerivedA = ComputeSampleDerivates(Accumulator, A);
 	AccumulateSample(Accumulator, A, DerivedA);
+}
+
+void AccumulateCenterSampleAsItsOwnRing(inout FGatherAccumulator Accumulator, in FGatherSample A)
+{
+	AccumulateCenterSample(/* inout */ Accumulator, A);
 }
 
 /** Changes the already accumulated weight, used when doing varying gathering sample density. */
@@ -426,6 +443,11 @@ void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSamp
 		Accumulator.bIsHoleFillingForForeground = IsForeground(A.CocRadius);
 		Accumulator.CenterCocRadius = A.CocRadius;
 	#endif
+}
+
+void AccumulateCenterSampleAsItsOwnRing(inout FGatherAccumulator Accumulator, in FGatherSample A)
+{
+	AccumulateCenterSample(/* inout */ Accumulator, A);
 }
 
 /** Changes the already accumulated weight, used when doing varying gathering sample density. */
@@ -627,6 +649,18 @@ void AccumulateSample(inout FGatherAccumulator Accumulator, in FGatherSample A, 
 
 	float bBelongsToCurrent = 1.0 - bBelongsToPrevious;
 
+	#if CONFIG_LAYER_GATHERING
+	if (!Accumulator.bIsFirstRing)
+	{
+		float M = 1;
+		M *= 1 - saturate(A.CocRadius - Accumulator.FarBorderingRadius + 0.5);
+		M *= saturate(A.CocRadius - Accumulator.CloseBorderingRadius + 0.5);
+
+		bBelongsToCurrent *= saturate(A.CocRadius - Accumulator.CloseBorderingRadius + 0.5);
+		bBelongsToPrevious *= 1 - saturate(A.CocRadius - Accumulator.FarBorderingRadius + 0.5);
+	}
+	#endif
+
 	float CurrentWeight = (A.Intersection * IsConsidered * Weight) * bBelongsToCurrent;
 
 	Accumulator.CurrentColor += A.Color * CurrentWeight;
@@ -681,8 +715,15 @@ void MergeCurrentBucketIntoPreviousBucket(inout FGatherAccumulator Accumulator, 
 	Accumulator.PreviousWeight    = Accumulator.PreviousWeight    * PreviousBucketFactor + Accumulator.CurrentWeight;
 }
 
-/** Accumulates center sample. */
+/** Like mirror samples. */
 void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSample A)
+{
+	float WeightA = ComputeSampleWeight(A.CocRadius);
+	AccumulateSample(Accumulator, A, WeightA);
+}
+
+/** Accumulates center sample as it s own ring potentially occluding previous ring instead of between StartRingSamples() and EndRingSamples(). */
+void AccumulateCenterSampleAsItsOwnRing(inout FGatherAccumulator Accumulator, in FGatherSample A)
 {
 	// Error in coc radius error introduced by the under sampling of the kernel
 	const float CocRadiusError = CONFIG_COC_RADIUS_CORRECTION ? 1.0 : 0.0;
@@ -694,8 +735,7 @@ void AccumulateCenterSample(inout FGatherAccumulator Accumulator, in FGatherSamp
 	Accumulator.bIsFirstRing = LARGEST_RINGS_FIRST == 0;
 
 	// Accumulate the center's sample.
-	float WeightA = ComputeSampleWeight(A.CocRadius);
-	AccumulateSample(Accumulator, A, WeightA);
+	AccumulateCenterSample(Accumulator, A);
 	
 	MergeCurrentBucketIntoPreviousBucket(Accumulator, 1.0);
 }

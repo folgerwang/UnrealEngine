@@ -2976,6 +2976,17 @@ void SetupSceneTextureUniformParameters(
 	}
 }
 
+TUniformBufferRef<FSceneTexturesUniformParameters> CreateSceneTextureUniformBuffer(
+	FSceneRenderTargets& SceneContext,
+	ERHIFeatureLevel::Type FeatureLevel,
+	ESceneTextureSetupMode SetupMode,
+	EUniformBufferUsage Usage)
+{
+	FSceneTexturesUniformParameters SceneTextures;
+	SetupSceneTextureUniformParameters(SceneContext, FeatureLevel, SetupMode, SceneTextures);
+	return CreateUniformBufferImmediate(SceneTextures, Usage);
+}
+
 template< typename TRHICmdList >
 TUniformBufferRef<FSceneTexturesUniformParameters> CreateSceneTextureUniformBufferSingleDraw(TRHICmdList& RHICmdList, ESceneTextureSetupMode SceneTextureSetupMode, ERHIFeatureLevel::Type FeatureLevel) 
 {

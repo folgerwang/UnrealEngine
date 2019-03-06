@@ -54,7 +54,7 @@
 #include "DynamicShadowMapChannelBindingHelper.h"
 #include "GPUScene.h"
 #if RHI_RAYTRACING
-#include "RayTracing/RayTracingDynamicGeometryCollection.h"
+#include "RayTracingDynamicGeometryCollection.h"
 #include "RHIGPUReadback.h"
 #endif
 
@@ -805,6 +805,7 @@ void FScene::AddPrimitiveSceneInfo_RenderThread(FRHICommandListImmediate& RHICmd
 	}
 
 	AddPrimitiveToUpdateGPU(*this, SourceIndex);
+	bPathTracingNeedsInvalidation = true;
 
 	DistanceFieldSceneData.AddPrimitive(PrimitiveSceneInfo);
 
@@ -947,6 +948,7 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	StaticDrawListsEarlyZPassMode(0)
 ,	StaticDrawShaderPipelines(0)
 ,	bScenesPrimitivesNeedStaticMeshElementUpdate(false)
+,	bPathTracingNeedsInvalidation(true)
 ,	SkyLight(NULL)
 ,	SimpleDirectionalLight(NULL)
 ,	SunLight(NULL)

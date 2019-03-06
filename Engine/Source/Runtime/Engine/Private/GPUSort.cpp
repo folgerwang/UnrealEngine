@@ -91,7 +91,7 @@ public:
 		
 			for (int32 BufferIndex = 0; BufferIndex < 2; ++BufferIndex)
 			{
-				FRHIResourceCreateInfo CreateInfo;
+				FRHIResourceCreateInfo CreateInfo(TEXT("SortOffset"));
 				Buffers[BufferIndex] = RHICreateVertexBuffer(
 					OffsetsBufferSize,
 					BUF_Static | BUF_ShaderResource | BUF_UnorderedAccess,

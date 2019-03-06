@@ -6,6 +6,8 @@ public class GeometryCache : ModuleRules
 {
 	public GeometryCache(ReadOnlyTargetRules Target) : base(Target)
 	{
+		PrivateIncludePaths.Add("../../../../Shaders/Shared");
+
         PublicDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",

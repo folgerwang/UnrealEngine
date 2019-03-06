@@ -44,7 +44,8 @@ void RectLight_EvalLight(
 )
 {
 	float3 Color = GetColor(LightId);
-	OutRadiance = Color;
+	float Falloff = ComputeAttenuationFalloff(Ray.TMax, GetAttenuation(LightId));
+	OutRadiance = Color * Falloff;
 }
 
 void RectLight_EstimateLight(
@@ -74,7 +75,8 @@ void RectLight_EstimateLight(
 	float Area = GetWidth(LightId) * GetHeight(LightId);
 
 	float LightPower = Luminance(GetColor(LightId));
-	OutIrradiance = LightPower * Area * NoL / LightDistanceSquared;
+	float Falloff = ComputeAttenuationFalloff(length(LightDirection), GetAttenuation(LightId));
+	OutIrradiance = LightPower * Falloff * Area * NoL / LightDistanceSquared;
 }
 
 void RectLight_SampleLight(
@@ -101,6 +103,14 @@ void RectLight_SampleLight(
 	// Map sample point to quad
 	float3 LightSamplePosition = LightPosition + LightdPdu * LightWidth * UV.x + LightdPdv * LightHeight * UV.y;
 	float3 LightDirection = normalize(LightSamplePosition - WorldPosition);
+#ifdef USE_ATTENUATION_TERM
+	float Epsilon = 1.0e-5;
+	if (ComputeAttenuationFalloff(length(LightDirection), GetAttenuation(LightId)) < Epsilon)
+	{
+		OutPdf = 0.0;
+		return;
+	}
+#endif
 
 	// Light-normal culling
 	if (dot(-LightDirection, LightNormal) <= 0.0)

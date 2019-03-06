@@ -40,11 +40,9 @@ class FRayTracingDeferredMaterialMS : public FGlobalShader
 IMPLEMENT_GLOBAL_SHADER(FRayTracingDeferredMaterialCHS, "/Engine/Private/RayTracing/RayTracingDeferredMaterials.usf", "DeferredMaterialCHS", SF_RayHitGroup);
 IMPLEMENT_GLOBAL_SHADER(FRayTracingDeferredMaterialMS,  "/Engine/Private/RayTracing/RayTracingDeferredMaterials.usf", "DeferredMaterialMS",  SF_RayMiss);
 
-FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingPipelineForDeferredMaterialGather(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader)
+FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingDeferredMaterialGatherPipeline(FRHICommandList& RHICmdList, const FViewInfo& View, FRayTracingShaderRHIParamRef RayGenShader)
 {
 	SCOPE_CYCLE_COUNTER(STAT_BindRayTracingPipeline);
-
-	FRHIRayTracingPipelineState* PipelineState = nullptr;
 
 	FRayTracingPipelineStateInitializer Initializer;
 
@@ -61,21 +59,28 @@ FRHIRayTracingPipelineState* FDeferredShadingSceneRenderer::BindRayTracingPipeli
 	auto ClosestHitShader = View.ShaderMap->GetShader<FRayTracingDeferredMaterialCHS>();
 	FRayTracingShaderRHIParamRef HitShaderTable[] = { ClosestHitShader->GetRayTracingShader() };
 	Initializer.SetHitGroupTable(HitShaderTable);
-	Initializer.HitGroupStride = 1;
 
-	PipelineState = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer);
+	FRHIRayTracingPipelineState* PipelineState = PipelineStateCache::GetAndOrCreateRayTracingPipelineState(Initializer);
 
-	for (const FVisibleMeshDrawCommand& VisibleMeshDrawCommand : View.RaytraycingVisibleMeshDrawCommands)
+	const FViewInfo& ReferenceView = Views[0];
+
+	for (const FVisibleRayTracingMeshCommand VisibleMeshCommand : ReferenceView.VisibleRayTracingMeshCommands)
 	{
-		const FMeshDrawCommand& MeshDrawCommand = *VisibleMeshDrawCommand.MeshDrawCommand;
+		const FRayTracingMeshCommand& MeshCommand = *VisibleMeshCommand.RayTracingMeshCommand;
 
 		const uint32 HitGroupIndex = 0; // Force the default CHS to be used on all geometry
 
 		const uint32 ShaderSlot = 0; // Multiple shader slots can be used for different ray types. Slot 0 is the primary material slot.
-		const uint32 MaterialIndexInUserData = MeshDrawCommand.RayTracingMaterialLibraryIndex;
-		RHICmdList.SetRayTracingHitGroup(View.PerViewRayTracingScene.RayTracingSceneRHI,
-			VisibleMeshDrawCommand.RayTracedInstanceIndex, MeshDrawCommand.RayTracedSegmentIndex, ShaderSlot,
-			PipelineState, HitGroupIndex, 0, nullptr,
+		const uint32 MaterialIndexInUserData = MeshCommand.MaterialShaderIndex;
+		RHICmdList.SetRayTracingHitGroup(
+			View.RayTracingScene.RayTracingSceneRHI,
+			VisibleMeshCommand.InstanceIndex, 
+			MeshCommand.GeometrySegmentIndex, 
+			ShaderSlot,
+			PipelineState,
+			HitGroupIndex,
+			0, 
+			nullptr,
 			MaterialIndexInUserData);
 	}
 
@@ -87,7 +92,7 @@ class FMaterialSortCS : public FGlobalShader
 	DECLARE_GLOBAL_SHADER(FMaterialSortCS);
 	SHADER_USE_PARAMETER_STRUCT(FMaterialSortCS, FGlobalShader);
 
-	class FSortSize : SHADER_PERMUTATION_INT("DIM_SORT_SIZE", 3);
+	class FSortSize : SHADER_PERMUTATION_INT("DIM_SORT_SIZE", 5);
 
 	using FPermutationDomain = TShaderPermutationDomain<FSortSize>;
 
@@ -102,6 +107,7 @@ class FMaterialSortCS : public FGlobalShader
 	}
 };
 
+
 IMPLEMENT_GLOBAL_SHADER(FMaterialSortCS, "/Engine/Private/RayTracing/MaterialSort.usf", "MaterialSortLocal", SF_Compute);
 
 void SortDeferredMaterials(
@@ -115,7 +121,7 @@ void SortDeferredMaterials(
 	{
 		return;
 	}
-	SortSize = FMath::Min(SortSize, 3u);
+	SortSize = FMath::Min(SortSize, 5u);
 
 	// Setup shader and parameters
 	FMaterialSortCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FMaterialSortCS::FParameters>();
@@ -134,7 +140,7 @@ void SortDeferredMaterials(
 		RDG_EVENT_NAME("MaterialSort SortSize=%d NumElements=%d", SortSize, NumElements),
 		*SortShader,
 		PassParameters,
-		FIntVector(DispatchWidth, 1, 1));
+		FIntVector(DispatchWidth, 1, 1));		
 }
 
 #else // RHI_RAYTRACING

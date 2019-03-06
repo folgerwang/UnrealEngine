@@ -17,7 +17,16 @@ void SpotLight_GenerateLightRay(
 {
 	OutLightRay.Origin = Ray.Origin;
 	OutLightRay.TMin = 0.001;
-	float3 LightDir = GetPosition(LightId) - Ray.Origin;
+	float Radius = GetRadius(LightId);
+	Radius = 0.0;
+	float3 DeltaPosition = 0.0;
+	if (Radius > 0.0)
+	{
+		// Transform UV into normal-aligned direction
+		float3 LightNormal = GetNormal(LightId);
+		DeltaPosition = TangentToWorld(LightUV, LightNormal) * Radius;
+	}
+	float3 LightDir = GetPosition(LightId) + DeltaPosition - Ray.Origin;
 	float Length = length(LightDir);
 	OutLightRay.Direction = LightDir / Length;
 	OutLightRay.TMax = Length;
@@ -42,19 +51,47 @@ void SpotLight_EvalLight(
 {
 	OutRadiance = 0.0;
 
+	float3 LightPosition = GetPosition(LightId);
+	float3 LightNormal = GetNormal(LightId);
 	float3 Color = GetColor(LightId);
-	float3 LightDirection = GetPosition(LightId) - Ray.Origin;
+	float Radius = GetRadius(LightId);
+	Radius = 0.0;
+	float CosConeAngle = GetCosConeAngle(LightId);
+
+	// Check for spherical definition
+	float3 ClosestPoint = LightPosition;
+	if (Radius > 0.0)
+	{
+		float SphericalCapArea = 2.0 * PI * Radius * Radius * (1.0 - CosConeAngle);
+		Color /= SphericalCapArea;
+
+		// Create plane equation
+		float3 DiskOrigin = LightPosition + LightNormal * Radius * CosConeAngle;
+		float d = -dot(LightNormal, DiskOrigin);
+		float SignedDistance = dot(LightNormal, Ray.Origin) + d;
+
+		// Project ray origin to find closest point on disk
+		ClosestPoint = Ray.Origin - LightNormal * SignedDistance;
+		float3 DeltaFromOrigin = ClosestPoint - DiskOrigin;
+		float DistanceToDiskOrigin = length(DeltaFromOrigin);
+		if (DistanceToDiskOrigin > Radius)
+		{
+			ClosestPoint = DiskOrigin + DeltaFromOrigin * (Radius / DistanceToDiskOrigin);
+		}
+	}
+
+	// Perform culling based on closest point
+	float3 LightDirection = ClosestPoint - Ray.Origin;
 	float LightDistanceSquared = dot(LightDirection, LightDirection);
 	LightDirection = normalize(LightDirection);
 
 	// Apply culling
-	float3 LightNormal = GetNormal(LightId);
-	float CosAngle = GetCosConeAngle(LightId);
 	float NoL = dot(-LightDirection, LightNormal);
-	if (NoL >= CosAngle)
+	if (NoL >= CosConeAngle)
 	{
-		float Falloff = NoL - CosAngle;
+		float Falloff = NoL - CosConeAngle;
 		Falloff *= Falloff;
+		Falloff *= ComputeAttenuationFalloff(Ray.TMax, GetAttenuation(LightId));
 		OutRadiance = Color * Falloff / LightDistanceSquared;
 		// dxr_todo: apply inner core
 	}
@@ -67,22 +104,49 @@ void SpotLight_EstimateLight(
 	out float OutIrradiance
 )
 {
-	// Distance
-	float3 LightDirection = GetPosition(LightId) - Payload.WorldPos;
+	float3 LightPosition = GetPosition(LightId);
+	float3 LightNormal = GetNormal(LightId);
+	float LightPower = Luminance(GetColor(LightId));
+	float Radius = GetRadius(LightId);
+	Radius = 0.0;
+	float CosConeAngle = GetCosConeAngle(LightId);
+
+	// Check for spherical definition
+	float3 ClosestPoint = LightPosition;
+	if (Radius > 0.0)
+	{
+		float SphericalCapArea = 2.0 * PI * Radius * Radius * (1.0 - CosConeAngle);
+		LightPower /= SphericalCapArea;
+
+		// Create plane equation
+		float3 DiskOrigin = LightPosition + LightNormal * Radius * CosConeAngle;
+		float d = -dot(LightNormal, DiskOrigin);
+		float SignedDistance = dot(LightNormal, Ray.Origin) + d;
+
+		// Project ray origin to find closest point on disk
+		ClosestPoint = Ray.Origin - LightNormal * SignedDistance;
+		float3 DeltaFromOrigin = ClosestPoint - DiskOrigin;
+		float DistanceToDiskOrigin = length(DeltaFromOrigin);
+		if (DistanceToDiskOrigin > Radius)
+		{
+			ClosestPoint = DiskOrigin + DeltaFromOrigin * (Radius / DistanceToDiskOrigin);
+		}
+	}
+
+	// Perform culling based on closest point
+	float3 LightDirection = ClosestPoint - Payload.WorldPos;
 	float LightDistanceSquared = dot(LightDirection, LightDirection);
 	LightDirection = normalize(LightDirection);
 
-	// Apply culling
-	float3 LightNormal = GetNormal(LightId);
-	float CosAngle = GetCosConeAngle(LightId);
 	float NoL = dot(LightNormal, -LightDirection);
-	if (NoL >= CosAngle)
+	if (NoL >= CosConeAngle)
 	{
-		float LightPower = Luminance(GetColor(LightId));
-		float Falloff = NoL - CosAngle;
+		float Falloff = NoL - CosConeAngle;
 		Falloff *= Falloff;
+		// #dxr_todo: change falloff to take distance^2
+		Falloff *= ComputeAttenuationFalloff(sqrt(LightDistanceSquared), GetAttenuation(LightId));
 		OutIrradiance = LightPower * Falloff / LightDistanceSquared;
-		// dxr_todo: apply inner core
+		// #dxr_todo: apply inner core
 	}
 }
 
@@ -95,6 +159,24 @@ void SpotLight_SampleLight(
 	out float OutPdf
 )
 {
-	OutLightUV = 0;
-	OutPdf = 1.0;
+	float Radius = GetRadius(LightId);
+	Radius = 0.0;
+	if (Radius > 0.0)
+	{
+		// Sample a disk that cuts the spherical cap corresponding to the cone angle
+		float CosConeAngle = GetCosConeAngle(LightId);
+		float2 DiskPosition = UniformSampleDiskConcentric(RandSample.yz);
+
+		// Project disk to cutting slice of bounding sphere
+		float SinConeAngle = sqrtFast(1 - CosConeAngle * CosConeAngle);
+		OutLightUV = normalize(float3(SinConeAngle * DiskPosition, CosConeAngle));
+		float SphericalCapArea = 2.0 * PI * Radius * Radius * (1.0 - CosConeAngle);
+		// #dxr_todo: apply the correct Jacobian
+		OutPdf = 1.0 / SphericalCapArea;
+	}
+	else
+	{
+		OutLightUV = 0.0;
+		OutPdf = 1.0;
+	}
 }

@@ -265,6 +265,7 @@ static void CreateHLSLUniformBufferStructMembersDeclaration(
 		if (IsShaderParameterTypeForUniformBufferLayout(Member.GetBaseType()))
 		{
 			check(Member.GetBaseType() != UBMT_RDG_TEXTURE_SRV && Member.GetBaseType() != UBMT_RDG_TEXTURE_UAV);
+			checkf(Member.GetNumElements() == 0, TEXT("Resources array are not supported in uniform buffers yet."));
 			if (Member.GetBaseType() == UBMT_SRV)
 			{
 				// TODO: handle arrays?

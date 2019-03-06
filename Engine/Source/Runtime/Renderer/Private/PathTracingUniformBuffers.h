@@ -8,6 +8,11 @@
 
 #include "UniformBuffer.h"
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingData, )
+	SHADER_PARAMETER(uint32, MaxBounces)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+
 // Lights
 const int32 GLightCountMaximum = 64;
 
@@ -23,6 +28,7 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingLightData, )
 	SHADER_PARAMETER_ARRAY(FVector, Color, [GLightCountMaximum])
 	// Light-specific
 	SHADER_PARAMETER_ARRAY(FVector, Dimensions, [GLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(float, Attenuation, [GLightCountMaximum])
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 

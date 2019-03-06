@@ -37,6 +37,7 @@
 #include "HAL/FileManager.h"
 #include "ProfilingDebugging/LoadTimeTracker.h"
 #include "UObject/CoreRedirects.h"
+#include "RayTracingDefinitions.h"
 
 DEFINE_LOG_CATEGORY(LogMaterial);
 

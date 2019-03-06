@@ -4,7 +4,46 @@
 #include "../TextureSampling.ush"
 
 
-//------------------------------------------------------- STRUCTURE
+//------------------------------------------------------- ENUMS
+
+/** Enums to choose how to compute the world distance for bilateral rejection. */
+	// Only depends on the reference sample's pixel size and depth.
+	#define SIGNAL_WORLD_FREQUENCY_REF_METADATA_ONLY 0
+
+	// Only depends on the sample's pixel size and depth.
+	#define SIGNAL_WORLD_FREQUENCY_SAMPLE_METADATA_ONLY 1
+
+	// Is the smallest according of pixel size and depth between reference and sample.
+	#define SIGNAL_WORLD_FREQUENCY_MIN_METADATA 2
+
+	// Depends only based of the sample's hit distance and metadata.
+	#define SIGNAL_WORLD_FREQUENCY_HIT_DISTANCE 3
+
+	// Uses FSSFSignalSample::WorldBluringRadius precomputed in the sample.
+	#define SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS 4
+
+
+
+//------------------------------------------------------- STRUCTURES
+
+/** Structure that is just an array of accumulators, to work arround shader compiler bug on "out" of arrays. */
+struct FSSDSignalAccumulatorArray
+{
+	FSSDSignalAccumulator Array[MAX_SIGNAL_MULTIPLEXING];
+};
+
+FSSDSignalAccumulatorArray CreateSignalAccumulatorArray()
+{
+	FSSDSignalAccumulatorArray Accumulators;
+	
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	for (uint i = 0; i < MAX_SIGNAL_MULTIPLEXING; i++)
+	{
+		Accumulators.Array[i] = CreateSignalAccumulator();
+	}
+	return Accumulators;
+}
+
 
 /** Configures the spatial kernel. */
 struct FSSDKernelConfig
@@ -20,6 +59,12 @@ struct FSSDKernelConfig
 	// Compile time layout of the buffer to accumulate.
 	uint BufferLayout;
 
+	// Compile time number of multiplexed signal per signal domain.
+	uint MultiplexedSignalsPerSignalDomain;
+	
+	// Selects how the world distance should be computed for bilateral rejection at compile time.
+	uint BilateralDistanceComputation;
+
 	// Compile time configuration whether want do LOOP or UNROLL
 	//  false by default to expose in user code when the shader byte code might potentially be big.
 	bool bUnroll;
@@ -27,19 +72,20 @@ struct FSSDKernelConfig
 	// Compile time whether the center of the kernel sample is sampled.
 	bool bSampleKernelCenter;
 
-	// Compile time whether 
+	// Compile time whether sampling previous frame or current frame metadata.
 	bool bPreviousFrameMetadata;
 
-	bool bConsiderInputSampleBlurRadius;
+	// The sample should be accumulated starting from the further away.
+	bool bDescOrder;
+
+	// Whether a sample should be normalised to 1 before accmulation.
+	bool bNormalizeSample;
 
 	// The color space that has been encoded in the buffer.
 	uint BufferColorSpace[MAX_SIGNAL_MULTIPLEXING];
 	
 	// The color space of the accumulation.
 	uint AccumulatorColorSpace[MAX_SIGNAL_MULTIPLEXING];
-
-	// Whether a sample should be normalised to 1 before accmulation.
-	bool bNormalizeSample[MAX_SIGNAL_MULTIPLEXING];
 
 	
 	// --------------------------- Per wave.
@@ -85,16 +131,19 @@ FSSDKernelConfig CreateKernelConfig()
 	KernelConfig.SampleSet = SAMPLE_SET_1X1;
 	KernelConfig.SampleSubSetId = 0;
 	KernelConfig.BufferLayout = SIGNAL_BUFFER_LAYOUT_UNINITIALIZED;
+	KernelConfig.MultiplexedSignalsPerSignalDomain = MAX_SIGNAL_MULTIPLEXING;
 	KernelConfig.bUnroll = false;
 	KernelConfig.bSampleKernelCenter = false;
 	KernelConfig.bPreviousFrameMetadata = false;
-	KernelConfig.bConsiderInputSampleBlurRadius = true;
+	KernelConfig.BilateralDistanceComputation = SIGNAL_WORLD_FREQUENCY_MIN_METADATA;
+	KernelConfig.bDescOrder = false;
+	KernelConfig.bNormalizeSample = false;
 	
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
 	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 	{
 		KernelConfig.BufferColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
 		KernelConfig.AccumulatorColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
-		KernelConfig.bNormalizeSample[MultiplexId] = false;
 	}
 	
 	KernelConfig.BufferSizeAndInvSize = float4(0, 0, 0, 0);
@@ -125,12 +174,6 @@ FSSFSignalSample TransformSignalSampleForAccumulation(
 	uint MultiplexId,
 	FSSFSignalSample Sample)
 {
-	// TODO: could be an option of the sampling to avoid *= M; *= rcp(M);
-	if (KernelConfig.bNormalizeSample[MultiplexId])
-	{
-		Sample = NormalizeToOneSample(Sample);
-	}
-
 	// TODO: could pass down information that this sample may be normalized.
 	Sample = TransformSignal(
 		Sample, 
@@ -140,85 +183,218 @@ FSSFSignalSample TransformSignalSampleForAccumulation(
 	return Sample;
 }
 
-void AccumulateMultiplexedSignals(
+/** Compute at compile time the index of the signal in the batch, from the index of the multiplexed signal. */
+uint ComputeSignalBatchIdFromSignalMultiplexId(FSSDKernelConfig KernelConfig, const uint SignalMultiplexId)
+{
+	return SignalMultiplexId / KernelConfig.MultiplexedSignalsPerSignalDomain;
+}
+
+/** Returns whether this sample is outside the viewport. */
+bool IsOutsideViewport(FSSDKernelConfig KernelConfig, float2 SampleBufferUV)
+{
+	// TODO: what is the fastest way to test that?
+	return any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw));
+}
+
+/** Sample multiplexed samples and their metadata for kernel use. */
+void SampleMultiplexedSignals(
 	FSSDKernelConfig KernelConfig,
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
 	Texture2D SignalBuffer2,
-	inout FSSDSignalAccumulator Accumulator,
+	Texture2D SignalBuffer3,
 	float2 SampleBufferUV,
-	float KernelSampleWeight,
-	const bool bForceSample)
+	out FSSFSampleSceneInfos OutSampleSceneMetadata,
+	out FSSDSignalArray OutMultiplexedSamples)
 {
 	// Sample the meta data of the sample.	
 	float2 SampleViewportUV = BufferUVToViewportUV(SampleBufferUV);
 	float2 SampleScreenPosition = ViewportUVToScreenPos(SampleViewportUV);
-
+	
 	FSSFSampleSceneInfos SampleSceneMetadata;
 	if (KernelConfig.bPreviousFrameMetadata)
 	{
-		SampleSceneMetadata = FetchPrevSceneInfos(SampleScreenPosition, SampleBufferUV);
+		OutSampleSceneMetadata = FetchPrevSceneInfos(SampleScreenPosition, SampleBufferUV);
 	}
 	else
 	{
-		SampleSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleBufferUV);
+		OutSampleSceneMetadata = FetchCurrentSceneInfos(SampleScreenPosition, SampleBufferUV);
 	}
 
-	float RefWorldBluringRadius = ComputePixelWorldRadius(KernelConfig.RefSceneMetadata);
+	// Fetches the signals sample
+	OutMultiplexedSamples = SampleMultiplexedSignals(
+		SignalBuffer0,
+		SignalBuffer1,
+		SignalBuffer2,
+		SignalBuffer3,
+		GlobalPointClampedSampler,
+		KernelConfig.BufferLayout,
+		/* MultiplexedSampleId = */ 0,
+		KernelConfig.bNormalizeSample,
+		SampleBufferUV,
+		KernelConfig.BufferMipLevel);
+} // SampleMultiplexedSignals()
 
-	UNROLL
-	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+/** Accumulate multiplexed samples and their metadata to an accumulator. */
+void AccumulateSampledMultiplexedSignals(
+	FSSDKernelConfig KernelConfig,
+	inout FSSDSignalAccumulatorArray Accumulators,
+	float2 SampleBufferUV,
+	FSSFSampleSceneInfos SampleSceneMetadata,
+	FSSDSignalArray MultiplexedSamples,
+	float KernelSampleWeight,
+	const bool bForceSample,
+	bool bIsOutsideFrustum)
+{
+	// Compute the bluring radius of the output pixel itself.
+	float RefPixelWorldBluringRadius = ComputeWorldBluringRadiusCausedByPixelSize(KernelConfig.RefSceneMetadata);
+
+	// When sampling the previous frame, need to be forgiving in the world based bilateral rejection because TAA jitter.
+	const float WorldBluringDistanceForgiveness = KernelConfig.bPreviousFrameMetadata ? 3 : 1.0;
+	
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
 	{
-		FSSFSignalSample Sample = SampleMultiplexedSignal(
-			SignalBuffer0,
-			SignalBuffer1,
-			SignalBuffer2,
-			GlobalPointClampedSampler,
-			KernelConfig.BufferLayout,
-			MultiplexId,
-			SampleBufferUV,
-			KernelConfig.BufferMipLevel);
-		
-		Sample = TransformSignalSampleForAccumulation(KernelConfig, MultiplexId, Sample);
+		// Compute at compile time the id of the signal being processed.
+		const uint BatchedSignalId = ComputeSignalBatchIdFromSignalMultiplexId(KernelConfig, SignalMultiplexId);
 
-		float SampleWorldBluringRadius = ComputePixelWorldRadius(SampleSceneMetadata);
+		// Fetch and pre process the sample for accumulation.
+		FSSFSignalSample Sample = MultiplexedSamples.Array[SignalMultiplexId];
 		
-		float MaxBilateralWorldDistance;
-		if (KernelConfig.bConsiderInputSampleBlurRadius)
+		Sample = TransformSignalSampleForAccumulation(KernelConfig, SignalMultiplexId, Sample);
+		
+		// Compute the bluring radius of pixel itself.
+		float SamplePixelWorldBluringRadius = ComputeWorldBluringRadiusCausedByPixelSize(SampleSceneMetadata);
+		
+		// Compute the bluring radius of the signal from ray hit distance and signal domain knowledge.
+		float SignalConvolutionBluringRadius = GetSignalWorldBluringRadius(Sample, SampleSceneMetadata, BatchedSignalId);
+		
+		// But the signal's bluring radius might already be pre computed.
+		if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
 		{
-			MaxBilateralWorldDistance = WorldBluringRadiusToBilateralWorldDistance(min(SampleWorldBluringRadius, RefWorldBluringRadius));
-		}
-		else
-		{
-			MaxBilateralWorldDistance = WorldBluringRadiusToBilateralWorldDistance(RefWorldBluringRadius);
+			SignalConvolutionBluringRadius = Sample.WorldBluringRadius;
 		}
 
+		// Compute the final world distance to use for bilateral rejection.
+		float FinalWorldBluringDistance = -1;
+		if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_REF_METADATA_ONLY)
+		{
+			FinalWorldBluringDistance = AmendWorldBluringRadiusCausedByPixelSize(
+				RefPixelWorldBluringRadius) * WorldBluringDistanceForgiveness;
+		}
+		else if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_SAMPLE_METADATA_ONLY)
+		{
+			FinalWorldBluringDistance = AmendWorldBluringRadiusCausedByPixelSize(
+				SamplePixelWorldBluringRadius) * WorldBluringDistanceForgiveness;
+		}
+		else if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_MIN_METADATA)
+		{
+			FinalWorldBluringDistance = AmendWorldBluringRadiusCausedByPixelSize(
+				min(SamplePixelWorldBluringRadius, RefPixelWorldBluringRadius)) * WorldBluringDistanceForgiveness;
+		}
+		else if (
+			KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_HIT_DISTANCE ||
+			KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
+		{
+			FinalWorldBluringDistance = SignalConvolutionBluringRadius;
+		}
+		
 		float BilateralWeight = ComputeBilateralWeight(
-			MaxBilateralWorldDistance,
+			FinalWorldBluringDistance,
 			KernelConfig.RefSceneMetadata,
 			SampleSceneMetadata);
 		
+		// TODO: direction of the ray should be cached by injest or output by RGS, otherwise ends up with VGPR pressure because of SampleBufferUV.
 		uint2 NeighborPixelCoord = floor(SampleBufferUV * KernelConfig.BufferSizeAndInvSize.xy);
 		float RatioEstimatorWeight = GetRatioEstimatorWeight(
 			KernelConfig.RefSceneMetadata, SampleSceneMetadata, Sample, NeighborPixelCoord);
 
-		float FinalWeight = KernelSampleWeight * BilateralWeight * RatioEstimatorWeight;
+		FSSDSampleAccumulationInfos SampleInfos;
+		SampleInfos.Sample = Sample;
+		SampleInfos.FinalWeight = KernelSampleWeight * BilateralWeight * RatioEstimatorWeight;
+		SampleInfos.InvFrequency = SignalConvolutionBluringRadius;
 
 		if (bForceSample || KernelConfig.bForceAllAccumulation)
 		{
-			FinalWeight = 1;
+			SampleInfos.FinalWeight = 1;
 		}
 
-		if (Sample.AccumulatedSampleCount == 0)
+		// TODO: bIsOutsideFrustum could afect number of samples for DRB.
+		FLATTEN
+		if (SampleInfos.Sample.AccumulatedSampleCount != 0 && !bIsOutsideFrustum)
 		{
-			FinalWeight = 0;
+			AccumulateSample(
+				/* inout */ Accumulators.Array[SignalMultiplexId],
+				SampleInfos);
 		}
+	} // for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
+} // AccumulateSampledMultiplexedSignals().
 
-		AccumulateSample(
-			/* inout */ Accumulator,
-			MultiplexId,
-			Sample,
-			FinalWeight);
+/** Sample and accumulate to accumulatore array.
+ * 
+ * Caution: you probably want to explicitly do this manually to help the shader compiler to do lattency hiding.
+ */
+void SampleAndAccumulateMultiplexedSignals(
+	FSSDKernelConfig KernelConfig,
+	Texture2D SignalBuffer0,
+	Texture2D SignalBuffer1,
+	Texture2D SignalBuffer2,
+	Texture2D SignalBuffer3,
+	inout FSSDSignalAccumulatorArray Accumulators,
+	float2 SampleBufferUV,
+	float KernelSampleWeight,
+	const bool bForceSample)
+{
+	FSSFSampleSceneInfos SampleSceneMetadata;
+	FSSDSignalArray MultiplexedSamples;
+	
+	// Stores in SGPR whether this sample is outside the viewport, to avoid VGPR pressure to keep SampleBufferUV after texture fetches.
+	bool bIsOutsideFrustum = IsOutsideViewport(KernelConfig, SampleBufferUV);
+
+	SampleMultiplexedSignals(
+		KernelConfig,
+		SignalBuffer0,
+		SignalBuffer1,
+		SignalBuffer2,
+		SignalBuffer3,
+		SampleBufferUV,
+		/* out */ SampleSceneMetadata,
+		/* out */ MultiplexedSamples);
+
+	AccumulateSampledMultiplexedSignals(
+		KernelConfig,
+		/* inout */ Accumulators,
+		SampleBufferUV,
+		SampleSceneMetadata,
+		MultiplexedSamples,
+		KernelSampleWeight,
+		bForceSample,
+		bIsOutsideFrustum);
+} // SampleAndAccumulateMultiplexedSignals()
+
+void StartAccumulatingCluster(
+	FSSDKernelConfig KernelConfig,
+	inout FSSDSignalAccumulatorArray Accumulators,
+	uint RingId)
+{
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
+	{
+		StartAccumulatingCluster(
+			KernelConfig.RefSceneMetadata,
+			/* inout */ Accumulators.Array[SignalMultiplexId],
+			RingId);
+	}
+}
+
+void DijestAccumulatedClusterSamples(inout FSSDSignalAccumulatorArray Accumulators, uint RingId, uint SampleCount)
+{
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
+	{
+		DijestAccumulatedClusterSamples(
+			/* inout */ Accumulators.Array[SignalMultiplexId],
+			RingId, SampleCount);
 	}
 }
 
@@ -230,7 +406,8 @@ void AccumulateBilinear(
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
 	Texture2D SignalBuffer2,
-	inout FSSDSignalAccumulator Accumulator)
+	Texture2D SignalBuffer3,
+	inout FSSDSignalAccumulatorArray Accumulators)
 {
 	const float MipLevelPow2 = 1;
 
@@ -239,8 +416,8 @@ void AccumulateBilinear(
 		KernelConfig.BufferSizeAndInvSize.xy,
 		KernelConfig.BufferSizeAndInvSize.zw,
 		MipLevelPow2, rcp(MipLevelPow2));
-
-	UNROLL
+	
+	FIX_UNROLL(4)
 	for (uint i = 0; i < 4; i++)
 	{
 		float2 SampleOffset = BilinearSamplingOffsets2x2[i];
@@ -249,19 +426,15 @@ void AccumulateBilinear(
 		// TODO: -0.5 full res pixel to ensure always select the mip, regardless of mantissa precision?
 		float2 SampleBufferUV = (BilinearInfos.TopLeftPixelCoord + (SampleOffset + 0.5)) * MipLevelPow2 * KernelConfig.BufferSizeAndInvSize.zw;
 		
-		if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
-		{
-			continue;
-		}
-		
 		float BilinearWeight = GetSampleWeight(BilinearInfos, i);
 		
-		AccumulateMultiplexedSignals(
+		SampleAndAccumulateMultiplexedSignals(
 			KernelConfig,
 			SignalBuffer0,
 			SignalBuffer1,
 			SignalBuffer2,
-			/* inout */ Accumulator,
+			SignalBuffer3,
+			/* inout */ Accumulators,
 			SampleBufferUV,
 			BilinearWeight,
 			/* bForceSample = */ false);
@@ -273,7 +446,8 @@ void AccumulateSquareKernel(
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
 	Texture2D SignalBuffer2,
-	inout FSSDSignalAccumulator Accumulator)
+	Texture2D SignalBuffer3,
+	inout FSSDSignalAccumulatorArray Accumulators)
 {
 	int KernelRadius = 1;
 	if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
@@ -304,10 +478,6 @@ void AccumulateSquareKernel(
 			}
 			
 			float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
-			if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
-			{
-				continue;
-			}
 		
 			float KernelWeight = 1;
 			if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
@@ -318,12 +488,13 @@ void AccumulateSquareKernel(
 					rcp(kWaveletFilterWeights5x5[0] * kWaveletFilterWeights5x5[0]);
 			}
 
-			AccumulateMultiplexedSignals(
+			SampleAndAccumulateMultiplexedSignals(
 				KernelConfig,
 				SignalBuffer0,
 				SignalBuffer1,
 				SignalBuffer2,
-				/* inout */ Accumulator,
+				SignalBuffer3,
+				/* inout */ Accumulators,
 				SampleBufferUV,
 				KernelWeight,
 				/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
@@ -331,6 +502,7 @@ void AccumulateSquareKernel(
 	}
 	else
 	{
+		// TODO: lattency hiding of this is terrible.
 		LOOP for (int x = -KernelRadius; x <= KernelRadius; x++)
 		LOOP for (int y = -KernelRadius; y <= KernelRadius; y++)
 		{
@@ -348,10 +520,6 @@ void AccumulateSquareKernel(
 			}
 			
 			float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
-			if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
-			{
-				continue;
-			}
 		
 			float KernelWeight = 1;
 			if (KernelConfig.SampleSet == SAMPLE_SET_5X5_WAVELET)
@@ -362,12 +530,13 @@ void AccumulateSquareKernel(
 					rcp(kWaveletFilterWeights5x5[0] * kWaveletFilterWeights5x5[0]);
 			}
 
-			AccumulateMultiplexedSignals(
+			SampleAndAccumulateMultiplexedSignals(
 				KernelConfig,
 				SignalBuffer0,
 				SignalBuffer1,
 				SignalBuffer2,
-				/* inout */ Accumulator,
+				SignalBuffer3,
+				/* inout */ Accumulators,
 				SampleBufferUV,
 				KernelWeight,
 				/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
@@ -506,35 +675,133 @@ void ConvolveStackowiakKernel(
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
 	Texture2D SignalBuffer2,
-	inout FSSDSignalAccumulator Accumulator)
+	Texture2D SignalBuffer3,
+	inout FSSDSignalAccumulatorArray Accumulators)
 {
-	LOOP for (uint SampleId = (KernelConfig.bSampleKernelCenter ? 0 : 1); SampleId < KernelConfig.SampleCount; SampleId++)
+	if (KernelConfig.bDescOrder)
 	{
-		const bool bIsKernelCenterSample = SampleId == 0;
+		// Compile time number of samples between rings.
+		const uint StocasticSamplesPerCluster = 8 / kStackowiakSampleSetCount;
 
-		float2 SampleOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
-		if (KernelConfig.SampleSubSetId == 1)
+		// Compute the first index at witch digestion must happen.
+		uint CurrentRingId = 0;
+		uint NextClusterBoundary = 0;
+
+		// Number of batch size done at same time, to improve lattency hidding.
+		const uint kSamplingBatchSize = 2;
+
+		// Number of batch of samples to perform.
+		const uint BatchCountCount = (KernelConfig.SampleCount + (kSamplingBatchSize - 1)) / kSamplingBatchSize;
+
+		// Compute a final number of sample quantize the sampling batch size.
+		const uint SampleCount = BatchCountCount * kSamplingBatchSize;
+
+		if (StocasticSamplesPerCluster == 2)
 		{
-			SampleOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+			uint un = SampleCount - 1;
+
+			CurrentRingId = (uint(floor(sqrt(4 * un - 3))) + 1) / 2;
+
+			NextClusterBoundary = 1 + CurrentRingId * (CurrentRingId - 1);
 		}
-			
-		float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
-		if (any(SampleBufferUV != clamp(SampleBufferUV, KernelConfig.BufferBilinearUVMinMax.xy, KernelConfig.BufferBilinearUVMinMax.zw)))
+		else
 		{
-			continue;
+			// TODO
 		}
 		
-		float KernelWeight = 1;
-		AccumulateMultiplexedSignals(
-			KernelConfig,
-			SignalBuffer0,
-			SignalBuffer1,
-			SignalBuffer2,
-			/* inout */ Accumulator,
-			SampleBufferUV,
-			KernelWeight,
-			/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+		StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, CurrentRingId);
+		
+		// Processes the samples in batches so that the compiler can do lattency hidding.
+		LOOP
+		for (uint BatchId = 0; BatchId < BatchCountCount; BatchId++)
+		{
+			FIX_UNROLL(2)
+			for (uint SampleBatchId = 0; SampleBatchId < 2; SampleBatchId++)
+			{
+				const uint SampleId = (BatchCountCount - BatchId) * kSamplingBatchSize - 1 - SampleBatchId;
+
+				const bool bIsKernelCenterSample = SampleId == 0 && (SampleBatchId == 3);
+				
+				float2 SampleOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+				if (KernelConfig.SampleSubSetId == 1)
+				{
+					SampleOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+				}
+				
+				float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
+				
+				float KernelWeight = 1;
+				SampleAndAccumulateMultiplexedSignals(
+					KernelConfig,
+					SignalBuffer0,
+					SignalBuffer1,
+					SignalBuffer2,
+					SignalBuffer3,
+					/* inout */ Accumulators,
+					SampleBufferUV,
+					KernelWeight,
+					/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+
+				// Change of cluster. Can only happens on odd SampleId, meaning even SampleBatchId.
+				BRANCH
+				if (SampleId == NextClusterBoundary && (SampleBatchId % 2) == 0)
+				{
+					// Compute the number samples that have been accumulated for this sample.
+					uint AccumulatedSampleCountForCluster = min(CurrentRingId * StocasticSamplesPerCluster, SampleCount - SampleId);
+
+					// Digest all acumulators.
+					DijestAccumulatedClusterSamples(/* inout */ Accumulators, CurrentRingId, AccumulatedSampleCountForCluster);
+				
+					BRANCH
+					if (!KernelConfig.bSampleKernelCenter && SampleId == 1)
+					{
+						break;
+					}
+
+					// Change cluster index and boundary.
+					CurrentRingId -= 1;
+					NextClusterBoundary -= CurrentRingId * StocasticSamplesPerCluster;
+				
+					// Prepare the accumulators for new cluster.
+					StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, CurrentRingId);
+				}
+			} // for (uint SampleBatchId = 0; SampleBatchId < kSamplingBatchSize; SampleBatchId++)
+		} // for (uint BatchId = 0; BatchId < BatchCountCount; BatchId++)
+		
+		// NextClusterBoundary is not capable to reach 0, therefore need to manually digest the center sample.
+		if (KernelConfig.bSampleKernelCenter)
+		{
+			DijestAccumulatedClusterSamples(/* inout */ Accumulators, /* RingId = */ 0, /* SampleCount = */ 1);
+		}
 	}
+	else // if (!KernelConfig.bDescOrder)
+	{
+		LOOP
+		for (uint SampleId = (KernelConfig.bSampleKernelCenter ? 0 : 1); SampleId < KernelConfig.SampleCount; SampleId++)
+		{
+			const bool bIsKernelCenterSample = SampleId == 0;
+
+			float2 SampleOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+			if (KernelConfig.SampleSubSetId == 1)
+			{
+				SampleOffset = kStackowiakSampleSet1[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
+			}
+			
+			float2 SampleBufferUV = KernelConfig.BufferUV + (SampleOffset * KernelConfig.KernelSpreadFactor) * KernelConfig.BufferSizeAndInvSize.zw;
+		
+			float KernelWeight = 1;
+			SampleAndAccumulateMultiplexedSignals(
+				KernelConfig,
+				SignalBuffer0,
+				SignalBuffer1,
+				SignalBuffer2,
+				SignalBuffer3,
+				/* inout */ Accumulators,
+				SampleBufferUV,
+				KernelWeight,
+				/* bForceSample = */ bIsKernelCenterSample && KernelConfig.bForceKernelCenterAccumulation);
+		}
+	} // if (!KernelConfig.bDescOrder)
 } // ConvolveStackowiakKernel()
 
 
@@ -545,18 +812,20 @@ void AccumulateKernel(
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
 	Texture2D SignalBuffer2,
-	inout FSSDSignalAccumulator Accumulator)
+	Texture2D SignalBuffer3,
+	inout FSSDSignalAccumulatorArray Accumulators)
 {
 	if (KernelConfig.SampleSet == SAMPLE_SET_1X1)
 	{
 		if (KernelConfig.bSampleKernelCenter)
 		{
-			AccumulateMultiplexedSignals(
+			SampleAndAccumulateMultiplexedSignals(
 				KernelConfig,
 				SignalBuffer0,
 				SignalBuffer1,
 				SignalBuffer2,
-				/* inout */ Accumulator,
+				SignalBuffer3,
+				/* inout */ Accumulators,
 				KernelConfig.BufferUV,
 				/* KernelSampleWeight = */ 1,
 				/* bForceSample = */ true);
@@ -569,7 +838,8 @@ void AccumulateKernel(
 			SignalBuffer0,
 			SignalBuffer1,
 			SignalBuffer2,
-			/* inout */ Accumulator);
+			SignalBuffer3,
+			/* inout */ Accumulators);
 	}
 	else if (
 		KernelConfig.SampleSet == SAMPLE_SET_3X3 ||
@@ -584,7 +854,8 @@ void AccumulateKernel(
 			SignalBuffer0,
 			SignalBuffer1,
 			SignalBuffer2,
-			/* inout */ Accumulator);
+			SignalBuffer3,
+			/* inout */ Accumulators);
 	}
 	else if (KernelConfig.SampleSet == SAMPLE_SET_STACKOWIAK_4_SETS)
 	{
@@ -593,6 +864,7 @@ void AccumulateKernel(
 			SignalBuffer0,
 			SignalBuffer1,
 			SignalBuffer2,
-			/* inout */ Accumulator);
+			SignalBuffer3,
+			/* inout */ Accumulators);
 	}
 } // AccumulateKernel()

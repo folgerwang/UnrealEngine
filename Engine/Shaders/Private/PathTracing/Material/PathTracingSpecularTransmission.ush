@@ -14,38 +14,33 @@ void SpecularRefraction_SampleMaterial(
 	out float OutPdf)
 {
 	float3 N_World = GetWorldNormal(Payload);
-	float3 DiffuseColor = GetDiffuseColor(Payload);
-
-	//#dxr_todo: read IOR of each medium
-	float IorA = 1.0;
-	float IorB = Payload.Ior;
+	float3 SpecularColor = Payload.BaseColor;// GetSpecularColor(Payload);
 
 	float3 V_World = normalize(-RayDirection);
 	float3 V_Local = WorldToTangent(V_World, N_World);
 	float3 L_Local;
 
-	float IorI = IorA;
-	float IorT = IorB;
-	if (V_Local.z < 0.0)
+	float3 N = float3(0.0, 0.0, 1.0);
+	if (dot(V_Local, N) < 0.0)
 	{
-		IorI = IorB;
-		IorT = IorA;
+		N = -N;
 	}
 
-	float3 nL = float3(0.0, 0.0, 1.0);
-	if (dot(V_Local, nL) < 0.0)
+	float Ior1 = Payload.Ior;
+	float Ior2 = 1.0f;
+	float Eta = Ior1 / Ior2;
+	bool bIsEntering = (dot(RayDirection, N_World) < 0.0);
+	if (bIsEntering)
 	{
-		nL = -nL;
+		Eta = 1.0 / Payload.Ior;
 	}
-
-
-	if (BSDF_Refract(V_Local, nL, IorI, IorT, L_Local))
+	
+	if (BSDF_Refract(V_Local, N, Eta, L_Local))
 	{
-		float SqrRatio = (IorI * IorI) / (IorT * IorT);	// SqrRatio is 1 for light rays	
 		OutDirection = TangentToWorld(L_Local, N_World);
-		OutThroughput = SqrRatio * DiffuseColor * (float3(1.0f, 1.0f, 1.0f) - FresnelDielectric(L_Local.z, IorI, IorT)) / abs(L_Local.z);
-		float NoL = max(L_Local.z, 0.0);
-		OutThroughput *= NoL;
+
+		float SqrRatio = 1.0;// (IorI * IorI) / (IorT * IorT);	// SqrRatio is 1 for light rays	
+		OutThroughput = SqrRatio * SpecularColor * (float3(1.0f, 1.0f, 1.0f) - FresnelDielectric(L_Local.z, Ior2, Ior1)) / abs(L_Local.z);
 	}
 	else
 	{

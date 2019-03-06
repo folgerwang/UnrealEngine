@@ -633,6 +633,9 @@ FSceneView::FSceneView(const FSceneViewInitOptions& InitOptions)
 	, PrimaryScreenPercentageMethod(EPrimaryScreenPercentageMethod::SpatialUpscale)
 	, ForwardLightingResources(nullptr)
 	, FeatureLevel(InitOptions.ViewFamily ? InitOptions.ViewFamily->GetFeatureLevel() : GMaxRHIFeatureLevel)
+#if RHI_RAYTRACING
+	, IESLightProfileResource(nullptr)
+#endif
 {
 	check(UnscaledViewRect.Min.X >= 0);
 	check(UnscaledViewRect.Min.Y >= 0);
@@ -1349,6 +1352,82 @@ void FSceneView::OverridePostProcessSettings(const FPostProcessSettings& Src, fl
 		LERP_PP(ScreenSpaceReflectionQuality);
 		LERP_PP(ScreenSpaceReflectionIntensity);
 		LERP_PP(ScreenSpaceReflectionMaxRoughness);
+
+		// Ray Tracing
+		if (Src.bOverride_ReflectionsType)
+		{
+			Dest.ReflectionsType = Src.ReflectionsType;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsMaxRoughness)
+		{
+			Dest.RayTracingReflectionsMaxRoughness = Src.RayTracingReflectionsMaxRoughness;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsMaxBounces)
+		{
+			Dest.RayTracingReflectionsMaxBounces = Src.RayTracingReflectionsMaxBounces;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsSamplesPerPixel)
+		{
+			Dest.RayTracingReflectionsSamplesPerPixel = Src.RayTracingReflectionsSamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingReflectionsShadows)
+		{
+			Dest.RayTracingReflectionsShadows = Src.RayTracingReflectionsShadows;
+		}
+
+		if (Src.bOverride_TranslucencyType)
+		{
+			Dest.TranslucencyType = Src.TranslucencyType;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyMaxRoughness)
+		{
+			Dest.RayTracingTranslucencyMaxRoughness = Src.RayTracingTranslucencyMaxRoughness;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyRefractionRays)
+		{
+			Dest.RayTracingTranslucencyRefractionRays = Src.RayTracingTranslucencyRefractionRays;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencySamplesPerPixel)
+		{
+			Dest.RayTracingTranslucencySamplesPerPixel = Src.RayTracingTranslucencySamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingTranslucencyShadows)
+		{
+			Dest.RayTracingTranslucencyShadows = Src.RayTracingTranslucencyShadows;
+		}
+
+		if (Src.bOverride_RayTracingGIMaxBounces)
+		{
+			Dest.RayTracingGIMaxBounces = Src.RayTracingGIMaxBounces;
+		}
+
+		if (Src.bOverride_RayTracingGISamplesPerPixel)
+		{
+			Dest.RayTracingGISamplesPerPixel = Src.RayTracingGISamplesPerPixel;
+		}
+
+		if (Src.bOverride_RayTracingAOSamplesPerPixel)
+		{
+			Dest.RayTracingAOSamplesPerPixel = Src.RayTracingAOSamplesPerPixel;
+		}
+		if (Src.bOverride_PathTracingMaxBounces)
+		{
+			Dest.PathTracingMaxBounces = Src.PathTracingMaxBounces;
+		}
+
+		if (Src.bOverride_PathTracingSamplesPerPixel)
+		{
+			Dest.PathTracingSamplesPerPixel = Src.PathTracingSamplesPerPixel;
+		}
+
 
 		if (Src.bOverride_DepthOfFieldBladeCount)
 		{

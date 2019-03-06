@@ -18,19 +18,14 @@
 // ---------------------------------------------------- Cvars
 
 
+static TAutoConsoleVariable<int32> CVarShadowReconstructionSampleCount(
+	TEXT("r.Shadow.Denoiser.ReconstructionSamples"), 16,
+	TEXT("Maximum number of samples for the reconstruction pass (default = 16)."),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarShadowTemporalAccumulation(
 	TEXT("r.Shadow.Denoiser.TemporalAccumulation"), 1,
 	TEXT(""),
-	ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarHistoryRejection(
-	TEXT("r.Shadow.Denoiser.HistoryRejection"), 1,
-	TEXT(""),
-	ECVF_RenderThreadSafe);
-
-static TAutoConsoleVariable<int32> CVarDoDebugPass(
-	TEXT("r.Shadow.Denoiser.DebugPass"), 0,
-	TEXT("Adds denoiser's the debug pass."),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarReflectionReconstructionSampleCount(
@@ -95,6 +90,11 @@ static const int32 kMaxMipLevel = 4;
 /** Maximum number of sample per pixel supported in the stackowiak sample set. */
 static const int32 kStackowiakMaxSampleCountPerSet = 56;
 
+/** The maximum number of buffers. */
+static const int32 kMaxBufferProcessingCount = IScreenSpaceDenoiser::kMaxBatchSize;
+
+static_assert(IScreenSpaceDenoiser::kMaxBatchSize <= kMaxBufferProcessingCount, "Can't batch more signal than there is internal buffer in the denoiser.");
+
 
 // ---------------------------------------------------- Globals
 
@@ -108,7 +108,7 @@ namespace
 /** Different signals to denoise. */
 enum class ESignalProcessing
 {
-	Penumbra,
+	MonochromaticPenumbra,
 	Reflections,
 	AmbientOcclusion,
 	GlobalIllumination,
@@ -121,8 +121,23 @@ enum class ESignalProcessing
 
 static bool IsSupportedLightType(ELightComponentType LightType)
 {
-	// TODO: whitelist LightType_Spot once implemented in the ray generation shader and tested.
-	return  LightType == LightType_Point || LightType == LightType_Directional || LightType == LightType_Rect;
+	return LightType == LightType_Point || LightType == LightType_Directional || LightType == LightType_Rect || LightType == LightType_Spot;
+}
+
+/** Returns whether a signal processing is supported by the constant pixel density pass layout. */
+static bool UsesConstantPixelDensityPassLayout(ESignalProcessing SignalProcessing)
+{
+	return (
+		SignalProcessing == ESignalProcessing::MonochromaticPenumbra ||
+		SignalProcessing == ESignalProcessing::Reflections ||
+		SignalProcessing == ESignalProcessing::AmbientOcclusion ||
+		SignalProcessing == ESignalProcessing::GlobalIllumination);
+}
+
+/** Returns whether a signal processing uses an injestion pass. */
+static bool SignalUsesInjestion(ESignalProcessing SignalProcessing)
+{
+	return SignalProcessing == ESignalProcessing::MonochromaticPenumbra;
 }
 
 /** Returns whether a signal processing uses a history rejection pre convolution pass. */
@@ -131,37 +146,104 @@ static bool SignalUsesRejectionPreConvolution(ESignalProcessing SignalProcessing
 	return SignalProcessing == ESignalProcessing::Reflections;
 }
 
+/** Returns whether a signal processing uses a history rejection pre convolution pass. */
+static bool SignalUsesFinalConvolution(ESignalProcessing SignalProcessing)
+{
+	return SignalProcessing == ESignalProcessing::MonochromaticPenumbra;
+}
+
+/** Returns the number of signal that might be batched at the same time. */
+static int32 SignalMaxBatchSize(ESignalProcessing SignalProcessing)
+{
+	if (SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
+	{
+		return IScreenSpaceDenoiser::kMaxBatchSize;
+	}
+	else if (
+		SignalProcessing == ESignalProcessing::Reflections ||
+		SignalProcessing == ESignalProcessing::AmbientOcclusion ||
+		SignalProcessing == ESignalProcessing::GlobalIllumination)
+	{
+		return 1;
+	}
+	check(0);
+	return 1;
+}
+
+/** Returns whether a signal can denoise multi sample per pixel. */
+static bool SignalSupportMultiSPP(ESignalProcessing SignalProcessing)
+{
+	return SignalProcessing == ESignalProcessing::MonochromaticPenumbra;
+}
+
 
 // ---------------------------------------------------- Shaders
 
-
+// Permutation dimension for the type of signal being denoised.
 class FSignalProcessingDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_SIGNAL_PROCESSING", ESignalProcessing);
 
+// Permutation dimension for the number of signal being denoised at the same time.
+class FSignalBatchSizeDim : SHADER_PERMUTATION_RANGE_INT("DIM_SIGNAL_BATCH_SIZE", 1, IScreenSpaceDenoiser::kMaxBatchSize);
+
+// Permutation dimension for denoising multiple sample at same time.
+class FMultiSPPDim : SHADER_PERMUTATION_BOOL("DIM_MULTI_SPP");
+
+
+const TCHAR* const kInjestResourceNames[] = {
+	// Penumbra
+	TEXT("ShadowDenoiserInjest0"),
+	TEXT("ShadowDenoiserInjest1"),
+	TEXT("ShadowDenoiserInjest2"),
+	TEXT("ShadowDenoiserInjest3"),
+
+	// Reflections
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// AmbientOcclusion
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// GlobalIllumination
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+};
 
 const TCHAR* const kReconstructionResourceNames[] = {
 	// Penumbra
-	nullptr,
-	nullptr,
-	nullptr,
+	TEXT("ShadowReconstruction0"),
+	TEXT("ShadowReconstruction1"),
+	TEXT("ShadowReconstruction2"),
+	TEXT("ShadowReconstruction3"),
 
 	// Reflections
 	TEXT("ReflectionsReconstruction0"),
 	TEXT("ReflectionsReconstruction1"),
-	nullptr,
+	TEXT("ReflectionsReconstruction2"),
+	TEXT("ReflectionsReconstruction3"),
 
 	// AmbientOcclusion
 	TEXT("AOReconstruction0"),
 	TEXT("AOReconstruction1"),
-	nullptr,
+	TEXT("AOReconstruction2"),
+	TEXT("AOReconstruction3"),
 
 	// GlobalIllumination
 	TEXT("GIReconstruction0"),
 	TEXT("GIReconstruction1"),
-	nullptr,
+	TEXT("GIReconstruction2"),
+	TEXT("GIReconstruction3"),
 };
 
 const TCHAR* const kRejectionPreConvolutionResourceNames[] = {
 	// Penumbra
+	nullptr,
 	nullptr,
 	nullptr,
 	nullptr,
@@ -170,13 +252,16 @@ const TCHAR* const kRejectionPreConvolutionResourceNames[] = {
 	TEXT("ReflectionsRejectionPreConvolution0"),
 	TEXT("ReflectionsRejectionPreConvolution1"),
 	TEXT("ReflectionsRejectionPreConvolution2"),
+	TEXT("ReflectionsRejectionPreConvolution3"),
 
 	// AmbientOcclusion
 	nullptr,
 	nullptr,
 	nullptr,
+	nullptr,
 
 	// GlobalIllumination
+	nullptr,
 	nullptr,
 	nullptr,
 	nullptr,
@@ -184,52 +269,87 @@ const TCHAR* const kRejectionPreConvolutionResourceNames[] = {
 
 const TCHAR* const kTemporalAccumulationResourceNames[] = {
 	// Penumbra
-	nullptr,
-	nullptr,
-	nullptr,
+	TEXT("ShadowTemporalAccumulation0"),
+	TEXT("ShadowTemporalAccumulation1"),
+	TEXT("ShadowTemporalAccumulation2"),
+	TEXT("ShadowTemporalAccumulation3"),
 
 	// Reflections
 	TEXT("ReflectionsTemporalAccumulation0"),
 	TEXT("ReflectionsTemporalAccumulation1"),
-	nullptr,
+	TEXT("ReflectionsTemporalAccumulation2"),
+	TEXT("ReflectionsTemporalAccumulation3"),
 
 	// AmbientOcclusion
 	TEXT("AOTemporalAccumulation0"),
 	TEXT("AOTemporalAccumulation1"),
-	nullptr,
+	TEXT("AOTemporalAccumulation2"),
+	TEXT("AOTemporalAccumulation3"),
 
 	// GlobalIllumination
 	TEXT("GITemporalAccumulation0"),
 	TEXT("GITemporalAccumulation1"),
-	nullptr,
+	TEXT("GITemporalAccumulation2"),
+	TEXT("GITemporalAccumulation3"),
 };
 
 const TCHAR* const kHistoryConvolutionResourceNames[] = {
 	// Penumbra
-	nullptr,
-	nullptr,
-	nullptr,
+	TEXT("ShadowHistoryConvolution0"),
+	TEXT("ShadowHistoryConvolution1"),
+	TEXT("ShadowHistoryConvolution2"),
+	TEXT("ShadowHistoryConvolution3"),
 
 	// Reflections
 	TEXT("ReflectionsHistoryConvolution0"),
 	TEXT("ReflectionsHistoryConvolution1"),
-	nullptr,
+	TEXT("ReflectionsHistoryConvolution2"),
+	TEXT("ReflectionsHistoryConvolution3"),
 
 	// AmbientOcclusion
 	TEXT("AOHistoryConvolution0"),
 	TEXT("AOHistoryConvolution1"),
-	nullptr,
+	TEXT("AOHistoryConvolution2"),
+	TEXT("AOHistoryConvolution3"),
 
 	// GlobalIllumination
 	TEXT("GIHistoryConvolution0"),
 	TEXT("GIHistoryConvolution1"),
+	TEXT("GIHistoryConvolution2"),
+	TEXT("GIHistoryConvolution3"),
+};
+
+const TCHAR* const kDenoiserOutputResourceNames[] = {
+	// Penumbra
+	TEXT("ShadowDenoiserOutput0"),
+	TEXT("ShadowDenoiserOutput1"),
+	TEXT("ShadowDenoiserOutput2"),
+	TEXT("ShadowDenoiserOutput3"),
+
+	// Reflections
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// AmbientOcclusion
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// GlobalIllumination
+	nullptr,
+	nullptr,
+	nullptr,
 	nullptr,
 };
 
-static_assert(ARRAY_COUNT(kReconstructionResourceNames) == int32(ESignalProcessing::MAX) * 3, "You forgot me!");
-static_assert(ARRAY_COUNT(kRejectionPreConvolutionResourceNames) == int32(ESignalProcessing::MAX) * 3, "You forgot me!");
-static_assert(ARRAY_COUNT(kTemporalAccumulationResourceNames) == int32(ESignalProcessing::MAX) * 3, "You forgot me!");
-static_assert(ARRAY_COUNT(kHistoryConvolutionResourceNames) == int32(ESignalProcessing::MAX) * 3, "You forgot me!");
+static_assert(ARRAY_COUNT(kReconstructionResourceNames) == int32(ESignalProcessing::MAX) * kMaxBufferProcessingCount, "You forgot me!");
+static_assert(ARRAY_COUNT(kRejectionPreConvolutionResourceNames) == int32(ESignalProcessing::MAX) * kMaxBufferProcessingCount, "You forgot me!");
+static_assert(ARRAY_COUNT(kTemporalAccumulationResourceNames) == int32(ESignalProcessing::MAX) * kMaxBufferProcessingCount, "You forgot me!");
+static_assert(ARRAY_COUNT(kHistoryConvolutionResourceNames) == int32(ESignalProcessing::MAX) * kMaxBufferProcessingCount, "You forgot me!");
+static_assert(ARRAY_COUNT(kDenoiserOutputResourceNames) == int32(ESignalProcessing::MAX) * kMaxBufferProcessingCount, "You forgot me!");
 
 
 /** Base class for a screen space denoising shader. */
@@ -258,81 +378,90 @@ END_SHADER_PARAMETER_STRUCT()
 
 /** Shader parameter structure use to bind all signal generically. */
 BEGIN_SHADER_PARAMETER_STRUCT(FSSDSignalTextures, )
-	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Texture0)
-	SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Texture1)
+	SHADER_PARAMETER_RDG_TEXTURE_ARRAY(Texture2D, Textures, [kMaxBufferProcessingCount])
+END_SHADER_PARAMETER_STRUCT()
+
+/** Shader parameter structure use to bind all signal generically. */
+BEGIN_SHADER_PARAMETER_STRUCT(FSSDSignalUAVs, )
+	SHADER_PARAMETER_RDG_TEXTURE_UAV_ARRAY(Texture2D, UAVs, [kMaxBufferProcessingCount])
 END_SHADER_PARAMETER_STRUCT()
 
 /** Shader parameter structure to have all information to spatial filtering. */
 BEGIN_SHADER_PARAMETER_STRUCT(FSSDConvolutionMetaData, )
-	SHADER_PARAMETER_STRUCT(FLightShaderParameters, Light)
-	SHADER_PARAMETER(float, HitDistanceToWorldBluringRadius)
+	SHADER_PARAMETER_ARRAY(FVector4, LightPositionAndRadius, [IScreenSpaceDenoiser::kMaxBatchSize])
+	SHADER_PARAMETER_ARRAY(FVector4, LightDirectionAndLength, [IScreenSpaceDenoiser::kMaxBatchSize])
+	SHADER_PARAMETER_ARRAY(float, HitDistanceToWorldBluringRadius, [IScreenSpaceDenoiser::kMaxBatchSize])
+	SHADER_PARAMETER_ARRAY(uint32, LightType, [IScreenSpaceDenoiser::kMaxBatchSize])
 END_SHADER_PARAMETER_STRUCT()
 
 
-class FSSDReduceCS : public FScreenSpaceDenoisingShader
+FSSDSignalTextures CreateMultiplexedTextures(
+	FRDGBuilder& GraphBuilder,
+	int32 TextureCount,
+	const TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount>& DescArray,
+	const TCHAR* const* TextureNames)
 {
-	DECLARE_GLOBAL_SHADER(FSSDReduceCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDReduceCS, FScreenSpaceDenoisingShader);
+	check(TextureCount <= kMaxBufferProcessingCount);
+	FSSDSignalTextures SignalTextures;
+	for (int32 i = 0; i < TextureCount; i++)
+	{
+		const TCHAR* TextureName = TextureNames[i];
+		SignalTextures.Textures[i] = GraphBuilder.CreateTexture(DescArray[i], TextureName);
+	}
+	return SignalTextures;
+}
 
-	class FLightTypeDim : SHADER_PERMUTATION_INT("DIM_LIGHT_TYPE", LightType_MAX);
-
-	using FPermutationDomain = TShaderPermutationDomain<FLightTypeDim>;
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDConvolutionMetaData, ConvolutionMetaData)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0Mip0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1Mip0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0Mip1)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1Mip1)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0Mip2)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1Mip2)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0Mip3)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1Mip3)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, TileClassificationOutput)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-class FSSDTileDilateCS : public FScreenSpaceDenoisingShader
+FSSDSignalUAVs CreateMultiplexedUAVs(FRDGBuilder& GraphBuilder, const FSSDSignalTextures& SignalTextures)
 {
-	DECLARE_GLOBAL_SHADER(FSSDTileDilateCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDTileDilateCS, FScreenSpaceDenoisingShader);
+	FSSDSignalUAVs UAVs;
+	for (int32 i = 0; i < kMaxBufferProcessingCount; i++)
+	{
+		if (SignalTextures.Textures[i])
+			UAVs.UAVs[i] = GraphBuilder.CreateUAV(SignalTextures.Textures[i]);
+	}
+	return UAVs;
+}
+
+
+class FSSDInjestCS : public FScreenSpaceDenoisingShader
+{
+	DECLARE_GLOBAL_SHADER(FSSDInjestCS);
+	SHADER_USE_PARAMETER_STRUCT(FSSDInjestCS, FScreenSpaceDenoisingShader);
+
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FSignalBatchSizeDim, FMultiSPPDim>;
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		FPermutationDomain PermutationVector(Parameters.PermutationId);
+		ESignalProcessing SignalProcessing = PermutationVector.Get<FSignalProcessingDim>();
+
+		// Only compile this shader for signal processing that uses it.
+		if (!SignalUsesInjestion(SignalProcessing))
+		{
+			return false;
+		}
+
+		// Not all signal processing allow to batch multiple signals at the same time.
+		if (PermutationVector.Get<FSignalBatchSizeDim>() > SignalMaxBatchSize(SignalProcessing))
+		{
+			return false;
+		}
+
+		// Only compiler multi SPP permutation for signal that supports it.
+		if (PermutationVector.Get<FMultiSPPDim>() && !SignalSupportMultiSPP(SignalProcessing))
+		{
+			return false;
+		}
+
+		return FScreenSpaceDenoisingShader::ShouldCompilePermutation(Parameters);
+	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, TileClassificationOutputMip0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, TileClassificationOutputMip1)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, TileClassificationOutputMip2)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D<uint>, TileClassificationOutputMip3)
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-class FSSDBuildHistoryRejectionCS : public FScreenSpaceDenoisingShader
-{
-	DECLARE_GLOBAL_SHADER(FSSDBuildHistoryRejectionCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDBuildHistoryRejectionCS, FScreenSpaceDenoisingShader);
-
-	class FLightTypeDim : SHADER_PERMUTATION_INT("DIM_LIGHT_TYPE", LightType_MAX);
-
-	using FPermutationDomain = TShaderPermutationDomain<FLightTypeDim>;
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters,)
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDConvolutionMetaData, ConvolutionMetaData)
 
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RawSignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RawSignalInput1)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, ReducedSignal0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, ReducedSignal1)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1)
+		SHADER_PARAMETER_STRUCT(FSSDSignalTextures, SignalInput)
+		SHADER_PARAMETER_STRUCT(FSSDSignalUAVs, SignalOutput)
 	END_SHADER_PARAMETER_STRUCT()
 };
 
@@ -340,6 +469,8 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 {
 	DECLARE_GLOBAL_SHADER(FSSDSpatialAccumulationCS);
 	SHADER_USE_PARAMETER_STRUCT(FSSDSpatialAccumulationCS, FScreenSpaceDenoisingShader);
+
+	static const uint32 kGroupSize = 8;
 	
 	enum class EStage
 	{
@@ -352,21 +483,30 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 		// Spatial kernel used to post filter the temporal accumulation.
 		PostFiltering,
 
+		// Final spatial kernel, that may output specific buffer encoding to integrate with the rest of the renderer
+		FinalOutput,
+
 		MAX
 	};
 
 	class FStageDim : SHADER_PERMUTATION_ENUM_CLASS("DIM_STAGE", EStage);
 	class FUpscaleDim : SHADER_PERMUTATION_BOOL("DIM_UPSCALE");
 
-	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FStageDim, FUpscaleDim>;
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FStageDim, FUpscaleDim, FSignalBatchSizeDim, FMultiSPPDim>;
 	
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		FPermutationDomain PermutationVector(Parameters.PermutationId);
+		ESignalProcessing SignalProcessing = PermutationVector.Get<FSignalProcessingDim>();
 
-		// Only reflections have  reconstruction spatial accumulation.
-		if (PermutationVector.Get<FSignalProcessingDim>() == ESignalProcessing::Penumbra && 
-			PermutationVector.Get<FStageDim>() == EStage::ReConstruction)
+		// Only constant pixel density pass layout uses this shader.
+		if (!UsesConstantPixelDensityPassLayout(PermutationVector.Get<FSignalProcessingDim>()))
+		{
+			return false;
+		}
+
+		// Not all signal processing allow to batch multiple signals at the same time.
+		if (PermutationVector.Get<FSignalBatchSizeDim>() > SignalMaxBatchSize(SignalProcessing))
 		{
 			return false;
 		}
@@ -379,8 +519,29 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 		}
 
 		// Only compile rejection pre convolution for signal that uses it.
-		if (!SignalUsesRejectionPreConvolution(PermutationVector.Get<FSignalProcessingDim>()) &&
+		if (!SignalUsesRejectionPreConvolution(SignalProcessing) &&
 			PermutationVector.Get<FStageDim>() == EStage::RejectionPreConvolution)
+		{
+			return false;
+		}
+
+		// Only compile final convolution for signal that uses it.
+		if (!SignalUsesFinalConvolution(SignalProcessing) &&
+			PermutationVector.Get<FStageDim>() == EStage::FinalOutput)
+		{
+			return false;
+		}
+
+		// Only compile multi SPP permutation for signal that supports it.
+		if (PermutationVector.Get<FStageDim>() == EStage::ReConstruction &&
+			PermutationVector.Get<FMultiSPPDim>() && !SignalSupportMultiSPP(SignalProcessing))
+		{
+			return false;
+		}
+
+		// Only the reconstruction pass can support 1spp.
+		if (PermutationVector.Get<FStageDim>() != EStage::ReConstruction &&
+			!PermutationVector.Get<FMultiSPPDim>())
 		{
 			return false;
 		}
@@ -394,13 +555,10 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 		SHADER_PARAMETER(float, KernelSpreadFactor)
 
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
+		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDConvolutionMetaData, ConvolutionMetaData)
 
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput2)
+		SHADER_PARAMETER_STRUCT(FSSDSignalTextures, SignalInput)
+		SHADER_PARAMETER_STRUCT(FSSDSignalUAVs, SignalOutput)
 
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
 	END_SHADER_PARAMETER_STRUCT()
@@ -411,14 +569,21 @@ class FSSDTemporalAccumulationCS : public FScreenSpaceDenoisingShader
 	DECLARE_GLOBAL_SHADER(FSSDTemporalAccumulationCS);
 	SHADER_USE_PARAMETER_STRUCT(FSSDTemporalAccumulationCS, FScreenSpaceDenoisingShader);
 
-	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim>;
+	using FPermutationDomain = TShaderPermutationDomain<FSignalProcessingDim, FSignalBatchSizeDim>;
 
 	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
 	{
 		FPermutationDomain PermutationVector(Parameters.PermutationId);
+		ESignalProcessing SignalProcessing = PermutationVector.Get<FSignalProcessingDim>();
 
-		// Penumbra denoising is not using the constant pixel density layout.
-		if (PermutationVector.Get<FSignalProcessingDim>() == ESignalProcessing::Penumbra)
+		// Only constant pixel density pass layout uses this shader.
+		if (!UsesConstantPixelDensityPassLayout(SignalProcessing))
+		{
+			return false;
+		}
+
+		// Not all signal processing allow to batch multiple signals at the same time.
+		if (PermutationVector.Get<FSignalBatchSizeDim>() > SignalMaxBatchSize(SignalProcessing))
 		{
 			return false;
 		}
@@ -427,421 +592,44 @@ class FSSDTemporalAccumulationCS : public FScreenSpaceDenoisingShader
 	}
 
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER(int32, bCameraCut)
+		SHADER_PARAMETER_ARRAY(int32, bCameraCut, [IScreenSpaceDenoiser::kMaxBatchSize])
 		SHADER_PARAMETER(FMatrix, PrevScreenToTranslatedWorld)
 
 		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
+		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDConvolutionMetaData, ConvolutionMetaData)
 
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
+		SHADER_PARAMETER_STRUCT(FSSDSignalTextures, SignalInput)
+		SHADER_PARAMETER_STRUCT(FSSDSignalTextures, HistoryRejectionSignal)
+		SHADER_PARAMETER_STRUCT(FSSDSignalUAVs, SignalHistoryOutput)
 
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevHistory0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevHistory1)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevTileClassificationTexture)
+		SHADER_PARAMETER_STRUCT(FSSDSignalTextures, PrevHistory)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevDepthBuffer)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevGBufferA)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevGBufferB)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal1)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal2)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput1)
 		
 		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
 	END_SHADER_PARAMETER_STRUCT()
 };
 
-class FSSDTemporalMipAccumulationCS : public FScreenSpaceDenoisingShader
-{
-	DECLARE_GLOBAL_SHADER(FSSDTemporalMipAccumulationCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDTemporalMipAccumulationCS, FScreenSpaceDenoisingShader);
-
-	class FIsMip0Dim : SHADER_PERMUTATION_BOOL("DIM_IS_MIP_0");
-
-	using FPermutationDomain = TShaderPermutationDomain<FIsMip0Dim>;
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER(uint32, iMipLevel)
-		SHADER_PARAMETER(uint32, iMipLevelPow2)
-		SHADER_PARAMETER(float, MipLevel)
-		SHADER_PARAMETER(float, MipLevelPow2)
-		SHADER_PARAMETER(float, InvMipLevelPow2)
-		SHADER_PARAMETER(int32, bCameraCut)
-		SHADER_PARAMETER(FMatrix, PrevScreenToTranslatedWorld)
-
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevHistory0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevHistory1)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevTileClassificationTexture)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevDepthBuffer)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, PrevGBufferA)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal1)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, HistoryRejectionSignal2)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalHistoryOutput1)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput) // TODO: remove
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-class FSSDOutputCS : public FScreenSpaceDenoisingShader
-{
-	DECLARE_GLOBAL_SHADER(FSSDOutputCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDOutputCS, FScreenSpaceDenoisingShader);
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
-
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
-
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, SignalOutput1)
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-IMPLEMENT_GLOBAL_SHADER(FSSDReduceCS, "/Engine/Private/ScreenSpaceDenoise/SSDReduce.usf", "MainCS", SF_Compute);
-IMPLEMENT_GLOBAL_SHADER(FSSDTileDilateCS, "/Engine/Private/ScreenSpaceDenoise/SSDTileDilate.usf", "MainCS", SF_Compute);
-IMPLEMENT_GLOBAL_SHADER(FSSDBuildHistoryRejectionCS, "/Engine/Private/ScreenSpaceDenoise/SSDBuildHistoryRejection.usf", "MainCS", SF_Compute);
-IMPLEMENT_GLOBAL_SHADER(FSSDTemporalMipAccumulationCS, "/Engine/Private/ScreenSpaceDenoise/SSDTemporalMipAccumulation.usf", "MainCS", SF_Compute);
-IMPLEMENT_GLOBAL_SHADER(FSSDOutputCS, "/Engine/Private/ScreenSpaceDenoise/SSDOutput.usf", "MainCS", SF_Compute);
-
+IMPLEMENT_GLOBAL_SHADER(FSSDInjestCS, "/Engine/Private/ScreenSpaceDenoise/SSDInjest.usf", "MainCS", SF_Compute);
 IMPLEMENT_GLOBAL_SHADER(FSSDSpatialAccumulationCS, "/Engine/Private/ScreenSpaceDenoise/SSDSpatialAccumulation.usf", "MainCS", SF_Compute);
 IMPLEMENT_GLOBAL_SHADER(FSSDTemporalAccumulationCS, "/Engine/Private/ScreenSpaceDenoise/SSDTemporalAccumulation.usf", "MainCS", SF_Compute);
 
-#define SSD_DEBUG_PASS 1
-#if SSD_DEBUG_PASS
-
-class FSSDDebugCS : public FScreenSpaceDenoisingShader
-{
-	DECLARE_GLOBAL_SHADER(FSSDDebugCS);
-	SHADER_USE_PARAMETER_STRUCT(FSSDDebugCS, FScreenSpaceDenoisingShader);
-
-	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
-		SHADER_PARAMETER_STRUCT_INCLUDE(FSSDCommonParameters, CommonParameters)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput0)
-		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, SignalInput1)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput0)
-		SHADER_PARAMETER_RDG_TEXTURE_UAV(RWTexture2D, DebugOutput1)
-	END_SHADER_PARAMETER_STRUCT()
-};
-
-IMPLEMENT_GLOBAL_SHADER(FSSDDebugCS, "/Engine/Private/ScreenSpaceDenoise/SSDDebug.usf", "MainCS", SF_Compute);
-
-#endif
-
 } // namespace
-
-
-static void DenoiseShadowPenumbra(
-	FRDGBuilder& GraphBuilder,
-	const FViewInfo& View,
-	const FLightSceneInfo& LightSceneInfo,
-	const FSceneViewFamilyBlackboard& SceneBlackboard,
-	FRDGTextureRef PenumbraRT,
-	FRDGTextureRef ClosestOccluder,
-	FRDGTextureRef* OutPenumbraMask)
-{
-	const FIntPoint DenoiseResolution = View.ViewRect.Size();
-
-	FLightSceneProxy* LightSceneProxy = LightSceneInfo.Proxy;
-
-	// Descriptor to allocate internal denoising buffer.
-	FRDGTextureDesc SignalProcessingDesc = PenumbraRT->Desc;
-	SignalProcessingDesc.Format = PF_FloatRGBA;
-	SignalProcessingDesc.NumMips = kMaxMipLevel;
-
-	// Setup common shader parameters.
-	FSSDCommonParameters CommonParameters;
-	{
-		CommonParameters.SceneBlackboard = SceneBlackboard;
-		CommonParameters.ViewUniformBuffer = View.ViewUniformBuffer;
-
-		// Create the tile classification buffer.
-		// TODO: should use a buffer instead of a texture to have scalar.
-		{
-			FRDGTextureDesc Desc = PenumbraRT->Desc;
-			Desc.Format = PF_R16_UINT;
-			Desc.Extent = FIntPoint::DivideAndRoundUp(Desc.Extent, FComputeShaderUtils::kGolden2DGroupSize);
-			CommonParameters.TileClassificationTexture = GraphBuilder.CreateTexture(Desc, TEXT("SSDFlattenedTiles"));
-		}
-	}
-
-	// Setup all the metadata to do spatial convolution.
-	FSSDConvolutionMetaData ConvolutionMetaData;
-	{
-		FLightShaderParameters LightParameters;
-		LightSceneProxy->GetLightShaderParameters(ConvolutionMetaData.Light);
-
-		if (LightSceneProxy->GetLightType() == LightType_Directional)
-		{
-			ConvolutionMetaData.HitDistanceToWorldBluringRadius = FMath::Tan(0.5 * FMath::DegreesToRadians(LightSceneProxy->GetLightSourceAngle()));
-		}
-	}
-
-	// Do initial reduction of the raw signal.
-	FRDGTextureRef ReducedSignal0;
-	FRDGTextureRef ReducedSignal1;
-	{
-		ReducedSignal0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReducedSignal0"));
-		ReducedSignal1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDReducedSignal1"));
-
-		FSSDReduceCS::FPermutationDomain PermutationVector;
-		PermutationVector.Set<FSSDReduceCS::FLightTypeDim>(LightSceneProxy->GetLightType());
-
-		FSSDReduceCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDReduceCS::FParameters>();
-		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
-		PassParameters->SignalInput0 = PenumbraRT;
-		PassParameters->SignalInput1 = ClosestOccluder;
-		PassParameters->SignalOutput0Mip0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 0));
-		PassParameters->SignalOutput0Mip1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 1));
-		PassParameters->SignalOutput0Mip2 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 2));
-		PassParameters->SignalOutput0Mip3 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ReducedSignal0, /* MipLevel = */ 3));
-
-		{
-			FRDGTextureRef TileClassificationTexture = CommonParameters.TileClassificationTexture;
-			PassParameters->TileClassificationOutput = GraphBuilder.CreateUAV(TileClassificationTexture);
-		}
-
-		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugPenumbraReduce")));
-
-		TShaderMapRef<FSSDReduceCS> ComputeShader(View.ShaderMap, PermutationVector);
-		FComputeShaderUtils::AddPass(
-			GraphBuilder,
-			RDG_EVENT_NAME("SSD Reduce"),
-			*ComputeShader,
-			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
-	}
-
-	// Dilation of the tile classification.
-	{
-		FRDGTextureDesc Desc = CommonParameters.TileClassificationTexture->Desc;
-		Desc.NumMips = kMaxMipLevel;
-
-		FRDGTextureRef TileClassificationChain = GraphBuilder.CreateTexture(Desc, TEXT("SSDDilatedTiles"));
-
-		FSSDTileDilateCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTileDilateCS::FParameters>();
-		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->TileClassificationOutputMip0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(TileClassificationChain, /* MipLevel = */ 0));
-		PassParameters->TileClassificationOutputMip1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(TileClassificationChain, /* MipLevel = */ 1));
-		PassParameters->TileClassificationOutputMip2 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(TileClassificationChain, /* MipLevel = */ 2));
-		PassParameters->TileClassificationOutputMip3 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(TileClassificationChain, /* MipLevel = */ 3));
-
-		TShaderMapRef<FSSDTileDilateCS> ComputeShader(View.ShaderMap);
-		FComputeShaderUtils::AddPass(
-			GraphBuilder,
-			RDG_EVENT_NAME("SSD TileDilate"),
-			*ComputeShader,
-			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize * FComputeShaderUtils::kGolden2DGroupSize));
-
-		CommonParameters.TileClassificationTexture = TileClassificationChain;
-	}
-
-	/** Adds a spatial accumulation pass. */
-	auto AddSpatialAccumulationPass = [&](FRDGTextureRef SignalInput0, FRDGTextureRef SignalInput1, FRDGTextureRef SignalOutput0, FRDGTextureRef SignalOutput1)
-	{
-		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
-		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->SignalInput0 = SignalInput0;
-		PassParameters->SignalInput1 = SignalInput1;
-		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput0, /* MipLevel = */ 0));
-		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalOutput1, /* MipLevel = */ 0));
-
-		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
-		PermutationVector.Set<FSignalProcessingDim>(ESignalProcessing::Penumbra);
-		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PostFiltering);
-
-		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
-		FComputeShaderUtils::AddPass(
-			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation(Mip=0)"),
-			*ComputeShader,
-			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
-	};
-
-	// Doing mip level.
-	if (View.ViewState && CVarShadowTemporalAccumulation.GetValueOnRenderThread())
-	{
-		// Generate rejection signal history.
-		FRDGTextureRef HistoryRejectionSignal0 = nullptr;
-		FRDGTextureRef HistoryRejectionSignal1 = nullptr;
-		if (CVarHistoryRejection.GetValueOnRenderThread() == 1)
-		{
-			FRDGTextureDesc Desc = SignalProcessingDesc;
-			Desc.NumMips = 1;
-			// Desc.Format = PF_R8G8;
-
-			HistoryRejectionSignal0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDHistoryRejection0"));
-			HistoryRejectionSignal1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDHistoryRejection1"));
-
-			FSSDBuildHistoryRejectionCS::FPermutationDomain PermutationVector;
-			PermutationVector.Set<FSSDBuildHistoryRejectionCS::FLightTypeDim>(LightSceneProxy->GetLightType());
-
-			FSSDBuildHistoryRejectionCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDBuildHistoryRejectionCS::FParameters>();
-			PassParameters->CommonParameters = CommonParameters;
-			PassParameters->ConvolutionMetaData = ConvolutionMetaData;
-			PassParameters->RawSignalInput0 = PenumbraRT;
-			PassParameters->RawSignalInput1 = ClosestOccluder;
-			PassParameters->ReducedSignal0 = ReducedSignal0;
-			PassParameters->ReducedSignal1 = ReducedSignal1;
-			PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(HistoryRejectionSignal0);
-			PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(HistoryRejectionSignal1);
-
-			TShaderMapRef<FSSDBuildHistoryRejectionCS> ComputeShader(View.ShaderMap, PermutationVector);
-			FComputeShaderUtils::AddPass(
-				GraphBuilder,
-				RDG_EVENT_NAME("SSD BuildHistoryRejection"),
-				*ComputeShader,
-				PassParameters,
-				FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
-		}
-		else
-		{
-			FRDGTextureDesc Desc = SignalProcessingDesc;
-			Desc.NumMips = 1;
-			// Desc.Format = PF_R8G8;
-
-			HistoryRejectionSignal0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDHistoryRejection0"));
-			HistoryRejectionSignal1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDHistoryRejection1"));
-
-			// TODO: tile classification.
-			AddSpatialAccumulationPass(ReducedSignal0, ReducedSignal1, HistoryRejectionSignal0, HistoryRejectionSignal1);
-		}
-
-		FRDGTextureRef SignalHistory0 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDSignalHistory0"));
-		FRDGTextureRef SignalHistory1 = GraphBuilder.CreateTexture(SignalProcessingDesc, TEXT("SSDSignalHistory1"));
-
-		FScreenSpaceFilteringHistory PrevFrameHistory;
-		if (!View.bCameraCut)
-		{
-			PrevFrameHistory = View.PrevViewInfo.ShadowHistories.FindRef(LightSceneInfo.Proxy->GetLightComponent());
-		}
-
-		// Process each mip level independently.
-		for (uint32 MipLevel = 0; MipLevel < kMaxMipLevel; MipLevel++)
-		{
-			FSSDTemporalMipAccumulationCS::FPermutationDomain PermutationVector;
-			PermutationVector.Set<FSSDTemporalMipAccumulationCS::FIsMip0Dim>(MipLevel == 0);
-
-			TShaderMapRef<FSSDTemporalMipAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
-
-			FSSDTemporalMipAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalMipAccumulationCS::FParameters>();
-			PassParameters->CommonParameters = CommonParameters;
-			PassParameters->iMipLevel = MipLevel;
-			PassParameters->iMipLevelPow2 = (1 << MipLevel);
-			PassParameters->MipLevel = MipLevel;
-			PassParameters->MipLevelPow2 = (1 << MipLevel);
-			PassParameters->InvMipLevelPow2 = 1.0f / PassParameters->MipLevelPow2;
-			PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
-			PassParameters->SignalInput0 = ReducedSignal0;
-			PassParameters->SignalInput1 = ReducedSignal1;
-			PassParameters->HistoryRejectionSignal0 = HistoryRejectionSignal0;
-			PassParameters->HistoryRejectionSignal1 = HistoryRejectionSignal1;
-
-			PassParameters->PrevScreenToTranslatedWorld = View.PrevViewInfo.ViewMatrices.GetInvTranslatedViewProjectionMatrix();
-			PassParameters->PrevHistory0 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[0], GSystemTextures.BlackDummy);
-			PassParameters->PrevHistory1 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[1], GSystemTextures.BlackDummy);
-			PassParameters->PrevTileClassificationTexture = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.TileClassification, GSystemTextures.BlackDummy);
-			PassParameters->PrevDepthBuffer = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.DepthBuffer, GSystemTextures.BlackDummy);
-			PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
-
-			PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory0, MipLevel));
-			PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(SignalHistory1, MipLevel));
-			
-			PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebugPenumbraTemporalAccumulation")));
-
-			FIntPoint Resolution = FIntPoint::DivideAndRoundUp(DenoiseResolution, 1 << MipLevel);
-
-			FComputeShaderUtils::AddPass(
-				GraphBuilder,
-				RDG_EVENT_NAME("SSD TemporalMipAccumulation(Mip=%d)", MipLevel),
-				*ComputeShader,
-				PassParameters,
-				FComputeShaderUtils::GetGroupCount(Resolution, FComputeShaderUtils::kGolden2DGroupSize));
-		}
-
-		// Keep depth buffer and GBufferA around for next frame.
-		{
-			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneDepthBuffer, &View.ViewState->PendingPrevFrameViewInfo.DepthBuffer);
-			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferA, &View.ViewState->PendingPrevFrameViewInfo.GBufferA);
-		}
-
-		// Saves shadow history.
-		{
-			FScreenSpaceFilteringHistory& NewShadowHistory = View.ViewState->PendingPrevFrameViewInfo.ShadowHistories.FindOrAdd(LightSceneInfo.Proxy->GetLightComponent());
-			GraphBuilder.QueueTextureExtraction(SignalHistory0, &NewShadowHistory.RT[0]);
-
-			GraphBuilder.QueueTextureExtraction(CommonParameters.TileClassificationTexture, &NewShadowHistory.TileClassification);
-		}
-
-		ReducedSignal0 = SignalHistory0;
-		ReducedSignal1 = SignalHistory1;
-	}
-
-	// Output denoised signal.
-	FRDGTextureRef OutputSignal = GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDOutputSignal"));
-	{
-		FSSDOutputCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDOutputCS::FParameters>();
-		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->SignalInput0 = ReducedSignal0;
-		PassParameters->SignalInput1 = ReducedSignal1;
-		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(OutputSignal, /* MipLevel = */ 0));
-
-		TShaderMapRef<FSSDOutputCS> ComputeShader(View.ShaderMap);
-		FComputeShaderUtils::AddPass(
-			GraphBuilder,
-			RDG_EVENT_NAME("SSD Output"),
-			*ComputeShader,
-			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
-	}
-
-	#if SSD_DEBUG_PASS
-	if (CVarDoDebugPass.GetValueOnRenderThread())
-	{
-		FSSDDebugCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDDebugCS::FParameters>();
-		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->SignalInput0 = ReducedSignal0;
-		PassParameters->SignalInput1 = ReducedSignal1;
-		PassParameters->DebugOutput0 = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebug0")));
-		PassParameters->DebugOutput1 = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(PenumbraRT->Desc, TEXT("SSDDebug1")));
-
-		TShaderMapRef<FSSDDebugCS> ComputeShader(View.ShaderMap);
-		FComputeShaderUtils::AddPass(
-			GraphBuilder,
-			RDG_EVENT_NAME("SSD Debug"),
-			*ComputeShader,
-			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
-	}
-	#endif // SSD_DEBUG_PASS
-
-	*OutPenumbraMask = OutputSignal;
-} // DenoiseShadowPenumbra()
 
 
 /** Generic settings to denoise signal at constant pixel density across the viewport. */
 struct FSSDConstantPixelDensitySettings
 {
 	ESignalProcessing SignalProcessing;
+	int32 SignalBatchSize = 1;
+	int32 MaxInputSPP = 1;
 	float InputResolutionFraction = 1.0f;
 	int32 ReconstructionSamples = 1;
 	bool bUseTemporalAccumulation = false;
 	int32 HistoryConvolutionSampleCount = 1;
 	float HistoryConvolutionKernelSpreadFactor = 1.0f;
+	TStaticArray<const FLightSceneInfo*, IScreenSpaceDenoiser::kMaxBatchSize> LightSceneInfo;
 };
 
 
@@ -852,54 +640,122 @@ static void DenoiseSignalAtConstantPixelDensity(
 	const FSceneViewFamilyBlackboard& SceneBlackboard,
 	const FSSDSignalTextures& InputSignal,
 	FSSDConstantPixelDensitySettings Settings,
+	TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevFilteringHistory,
+	TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewFilteringHistory,
 	FSSDSignalTextures* OutputSignal)
 {
+	check(UsesConstantPixelDensityPassLayout(Settings.SignalProcessing));
 	ensure(Settings.InputResolutionFraction == 1.0f || Settings.InputResolutionFraction == 0.5f);
 	
-	auto GetResourceName = [&](const TCHAR* const ResourceNames[], int32 SubResourceId)
+	auto GetResourceNames = [&](const TCHAR* const ResourceNames[])
 	{
-		check(SubResourceId >= 0 && SubResourceId < 3);
-		return ResourceNames[int32(Settings.SignalProcessing) * 3 + SubResourceId];
+		return ResourceNames + (int32(Settings.SignalProcessing) * kMaxBufferProcessingCount);
 	};
+
+	const bool bUseMultiInputSPPShaderPath = Settings.MaxInputSPP > 1;
 
 	const FIntPoint DenoiseResolution = View.ViewRect.Size();
 	
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(GraphBuilder.RHICmdList);
 
+	// Number of signal to batch.
+	int32 MaxSignalBatchSize = SignalMaxBatchSize(Settings.SignalProcessing);
+	check(Settings.SignalBatchSize >= 1 && Settings.SignalBatchSize <= MaxSignalBatchSize);
+
+	// Number of texture per batched signal.
+	int32 InjestTextureCount = 0;
+	int32 ReconstructionTextureCount = 0;
+	int32 HistoryTextureCountPerSignal = 0;
+
 	// Descriptor to allocate internal denoising buffer.
-	int32 SignalTextureCount = 1;
-	FRDGTextureDesc SignalProcessingDesc[2];
+	bool bHasReconstructionLayoutDifferentFromHistory = false;
+	TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount> InjestDescs;
+	TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount> ReconstructionDescs;
+	TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount> HistoryDescs;
 	FRDGTextureDesc DebugDesc;
 	{
-		SignalProcessingDesc[0] = SceneContext.GetSceneColor()->GetDesc();
-		SignalProcessingDesc[0].Flags &= ~(TexCreate_FastVRAM | TexCreate_Transient);
-		SignalProcessingDesc[0].NumMips = 1;
-		SignalProcessingDesc[1] = SignalProcessingDesc[0];
+		FRDGTextureDesc RefDesc = FRDGTextureDesc::Create2DDesc(
+			SceneBlackboard.SceneDepthBuffer->Desc.Extent,
+			PF_Unknown,
+			FClearValueBinding::Black,
+			/* InFlags = */ TexCreate_None,
+			/* InTargetableFlags = */ TexCreate_ShaderResource | TexCreate_RenderTargetable | TexCreate_UAV,
+			/* bInForceSeparateTargetAndShaderResource = */ false);
 
-		DebugDesc = SignalProcessingDesc[0];
+		DebugDesc = RefDesc;
 		DebugDesc.Format = PF_FloatRGBA;
 
-		if (Settings.SignalProcessing == ESignalProcessing::Reflections)
+		for (int32 i = 0; i < kMaxBufferProcessingCount; i++)
 		{
-			SignalProcessingDesc[0].Format = PF_FloatRGBA;
-			SignalProcessingDesc[1].Format = PF_R16F;
-			SignalTextureCount = 2;
+			InjestDescs[i] = RefDesc;
+			ReconstructionDescs[i] = RefDesc;
+			HistoryDescs[i] = RefDesc;
+		}
+
+		if (Settings.SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
+		{
+			static const EPixelFormat InjestPixelFormat[] = {
+				PF_Unknown,
+				PF_R16F,
+				PF_G16R16F,
+				PF_FloatRGBA, // there is no 16bits float RGB
+				PF_FloatRGBA,
+			};
+
+			check(Settings.SignalBatchSize >= 1 && Settings.SignalBatchSize <= IScreenSpaceDenoiser::kMaxBatchSize);
+			if (!bUseMultiInputSPPShaderPath)
+				InjestDescs[0].Format = InjestPixelFormat[Settings.SignalBatchSize];
+
+			for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+			{
+				if (bUseMultiInputSPPShaderPath)
+					InjestDescs[BatchedSignalId / 2].Format = (BatchedSignalId % 2) ? PF_FloatRGBA :  PF_G16R16F;
+
+				ReconstructionDescs[BatchedSignalId / 2].Format = (BatchedSignalId % 2) ? PF_FloatRGBA :  PF_G16R16F;
+				HistoryDescs[BatchedSignalId].Format = PF_G16R16F;
+			}
+
+			InjestTextureCount = 1;
+			HistoryTextureCountPerSignal = 1;
+			ReconstructionTextureCount = FMath::DivideAndRoundUp(Settings.SignalBatchSize, 2);
+			bHasReconstructionLayoutDifferentFromHistory = true;
+		}
+		else if (Settings.SignalProcessing == ESignalProcessing::Reflections)
+		{
+			ReconstructionDescs[0].Format = HistoryDescs[0].Format = PF_FloatRGBA;
+			ReconstructionDescs[1].Format = HistoryDescs[1].Format = PF_R16F;
+			ReconstructionTextureCount = HistoryTextureCountPerSignal = 2;
+			bHasReconstructionLayoutDifferentFromHistory = false;
 		}
 		else if (Settings.SignalProcessing == ESignalProcessing::AmbientOcclusion)
 		{
-			SignalProcessingDesc[0].Format = PF_G16R16F;
+			ReconstructionDescs[0].Format = HistoryDescs[0].Format = PF_G16R16F;
+			ReconstructionTextureCount = HistoryTextureCountPerSignal = 1;
+			bHasReconstructionLayoutDifferentFromHistory = false;
 		}
 		else if (Settings.SignalProcessing == ESignalProcessing::GlobalIllumination)
 		{
-			SignalProcessingDesc[0].Format = PF_FloatRGBA;
-			SignalProcessingDesc[1].Format = PF_R16F;
-			SignalTextureCount = 2;
+			ReconstructionDescs[0].Format = PF_FloatRGBA;
+			ReconstructionDescs[1].Format = PF_R16F;
+			ReconstructionTextureCount = 2;
+
+			HistoryDescs[0].Format = PF_FloatRGBA;
+			HistoryDescs[1].Format = PF_R16F; //PF_FloatRGB;
+			HistoryTextureCountPerSignal = 2;
+			bHasReconstructionLayoutDifferentFromHistory = false;
 		}
 		else
 		{
 			check(0);
 		}
+
+		check(HistoryTextureCountPerSignal > 0);
+		check(ReconstructionTextureCount > 0);
 	}
+
+	int32 HistoryTextureCount = HistoryTextureCountPerSignal * Settings.SignalBatchSize;
+
+	check(HistoryTextureCount <= kMaxBufferProcessingCount);
 
 	// Setup common shader parameters.
 	FSSDCommonParameters CommonParameters;
@@ -909,102 +765,146 @@ static void DenoiseSignalAtConstantPixelDensity(
 		CommonParameters.EyeAdaptation = GetEyeAdaptationTexture(GraphBuilder, View);
 	}
 
-	FScreenSpaceFilteringHistory PrevFrameHistory;
-	if (View.bCameraCut)
+	// Setup all the metadata to do spatial convolution.
+	FSSDConvolutionMetaData ConvolutionMetaData;
+	if (Settings.SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
 	{
-	}
-	else if (Settings.SignalProcessing == ESignalProcessing::Reflections)
-	{
-		PrevFrameHistory = View.PrevViewInfo.ReflectionsHistory;
-	}
-	else if (Settings.SignalProcessing == ESignalProcessing::AmbientOcclusion)
-	{
-		PrevFrameHistory = View.PrevViewInfo.AmbientOcclusionHistory;
-	}
-	else if (Settings.SignalProcessing == ESignalProcessing::GlobalIllumination)
-	{
-		PrevFrameHistory = View.PrevViewInfo.GlobalIlluminationHistory;
-	}
-	else
-	{
-		check(0);
+		for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+		{
+			FLightSceneProxy* LightSceneProxy = Settings.LightSceneInfo[BatchedSignalId]->Proxy;
+
+			FLightShaderParameters Parameters;
+			LightSceneProxy->GetLightShaderParameters(Parameters);
+
+			ConvolutionMetaData.LightPositionAndRadius[BatchedSignalId] = FVector4(
+				Parameters.Position, Parameters.SourceRadius);
+			ConvolutionMetaData.LightDirectionAndLength[BatchedSignalId] = FVector4(
+				Parameters.Direction, Parameters.SourceLength);
+			ConvolutionMetaData.HitDistanceToWorldBluringRadius[BatchedSignalId] =
+				FMath::Tan(0.5 * FMath::DegreesToRadians(LightSceneProxy->GetLightSourceAngle()));
+			ConvolutionMetaData.LightType[BatchedSignalId] = LightSceneProxy->GetLightType();
+		}
 	}
 
-	FRDGTextureRef SignalHistory0;
-	FRDGTextureRef SignalHistory1;
-	
+	FSSDSignalTextures SignalHistory = InputSignal;
+
+	// Injestion pass to precompute some values for the reconstruction pass.
+	if (SignalUsesInjestion(Settings.SignalProcessing))
+	{
+		FSSDSignalTextures NewSignalOutput = CreateMultiplexedTextures(
+			GraphBuilder,
+			InjestTextureCount, InjestDescs,
+			GetResourceNames(kInjestResourceNames));
+
+		FSSDInjestCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDInjestCS::FParameters>();
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, NewSignalOutput);
+
+		FSSDInjestCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
+		PermutationVector.Set<FMultiSPPDim>(bUseMultiInputSPPShaderPath);
+
+		TShaderMapRef<FSSDInjestCS> ComputeShader(View.ShaderMap, PermutationVector);
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD Injest(MultiSPP=%i)",
+				int32(PermutationVector.Get<FMultiSPPDim>())),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+
+		SignalHistory = NewSignalOutput;
+	}
+
 	// Spatial reconstruction with multiple important sampling to be more precise in the history rejection.
 	{
-		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc[0], GetResourceName(kReconstructionResourceNames, 0));
-		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc[1], GetResourceName(kReconstructionResourceNames, 1));
+		FSSDSignalTextures NewSignalOutput = CreateMultiplexedTextures(
+			GraphBuilder,
+			ReconstructionTextureCount, ReconstructionDescs,
+			GetResourceNames(kReconstructionResourceNames));
 
 		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
 		PassParameters->MaxSampleCount = FMath::Clamp(Settings.ReconstructionSamples, 1, kStackowiakMaxSampleCountPerSet);
 		PassParameters->UpscaleFactor = int32(1.0f / Settings.InputResolutionFraction);
 		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->SignalInput0 = InputSignal.Texture0;
-		PassParameters->SignalInput1 = InputSignal.Texture1;
-		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
-		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
+		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, NewSignalOutput);
 		
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("SSDDebugReflectionReconstruction")));
 
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
 		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::ReConstruction);
 		PermutationVector.Set<FSSDSpatialAccumulationCS::FUpscaleDim>(PassParameters->UpscaleFactor != 1);
+		PermutationVector.Set<FMultiSPPDim>(bUseMultiInputSPPShaderPath);
 
 		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 		FComputeShaderUtils::AddPass(
 			GraphBuilder,
-			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction MaxSamples=%i Upscale=%i)",
-				PassParameters->MaxSampleCount, int32(PermutationVector.Get<FSSDSpatialAccumulationCS::FUpscaleDim>())),
+			RDG_EVENT_NAME("SSD SpatialAccumulation(Reconstruction MaxSamples=%i Upscale=%i MultiSPP=%i)",
+				PassParameters->MaxSampleCount,
+				int32(PermutationVector.Get<FSSDSpatialAccumulationCS::FUpscaleDim>()),
+				int32(PermutationVector.Get<FMultiSPPDim>())),
 			*ComputeShader,
 			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
 
-		SignalHistory0 = SignalOutput0;
-		SignalHistory1 = SignalOutput1;
+		SignalHistory = NewSignalOutput;
 	}
 
 	// Temporal pass.
-	if (View.ViewState && Settings.bUseTemporalAccumulation)
+	//
+	// Note: always done even if there is no ViewState, because it is already not an idea case for the denoiser quality, therefore not really
+	// care about the performance, and the reconstruction may have a different layout than temporal accumulation output.
+	if (bHasReconstructionLayoutDifferentFromHistory || Settings.bUseTemporalAccumulation)
 	{
-		FRDGTextureRef RejectionPreConvolutionSignal[3] = { nullptr, nullptr, nullptr };
+		FSSDSignalTextures RejectionPreConvolutionSignal;
 
 		// Temporal rejection might make use of a separable preconvolution.
 		if (SignalUsesRejectionPreConvolution(Settings.SignalProcessing))
 		{
 			{
-				FRDGTextureDesc RejectionSignalProcessingDesc[3];
-				RejectionSignalProcessingDesc[2] = RejectionSignalProcessingDesc[1] = RejectionSignalProcessingDesc[0] = SignalProcessingDesc[0];
+				int32 RejectionTextureCount = 1;
+				TStaticArray<FRDGTextureDesc,kMaxBufferProcessingCount> RejectionSignalProcessingDescs;
+				for (int32 i = 0; i < kMaxBufferProcessingCount; i++)
+				{
+					RejectionSignalProcessingDescs[i] = HistoryDescs[i];
+				}
+
 				if (Settings.SignalProcessing == ESignalProcessing::Reflections)
 				{
-					RejectionSignalProcessingDesc[0].Format = PF_FloatRGBA;
-					RejectionSignalProcessingDesc[1].Format = PF_G16R16F;
-					RejectionSignalProcessingDesc[2].Format = PF_FloatRGBA;
+					RejectionSignalProcessingDescs[0].Format = PF_FloatRGBA;
+					RejectionSignalProcessingDescs[1].Format = PF_G16R16F;
+					RejectionSignalProcessingDescs[2].Format = PF_FloatRGBA;
+					RejectionTextureCount = 3;
 				}
 				else
 				{
 					check(0);
 				}
 
-				RejectionPreConvolutionSignal[0] = GraphBuilder.CreateTexture(RejectionSignalProcessingDesc[0], GetResourceName(kRejectionPreConvolutionResourceNames, 0));
-				RejectionPreConvolutionSignal[1] = GraphBuilder.CreateTexture(RejectionSignalProcessingDesc[1], GetResourceName(kRejectionPreConvolutionResourceNames, 1));
-				RejectionPreConvolutionSignal[2] = GraphBuilder.CreateTexture(RejectionSignalProcessingDesc[2], GetResourceName(kRejectionPreConvolutionResourceNames, 2));
+				RejectionPreConvolutionSignal = CreateMultiplexedTextures(
+					GraphBuilder,
+					RejectionTextureCount, RejectionSignalProcessingDescs,
+					GetResourceNames(kRejectionPreConvolutionResourceNames));
 			}
 
 			FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
 			PassParameters->CommonParameters = CommonParameters;
-			PassParameters->SignalInput0 = SignalHistory0;
-			PassParameters->SignalInput1 = SignalHistory1;
-			PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(RejectionPreConvolutionSignal[0]);
-			PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(RejectionPreConvolutionSignal[1]);
-			PassParameters->SignalOutput2 = GraphBuilder.CreateUAV(RejectionPreConvolutionSignal[2]);
+			PassParameters->ConvolutionMetaData = ConvolutionMetaData;
+			PassParameters->SignalInput = SignalHistory;
+			PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, RejectionPreConvolutionSignal);
 
 			FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 			PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+			PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
 			PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::RejectionPreConvolution);
+			PermutationVector.Set<FMultiSPPDim>(true);
 
 			PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("DebugRejectionPreConvolution")));
 
@@ -1014,39 +914,59 @@ static void DenoiseSignalAtConstantPixelDensity(
 				RDG_EVENT_NAME("SSD SpatialAccumulation(RejectionPreConvolution MaxSamples=5)"),
 				*ComputeShader,
 				PassParameters,
-				FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+				FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
 		} // if (SignalUsesRejectionPreConvolution(Settings.SignalProcessing))
 
-		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc[0], GetResourceName(kTemporalAccumulationResourceNames, 0));
-		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc[1], GetResourceName(kTemporalAccumulationResourceNames, 1));
+		FSSDSignalTextures SignalOutput = CreateMultiplexedTextures(
+			GraphBuilder,
+			HistoryTextureCount, HistoryDescs,
+			GetResourceNames(kTemporalAccumulationResourceNames));
 
 		FSSDTemporalAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
 
 		TShaderMapRef<FSSDTemporalAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
 
 		FSSDTemporalAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDTemporalAccumulationCS::FParameters>();
 		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
 
-		PassParameters->bCameraCut = View.bCameraCut || !PrevFrameHistory.RT[0].IsValid();
-		PassParameters->SignalInput0 = SignalHistory0;
-		PassParameters->SignalInput1 = SignalHistory1;
-
-		PassParameters->HistoryRejectionSignal0 = RejectionPreConvolutionSignal[0];
-		PassParameters->HistoryRejectionSignal1 = RejectionPreConvolutionSignal[1];
-		PassParameters->HistoryRejectionSignal2 = RejectionPreConvolutionSignal[2];
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->HistoryRejectionSignal = RejectionPreConvolutionSignal;
+		PassParameters->SignalHistoryOutput = CreateMultiplexedUAVs(GraphBuilder, SignalOutput);
 		
+		// Setup common previous frame data.
 		PassParameters->PrevScreenToTranslatedWorld = View.PrevViewInfo.ViewMatrices.GetInvTranslatedViewProjectionMatrix();
-		PassParameters->PrevHistory0 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[0], GSystemTextures.BlackDummy);
-		PassParameters->PrevHistory1 = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.RT[1], GSystemTextures.BlackDummy);
-		PassParameters->PrevTileClassificationTexture = RegisterExternalTextureWithFallback(GraphBuilder, PrevFrameHistory.TileClassification, GSystemTextures.BlackDummy);
 		PassParameters->PrevDepthBuffer = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.DepthBuffer, GSystemTextures.BlackDummy);
 		PassParameters->PrevGBufferA = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferA, GSystemTextures.BlackDummy);
 		PassParameters->PrevGBufferB = RegisterExternalTextureWithFallback(GraphBuilder, View.PrevViewInfo.GBufferB, GSystemTextures.BlackDummy);
 
-		PassParameters->SignalHistoryOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
-		PassParameters->SignalHistoryOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
-		
+		FScreenSpaceFilteringHistory DummyPrevFrameHistory;
+
+		// Setup signals' previous frame historu buffers.
+		for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+		{
+			FScreenSpaceFilteringHistory* PrevFrameHistory = PrevFilteringHistory[BatchedSignalId] ? PrevFilteringHistory[BatchedSignalId] : &DummyPrevFrameHistory;
+
+			PassParameters->bCameraCut[BatchedSignalId] = !PrevFrameHistory->IsValid();
+
+			if (!(View.ViewState && Settings.bUseTemporalAccumulation))
+			{
+				PassParameters->bCameraCut[BatchedSignalId] = true;
+			}
+
+			for (int32 BufferId = 0; BufferId < HistoryTextureCountPerSignal; BufferId++)
+			{
+				int32 HistoryBufferId = BatchedSignalId * HistoryTextureCountPerSignal + BufferId;
+				PassParameters->PrevHistory.Textures[HistoryBufferId] = RegisterExternalTextureWithFallback(
+					GraphBuilder, PrevFrameHistory->RT[BufferId], GSystemTextures.BlackDummy);
+			}
+
+			// Releases the reference on previous frame so the history's render target can be reused ASAP.
+			PrevFrameHistory->SafeRelease();
+		} // for (uint32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("SSDDebugReflectionTemporalAccumulation")));
 
 		FComputeShaderUtils::AddPass(
@@ -1056,29 +976,31 @@ static void DenoiseSignalAtConstantPixelDensity(
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
 
-		SignalHistory0 = SignalOutput0;
-		SignalHistory1 = SignalOutput1;
+		SignalHistory = SignalOutput;
 	} // if (View.ViewState && Settings.bUseTemporalAccumulation)
 	
 	// Spatial filter, to converge history faster.
 	int32 MaxPostFilterSampleCount = FMath::Clamp(Settings.HistoryConvolutionSampleCount, 1, kStackowiakMaxSampleCountPerSet);
 	if (MaxPostFilterSampleCount > 1)
 	{
-		FRDGTextureRef SignalOutput0 = GraphBuilder.CreateTexture(SignalProcessingDesc[0], GetResourceName(kHistoryConvolutionResourceNames, 0));
-		FRDGTextureRef SignalOutput1 = GraphBuilder.CreateTexture(SignalProcessingDesc[1], GetResourceName(kHistoryConvolutionResourceNames, 1));
+		FSSDSignalTextures SignalOutput = CreateMultiplexedTextures(
+			GraphBuilder,
+			HistoryTextureCount, HistoryDescs,
+			GetResourceNames(kHistoryConvolutionResourceNames));
 
 		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
 		PassParameters->MaxSampleCount = FMath::Clamp(MaxPostFilterSampleCount, 1, kStackowiakMaxSampleCountPerSet);
 		PassParameters->KernelSpreadFactor = Settings.HistoryConvolutionKernelSpreadFactor;
 		PassParameters->CommonParameters = CommonParameters;
-		PassParameters->SignalInput0 = SignalHistory0;
-		PassParameters->SignalInput1 = SignalHistory1;
-		PassParameters->SignalOutput0 = GraphBuilder.CreateUAV(SignalOutput0);
-		PassParameters->SignalOutput1 = GraphBuilder.CreateUAV(SignalOutput1);
+		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, SignalOutput);
 
 		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
 		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
 		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PostFiltering);
+		PermutationVector.Set<FMultiSPPDim>(true);
 		
 		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("SSDDebugReflectionPostfilter")));
 
@@ -1088,54 +1010,107 @@ static void DenoiseSignalAtConstantPixelDensity(
 			RDG_EVENT_NAME("SSD SpatialAccumulation(PostFiltering MaxSamples=%i)", MaxPostFilterSampleCount),
 			*ComputeShader,
 			PassParameters,
-			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FComputeShaderUtils::kGolden2DGroupSize));
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
 
-		SignalHistory0 = SignalOutput0;
-		SignalHistory1 = SignalOutput1;
+		SignalHistory = SignalOutput;
 	} // if (MaxPostFilterSampleCount > 1)
 
-	if (View.ViewState)
+	if (!View.bViewStateIsReadOnly)
 	{
+		check(View.ViewState);
+
 		// Keep depth buffer and GBuffer around for next frame.
 		{
-			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneDepthBuffer, &View.ViewState->PendingPrevFrameViewInfo.DepthBuffer);
+			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneDepthBuffer, &View.ViewState->PrevFrameViewInfo.DepthBuffer);
 
 			// Requires the normal that are in GBuffer A.
-			GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferA, &View.ViewState->PendingPrevFrameViewInfo.GBufferA);
+			if (Settings.SignalProcessing == ESignalProcessing::Reflections ||
+				Settings.SignalProcessing == ESignalProcessing::AmbientOcclusion ||
+				Settings.SignalProcessing == ESignalProcessing::GlobalIllumination)
+			{
+				GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferA, &View.ViewState->PrevFrameViewInfo.GBufferA);
+			}
 
 			// Reflections requires the roughness that is in GBuffer B.
 			if (Settings.SignalProcessing == ESignalProcessing::Reflections)
-				GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferB, &View.ViewState->PendingPrevFrameViewInfo.GBufferB);
+			{
+				GraphBuilder.QueueTextureExtraction(SceneBlackboard.SceneGBufferB, &View.ViewState->PrevFrameViewInfo.GBufferB);
+			}
 		}
 
-		// Saves history.
+		// Saves signal histories.
+		for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
 		{
-			FScreenSpaceFilteringHistory* NewHistory = nullptr;
-			if (Settings.SignalProcessing == ESignalProcessing::Reflections)
-				NewHistory = &View.ViewState->PendingPrevFrameViewInfo.ReflectionsHistory;
-			else if (Settings.SignalProcessing == ESignalProcessing::AmbientOcclusion)
-				NewHistory = &View.ViewState->PendingPrevFrameViewInfo.AmbientOcclusionHistory;
-			else if (Settings.SignalProcessing == ESignalProcessing::GlobalIllumination)
-				NewHistory = &View.ViewState->PendingPrevFrameViewInfo.GlobalIlluminationHistory;
-			else
-				check(0);
+			FScreenSpaceFilteringHistory* NewHistory = NewFilteringHistory[BatchedSignalId];
+			check(NewHistory);
 
-			GraphBuilder.QueueTextureExtraction(SignalHistory0, &NewHistory->RT[0]);
-
-			if (SignalTextureCount >= 2)
-				GraphBuilder.QueueTextureExtraction(SignalHistory1, &NewHistory->RT[1]);
-		}
+			for (int32 BufferId = 0; BufferId < HistoryTextureCountPerSignal; BufferId++)
+			{
+				int32 HistoryBufferId = BatchedSignalId * HistoryTextureCountPerSignal + BufferId;
+				GraphBuilder.QueueTextureExtraction(SignalHistory.Textures[HistoryBufferId], &NewHistory->RT[BufferId]);
+			}
+		} // for (uint32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
 	}
-	else if (SignalTextureCount >= 2)
+	else if (HistoryTextureCountPerSignal >= 2)
 	{
 		// The SignalHistory1 is always generated for temporal history, but will endup useless if there is no view state,
 		// in witch case we do not extract any textures. Don't support a shader permutation that does not produce it, because
 		// it is already a not ideal case for the denoiser.
-		GraphBuilder.RemoveUnusedTextureWarning(SignalHistory1);
+		for (int32 BufferId = 1; BufferId < HistoryTextureCountPerSignal; BufferId++)
+		{
+			GraphBuilder.RemoveUnusedTextureWarning(SignalHistory.Textures[BufferId]);
+		}
 	}
 
-	OutputSignal->Texture0 = SignalHistory0;
-	OutputSignal->Texture1 = SignalHistory1;
+	// Final convolution / output to correct
+	if (SignalUsesFinalConvolution(Settings.SignalProcessing))
+	{
+		TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount> OutputDescs;
+		for (int32 i = 0; i < kMaxBufferProcessingCount; i++)
+		{
+			OutputDescs[i] = HistoryDescs[i];
+		}
+
+		if (Settings.SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
+		{
+			for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+			{
+				OutputDescs[BatchedSignalId].Format = PF_FloatRGBA;
+			}
+		}
+		else
+		{
+			check(0);
+		}
+
+		*OutputSignal = CreateMultiplexedTextures(
+			GraphBuilder,
+			Settings.SignalBatchSize, OutputDescs,
+			GetResourceNames(kDenoiserOutputResourceNames));
+
+		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, *OutputSignal);
+
+		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::FinalOutput);
+		PermutationVector.Set<FMultiSPPDim>(true);
+
+		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD SpatialAccumulation(Final)"),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
+	}
+	else
+	{
+		*OutputSignal = SignalHistory;
+	}
 } // DenoiseSignalAtConstantPixelDensity()
 
 
@@ -1148,68 +1123,98 @@ public:
 		return TEXT("ScreenSpaceDenoiser");
 	}
 
-	FShadowRayTracingConfig GetShadowRayTracingConfig(
-		const FViewInfo& View,
-		const FLightSceneInfo& LightSceneInfo) const override
-	{
-		FShadowRayTracingConfig Config;
-
-		if (IsSupportedLightType(ELightComponentType(LightSceneInfo.Proxy->GetLightType())))
-		{
-			// TODO: actually need only the ray hit distance.
-			Config.Requirements = IScreenSpaceDenoiser::EShadowRayTracingOutputs::PenumbraAndClosestOccluder;
-		}
-		else
-		{
-			Config.Requirements = IScreenSpaceDenoiser::EShadowRayTracingOutputs::ClosestOccluder;
-		}
-
-		return Config;
-	}
-
-	FShadowPenumbraOutputs DenoiseShadowPenumbra(
-		FRDGBuilder& GraphBuilder,
+	virtual EShadowRequirements GetShadowRequirements(
 		const FViewInfo& View,
 		const FLightSceneInfo& LightSceneInfo,
-		const FSceneViewFamilyBlackboard& SceneBlackboard,
-		const FShadowPenumbraInputs& ShadowInputs) const override
+		const FShadowRayTracingConfig& RayTracingConfig) const override
 	{
-		FShadowPenumbraOutputs Outputs;
-
-		//temp workaround for compilation errors with android compiler
-#if RHI_RAYTRACING
-		if (IsSupportedLightType(ELightComponentType(LightSceneInfo.Proxy->GetLightType())))
+		if (RayTracingConfig.RayCountPerPixel != 1)
 		{
-			::DenoiseShadowPenumbra(
-				GraphBuilder,
-				View, LightSceneInfo,
-				SceneBlackboard,
-				ShadowInputs.Penumbra,
-				ShadowInputs.ClosestOccluder,
-				&Outputs.DiffusePenumbra);
+			check(SignalSupportMultiSPP(ESignalProcessing::MonochromaticPenumbra));
+			return IScreenSpaceDenoiser::EShadowRequirements::PenumbraAndClosestOccluder;
 		}
-		else
-#endif
+		return IScreenSpaceDenoiser::EShadowRequirements::ClosestOccluder;
+	}
+
+	virtual void DenoiseShadows(
+		FRDGBuilder& GraphBuilder,
+		const FViewInfo& View,
+		FPreviousViewInfo* PreviousViewInfos,
+		const FSceneViewFamilyBlackboard& SceneBlackboard,
+		const TStaticArray<FShadowParameters, IScreenSpaceDenoiser::kMaxBatchSize>& InputParameters,
+		const int32 InputParameterCount,
+		TStaticArray<FShadowPenumbraOutputs, IScreenSpaceDenoiser::kMaxBatchSize>& Outputs) const override
+	{
+		FSSDSignalTextures InputSignal;
+
+		FSSDConstantPixelDensitySettings Settings;
+		Settings.SignalProcessing = ESignalProcessing::MonochromaticPenumbra;
+		Settings.InputResolutionFraction = 1.0f;
+		Settings.ReconstructionSamples = CVarShadowReconstructionSampleCount.GetValueOnRenderThread();
+		Settings.bUseTemporalAccumulation = CVarShadowTemporalAccumulation.GetValueOnRenderThread() != 0;
+		Settings.HistoryConvolutionSampleCount = 1;
+		Settings.SignalBatchSize = InputParameterCount;
+
+		for (int32 BatchedSignalId = 0; BatchedSignalId < InputParameterCount; BatchedSignalId++)
 		{
-			Outputs.DiffusePenumbra = ShadowInputs.Penumbra;
+			Settings.MaxInputSPP = FMath::Max(Settings.MaxInputSPP, InputParameters[BatchedSignalId].RayTracingConfig.RayCountPerPixel);
 		}
 
-		// TODO: this is not right, need to take the directionality into account.
-		Outputs.SpecularPenumbra = Outputs.DiffusePenumbra;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevHistories;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewHistories;
+		for (int32 BatchedSignalId = 0; BatchedSignalId < InputParameterCount; BatchedSignalId++)
+		{
+			const FShadowParameters& Parameters = InputParameters[BatchedSignalId];
 
-		return Outputs;
+			ensure(IsSupportedLightType(ELightComponentType(Parameters.LightSceneInfo->Proxy->GetLightType())));
+
+			Settings.LightSceneInfo[BatchedSignalId] = Parameters.LightSceneInfo;
+			if (Settings.MaxInputSPP == 1)
+			{
+				// Only have it distance in ClosestOccluder.
+				InputSignal.Textures[BatchedSignalId] = Parameters.InputTextures.ClosestOccluder;
+			}
+			else
+			{
+				// Get the packed penumbra and hit distance in Penumbra texture.
+				InputSignal.Textures[BatchedSignalId] = Parameters.InputTextures.Penumbra;
+			}
+			PrevHistories[BatchedSignalId] = PreviousViewInfos->ShadowHistories.Find(Settings.LightSceneInfo[BatchedSignalId]->Proxy->GetLightComponent());
+			NewHistories[BatchedSignalId] = nullptr;
+				
+			if (!View.bViewStateIsReadOnly)
+			{
+				check(View.ViewState);
+				NewHistories[BatchedSignalId] = &View.ViewState->PrevFrameViewInfo.ShadowHistories.FindOrAdd(Settings.LightSceneInfo[BatchedSignalId]->Proxy->GetLightComponent());
+			}
+		}
+
+		FSSDSignalTextures SignalOutput;
+		DenoiseSignalAtConstantPixelDensity(
+			GraphBuilder, View, SceneBlackboard,
+			InputSignal, Settings,
+			PrevHistories,
+			NewHistories,
+			&SignalOutput);
+
+		for (int32 BatchedSignalId = 0; BatchedSignalId < InputParameterCount; BatchedSignalId++)
+		{
+			Outputs[BatchedSignalId].DiffusePenumbra = SignalOutput.Textures[BatchedSignalId];
+			Outputs[BatchedSignalId].SpecularPenumbra = SignalOutput.Textures[BatchedSignalId];
+		}
 	}
 
 	FReflectionsOutputs DenoiseReflections(
 		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
+		FPreviousViewInfo* PreviousViewInfos,
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
 		const FReflectionsInputs& ReflectionInputs,
 		const FReflectionsRayTracingConfig RayTracingConfig) const override
 	{
 		FSSDSignalTextures InputSignal;
-		InputSignal.Texture0 = ReflectionInputs.Color;
-		InputSignal.Texture1 = ReflectionInputs.RayHitDistance;
+		InputSignal.Textures[0] = ReflectionInputs.Color;
+		InputSignal.Textures[1] = ReflectionInputs.RayHitDistance;
 
 		FSSDConstantPixelDensitySettings Settings;
 		Settings.SignalProcessing = ESignalProcessing::Reflections;
@@ -1218,27 +1223,35 @@ public:
 		Settings.bUseTemporalAccumulation = CVarReflectionTemporalAccumulation.GetValueOnRenderThread() != 0;
 		Settings.HistoryConvolutionSampleCount = CVarReflectionHistoryConvolutionSampleCount.GetValueOnRenderThread();
 
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevHistories;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewHistories;
+		PrevHistories[0] = &PreviousViewInfos->ReflectionsHistory;
+		NewHistories[0] = View.ViewState ? &View.ViewState->PrevFrameViewInfo.ReflectionsHistory : nullptr;
+
 		FSSDSignalTextures SignalOutput;
 		DenoiseSignalAtConstantPixelDensity(
 			GraphBuilder, View, SceneBlackboard,
 			InputSignal, Settings,
+			PrevHistories,
+			NewHistories,
 			&SignalOutput);
 
 		FReflectionsOutputs ReflectionsOutput;
-		ReflectionsOutput.Color = SignalOutput.Texture0;
+		ReflectionsOutput.Color = SignalOutput.Textures[0];
 		return ReflectionsOutput;
 	}
 	
 	FAmbientOcclusionOutputs DenoiseAmbientOcclusion(
 		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
+		FPreviousViewInfo* PreviousViewInfos,
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
 		const FAmbientOcclusionInputs& ReflectionInputs,
 		const FAmbientOcclusionRayTracingConfig RayTracingConfig) const override
 	{
 		FSSDSignalTextures InputSignal;
-		InputSignal.Texture0 = ReflectionInputs.Mask;
-		InputSignal.Texture1 = ReflectionInputs.RayHitDistance;
+		InputSignal.Textures[0] = ReflectionInputs.Mask;
+		InputSignal.Textures[1] = ReflectionInputs.RayHitDistance;
 		
 		FSSDConstantPixelDensitySettings Settings;
 		Settings.SignalProcessing = ESignalProcessing::AmbientOcclusion;
@@ -1248,27 +1261,35 @@ public:
 		Settings.HistoryConvolutionSampleCount = CVarAOHistoryConvolutionSampleCount.GetValueOnRenderThread();
 		Settings.HistoryConvolutionKernelSpreadFactor = CVarAOHistoryConvolutionKernelSpreadFactor.GetValueOnRenderThread();
 
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevHistories;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewHistories;
+		PrevHistories[0] = &PreviousViewInfos->AmbientOcclusionHistory;
+		NewHistories[0] = View.ViewState ? &View.ViewState->PrevFrameViewInfo.AmbientOcclusionHistory : nullptr;
+
 		FSSDSignalTextures SignalOutput;
 		DenoiseSignalAtConstantPixelDensity(
 			GraphBuilder, View, SceneBlackboard,
 			InputSignal, Settings,
+			PrevHistories,
+			NewHistories,
 			&SignalOutput);
 
 		FAmbientOcclusionOutputs AmbientOcclusionOutput;
-		AmbientOcclusionOutput.AmbientOcclusionMask = SignalOutput.Texture0;
+		AmbientOcclusionOutput.AmbientOcclusionMask = SignalOutput.Textures[0];
 		return AmbientOcclusionOutput;
 	}
 
 	FGlobalIlluminationOutputs DenoiseGlobalIllumination(
 		FRDGBuilder& GraphBuilder,
 		const FViewInfo& View,
+		FPreviousViewInfo* PreviousViewInfos,
 		const FSceneViewFamilyBlackboard& SceneBlackboard,
 		const FGlobalIlluminationInputs& Inputs,
 		const FAmbientOcclusionRayTracingConfig Config) const override
 	{
 		FSSDSignalTextures InputSignal;
-		InputSignal.Texture0 = Inputs.Color;
-		InputSignal.Texture1 = Inputs.RayHitDistance;
+		InputSignal.Textures[0] = Inputs.Color;
+		InputSignal.Textures[1] = Inputs.RayHitDistance;
 
 		FSSDConstantPixelDensitySettings Settings;
 		Settings.SignalProcessing = ESignalProcessing::GlobalIllumination;
@@ -1278,14 +1299,59 @@ public:
 		Settings.HistoryConvolutionSampleCount = CVarGIHistoryConvolutionSampleCount.GetValueOnRenderThread();
 		Settings.HistoryConvolutionKernelSpreadFactor = CVarGIHistoryConvolutionKernelSpreadFactor.GetValueOnRenderThread();
 
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevHistories;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewHistories;
+		PrevHistories[0] = &PreviousViewInfos->GlobalIlluminationHistory;
+		NewHistories[0] = View.ViewState ? &View.ViewState->PrevFrameViewInfo.GlobalIlluminationHistory : nullptr;
+
 		FSSDSignalTextures SignalOutput;
 		DenoiseSignalAtConstantPixelDensity(
 			GraphBuilder, View, SceneBlackboard,
 			InputSignal, Settings,
+			PrevHistories,
+			NewHistories,
 			&SignalOutput);
 
 		FGlobalIlluminationOutputs GlobalIlluminationOutputs;
-		GlobalIlluminationOutputs.Color = SignalOutput.Texture0;
+		GlobalIlluminationOutputs.Color = SignalOutput.Textures[0];
+		return GlobalIlluminationOutputs;
+	}
+
+	FGlobalIlluminationOutputs DenoiseSkyLight(
+		FRDGBuilder& GraphBuilder,
+		const FViewInfo& View,
+		FPreviousViewInfo* PreviousViewInfos,
+		const FSceneViewFamilyBlackboard& SceneBlackboard,
+		const FGlobalIlluminationInputs& Inputs,
+		const FAmbientOcclusionRayTracingConfig Config) const override
+	{
+		FSSDSignalTextures InputSignal;
+		InputSignal.Textures[0] = Inputs.Color;
+		InputSignal.Textures[1] = Inputs.RayHitDistance;
+
+		FSSDConstantPixelDensitySettings Settings;
+		Settings.SignalProcessing = ESignalProcessing::GlobalIllumination;
+		Settings.InputResolutionFraction = Config.ResolutionFraction;
+		Settings.ReconstructionSamples = CVarGIReconstructionSampleCount.GetValueOnRenderThread();
+		Settings.bUseTemporalAccumulation = CVarGITemporalAccumulation.GetValueOnRenderThread() != 0;
+		Settings.HistoryConvolutionSampleCount = CVarGIHistoryConvolutionSampleCount.GetValueOnRenderThread();
+		Settings.HistoryConvolutionKernelSpreadFactor = CVarGIHistoryConvolutionKernelSpreadFactor.GetValueOnRenderThread();
+
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> PrevHistories;
+		TStaticArray<FScreenSpaceFilteringHistory*, IScreenSpaceDenoiser::kMaxBatchSize> NewHistories;
+		PrevHistories[0] = &PreviousViewInfos->SkyLightHistory;
+		NewHistories[0] = View.ViewState ? &View.ViewState->PrevFrameViewInfo.SkyLightHistory : nullptr;
+
+		FSSDSignalTextures SignalOutput;
+		DenoiseSignalAtConstantPixelDensity(
+			GraphBuilder, View, SceneBlackboard,
+			InputSignal, Settings,
+			PrevHistories,
+			NewHistories,
+			&SignalOutput);
+
+		FGlobalIlluminationOutputs GlobalIlluminationOutputs;
+		GlobalIlluminationOutputs.Color = SignalOutput.Textures[0];
 		return GlobalIlluminationOutputs;
 	}
 

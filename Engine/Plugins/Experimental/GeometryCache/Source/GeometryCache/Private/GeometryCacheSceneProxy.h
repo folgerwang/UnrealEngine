@@ -207,7 +207,7 @@ public:
 	void ClearSections();
 
 #if RHI_RAYTRACING
-	virtual void GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections) override;
+	virtual void GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances) override final;
 	virtual bool IsRayTracingRelevant() const override { return true; }
 #endif
 	
@@ -222,4 +222,11 @@ private:
 	TArray<FGeomCacheTrackProxy*> Tracks;
 
 	void FrameUpdate() const;
+
+	void CreateMeshBatch(
+		const FGeomCacheTrackProxy* TrackProxy,
+		const struct FGeometryCacheMeshBatchInfo& BatchInfo,
+		class FGeometryCacheVertexFactoryUserDataWrapper& UserDataWrapper,
+		FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer,
+		FMeshBatch& Mesh) const;
 };

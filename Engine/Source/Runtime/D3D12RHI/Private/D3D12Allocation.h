@@ -373,7 +373,7 @@ public:
 	~FD3D12DefaultBufferPool() { delete Allocator; }
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
-	void AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
+	void AllocDefaultResource(const D3D12_RESOURCE_DESC& Desc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment, const TCHAR* Name);
 
 	void CleanUpAllocations();
 
@@ -389,7 +389,7 @@ public:
 	FD3D12DefaultBufferAllocator(FD3D12Device* InParent, FRHIGPUMask VisibleNodes);
 
 	// Grab a buffer from the available buffers or create a new buffer if none are available
-	void AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment);
+	void AllocDefaultResource(const D3D12_RESOURCE_DESC& pDesc, uint32 InUsage, FD3D12ResourceLocation& ResourceLocation, uint32 Alignment, const TCHAR* Name);
 	void FreeDefaultBufferPools();
 	void CleanupFreeBlocks();
 
@@ -1023,7 +1023,7 @@ class FD3D12TextureAllocatorPool : public FD3D12DeviceChild, public FD3D12MultiN
 public:
 	FD3D12TextureAllocatorPool(FD3D12Device* Device, FRHIGPUMask VisibilityNode);
 
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState);
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation& TextureLocation, const D3D12_RESOURCE_STATES InitialState, const TCHAR* Name);
 
 	void CleanUpAllocations()
 	{

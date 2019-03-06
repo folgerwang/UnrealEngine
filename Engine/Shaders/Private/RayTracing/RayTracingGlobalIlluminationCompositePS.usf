@@ -14,6 +14,10 @@ void GlobalIlluminationCompositePS(
 {
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
 	float3 DiffuseColor = ScreenSpaceData.GBuffer.DiffuseColor;
+	if (UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
+	{
+		DiffuseColor = ScreenSpaceData.GBuffer.StoredBaseColor;
+	}
 	float4 GlobalIllumination = GlobalIlluminationTexture.Sample(GlobalIlluminationSampler, UV);
 	// Apply albedo after denoising
 	GlobalIllumination.rgb *= DiffuseColor;

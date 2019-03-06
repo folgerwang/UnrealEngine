@@ -227,6 +227,8 @@ void InjectShadowedLocalLightPS(
 		LightData.bSpotLight = LightData.SpotAngles.x > -2.0f;
 		LightData.bRectLight = false;
 
+		FRectTexture RectTexture = InitRectTexture(DeferredLightUniforms.SourceTexture);
+
 		float VolumetricScatteringIntensity = DeferredLightUniforms.VolumetricScatteringIntensity;
 
 		float3 L = 0;
@@ -270,7 +272,7 @@ void InjectShadowedLocalLightPS(
 			{
 				FRect Rect = GetRect(ToLight, LightData);
 
-				Lighting = IntegrateLight(Rect, DeferredLightUniforms.SourceTexture);
+				Lighting = IntegrateLight(Rect, RectTexture);
 			}
 			else
 			{
@@ -566,6 +568,7 @@ void LightScatteringCS(
 		// Bias the inverse squared light falloff based on voxel size to prevent aliasing near the light source
 		float DistanceBiasSqr = max(CellRadius * InverseSquaredLightDistanceBiasScale, 1);
 		DistanceBiasSqr *= DistanceBiasSqr;
+		FRectTexture RectTexture = InitRectTexture(DeferredLightUniforms.SourceTexture);
 
 		// Forward lighting of unshadowed point and spot lights
 		LOOP
@@ -603,7 +606,7 @@ void LightScatteringCS(
 				{
 					FRect Rect = GetRect( ToLight, LightData );
 
-					Lighting = IntegrateLight(Rect, DeferredLightUniforms.SourceTexture);
+					Lighting = IntegrateLight(Rect, RectTexture);
 				}
 				else
 				{

@@ -12,6 +12,8 @@
 #include "../PathTracing/Light/PathTracingLightSampling.ush"
 #include "../PathTracing/Material/PathTracingMaterialSampling.ush"
 
+#define USE_PATHTRACING_MATERIALS 0
+
 RaytracingAccelerationStructure TLAS;
 RWTexture2D<float4> RWGlobalIlluminationUAV;
 RWTexture2D<float2> RWRayDistanceUAV;
@@ -19,8 +21,12 @@ RWTexture2D<float2> RWRayDistanceUAV;
 uint SamplesPerPixel;
 uint MaxBounces;
 uint UpscaleFactor;
-float MaxRayDistance;
+float MaxRayDistanceForGI;
+float MaxRayDistanceForAO;
+float NextEventEstimationSamples;
+float DiffuseThreshold;
 bool EvalSkyLight;
+bool UseRussianRoulette;
 float MaxNormalBias;
 
 // #dxr_todo: Unify with reflections and translucency in RayTracingCommon.ush
@@ -62,7 +68,7 @@ void GenerateCosineNormalRay(
 	RayOrigin = WorldPosition;
 	RayDirection = Direction_World;
 	RayTMin = 0.0;
-	RayTMax = MaxRayDistance;
+	RayTMax = max(MaxRayDistanceForGI, MaxRayDistanceForAO);
 	RayPdf = Direction_Tangent.w;
 }
 
@@ -80,18 +86,25 @@ bool IsHit(RayDesc Ray, FMaterialClosestHitPayload HitInfo)
 void GlobalIlluminationRGS()
 {
 	uint2 DispatchThreadId = DispatchRaysIndex().xy;
+	RWGlobalIlluminationUAV[DispatchThreadId] = 0.0;
+	RWRayDistanceUAV[DispatchThreadId] = float2(-1.0, 0.0);
+
 	uint2 PixelCoord = GetPixelCoord(DispatchThreadId);
 	RandomSequence RandSequence;
 	uint LinearIndex = CalcLinearIndex(PixelCoord);
 	RandomSequence_Initialize(RandSequence, LinearIndex, View.FrameNumber);
 
 	bool IsUnidirectionalEnabled = false;
-	bool IsNextEventEstimationEnabled = true;
 
 	// Get G-Buffer surface data
 	float2 InvBufferSize = View.BufferSizeAndInvSize.zw;
 	float2 UV = (float2(PixelCoord) + 0.5) * InvBufferSize;
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	// Remap DiffuseColor when using SubsurfaceProfile (GBuffer decoding replaces with 100% albedo)
+	if (UseSubsurfaceProfile(ScreenSpaceData.GBuffer.ShadingModelID))
+	{
+		ScreenSpaceData.GBuffer.DiffuseColor = ScreenSpaceData.GBuffer.StoredBaseColor;
+	}
 	float Depth = ScreenSpaceData.GBuffer.Depth;
 	float3 WorldPosition = ReconstructWorldPositionFromDepth(UV, Depth);
 	float3 CameraOrigin = ReconstructWorldPositionFromDepth(UV, 0.0);
@@ -102,25 +115,39 @@ void GlobalIlluminationRGS()
 		|| ShadingModelID == SHADINGMODELID_TWOSIDED_FOLIAGE
 		)
 	{
-		RWGlobalIlluminationUAV[DispatchThreadId] = 0.0;
-		RWRayDistanceUAV[DispatchThreadId] = float2(-1.0, 0.0);
+		return;
 	}
 
-	// #dxr_todo: Determine importance of computing GI based on BRDF and geometric term
+	// Diffuse color rejection threshold
 	float3 DiffuseColor = ScreenSpaceData.GBuffer.DiffuseColor;
-	float3 BaseColor = ScreenSpaceData.GBuffer.BaseColor;
+	if (Luminance(DiffuseColor) < DiffuseThreshold)
+	{
+		return;
+	}
 
 	float3 Irradiance = 0;
 	float HitDistance = 0.0;
 	float HitCount = 0.0;
+	float AmbientOcclusion = 0.0;
 	for (uint SampleIndex = 0; SampleIndex < SamplesPerPixel; ++SampleIndex)
 	{
-#if 0
-		const uint TemporalBits = 7;
+		// Use Scrambled Halton sequence
 		uint FrameIndex = View.FrameNumber % 1024;
 		RandomSequence_Initialize(RandSequence, LinearIndex, FrameIndex * SamplesPerPixel + SampleIndex);
 		RandSequence.Type = 2;
-#endif
+
+		float3 RayThroughput = 1.0;
+
+		// Russian roulette based on DiffuseColor
+		if (UseRussianRoulette)
+		{
+			uint DummyVariable;
+			float RRSample = RandomSequence_GenerateSample1D(RandSequence, DummyVariable);
+			float ProbabilityOfSuccess = Luminance(DiffuseColor);
+			float ProbabilityOfTermination = 1.0 - ProbabilityOfSuccess;
+			if (RRSample < ProbabilityOfTermination) continue;
+			RayThroughput /= ProbabilityOfSuccess;
+		}
 
 		// Initialize ray
 		RayDesc Ray;
@@ -133,7 +160,7 @@ void GlobalIlluminationRGS()
 		float NoL = saturate(dot(N, L));
 		FShadowTerms ShadowTerms = { 0.0, 0.0, 0.0 };
 		FDirectLighting LightingSample = EvaluateBxDF(ScreenSpaceData.GBuffer, N, V, L, NoL, ShadowTerms);
-		float3 RayThroughput = LightingSample.Diffuse / DiffuseColor;
+		RayThroughput *= LightingSample.Diffuse / DiffuseColor;
 #else
 		uint DummyVariable;
 		float2 RandSample = RandomSequence_GenerateSample2D(RandSequence, DummyVariable);
@@ -144,7 +171,7 @@ void GlobalIlluminationRGS()
 		Ray.TMax = 1.0e12;
 		float3 RayThroughput = 1.0;
 #endif
-		Ray.TMax = MaxRayDistance;
+		Ray.TMax = max(MaxRayDistanceForGI, MaxRayDistanceForAO);
         ApplyPositionBias(Ray, WorldNormal, MaxNormalBias);
 		
 		float MaterialPdf = 0.0;
@@ -157,9 +184,9 @@ void GlobalIlluminationRGS()
 			FMaterialClosestHitPayload Payload = TraceRayInternal(
 				TLAS,   // AccelerationStructure
 				RayFlags,
-				0xFF,   // InstanceInclusionMask
-				0,      // RayContributionToHitGroupIndex
-				1,      // MultiplierForGeometryContributionToShaderIndex #dxr_todo: we currently only support shader binding per mesh instance
+				RAY_TRACING_MASK_OPAQUE,
+				RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+				RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 				0,      // MissShaderIndex
 				Ray,    // RayDesc
 				RayCone
@@ -184,15 +211,37 @@ void GlobalIlluminationRGS()
 			{
 				HitDistance += Payload.HitT;
 				HitCount += 1.0;
+				if (Payload.HitT < MaxRayDistanceForAO)
+				{
+					AmbientOcclusion += 1.0;
+				}
 			}
+			if (Payload.HitT > MaxRayDistanceForGI) break;
 
 			// Update intersection
 			Ray.Origin += Ray.Direction * Payload.HitT;
 
+			// Create faux GBuffer to use with EvaluateBxDF
+			FGBufferData GBufferData = (FGBufferData)0;
+			GBufferData.Depth = 1.f; // Do not use depth
+			GBufferData.WorldNormal = Payload.WorldNormal;
+			GBufferData.BaseColor = Payload.BaseColor;
+			GBufferData.CustomData = Payload.CustomData;
+			GBufferData.GBufferAO = Payload.GBufferAO;
+			GBufferData.IndirectIrradiance = (Payload.IndirectIrradiance.x + Payload.IndirectIrradiance.y + Payload.IndirectIrradiance.z) / 3.f;
+			GBufferData.SpecularColor = Payload.SpecularColor;
+			GBufferData.DiffuseColor = Payload.DiffuseColor;			
+			GBufferData.Metallic = Payload.Metallic;
+			GBufferData.Specular = Payload.Specular;
+			GBufferData.Roughness = Payload.Roughness;
+			GBufferData.ShadingModelID = Payload.ShadingModelID;
+			GBufferData.CustomData = Payload.CustomData;
+
 			// Perform next-event estimation
-			if (IsNextEventEstimationEnabled)
+			float SplitFactor = 1.0 / NextEventEstimationSamples;
+			for (uint NeeTrial = 0; NeeTrial < NextEventEstimationSamples; ++NeeTrial)
 			{
-				// #dxr_todo: Many-light selection
+				// Light selection
 				int LightId;
 				float3 LightUV;
 				float NeePdf = 0.0;
@@ -212,9 +261,9 @@ void GlobalIlluminationRGS()
 					FMaterialClosestHitPayload NeePayload = TraceRayInternal(
 						TLAS,   // AccelerationStructure
 						RayFlags,
-						0xFF,   // InstanceInclusionMask
-						0,      // RayContributionToHitGroupIndex
-						1,      // MultiplierForGeometryContributionToShaderIndex #dxr_todo: we currently only support shader binding per mesh instance
+						RAY_TRACING_MASK_OPAQUE,
+						RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
+						RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 						0,      // MissShaderIndex
 						LightRay,    // RayDesc
 						LightRayCone
@@ -230,11 +279,17 @@ void GlobalIlluminationRGS()
 						// Evaluate material
 						float3 MaterialThroughput;
 						float MaterialEvalPdf = 0.0;
-#if 1
+#if USE_PATHTRACING_MATERIALS
 						EvalMaterial(Ray.Direction, LightRay.Direction, Payload, MaterialThroughput, MaterialEvalPdf);
 #else
-						MaterialEvalPdf = saturate(dot(Payload.WorldNormal, LightRay.Direction)) / PI;
-						MaterialThroughput = Payload.DiffuseColor * MaterialEvalPdf;
+						half3 N = Payload.WorldNormal;
+						half3 V = -Ray.Direction;
+						half3 L = LightRay.Direction;
+						float NoL = saturate(dot(N, L));
+						FShadowTerms ShadowTerms = { 0.0, 0.0, 0.0 };
+						FDirectLighting LightingSample = EvaluateBxDF(GBufferData, N, V, L, NoL, ShadowTerms);
+						MaterialThroughput = LightingSample.Diffuse;
+						MaterialEvalPdf = 1.0;
 #endif
 						// Apply material Pdf for correct MIS weight
 						float MisWeight = 1.0;
@@ -245,7 +300,7 @@ void GlobalIlluminationRGS()
 						}
 #endif
 						// Record the contribution
-						float3 ExitantRadianceSample = Radiance * MaterialThroughput * RayThroughput * MisWeight / (NeePdf * RayPdf);
+						float3 ExitantRadianceSample = Radiance * MaterialThroughput * RayThroughput * SplitFactor * MisWeight / (NeePdf * RayPdf);
 						Irradiance += isfinite(ExitantRadianceSample) ? ExitantRadianceSample : 0.0;
 					}
 				}
@@ -257,14 +312,21 @@ void GlobalIlluminationRGS()
 			{
 				float3 Direction;
 				float3 Throughput = 1.0;
-#if 0
+#if USE_PATHTRACING_MATERIALS
 				uint DummyVariable;
 				float4 RandSample = RandomSequence_GenerateSample4D(RandSequence, DummyVariable);
 				SampleMaterial(Ray.Direction, Payload, RandSample, Direction, Throughput, MaterialPdf);
 #else
 				float3 RayOrigin = Ray.Origin;
 				GenerateCosineNormalRay(RayOrigin, Payload.WorldNormal, RandSequence, Ray.Origin, Direction, Ray.TMin, Ray.TMax, MaterialPdf);
-				Throughput = Payload.DiffuseColor * MaterialPdf;
+				
+				half3 N = Payload.WorldNormal;
+				half3 V = -Ray.Direction;
+				half3 L = Direction;
+				float NoL = saturate(dot(N, L));
+				FShadowTerms ShadowTerms = { 0.0, 0.0, 0.0 };
+				FDirectLighting LightingSample = EvaluateBxDF(GBufferData, N, V, L, NoL, ShadowTerms);
+				Throughput = LightingSample.Diffuse;
 #endif
 				// #dxr_todo: Degenerate guard?
 				if (MaterialPdf <= 0.0)
@@ -287,7 +349,6 @@ void GlobalIlluminationRGS()
 		}
 	}
 
-	float AmbientOcclusion = HitCount;
 	if (SamplesPerPixel > 0)
 	{
 		Irradiance /= SamplesPerPixel;

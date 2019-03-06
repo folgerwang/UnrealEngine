@@ -1,9 +1,5 @@
 // Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	SSDCommon.ush: All the code commonly shared between uniform buffers.
-=============================================================================*/
-
 #pragma once
 
 #include "SSDCommon.ush"
@@ -20,11 +16,25 @@ struct FSSFSignalSample
 	// Scene color and alpha.
 	float4 SceneColor;
 
-	// Shadow denoising specific.
+	// Number of ray that did not find any intersections.
 	float LeavingRayCount;
-	float PenumbraClosestHit;
+
+	// Number of ray that are uncertain due to occlusion with higher frequency.
 	float UncertainRayCount;
+
+	// Hit distance of a this sample, valid only if AccumulatedSampleCount == 1.
+	float PenumbraClosestHit;
+	
+	// Blur radius allowed for this sample, valid only if AccumulatedSampleCount == 1.
+	float WorldBluringRadius;
 };
+
+/** Array of signal samples. Technically should be a typedef, but there is a bug in HLSL with the out operator of an array. */
+struct FSSDSignalArray
+{
+	FSSFSignalSample Array[MAX_SIGNAL_BATCH_SIZE];
+};
+
 
 FSSFSignalSample CreateSignalSampleFromScalarValue(float Scalar)
 {
@@ -34,6 +44,7 @@ FSSFSignalSample CreateSignalSampleFromScalarValue(float Scalar)
 	OutSample.LeavingRayCount = Scalar;
 	OutSample.PenumbraClosestHit = Scalar;
 	OutSample.UncertainRayCount = Scalar;
+	OutSample.WorldBluringRadius = Scalar;
 	return OutSample;
 }
 
@@ -42,116 +53,345 @@ FSSFSignalSample CreateSignalSample()
 	return CreateSignalSampleFromScalarValue(0.0);
 }
 
+FSSDSignalArray CreateSignalArrayFromScalarValue(float Scalar)
+{
+	FSSDSignalArray OutSamples;
+	FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+	for (uint BatchedSignalId = 0; BatchedSignalId < MAX_SIGNAL_BATCH_SIZE; BatchedSignalId++)
+	{
+		OutSamples.Array[BatchedSignalId] = CreateSignalSampleFromScalarValue(Scalar);
+	}
+	return OutSamples;
+}
+
+
+//------------------------------------------------------- SIGNAL OPERATORS
+
+FSSFSignalSample Mul(FSSFSignalSample Sample, float Scalar)
+{
+	FSSFSignalSample OutSample;
+	OutSample.SceneColor             = Sample.SceneColor * Scalar;
+	OutSample.AccumulatedSampleCount = Sample.AccumulatedSampleCount * Scalar;
+	OutSample.LeavingRayCount        = Sample.LeavingRayCount * Scalar;
+	OutSample.PenumbraClosestHit     = Sample.PenumbraClosestHit * Scalar;
+	OutSample.UncertainRayCount      = Sample.UncertainRayCount * Scalar;
+	OutSample.WorldBluringRadius     = Sample.WorldBluringRadius * Scalar;
+	return OutSample;
+}
+
+FSSFSignalSample Add(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
+{
+	SampleA.SceneColor             += SampleB.SceneColor;
+	SampleA.AccumulatedSampleCount += SampleB.AccumulatedSampleCount;
+	SampleA.LeavingRayCount        += SampleB.LeavingRayCount;
+	SampleA.PenumbraClosestHit     += SampleB.PenumbraClosestHit;
+	SampleA.UncertainRayCount      += SampleB.UncertainRayCount;
+	SampleA.WorldBluringRadius     += SampleB.WorldBluringRadius;
+	return SampleA;
+}
+
+FSSFSignalSample Minus(FSSFSignalSample Sample)
+{
+	Sample.SceneColor             = -Sample.SceneColor;
+	Sample.AccumulatedSampleCount = -Sample.AccumulatedSampleCount;
+	Sample.LeavingRayCount        = -Sample.LeavingRayCount;
+	Sample.PenumbraClosestHit     = -Sample.PenumbraClosestHit;
+	Sample.UncertainRayCount      = -Sample.UncertainRayCount;
+	Sample.WorldBluringRadius     = -Sample.WorldBluringRadius;
+	return Sample;
+}
+
+FSSFSignalSample Subtract(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
+{
+	return Add(SampleA, Minus(SampleB));
+}
+
+FSSFSignalSample Abs(FSSFSignalSample Sample)
+{
+	Sample.SceneColor             = abs(Sample.SceneColor);
+	Sample.AccumulatedSampleCount = abs(Sample.AccumulatedSampleCount);
+	Sample.LeavingRayCount        = abs(Sample.LeavingRayCount);
+	Sample.PenumbraClosestHit     = abs(Sample.PenumbraClosestHit);
+	Sample.UncertainRayCount      = abs(Sample.UncertainRayCount);
+	Sample.WorldBluringRadius     = abs(Sample.WorldBluringRadius);
+	return Sample;
+}
+
+FSSFSignalSample Sqrt(FSSFSignalSample Sample)
+{
+	Sample.SceneColor             = sqrt(Sample.SceneColor);
+	Sample.AccumulatedSampleCount = sqrt(Sample.AccumulatedSampleCount);
+	Sample.LeavingRayCount        = sqrt(Sample.LeavingRayCount);
+	Sample.PenumbraClosestHit     = sqrt(Sample.PenumbraClosestHit);
+	Sample.UncertainRayCount      = sqrt(Sample.UncertainRayCount);
+	Sample.WorldBluringRadius     = sqrt(Sample.WorldBluringRadius);
+	return Sample;
+}
+
+FSSFSignalSample Power(FSSFSignalSample Sample, float Exponent)
+{
+	Sample.SceneColor.r           = pow(Sample.SceneColor.r, Exponent);
+	Sample.SceneColor.g           = pow(Sample.SceneColor.g, Exponent);
+	Sample.SceneColor.b           = pow(Sample.SceneColor.b, Exponent);
+	Sample.SceneColor.a           = pow(Sample.SceneColor.a, Exponent);
+	Sample.AccumulatedSampleCount = pow(Sample.AccumulatedSampleCount, Exponent);
+	Sample.LeavingRayCount        = pow(Sample.LeavingRayCount, Exponent);
+	Sample.PenumbraClosestHit     = pow(Sample.PenumbraClosestHit, Exponent);
+	Sample.UncertainRayCount      = pow(Sample.UncertainRayCount, Exponent);
+	Sample.WorldBluringRadius     = pow(Sample.WorldBluringRadius, Exponent);
+	return Sample;
+}
+
+FSSFSignalSample Min(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
+{
+	FSSFSignalSample OutSample;
+	OutSample.SceneColor = min(SampleA.SceneColor, SampleB.SceneColor);
+	OutSample.AccumulatedSampleCount = min(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
+	OutSample.LeavingRayCount = min(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
+	OutSample.PenumbraClosestHit = min(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
+	OutSample.UncertainRayCount = min(SampleA.UncertainRayCount, SampleB.UncertainRayCount);
+	OutSample.WorldBluringRadius = min(SampleA.WorldBluringRadius, SampleB.WorldBluringRadius);
+	return OutSample;
+}
+
+FSSFSignalSample Max(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
+{
+	FSSFSignalSample OutSample;
+	OutSample.SceneColor = max(SampleA.SceneColor, SampleB.SceneColor);
+	OutSample.AccumulatedSampleCount = max(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
+	OutSample.LeavingRayCount = max(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
+	OutSample.PenumbraClosestHit = max(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
+	OutSample.UncertainRayCount = max(SampleA.UncertainRayCount, SampleB.UncertainRayCount);
+	OutSample.WorldBluringRadius = max(SampleA.WorldBluringRadius, SampleB.WorldBluringRadius);
+	return OutSample;
+}
+
+FSSFSignalSample Clamp(FSSFSignalSample Sample, FSSFSignalSample SampleMin, FSSFSignalSample SampleMax)
+{
+	FSSFSignalSample OutSample;
+	OutSample.SceneColor = clamp(Sample.SceneColor, SampleMin.SceneColor, SampleMax.SceneColor);
+	OutSample.AccumulatedSampleCount = clamp(Sample.AccumulatedSampleCount, SampleMin.AccumulatedSampleCount, SampleMax.AccumulatedSampleCount);
+	OutSample.LeavingRayCount = clamp(Sample.LeavingRayCount, SampleMin.LeavingRayCount, SampleMax.LeavingRayCount);
+	OutSample.PenumbraClosestHit = clamp(Sample.PenumbraClosestHit, SampleMin.PenumbraClosestHit, SampleMax.PenumbraClosestHit);
+	OutSample.UncertainRayCount = clamp(Sample.UncertainRayCount, SampleMin.UncertainRayCount, SampleMax.UncertainRayCount);
+	OutSample.WorldBluringRadius = clamp(Sample.WorldBluringRadius, SampleMin.WorldBluringRadius, SampleMax.WorldBluringRadius);
+	return OutSample;
+}
+
+FSSFSignalSample Lerp(FSSFSignalSample Sample0, FSSFSignalSample Sample1, float Interp)
+{
+	return Add(Sample0, Mul(Subtract(Sample1, Sample0), Interp));
+}
+
+/** Normalize the signal sample to one. */
+FSSFSignalSample NormalizeToOneSample(FSSFSignalSample Sample)
+{
+	FSSFSignalSample OutSample = Mul(Sample, Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
+	OutSample.AccumulatedSampleCount = Sample.AccumulatedSampleCount > 0 ? 1 : 0;
+	return OutSample;
+}
+
 
 //------------------------------------------------------- INPUT/OUTPUT
 
 /** Decode input signal sample. */
 void DecodeMultiplexedSignals(
 	const uint SignalBufferLayout,
-	float4 RawSample[MAX_RENDER_TARGET_FOR_SIGNAL],
-	out FSSFSignalSample OutSample0,
-	out FSSFSignalSample OutSample1,
-	out FSSFSignalSample OutSample2)
+	const uint MultiplexedSampleId,
+	const bool bNormalizeSample,
+	float4 RawSample[MAX_MULTIPLEXED_TEXTURES],
+	out FSSDSignalArray OutSamples)
 {
-	OutSample0 = CreateSignalSample();
-	OutSample1 = CreateSignalSample();
-	OutSample2 = CreateSignalSample();
+	OutSamples = CreateSignalArrayFromScalarValue(0.0);
 
 	if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_UNINITIALIZED)
 	{
 		// trash out the output sample to identify quickly a miss configured buffer layout.
-		OutSample0 = CreateSignalSampleFromScalarValue(-1.#INF);
-		OutSample1 = CreateSignalSampleFromScalarValue(-1.#INF);
-		OutSample2 = CreateSignalSampleFromScalarValue(-1.#INF);
+		OutSamples = CreateSignalArrayFromScalarValue(-1.#INF);
 	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT)
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_1SPP)
 	{
-		OutSample0.AccumulatedSampleCount = 1;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * RawSample[0].r;
-		OutSample0.PenumbraClosestHit = RawSample[1].r;
-	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL)
-	{
-		if (DEBUG_STORE_NORMALIZED_COMPONENTS)
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 		{
-			OutSample0.LeavingRayCount = RawSample[0].r * RawSample[0].b;
-			OutSample0.UncertainRayCount = RawSample[0].g * RawSample[0].b;
-			OutSample0.AccumulatedSampleCount = RawSample[0].b - OutSample0.UncertainRayCount;
-		}
-		else
-		{
-			OutSample0.LeavingRayCount = RawSample[0].r;
-			OutSample0.AccumulatedSampleCount = RawSample[0].g;
-			OutSample0.UncertainRayCount = RawSample[0].b;
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (RawSample[MultiplexId].r == -2.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (RawSample[MultiplexId].r > 0.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].PenumbraClosestHit = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (RawSample[MultiplexId].r == -1 ? 1000000 : RawSample[MultiplexId].r);
 		}
 	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION)
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_NSPP)
 	{
-		//if (Samples[0].r < 1)
-		if (RawSample[0].r >= 0)
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 		{
-			OutSample0.AccumulatedSampleCount = 1;
-			OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * RawSample[0].r; // *(255.0 / 254.0);
+			// TODO: feed the actual number of sample.
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (RawSample[MultiplexId].g == -2.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * RawSample[MultiplexId].r;
+			OutSamples.Array[MultiplexId].PenumbraClosestHit = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (RawSample[MultiplexId].g == -1 ? 1000000 : RawSample[MultiplexId].g);
+		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP)
+	{
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			float EncodedWorldBluringRadius = RawSample[MultiplexId / 4][MultiplexId % 4];
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (EncodedWorldBluringRadius == -2.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (EncodedWorldBluringRadius > 0.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].WorldBluringRadius = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (EncodedWorldBluringRadius == -1 ? WORLD_RADIUS_MISS : EncodedWorldBluringRadius);
+		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP)
+	{
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			float2 Channels = float2(RawSample[MultiplexId / 2][2 * (MultiplexId % 2)], RawSample[MultiplexId / 2][2 * (MultiplexId % 2) + 1]);
+	
+			// TODO: feed the actual number of sample.
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (Channels.g == -2.0 ? 0.0 : 1.0);
+			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * Channels.r;
+			OutSamples.Array[MultiplexId].WorldBluringRadius = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (Channels.g == -1 ? WORLD_RADIUS_MISS : Channels.g);
+		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	{
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			float2 Channels = float2(RawSample[MultiplexId / 2][2 * (MultiplexId % 2)], RawSample[MultiplexId / 2][2 * (MultiplexId % 2) + 1]);
+	
+			if (bNormalizeSample)
+			{
+				OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g > 0 ? 1 : 0;
+				OutSamples.Array[MultiplexId].LeavingRayCount = Channels.g > 0 ? Channels.r : 0;
+			}
+			else
+			{
+				OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g;
+				OutSamples.Array[MultiplexId].LeavingRayCount = Channels.r * Channels.g;
+			}
+		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY)
+	{
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			OutSamples.Array[MultiplexId].LeavingRayCount = RawSample[MultiplexId].r * RawSample[MultiplexId].g;
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = RawSample[MultiplexId].g;
 		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].r == -2 ? 0 : 1;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[0].a);
-		OutSample0.SceneColor = RawSample[0];
+		OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r == -2 ? 0 : 1;
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = RawSample[0];
 
 		// max() because ray hit distance is < 0 when miss / not ray has been shot.
-		OutSample0.PenumbraClosestHit = RawSample[1].r * OutSample0.AccumulatedSampleCount;
-		OutSample0.PenumbraClosestHit = ((RawSample[1].r == -1.0) ? 1.0e20 : RawSample[1].r) * OutSample0.AccumulatedSampleCount;
+		//OutSamples.Array[0].PenumbraClosestHit = RawSample[1].r * OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[0].PenumbraClosestHit = ((RawSample[1].r == -1.0) ? 1.0e20 : RawSample[1].r) * OutSamples.Array[0].AccumulatedSampleCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].r;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[0].a);
-		OutSample0.SceneColor = OutSample0.AccumulatedSampleCount * RawSample[0];
+		if (bNormalizeSample)
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r > 0 ? 1 : 0;
+		}
+		else
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r;
+		}
+		
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0];
 
-		OutSample1.AccumulatedSampleCount = RawSample[1].g;
-		OutSample1.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[2].a);
-		OutSample1.SceneColor = OutSample0.AccumulatedSampleCount * RawSample[2];
+		OutSamples.Array[1].AccumulatedSampleCount = RawSample[1].g;
+		OutSamples.Array[1].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[2].a);
+		OutSamples.Array[1].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[2];
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].r;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[0].a);
-		OutSample0.SceneColor = OutSample0.AccumulatedSampleCount * RawSample[0];
-
-		OutSample1.AccumulatedSampleCount = OutSample0.AccumulatedSampleCount;
-		OutSample1.SceneColor.x = OutSample1.AccumulatedSampleCount * RawSample[1].g;
+		if (bNormalizeSample)
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r > 0 ? 1 : 0;
+		}
+		else
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r;
+		}
 		
-		OutSample2.AccumulatedSampleCount = OutSample0.AccumulatedSampleCount;
-		OutSample2.SceneColor.x = OutSample2.AccumulatedSampleCount * RawSample[1].b;
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0];
+
+		OutSamples.Array[1].AccumulatedSampleCount = OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[1].SceneColor.x = OutSamples.Array[1].AccumulatedSampleCount * RawSample[1].g;
+		
+		OutSamples.Array[2].AccumulatedSampleCount = OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[2].SceneColor.x = OutSamples.Array[2].AccumulatedSampleCount * RawSample[1].b;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_AO_INPUT)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].r < 0 ? 0 : 1;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * RawSample[0].r;
-		OutSample0.PenumbraClosestHit = OutSample0.AccumulatedSampleCount * RawSample[1].r;
+		OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r < 0 ? 0 : 1;
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0].r;
+		OutSamples.Array[0].PenumbraClosestHit = OutSamples.Array[0].AccumulatedSampleCount * RawSample[1].r;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_AO_HISTORY)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[0].g;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * RawSample[0].r;
+		if (bNormalizeSample)
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[0].g > 0 ? 1 : 0;
+			OutSamples.Array[0].LeavingRayCount = RawSample[0].g > 0 ? RawSample[0].r : 0;
+		}
+		else
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[0].g;
+			OutSamples.Array[0].LeavingRayCount = RawSample[0].g * RawSample[0].r;
+		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_GI_AND_AO_INPUT)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].g;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[0].a);
-		OutSample0.SceneColor = OutSample0.AccumulatedSampleCount * RawSample[0];
+		OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].g;
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0];
 
 		// max() because ray hit distance is < 0 when miss / not ray has been shot.
-		OutSample0.PenumbraClosestHit = RawSample[1].r * OutSample0.AccumulatedSampleCount;
-		OutSample0.PenumbraClosestHit = ((RawSample[1].r == -1.0) ? 1.0e20 : RawSample[1].r) * OutSample0.AccumulatedSampleCount;
+		OutSamples.Array[0].PenumbraClosestHit = RawSample[1].r * OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[0].PenumbraClosestHit = ((RawSample[1].r == -1.0) ? 1.0e20 : RawSample[1].r) * OutSamples.Array[0].AccumulatedSampleCount;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_GI_AND_AO_RECONSTRUCTION)
+	{
+		if (bNormalizeSample)
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r > 0 ? 1 : 0;
+		}
+		else
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r;
+		}
+		
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0];
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY)
 	{
-		OutSample0.AccumulatedSampleCount = RawSample[1].r;
-		OutSample0.LeavingRayCount = OutSample0.AccumulatedSampleCount * (1 - RawSample[0].a);
-		OutSample0.SceneColor = OutSample0.AccumulatedSampleCount * RawSample[0];
+		if (bNormalizeSample)
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r > 0 ? 1 : 0;
+		}
+		else
+		{
+			OutSamples.Array[0].AccumulatedSampleCount = RawSample[1].r;
+		}
+		
+		OutSamples.Array[0].LeavingRayCount = OutSamples.Array[0].AccumulatedSampleCount * (1 - RawSample[0].a);
+		OutSamples.Array[0].SceneColor = OutSamples.Array[0].AccumulatedSampleCount * RawSample[0];
+		
+		OutSamples.Array[1].AccumulatedSampleCount = OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[1].SceneColor.x = OutSamples.Array[1].AccumulatedSampleCount * RawSample[1].g;
+		
+		OutSamples.Array[2].AccumulatedSampleCount = OutSamples.Array[0].AccumulatedSampleCount;
+		OutSamples.Array[2].SceneColor.x = OutSamples.Array[2].AccumulatedSampleCount * RawSample[1].b;
 	}
 } // DecodeMultiplexedSignals()
 
@@ -159,51 +399,89 @@ void DecodeMultiplexedSignals(
 void EncodeMultiplexedSignals(
 	const uint SignalBufferLayout, const uint MultiplexCount,
 	FSSFSignalSample Sample[MAX_SIGNAL_MULTIPLEXING],
-	out float4 OutRawSample[MAX_RENDER_TARGET_FOR_SIGNAL],
+	out float4 OutRawSample[MAX_MULTIPLEXED_TEXTURES],
 	out uint OutBufferCount)
 {
 	// Init all raw samples.
-	for (uint i = 0; i < MAX_RENDER_TARGET_FOR_SIGNAL; i++)
+	FIX_UNROLL(MAX_MULTIPLEXED_TEXTURES)
+	for (uint i = 0; i < MAX_MULTIPLEXED_TEXTURES; i++)
 		OutRawSample[i] = 0;
 
-	// Number of buffer the signal get encoded onto <= MAX_RENDER_TARGET_FOR_SIGNAL.
+	// Number of buffer the signal get encoded onto <= MAX_MULTIPLEXED_TEXTURES.
 	OutBufferCount = 1;
 
-	if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INTERNAL)
+	if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP)
 	{
-		if (DEBUG_STORE_NORMALIZED_COMPONENTS)
+		UNROLL
+		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
 		{
-			OutRawSample[0] = float4(
-				Sample[0].UncertainRayCount + Sample[0].AccumulatedSampleCount > 0
-					? Sample[0].LeavingRayCount / (Sample[0].UncertainRayCount + Sample[0].AccumulatedSampleCount)
-					: -1.0,
-				Sample[0].UncertainRayCount + Sample[0].AccumulatedSampleCount > 0
-					? Sample[0].UncertainRayCount / (Sample[0].UncertainRayCount + Sample[0].AccumulatedSampleCount)
-					: -1.0,
-				Sample[0].UncertainRayCount + Sample[0].AccumulatedSampleCount,
-				0);
-		}
-		else
-		{
-			OutRawSample[0] = float4(
-				Sample[0].LeavingRayCount,
-				Sample[0].AccumulatedSampleCount,
-				Sample[0].UncertainRayCount,
-				0);
-		}
-	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY_REJECTION)
-	{
-		//if (Sample.AccumulatedSampleCount == 0)
-		//{
-		//	OutRawSample[0].r = 1.0;
-		//}
-		//else
-		//{
-		//	OutRawSample[0].r = (254.0 / 255.0) * (Sample.LeavingRayCount / Sample.AccumulatedSampleCount);
-		//}
+			float EncodedChannel = Sample[MultiplexId].WorldBluringRadius;
+			if (Sample[MultiplexId].AccumulatedSampleCount == 0)
+			{
+				EncodedChannel = -2;
+			}
+			else if (Sample[MultiplexId].WorldBluringRadius == WORLD_RADIUS_MISS)
+			{
+				EncodedChannel = -1;
+			}
 
-		OutRawSample[0].r = Sample[0].AccumulatedSampleCount == 0 ? -1 : Sample[0].LeavingRayCount / Sample[0].AccumulatedSampleCount;
+			OutRawSample[MultiplexId / 4][MultiplexId % 4] = EncodedChannel;
+		}
+		OutBufferCount = (MultiplexCount + 3) / 4;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP)
+	{
+		UNROLL
+		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
+		{
+			float2 EncodedChannels = float2(
+				Sample[MultiplexId].LeavingRayCount,
+				Sample[MultiplexId].WorldBluringRadius) * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount);
+			
+			if (Sample[MultiplexId].AccumulatedSampleCount == 0)
+			{
+				EncodedChannels.y = -2;
+			}
+			else if (Sample[MultiplexId].WorldBluringRadius == WORLD_RADIUS_MISS)
+			{
+				EncodedChannels.y = -1;
+			}
+
+			if (MultiplexId % 2)
+				OutRawSample[MultiplexId / 2].zw = EncodedChannels;
+			else
+				OutRawSample[MultiplexId / 2].xy = EncodedChannels;
+		}
+		OutBufferCount = (MultiplexCount + 1) / 2;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	{
+		UNROLL
+		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
+		{
+			float2 EncodedChannels = float2(
+				Sample[MultiplexId].LeavingRayCount * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount),
+				Sample[MultiplexId].AccumulatedSampleCount);
+
+			if (MultiplexId % 2)
+				OutRawSample[MultiplexId / 2].zw = EncodedChannels;
+			else
+				OutRawSample[MultiplexId / 2].xy = EncodedChannels;
+		}
+		OutBufferCount = (MultiplexCount + 1) / 2;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY)
+	{
+		UNROLL
+		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
+		{
+			OutRawSample[MultiplexId] = float4(
+				Sample[MultiplexId].LeavingRayCount * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount),
+				Sample[MultiplexId].AccumulatedSampleCount,
+				0,
+				0);
+		}
+		OutBufferCount = MultiplexCount;
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION)
 	{
@@ -241,6 +519,14 @@ void EncodeMultiplexedSignals(
 		OutRawSample[0].r = Sample[0].AccumulatedSampleCount > 0 ? Sample[0].LeavingRayCount / Sample[0].AccumulatedSampleCount : 1.0;
 		OutRawSample[0].g = Sample[0].AccumulatedSampleCount;
 	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_GI_AND_AO_RECONSTRUCTION)
+	{
+		float NormalizationFactor = SafeRcp(Sample[0].AccumulatedSampleCount);
+
+		OutRawSample[0] = Sample[0].SceneColor * NormalizationFactor;
+		OutRawSample[1].r = Sample[0].AccumulatedSampleCount;
+		OutBufferCount = 2;
+	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_GI_AND_AO_HISTORY)
 	{
 		float NormalizationFactor = SafeRcp(Sample[0].AccumulatedSampleCount);
@@ -258,62 +544,42 @@ void EncodeMultiplexedSignals(
 } // EncodeMultiplexedSignals()
 
 /** Sample multiple input signals that have been multiplexed. */
-FSSFSignalSample SampleMultiplexedSignal(
-	Texture2D SignalBuffer0, Texture2D SignalBuffer1, Texture2D SignalBuffer2,
+FSSDSignalArray SampleMultiplexedSignals(
+	Texture2D SignalBuffer0, Texture2D SignalBuffer1, Texture2D SignalBuffer2, Texture2D SignalBuffer3,
 	SamplerState Sampler,
-	const uint SignalBufferLayout, const uint MultiplexId,
+	const uint SignalBufferLayout, const uint MultiplexedSampleId,
+	const bool bNormalizeSample,
 	float2 UV, float Level = 0)
 {
-	float4 RawSample[MAX_RENDER_TARGET_FOR_SIGNAL];
+	float4 RawSample[MAX_MULTIPLEXED_TEXTURES];
 	RawSample[0] = SignalBuffer0.SampleLevel(Sampler, UV, Level);
 	RawSample[1] = SignalBuffer1.SampleLevel(Sampler, UV, Level);
 	RawSample[2] = SignalBuffer2.SampleLevel(Sampler, UV, Level);
+	RawSample[3] = SignalBuffer3.SampleLevel(Sampler, UV, Level);
 
-	FSSFSignalSample MultiplexedSample0;
-	FSSFSignalSample MultiplexedSample1;
-	FSSFSignalSample MultiplexedSample2;
-
+	FSSDSignalArray MultiplexedSamples;
 	DecodeMultiplexedSignals(
 		SignalBufferLayout,
+		MultiplexedSampleId,
+		bNormalizeSample,
 		RawSample,
-		/* out */ MultiplexedSample0,
-		/* out */ MultiplexedSample1,
-		/* out */ MultiplexedSample2);
+		/* out */ MultiplexedSamples);
 
-	// Branch at compile time what multiplexed signal should be returned. Done this way to work arround shader compiler bugs.
-	if (MultiplexId == 2)
-	{
-		return MultiplexedSample2;
-	}
-	else if (MultiplexId == 1)
-	{
-		return MultiplexedSample1;
-	}
-	return MultiplexedSample0;
+	return MultiplexedSamples;
 }
 
-/** Sample a single input signal. */
-FSSFSignalSample SampleInputSignal(
-	Texture2D SignalBuffer0, Texture2D SignalBuffer1, Texture2D SignalBuffer2,
-	SamplerState Sampler,
-	const uint SignalBufferLayout,
-	float2 UV, float Level = 0)
-{
-	return SampleMultiplexedSignal(
-		SignalBuffer0, SignalBuffer1, SignalBuffer2,
-		Sampler,
-		SignalBufferLayout, /* MultiplexId = */ 0,
-		UV, Level);
-}
 
 /** Outputs multiplexed signal. */
 void OutputMultiplexedSignal(
-	RWTexture2D<float4> OutputSignalBuffer0, RWTexture2D<float4> OutputSignalBuffer1, RWTexture2D<float4> OutputSignalBuffer2,
+	RWTexture2D<float4> OutputSignalBuffer0,
+	RWTexture2D<float4> OutputSignalBuffer1,
+	RWTexture2D<float4> OutputSignalBuffer2,
+	RWTexture2D<float4> OutputSignalBuffer3,
 	const uint SignalBufferLayout, const uint MultiplexCount,
 	const uint2 PixelPosition, FSSFSignalSample MultiplexedSamples[MAX_SIGNAL_MULTIPLEXING])
 {
 	// Encode the output signal.
-	float4 RawSample[MAX_RENDER_TARGET_FOR_SIGNAL];
+	float4 RawSample[MAX_MULTIPLEXED_TEXTURES];
 	uint BufferCount;
 	EncodeMultiplexedSignals(
 		SignalBufferLayout, MultiplexCount,
@@ -327,140 +593,6 @@ void OutputMultiplexedSignal(
 		OutputSignalBuffer1[PixelPosition] = RawSample[1];
 	if (BufferCount >= 3)
 		OutputSignalBuffer2[PixelPosition] = RawSample[2];
-}
-
-/** Outputs a single signal. */
-void OutputSignal(
-	RWTexture2D<float4> OutputSignalBuffer0, RWTexture2D<float4> OutputSignalBuffer1, RWTexture2D<float4> OutputSignalBuffer2,
-	const uint SignalBufferLayout,
-	const uint2 PixelPosition, FSSFSignalSample Sample)
-{
-	// Init all raw samples.
-	FSSFSignalSample MultiplexedSamples[MAX_SIGNAL_MULTIPLEXING];
-	for (uint i = 0; i < MAX_SIGNAL_MULTIPLEXING; i++)
-		MultiplexedSamples[i] = CreateSignalSample();
-	MultiplexedSamples[0] = Sample;
-
-	OutputMultiplexedSignal(
-		OutputSignalBuffer0, OutputSignalBuffer1, OutputSignalBuffer2,
-		SignalBufferLayout, /* MultiplexCount = */ 1,
-		PixelPosition, MultiplexedSamples);
-}
-
-
-//------------------------------------------------------- SIGNAL OPERATORS
-
-FSSFSignalSample Mul(FSSFSignalSample Sample, float Scalar)
-{
-	FSSFSignalSample OutSample;
-	OutSample.SceneColor             = Sample.SceneColor * Scalar;
-	OutSample.AccumulatedSampleCount = Sample.AccumulatedSampleCount * Scalar;
-	OutSample.LeavingRayCount        = Sample.LeavingRayCount * Scalar;
-	OutSample.PenumbraClosestHit     = Sample.PenumbraClosestHit * Scalar;
-	OutSample.UncertainRayCount      = Sample.UncertainRayCount * Scalar;
-	return OutSample;
-}
-
-FSSFSignalSample Add(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
-{
-	SampleA.SceneColor             += SampleB.SceneColor;
-	SampleA.AccumulatedSampleCount += SampleB.AccumulatedSampleCount;
-	SampleA.LeavingRayCount        += SampleB.LeavingRayCount;
-	SampleA.PenumbraClosestHit     += SampleB.PenumbraClosestHit;
-	SampleA.UncertainRayCount      += SampleB.UncertainRayCount;
-	return SampleA;
-}
-
-FSSFSignalSample Minus(FSSFSignalSample Sample)
-{
-	Sample.SceneColor             = -Sample.SceneColor;
-	Sample.AccumulatedSampleCount = -Sample.AccumulatedSampleCount;
-	Sample.LeavingRayCount        = -Sample.LeavingRayCount;
-	Sample.PenumbraClosestHit     = -Sample.PenumbraClosestHit;
-	Sample.UncertainRayCount      = -Sample.UncertainRayCount;
-	return Sample;
-}
-
-FSSFSignalSample Subtract(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
-{
-	return Add(SampleA, Minus(SampleB));
-}
-
-FSSFSignalSample Abs(FSSFSignalSample Sample)
-{
-	Sample.SceneColor             = abs(Sample.SceneColor);
-	Sample.AccumulatedSampleCount = abs(Sample.AccumulatedSampleCount);
-	Sample.LeavingRayCount        = abs(Sample.LeavingRayCount);
-	Sample.PenumbraClosestHit     = abs(Sample.PenumbraClosestHit);
-	Sample.UncertainRayCount      = abs(Sample.UncertainRayCount);
-	return Sample;
-}
-
-FSSFSignalSample Sqrt(FSSFSignalSample Sample)
-{
-	Sample.SceneColor             = sqrt(Sample.SceneColor);
-	Sample.AccumulatedSampleCount = sqrt(Sample.AccumulatedSampleCount);
-	Sample.LeavingRayCount        = sqrt(Sample.LeavingRayCount);
-	Sample.PenumbraClosestHit     = sqrt(Sample.PenumbraClosestHit);
-	Sample.UncertainRayCount      = sqrt(Sample.UncertainRayCount);
-	return Sample;
-}
-
-FSSFSignalSample Power(FSSFSignalSample Sample, float Exponent)
-{
-	Sample.SceneColor.r           = pow(Sample.SceneColor.r, Exponent);
-	Sample.SceneColor.g           = pow(Sample.SceneColor.g, Exponent);
-	Sample.SceneColor.b           = pow(Sample.SceneColor.b, Exponent);
-	Sample.SceneColor.a           = pow(Sample.SceneColor.a, Exponent);
-	Sample.AccumulatedSampleCount = pow(Sample.AccumulatedSampleCount, Exponent);
-	Sample.LeavingRayCount        = pow(Sample.LeavingRayCount, Exponent);
-	Sample.PenumbraClosestHit     = pow(Sample.PenumbraClosestHit, Exponent);
-	Sample.UncertainRayCount      = pow(Sample.UncertainRayCount, Exponent);
-	return Sample;
-}
-
-FSSFSignalSample Min(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
-{
-	FSSFSignalSample OutSample;
-	OutSample.SceneColor = min(SampleA.SceneColor, SampleB.SceneColor);
-	OutSample.AccumulatedSampleCount = min(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
-	OutSample.LeavingRayCount = min(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
-	OutSample.PenumbraClosestHit = min(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
-	OutSample.UncertainRayCount = min(SampleA.UncertainRayCount, SampleB.UncertainRayCount);
-	return OutSample;
-}
-
-FSSFSignalSample Max(FSSFSignalSample SampleA, FSSFSignalSample SampleB)
-{
-	FSSFSignalSample OutSample;
-	OutSample.SceneColor = max(SampleA.SceneColor, SampleB.SceneColor);
-	OutSample.AccumulatedSampleCount = max(SampleA.AccumulatedSampleCount, SampleB.AccumulatedSampleCount);
-	OutSample.LeavingRayCount = max(SampleA.LeavingRayCount, SampleB.LeavingRayCount);
-	OutSample.PenumbraClosestHit = max(SampleA.PenumbraClosestHit, SampleB.PenumbraClosestHit);
-	OutSample.UncertainRayCount = max(SampleA.UncertainRayCount, SampleB.UncertainRayCount);
-	return OutSample;
-}
-
-FSSFSignalSample Clamp(FSSFSignalSample Sample, FSSFSignalSample SampleMin, FSSFSignalSample SampleMax)
-{
-	FSSFSignalSample OutSample;
-	OutSample.SceneColor = clamp(Sample.SceneColor, SampleMin.SceneColor, SampleMax.SceneColor);
-	OutSample.AccumulatedSampleCount = clamp(Sample.AccumulatedSampleCount, SampleMin.AccumulatedSampleCount, SampleMax.AccumulatedSampleCount);
-	OutSample.LeavingRayCount = clamp(Sample.LeavingRayCount, SampleMin.LeavingRayCount, SampleMax.LeavingRayCount);
-	OutSample.PenumbraClosestHit = clamp(Sample.PenumbraClosestHit, SampleMin.PenumbraClosestHit, SampleMax.PenumbraClosestHit);
-	OutSample.UncertainRayCount = clamp(Sample.UncertainRayCount, SampleMin.UncertainRayCount, SampleMax.UncertainRayCount);
-	return OutSample;
-}
-
-FSSFSignalSample Lerp(FSSFSignalSample Sample0, FSSFSignalSample Sample1, float Interp)
-{
-	return Add(Sample0, Mul(Subtract(Sample1, Sample0), Interp));
-}
-
-/** Normalize the signal sample to one. */
-FSSFSignalSample NormalizeToOneSample(FSSFSignalSample Sample)
-{
-	FSSFSignalSample OutSample = Mul(Sample, Sample.AccumulatedSampleCount > 0 ? rcp(Sample.AccumulatedSampleCount) : 0);
-	OutSample.AccumulatedSampleCount = Sample.AccumulatedSampleCount > 0 ? 1 : 0;
-	return OutSample;
+	if (BufferCount >= 4)
+		OutputSignalBuffer3[PixelPosition] = RawSample[3];
 }

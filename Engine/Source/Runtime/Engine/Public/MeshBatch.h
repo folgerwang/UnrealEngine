@@ -154,6 +154,9 @@ struct FMeshBatch
 	 * Pass feature relevance flags.  Allows a proxy to submit fast representations for passes which can take advantage of it, 
 	 * for example separate index buffer for depth-only rendering since vertices can be merged based on position and ignore UV differences.
 	 */
+#if RHI_RAYTRACING
+	uint32 CastRayTracedShadow : 1;	// Whether it casts ray traced shadow.
+#endif
 	uint32 CastShadow		: 1;	// Whether it can be used in shadow renderpasses.
 	uint32 bUseForMaterial	: 1;	// Whether it can be used in renderpasses requiring material outputs.
 	uint32 bUseForDepthPass : 1;	// Whether it can be used in depth pass.
@@ -219,6 +222,12 @@ struct FMeshBatch
 		return Mat->IsDeferredDecal();
 	}
 
+	FORCEINLINE bool CastsDeepShadow(/*ERHIFeatureLevel::Type InFeatureLevel*/) const
+	{
+		const FMaterial* Mat = MaterialRenderProxy->GetMaterial(ERHIFeatureLevel::SM5);
+		return Mat->GetShadingModel() == EMaterialShadingModel::MSM_Hair;
+	}
+
 	FORCEINLINE bool IsMasked(ERHIFeatureLevel::Type InFeatureLevel) const
 	{
 		// Note: blend mode does not depend on the feature level we are actually rendering in.
@@ -265,6 +274,9 @@ struct FMeshBatch
 	,	VisualizeHLODIndex(INDEX_NONE)
 	,	ReverseCulling(false)
 	,	bDisableBackfaceCulling(false)
+#if RHI_RAYTRACING
+	,	CastRayTracedShadow(true)
+#endif
 	,	CastShadow(true)
 	,   bUseForMaterial(true)
 	,	bUseForDepthPass(true)

@@ -9,7 +9,7 @@
 #ifndef RAYTRACINGHITGROUPCOMMON_USH_INCLUDED
 #define RAYTRACINGHITGROUPCOMMON_USH_INCLUDED // Workarround for UE-66460
 
-#include "CommonRayTracingBuiltInResources.ush"
+#include "/Engine/Shared/RayTracingBuiltInResources.h"
 
 uint3 LoadIndices16Bit(ByteAddressBuffer SourceBuffer, uint OffsetInBytes)
 {

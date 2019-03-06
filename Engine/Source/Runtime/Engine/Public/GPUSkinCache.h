@@ -133,7 +133,7 @@ public:
 		return nullptr;
 	}
 
-	static FRWBuffer* GetUnderlyingPositionBuffer(FGPUSkinCacheEntry* Entry);
+	static void CreateMergedPositionVertexBuffer(FRHICommandList& RHICmdList, FGPUSkinCacheEntry* SkinCacheEntry, FVertexBufferRHIRef OutVertexBuffer);
 
 	static bool IsEntryValid(FGPUSkinCacheEntry* SkinCacheEntry, int32 Section);
 
@@ -305,7 +305,6 @@ protected:
 	void DispatchUpdateSkinning(FRHICommandListImmediate& RHICmdList, FGPUSkinCacheEntry* Entry, int32 Section, uint32 RevisionNumber);
 
 	void Cleanup();
-
 	static void ReleaseSkinCacheEntry(FGPUSkinCacheEntry* SkinCacheEntry);
 	static FGPUSkinBatchElementUserData* InternalGetFactoryUserData(FGPUSkinCacheEntry* Entry, int32 Section);
 	void InvalidateAllEntries();

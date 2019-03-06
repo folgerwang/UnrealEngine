@@ -12,6 +12,8 @@
 #include "GeometryCacheTrackStreamable.h"
 #include "GeometryCacheModule.h"
 #include "GeometryCacheHelpers.h"
+#include "RayTracingDefinitions.h"
+#include "RayTracingInstance.h"
 
 DECLARE_CYCLE_STAT(TEXT("Gather Mesh Elements"), STAT_GeometryCacheSceneProxy_GetMeshElements, STATGROUP_GeometryCache);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Triangle Count"), STAT_GeometryCacheSceneProxy_TriangleCount, STATGROUP_GeometryCache);
@@ -122,7 +124,7 @@ FGeometryCacheSceneProxy::FGeometryCacheSceneProxy(UGeometryCacheComponent* Comp
 				}
 
 				NewSection->Materials.Add(Material);
-			}			
+			}
 
 			// Save ref to new section
 			Tracks[TrackIdx] = NewSection;
@@ -294,6 +296,81 @@ SIZE_T FGeometryCacheSceneProxy::GetTypeHash() const
 	return reinterpret_cast<size_t>(&UniquePointer);
 }
 
+void FGeometryCacheSceneProxy::CreateMeshBatch(
+	const FGeomCacheTrackProxy* TrackProxy, 
+	const FGeometryCacheMeshBatchInfo& BatchInfo, 
+	FGeometryCacheVertexFactoryUserDataWrapper& UserDataWrapper,
+	FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer,
+	FMeshBatch& Mesh) const
+{
+	FGeometryCacheVertexFactoryUserData &UserData = UserDataWrapper.Data;
+
+	UserData.MeshExtension = FVector::OneVector;
+	UserData.MeshOrigin = FVector::ZeroVector;
+
+	const bool bHasMotionVectors = (
+		TrackProxy->MeshData->VertexInfo.bHasMotionVectors &&
+		TrackProxy->NextFrameMeshData->VertexInfo.bHasMotionVectors &&
+		TrackProxy->MeshData->Positions.Num() == TrackProxy->MeshData->MotionVectors.Num())
+		&& (TrackProxy->NextFrameMeshData->Positions.Num() == TrackProxy->NextFrameMeshData->MotionVectors.Num());
+
+	if (!bHasMotionVectors)
+	{
+		UserData.MotionBlurDataExtension = FVector::OneVector;
+		UserData.MotionBlurDataOrigin = FVector::ZeroVector;
+		UserData.MotionBlurPositionScale = 0.0f;
+	}
+	else
+	{
+		UserData.MotionBlurDataExtension = FVector::OneVector * PlaybackSpeed;
+		UserData.MotionBlurDataOrigin = FVector::ZeroVector;
+		UserData.MotionBlurPositionScale = 1.0f;
+	}
+
+	if (IsRayTracingEnabled())
+	{
+		// No vertex manipulation is allowed in the vertex shader
+		// Otherwise we need an additional compute shader pass to execute the vertex shader and dump to a staging buffer
+		check(UserData.MeshExtension == FVector::OneVector);
+		check(UserData.MeshOrigin == FVector::ZeroVector);
+	}
+
+	UserData.PositionBuffer = &TrackProxy->PositionBuffers[TrackProxy->CurrentPositionBufferIndex % 2];
+	UserData.MotionBlurDataBuffer = &TrackProxy->PositionBuffers[(TrackProxy->CurrentPositionBufferIndex+1) % 2];
+
+	FGeometryCacheVertexFactoryUniformBufferParameters UniformBufferParameters;
+
+	UniformBufferParameters.MeshOrigin = UserData.MeshOrigin;
+	UniformBufferParameters.MeshExtension = UserData.MeshExtension;
+	UniformBufferParameters.MotionBlurDataOrigin = UserData.MotionBlurDataOrigin;
+	UniformBufferParameters.MotionBlurDataExtension = UserData.MotionBlurDataExtension;
+	UniformBufferParameters.MotionBlurPositionScale = UserData.MotionBlurPositionScale;
+
+	UserData.UniformBuffer = FGeometryCacheVertexFactoryUniformBufferParametersRef::CreateUniformBufferImmediate(UniformBufferParameters, UniformBuffer_SingleFrame);
+	TrackProxy->VertexFactory.CreateManualVertexFetchUniformBuffer(UserData.PositionBuffer, UserData.MotionBlurDataBuffer, UserData);
+
+	// Draw the mesh.
+	FMeshBatchElement& BatchElement = Mesh.Elements[0];
+	BatchElement.IndexBuffer = &TrackProxy->IndexBuffer;
+	Mesh.VertexFactory = &TrackProxy->VertexFactory;
+	Mesh.SegmentIndex = 0;
+
+	const FMatrix& LocalToWorldTransform = TrackProxy->WorldMatrix * GetLocalToWorld();
+
+	DynamicPrimitiveUniformBuffer.Set(LocalToWorldTransform, LocalToWorldTransform, GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
+	BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
+
+	BatchElement.FirstIndex = BatchInfo.StartIndex;
+	BatchElement.NumPrimitives = BatchInfo.NumTriangles;
+	BatchElement.MinVertexIndex = 0;
+	BatchElement.MaxVertexIndex = TrackProxy->MeshData->Positions.Num() - 1;
+	BatchElement.VertexFactoryUserData = &UserDataWrapper.Data;
+	Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
+	Mesh.Type = PT_TriangleList;
+	Mesh.DepthPriorityGroup = SDPG_World;
+	Mesh.bCanApplyViewModeOverrides = false;
+}
+
 void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_GeometryCacheSceneProxy_GetMeshElements);
@@ -343,88 +420,29 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 			}
 
 			const int32 NumBatches = TrackProxy->MeshData->BatchesInfo.Num();
-			const bool bHasMotionVectors = (
-				TrackProxy->MeshData->VertexInfo.bHasMotionVectors &&
-				TrackProxy->NextFrameMeshData->VertexInfo.bHasMotionVectors &&
-				TrackProxy->MeshData->Positions.Num() == TrackProxy->MeshData->MotionVectors.Num())
-				&& (TrackProxy->NextFrameMeshData->Positions.Num() == TrackProxy->NextFrameMeshData->MotionVectors.Num());
 
 			for (int32 BatchIndex = 0; BatchIndex < NumBatches; ++BatchIndex)
 			{
-				FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy();
 				const FGeometryCacheMeshBatchInfo BatchInfo = TrackProxy->MeshData->BatchesInfo[BatchIndex];
-
-				FGeometryCacheVertexFactoryUserDataWrapper &UserDataWrapper = Collector.AllocateOneFrameResource<FGeometryCacheVertexFactoryUserDataWrapper>();
-				FGeometryCacheVertexFactoryUserData &UserData = UserDataWrapper.Data;
-
-				UserData.MeshExtension = FVector::OneVector;
-				UserData.MeshOrigin = FVector::ZeroVector;
-				if (!bHasMotionVectors)
-				{
-					UserData.MotionBlurDataExtension = FVector::OneVector;
-					UserData.MotionBlurDataOrigin = FVector::ZeroVector;
-					UserData.MotionBlurPositionScale = 0.0f;
-				}
-				else
-				{
-					UserData.MotionBlurDataExtension = FVector::OneVector * PlaybackSpeed;
-					UserData.MotionBlurDataOrigin = FVector::ZeroVector;
-					UserData.MotionBlurPositionScale = 1.0f;
-				}
-
-				if (IsRayTracingEnabled())
-				{
-					// No vertex manipulation is allowed in the vertex shader
-					// Otherwise we need an additional compute shader pass to execute the vertex shader and dump to a staging buffer
-					check(UserData.MeshExtension == FVector::OneVector);
-					check(UserData.MeshOrigin == FVector::ZeroVector);
-				}
-
-				UserData.PositionBuffer = &TrackProxy->PositionBuffers[TrackProxy->CurrentPositionBufferIndex % 2];
-				UserData.MotionBlurDataBuffer = &TrackProxy->PositionBuffers[(TrackProxy->CurrentPositionBufferIndex+1) % 2];
-
-				FGeometryCacheVertexFactoryUniformBufferParameters UniformBufferParameters;
-
-				UniformBufferParameters.MeshOrigin = UserData.MeshOrigin;
-				UniformBufferParameters.MeshExtension = UserData.MeshExtension;
-				UniformBufferParameters.MotionBlurDataOrigin = UserData.MotionBlurDataOrigin;
-				UniformBufferParameters.MotionBlurDataExtension = UserData.MotionBlurDataExtension;
-				UniformBufferParameters.MotionBlurPositionScale = UserData.MotionBlurPositionScale;
-
-				UserData.UniformBuffer = FGeometryCacheVertexFactoryUniformBufferParametersRef::CreateUniformBufferImmediate(UniformBufferParameters, UniformBuffer_SingleFrame);
-				TrackProxy->VertexFactory.CreateManualVertexFetchUniformBuffer(UserData.PositionBuffer, UserData.MotionBlurDataBuffer, UserData);
-
-				// Draw the mesh.
-				FMeshBatch& Mesh = Collector.AllocateMesh();
-				FMeshBatchElement& BatchElement = Mesh.Elements[0];
-				BatchElement.IndexBuffer = &TrackProxy->IndexBuffer;
-				Mesh.bWireframe = bWireframe;
-				Mesh.VertexFactory = &TrackProxy->VertexFactory;
-				Mesh.MaterialRenderProxy = MaterialProxy;
-				Mesh.SegmentIndex = 0;
-
-				const FMatrix& LocalToWorldTransform = TrackProxy->WorldMatrix * GetLocalToWorld();
-
-				FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
-				DynamicPrimitiveUniformBuffer.Set(LocalToWorldTransform, LocalToWorldTransform, GetBounds(), GetLocalBounds(), true, false, UseEditorDepthTest());
-				BatchElement.PrimitiveUniformBuffer = DynamicPrimitiveUniformBuffer.UniformBuffer.GetUniformBufferRHI();
-
-				BatchElement.FirstIndex = BatchInfo.StartIndex;
-				BatchElement.NumPrimitives = BatchInfo.NumTriangles;
-				BatchElement.MinVertexIndex = 0;
-				BatchElement.MaxVertexIndex = TrackProxy->MeshData->Positions.Num() - 1;
-				BatchElement.VertexFactoryUserData = &UserDataWrapper.Data;
-				Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
-				Mesh.Type = PT_TriangleList;
-				Mesh.DepthPriorityGroup = SDPG_World;
-				Mesh.bCanApplyViewModeOverrides = false;
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
 					if (VisibilityMap & (1 << ViewIndex))
 					{
-						Collector.AddMesh(ViewIndex, Mesh);
-						INC_DWORD_STAT_BY(STAT_GeometryCacheSceneProxy_TriangleCount, BatchElement.NumPrimitives);
+						FMeshBatch& MeshBatch = Collector.AllocateMesh();
+
+						FGeometryCacheVertexFactoryUserDataWrapper& UserDataWrapper = Collector.AllocateOneFrameResource<FGeometryCacheVertexFactoryUserDataWrapper>();
+						FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Collector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+						CreateMeshBatch(TrackProxy, BatchInfo, UserDataWrapper, DynamicPrimitiveUniformBuffer, MeshBatch);
+
+						// Apply view mode material overrides
+						FMaterialRenderProxy* MaterialProxy = bWireframe ? WireframeMaterialInstance : TrackProxy->Materials[BatchIndex]->GetRenderProxy();
+						MeshBatch.bWireframe = bWireframe;
+						MeshBatch.MaterialRenderProxy = MaterialProxy;
+
+						Collector.AddMesh(ViewIndex, MeshBatch);
+
+						INC_DWORD_STAT_BY(STAT_GeometryCacheSceneProxy_TriangleCount, MeshBatch.Elements[0].NumPrimitives);
 						INC_DWORD_STAT_BY(STAT_GeometryCacheSceneProxy_MeshBatchCount, 1);
 
 					#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -439,7 +457,7 @@ void FGeometryCacheSceneProxy::GetDynamicMeshElements(const TArray<const FSceneV
 }
 
 #if RHI_RAYTRACING
-void FGeometryCacheSceneProxy::GetRayTracingGeometryInstances(TArray<FRayTracingGeometryInstanceCollection>& OutInstanceCollections)
+void FGeometryCacheSceneProxy::GetDynamicRayTracingInstances(FRayTracingMaterialGatheringContext& Context, TArray<FRayTracingInstance>& OutRayTracingInstances)
 {
 	for (FGeomCacheTrackProxy* TrackProxy : Tracks)
 	{
@@ -449,12 +467,27 @@ void FGeometryCacheSceneProxy::GetRayTracingGeometryInstances(TArray<FRayTracing
 			continue;
 		}
 
-		FRayTracingGeometryInstanceCollection Collection;
-		Collection.Geometry = &TrackProxy->RayTracingGeometry;
-		Collection.DynamicVertexPositionBuffer = nullptr;
-		Collection.InstanceTransformMode = FRayTracingGeometryInstanceCollection::TransformMode::InheritFromSceneProxy;
+		FRayTracingInstance RayTracingInstance;
+		RayTracingInstance.Geometry = &TrackProxy->RayTracingGeometry;
+		RayTracingInstance.InstanceTransforms.Add(GetLocalToWorld());
 
-		OutInstanceCollections.Add(Collection);
+		for (int32 SegmentIndex = 0; SegmentIndex < TrackProxy->MeshData->BatchesInfo.Num(); ++SegmentIndex)
+		{
+			const FGeometryCacheMeshBatchInfo BatchInfo = TrackProxy->MeshData->BatchesInfo[SegmentIndex];
+			FMeshBatch MeshBatch;
+
+			FGeometryCacheVertexFactoryUserDataWrapper& UserDataWrapper = Context.RayTracingMeshResourceCollector.AllocateOneFrameResource<FGeometryCacheVertexFactoryUserDataWrapper>();
+			FDynamicPrimitiveUniformBuffer& DynamicPrimitiveUniformBuffer = Context.RayTracingMeshResourceCollector.AllocateOneFrameResource<FDynamicPrimitiveUniformBuffer>();
+			CreateMeshBatch(TrackProxy, BatchInfo, UserDataWrapper, DynamicPrimitiveUniformBuffer, MeshBatch);
+
+			MeshBatch.MaterialRenderProxy = TrackProxy->Materials[SegmentIndex]->GetRenderProxy();
+
+			RayTracingInstance.Materials.Add(MeshBatch);
+		}
+
+		RayTracingInstance.BuildInstanceMaskAndFlags();
+
+		OutRayTracingInstances.Add(RayTracingInstance);
 	}
 }
 #endif

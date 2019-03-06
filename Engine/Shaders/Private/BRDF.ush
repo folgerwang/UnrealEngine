@@ -314,8 +314,10 @@ float3 F_Fresnel( float3 SpecularColor, float VoH )
 // EnvBRDF
 //---------------
 
+#ifndef PreIntegratedGF
 Texture2D		PreIntegratedGF;
 SamplerState	PreIntegratedGFSampler;
+#endif
 
 half3 EnvBRDF( half3 SpecularColor, half Roughness, half NoV )
 {

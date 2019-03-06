@@ -8,7 +8,7 @@
 #include "Misc/FileHelper.h"
 #include "HAL/FileManager.h"
 #include "Serialization/MemoryWriter.h"
-#include "RayTracingDefinitions.ush"
+#include "RayTracingDefinitions.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogD3D11ShaderCompiler, Log, All);
 
@@ -764,49 +764,11 @@ static void ExtractParameterMapFromD3DShader(
 		}
 		else if (BindDesc.Type == D3D10_SIT_TEXTURE || BindDesc.Type == D3D10_SIT_SAMPLER)
 		{
+			check(BindDesc.BindCount == 1);
 			TCHAR OfficialName[1024];
-			uint32 BindCount = BindDesc.BindCount;
 			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
 
-			if (TargetPlatform == SP_PCD3D_SM5)
-			{
-				// Assign the name and optionally strip any "[#]" suffixes
-				TCHAR *BracketLocation = FCString::Strchr(OfficialName, TEXT('['));
-				if (BracketLocation)
-				{
-					BindCount = 1;
-
-					// This needs to include the first [ character otherwise it will include non array textures with matching starting characters.
-					// e.g. "LightMapTexturesTest" which is not part of "LightMapTextures[#]" would be included as the last index of "LightMapTextures"
-					const int32 NumCharactersToCompare = BracketLocation - OfficialName + 1;
-
-					// In SM5, for some reason, array suffixes are included in Name, i.e. "LightMapTextures[0]", rather than "LightMapTextures"
-					// Additionally elements in an array are listed as SEPERATE bound resources.
-					// However, they are always contiguous in resource index, so iterate over the samplers and textures of the initial association
-					// and count them, identifying the bindpoint and bindcounts
-
-					while (ResourceIndex + 1 < ShaderDesc.BoundResources)
-					{
-						D3D1x_SHADER_INPUT_BIND_DESC BindDesc2;
-						Reflector->GetResourceBindingDesc(ResourceIndex + 1, &BindDesc2);
-
-						if (BindDesc2.Type == BindDesc.Type && FCStringAnsi::Strncmp(BindDesc2.Name, BindDesc.Name, NumCharactersToCompare) == 0)
-						{
-							BindCount++;
-							// Skip over this resource since it is part of an array
-							ResourceIndex++;
-						}
-						else
-						{
-							break;
-						}
-					}
-
-					// Array loop is complete, now the array suffix can be removed.
-					*BracketLocation = 0;
-				}
-			}
-
+			const uint32 BindCount = 1;
 			EShaderParameterType ParameterType = EShaderParameterType::Num;
 			if (BindDesc.Type == D3D10_SIT_SAMPLER)
 			{
@@ -832,51 +794,57 @@ static void ExtractParameterMapFromD3DShader(
 			BindDesc.Type == D3D11_SIT_UAV_RWBYTEADDRESS || BindDesc.Type == D3D11_SIT_UAV_RWSTRUCTURED_WITH_COUNTER ||
 			BindDesc.Type == D3D11_SIT_UAV_APPEND_STRUCTURED)
 		{
+			check(BindDesc.BindCount == 1);
 			TCHAR OfficialName[1024];
 			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
 
+			const uint32 BindCount = 1;
 			Output.ParameterMap.AddParameterAllocation(
 				OfficialName,
 				0,
 				BindDesc.BindPoint,
-				1,
+				BindCount,
 				EShaderParameterType::UAV
 			);
 
-			NumUAVs = FMath::Max(NumUAVs, BindDesc.BindPoint + BindDesc.BindCount);
+			NumUAVs = FMath::Max(NumUAVs, BindDesc.BindPoint + BindCount);
 		}
 		else if (BindDesc.Type == D3D11_SIT_STRUCTURED || BindDesc.Type == D3D11_SIT_BYTEADDRESS)
 		{
+			check(BindDesc.BindCount == 1);
 			TCHAR OfficialName[1024];
 			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
 
+			const uint32 BindCount = 1;
 			Output.ParameterMap.AddParameterAllocation(
 				OfficialName,
 				0,
 				BindDesc.BindPoint,
-				1,
+				BindCount,
 				EShaderParameterType::SRV
 			);
 
-			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);
+			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindCount);
 		}
 		// #dxr_todo: D3D_SIT_RTACCELERATIONSTRUCTURE is declared in latest version of dxcapi.h. Update this code after upgrading DXC.
 		else if (BindDesc.Type == 12 /*D3D_SIT_RTACCELERATIONSTRUCTURE*/)
 		{
 			// Acceleration structure resources are treated as SRVs.
+			check(BindDesc.BindCount == 1);
 
 			TCHAR OfficialName[1024];
 			FCString::Strcpy(OfficialName, ANSI_TO_TCHAR(BindDesc.Name));
 
+			const uint32 BindCount = 1;
 			Output.ParameterMap.AddParameterAllocation(
 				OfficialName,
 				0,
 				BindDesc.BindPoint,
-				1,
+				BindCount,
 				EShaderParameterType::SRV
 			);
 
-			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindDesc.BindCount);
+			NumSRVs = FMath::Max(NumSRVs, BindDesc.BindPoint + BindCount);
 		}
 	}
 }
@@ -1562,6 +1530,11 @@ void CompileD3DShader(const FShaderCompilerInput& Input,FShaderCompilerOutput& O
 
 	// Set additional defines.
 	AdditionalDefines.SetDefine(TEXT("COMPILER_HLSL"), 1);
+
+	if (bUseWaveOperations)
+	{
+		AdditionalDefines.SetDefine(TEXT("PLATFORM_SUPPORTS_SM6_0_WAVE_OPERATIONS"), 1);
+	}
 
 	if (Input.bSkipPreprocessedCache)
 	{

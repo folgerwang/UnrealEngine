@@ -417,9 +417,11 @@ void FMediaTextureResource::ClearTexture(const FLinearColor& ClearColor, bool Sr
 
 	if ((ClearColor != CurrentClearColor) || !OutputTarget.IsValid() || (OutputTarget->GetFormat() != OutputPixelFormat) || ((OutputTarget->GetFlags() & OutputCreateFlags) != OutputCreateFlags))
 	{
-		FRHIResourceCreateInfo CreateInfo = {
-			FClearValueBinding(ClearColor)
-		};
+		FString DebugName = Owner.GetName();
+
+		FRHIResourceCreateInfo CreateInfo;
+		CreateInfo.ClearValueBinding = FClearValueBinding(ClearColor);
+		CreateInfo.DebugName = *DebugName;
 
 		TRefCountPtr<FRHITexture2D> DummyTexture2DRHI;
 

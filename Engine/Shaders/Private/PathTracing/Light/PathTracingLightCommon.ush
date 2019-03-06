@@ -96,3 +96,24 @@ float3 GetColor(int LightId)
 {
 	return SceneLightsData.Color[LightId];
 }
+
+float GetRadius(int LightId)
+{
+	return SceneLightsData.Dimensions[LightId].z;
+}
+
+float GetAttenuation(int LightId)
+{
+	return SceneLightsData.Attenuation[LightId];
+}
+
+float ComputeAttenuationFalloff(float Distance, float Attenuation)
+{
+#ifdef USE_ATTENUATION_TERM
+	// Mirrors GetLocalLightAttenuation() custom attenuation controls
+	// #dxr_todo: encapsulate this function in a shared space
+	return Square(saturate(1.0 - Square(Square(Distance) / Square(Attenuation))));
+#else
+	return 1.0;
+#endif
+}

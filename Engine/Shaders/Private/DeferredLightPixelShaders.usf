@@ -37,6 +37,9 @@ FDeferredLightData SetupLightDataForStandardDeferred()
 	//@todo - permutation opportunity
 	LightData.bSpotLight = LIGHT_SOURCE_SHAPE > 0;
 	LightData.bRectLight = LIGHT_SOURCE_SHAPE == 2;
+	
+	LightData.RectLightBarnCosAngle = DeferredLightUniforms.RectLightBarnCosAngle;
+	LightData.RectLightBarnLength = DeferredLightUniforms.RectLightBarnLength;
 
 	return LightData;
 }
@@ -94,7 +97,8 @@ void DeferredLightPixelMain(
 
 		float Dither = InterleavedGradientNoise( SVPos.xy, View.StateFrameIndexMod8 );
 
-		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, uint2( SVPos.xy ), DeferredLightUniforms.SourceTexture);
+		FRectTexture RectTexture = InitRectTexture(DeferredLightUniforms.SourceTexture);
+		OutColor = GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, ScreenSpaceData.GBuffer.ShadingModelID, LightData, GetPerPixelLightAttenuation(ScreenUV), Dither, uint2( SVPos.xy ), RectTexture);
 		OutColor *= ComputeLightProfileMultiplier(WorldPosition, DeferredLightUniforms.Position, -DeferredLightUniforms.Direction, DeferredLightUniforms.Tangent);
 
 #if USE_PREEXPOSURE

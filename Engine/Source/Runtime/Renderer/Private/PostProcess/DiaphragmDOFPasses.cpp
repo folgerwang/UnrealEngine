@@ -133,6 +133,7 @@ const TCHAR* GetEventName(FRCPassDiaphragmDOFGather::EQualityConfig e)
 		TEXT("LowQ"),
 		TEXT("HighQ"),
 		TEXT("ScatterOcclusion"),
+		TEXT("Cinematic"),
 	};
 	int32 i = int32(e);
 	check(i < ARRAY_COUNT(kArray));
@@ -1226,6 +1227,9 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 			// Foreground hole filling doesn't have lower quality accumulator.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
 
+			// Foreground hole filling doesn't need cinematic quality.
+			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::Cinematic) return false;
+
 			// No bokeh simulation on hole filling, always use euclidian closest distance to compute opacity alpha channel.
 			if (PermutationVector.Get<FDDOFBokehSimulationDim>() != EDiaphragmDOFBokehSimulation::Disabled) return false;
 
@@ -1244,6 +1248,9 @@ class FPostProcessDiaphragmDOFGatherCS : public FPostProcessDiaphragmDOFShader
 
 			// Slight out of focus filling can't have lower quality accumulator since it needs to brute force the focus areas.
 			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::LowQualityAccumulator) return false;
+
+			// Slight out of focus doesn't have cinematic quality, yet.
+			if (PermutationVector.Get<FDDOFGatherQualityDim>() == FRCPassDiaphragmDOFGather::EQualityConfig::Cinematic) return false;
 
 			// Storing Coc independently of RGB is only supported for RecombineQuality == 0.
 			if (PermutationVector.Get<FDDOFRGBColorBufferDim>())

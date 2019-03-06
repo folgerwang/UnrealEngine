@@ -2404,6 +2404,8 @@ private:
 /** Sets shader maps on the specified materials without blocking. */
 extern ENGINE_API void SetShaderMapsOnMaterialResources(const TMap<FMaterial*, FMaterialShaderMap*>& MaterialsToUpdate);
 
+ENGINE_API uint8 GetRayTracingMaskFromMaterial(const EBlendMode BlendMode);
+
 #if STORE_ONLY_ACTIVE_SHADERMAPS
 bool HasMaterialResource(
 	UMaterial* Material,
