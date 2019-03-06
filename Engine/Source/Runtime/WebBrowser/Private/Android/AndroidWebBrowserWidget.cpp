@@ -310,9 +310,9 @@ void SAndroidWebBrowserWidget::Tick(const FGeometry& AllottedGeometry, const dou
 					if (VideoTexture == nullptr)
 					{
 						FRHIResourceCreateInfo CreateInfo;
-						FRHICommandListImmediate& RHICmdList = FRHICommandListExecutor::GetImmediateCommandList();
-						FIntPoint Size = Params.Size;
-						VideoTexture = RHICmdList.CreateTextureExternal2D(Size.X, Size.Y, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
+						FRHICommandListImmediate& LocalCmdList = FRHICommandListExecutor::GetImmediateCommandList();
+						FIntPoint LocalSize = Params.Size;
+						VideoTexture = LocalCmdList.CreateTextureExternal2D(LocalSize.X, LocalSize.Y, PF_R8G8B8A8, 1, 1, 0, CreateInfo);
 						PinnedJavaWebBrowser->SetVideoTexture(VideoTexture);
 
 						if (VideoTexture == nullptr)
@@ -322,7 +322,7 @@ void SAndroidWebBrowserWidget::Tick(const FGeometry& AllottedGeometry, const dou
 						}
 
 						PinnedJavaWebBrowser->SetVideoTextureValid(false);
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s (%d, %d)"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *Params.PlayerGuid.ToString(), Size.X, Size.Y);
+						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Fetch RT: Created VideoTexture: %d - %s (%d, %d)"), *reinterpret_cast<int32*>(VideoTexture->GetNativeResource()), *Params.PlayerGuid.ToString(), LocalSize.X, LocalSize.Y);
 					}
 
 					int32 TextureId = *reinterpret_cast<int32*>(VideoTexture->GetNativeResource());
