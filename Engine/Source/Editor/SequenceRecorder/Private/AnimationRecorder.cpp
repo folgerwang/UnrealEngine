@@ -146,7 +146,7 @@ bool FAnimationRecorder::TriggerRecordAnimation(USkeletalMeshComponent* Componen
 		Parent = CreatePackage(nullptr, *ValidatedAssetPath);
 	}
 
-	UObject* const Object = LoadObject<UObject>(Parent, *ValidatedAssetName, nullptr, LOAD_None, nullptr);
+	UObject* const Object = LoadObject<UObject>(Parent, *ValidatedAssetName, nullptr, LOAD_Quiet, nullptr);
 	// if object with same name exists, warn user
 	if (Object)
 	{
