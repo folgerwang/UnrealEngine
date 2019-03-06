@@ -6,6 +6,7 @@
 void FFoliageTypeObject::RefreshInstance()
 {
 	//@todo: should verify that the instance is dirty before updating
+	TypeInstance = nullptr;
 
 	// If the foliage type is an asset, use that
 	if (auto FoliageTypeAsAsset = Cast<UFoliageType_InstancedStaticMesh>(FoliageTypeObject))
