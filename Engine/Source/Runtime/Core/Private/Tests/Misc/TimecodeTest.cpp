@@ -194,7 +194,7 @@ bool FTimecodeTest::RunTest(const FString& Parameters)
 	for (const TFuture<bool>& Future : Futures)
 	{
 		Future.Wait();
-		bSuccessfully == bSuccessfully && Future.Get();
+		bSuccessfully = bSuccessfully && Future.Get();
 	}
 
 	return bSuccessfully;
