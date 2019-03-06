@@ -250,6 +250,8 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 	ImportFileFramerate = 0.0f;
 	ImportResampleFramerate = 0;
 	bAllowFrameStripping = true;
+
+	InitCurveCompressionScheme();
 #endif
 }
 
@@ -347,6 +349,22 @@ static void LoadOldCompressedTrack(FArchive& Ar, FCompressedTrack& Dst, int32 By
 	Ar << Dst.Mins[0] << Dst.Mins[1] << Dst.Mins[2];
 	Ar << Dst.Ranges[0] << Dst.Ranges[1] << Dst.Ranges[2];
 }
+
+#if WITH_EDITORONLY_DATA
+void UAnimSequence::InitCurveCompressionScheme()
+{
+	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
+// fire a warning if we try and load it in post load
+	if ((CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid())
+#if WITH_HOT_RELOAD
+		&& (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || !HasAnyFlags(RF_ClassDefaultObject) || !GIsHotReload) // Don't do this to native CDOs during Hot-Reload
+#endif
+		)
+	{
+		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
+	}
+}
+#endif
 
 void UAnimSequence::Serialize(FArchive& Ar)
 {
@@ -468,16 +486,7 @@ void UAnimSequence::Serialize(FArchive& Ar)
 		SourceFileTimestamp_DEPRECATED = TEXT("");
 	}
 
-	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
-	// fire a warning if we try and load it in post load
-	if ((CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid()) 
-#if WITH_HOT_RELOAD
-		&& (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || !HasAnyFlags(RF_ClassDefaultObject) || !GIsHotReload) // Don't do this to native CDOs during Hot-Reload
-#endif
-		)
-	{
-		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
-	}
+	InitCurveCompressionScheme();
 
 #endif // WITH_EDITORONLY_DATA
 
