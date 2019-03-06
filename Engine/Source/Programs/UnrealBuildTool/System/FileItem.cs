@@ -77,6 +77,14 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The attributes for this file
+		/// </summary>
+		public FileAttributes Attributes
+		{
+			get { return Info.Attributes; }
+		}
+
+		/// <summary>
 		/// The last write time of the file.
 		/// </summary>
 		public DateTime LastWriteTimeUtc

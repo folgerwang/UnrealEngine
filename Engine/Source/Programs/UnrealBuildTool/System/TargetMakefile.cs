@@ -532,7 +532,7 @@ namespace UnrealBuildTool
 				// Check if any source files in the working set no longer belong in it
 				foreach (FileItem SourceFile in Makefile.WorkingSet)
 				{
-					if (!WorkingSet.Contains(SourceFile.Location) && SourceFile.LastWriteTimeUtc > Makefile.CreateTimeUtc)
+					if (!WorkingSet.Contains(SourceFile) && SourceFile.LastWriteTimeUtc > Makefile.CreateTimeUtc)
 					{
 						Log.TraceLog("{0} was part of source working set and now is not; invalidating makefile", SourceFile.AbsolutePath);
 						ReasonNotLoaded = string.Format("working set of source files changed");
@@ -543,7 +543,7 @@ namespace UnrealBuildTool
 				// Check if any source files that are eligible for being in the working set have been modified
 				foreach (FileItem SourceFile in Makefile.CandidatesForWorkingSet)
 				{
-					if (WorkingSet.Contains(SourceFile.Location) && SourceFile.LastWriteTimeUtc > Makefile.CreateTimeUtc)
+					if (WorkingSet.Contains(SourceFile) && SourceFile.LastWriteTimeUtc > Makefile.CreateTimeUtc)
 					{
 						Log.TraceLog("{0} was part of source working set and now is not", SourceFile.AbsolutePath);
 						ReasonNotLoaded = string.Format("working set of source files changed");

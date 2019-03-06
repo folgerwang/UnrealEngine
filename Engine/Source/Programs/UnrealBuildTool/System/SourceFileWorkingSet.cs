@@ -21,7 +21,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		bool Contains(FileReference File);
+		bool Contains(FileItem File);
 	}
 
 	/// <summary>
@@ -41,7 +41,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			return false;
 		}
@@ -64,7 +64,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			// Generated .cpp files should never be treated as part of the working set
 			if (File.HasExtension(".gen.cpp"))
@@ -75,7 +75,7 @@ namespace UnrealBuildTool
 			// Check if the file is read-only
 			try
 			{
-				return !FileReference.GetAttributes(File).HasFlag(FileAttributes.ReadOnly);
+				return !File.Attributes.HasFlag(FileAttributes.ReadOnly);
 			}
 			catch (FileNotFoundException)
 			{
@@ -201,10 +201,10 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="File">File to check</param>
 		/// <returns>True if the file is part of the working set, false otherwise</returns>
-		public bool Contains(FileReference File)
+		public bool Contains(FileItem File)
 		{
 			WaitForBackgroundProcess();
-			if(Files.Contains(File) || Directories.Any(x => File.IsUnderDirectory(x)))
+			if(Files.Contains(File.Location) || Directories.Any(x => File.Location.IsUnderDirectory(x)))
 			{
 				return true;
 			}

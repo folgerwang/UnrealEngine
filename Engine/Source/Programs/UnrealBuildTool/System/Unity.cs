@@ -211,7 +211,7 @@ namespace UnrealBuildTool
 						++CandidateWorkingSetSourceFileCount;
 
 						// Don't include writable source files into unity blobs
-						if (WorkingSet.Contains(CPPFile.Location))
+						if (WorkingSet.Contains(CPPFile))
 						{
 							++WorkingSetSourceFileCount;
 
