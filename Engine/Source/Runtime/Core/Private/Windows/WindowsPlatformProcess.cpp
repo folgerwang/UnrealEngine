@@ -953,6 +953,19 @@ const FString FWindowsPlatformProcess::ShaderWorkingDir()
 }
 
 
+const TCHAR* FWindowsPlatformProcess::ExecutablePath()
+{
+	static TCHAR Result[512]=TEXT("");
+	if( !Result[0] )
+	{
+		if ( !GetModuleFileName( hInstance, Result, ARRAY_COUNT(Result) ) )
+		{
+			Result[0] = 0;
+		}
+	}
+	return Result;
+}
+
 const TCHAR* FWindowsPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	static TCHAR Result[512]=TEXT("");

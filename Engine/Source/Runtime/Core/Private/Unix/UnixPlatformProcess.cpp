@@ -319,6 +319,30 @@ bool FUnixPlatformProcess::SetProcessLimits(EProcessResource::Type Resource, uin
 	return true;
 }
 
+
+const TCHAR* FUnixPlatformProcess::ExecutablePath()
+{
+	static bool bHaveResult = false;
+	static TCHAR CachedResult[ PlatformProcessLimits::MaxBaseDirLength ];
+	if (!bHaveResult)
+	{
+		char SelfPath[ PlatformProcessLimits::MaxBaseDirLength ] = {0};
+		if (readlink( "/proc/self/exe", SelfPath, ARRAY_COUNT(SelfPath) - 1) == -1)
+		{
+			int ErrNo = errno;
+			UE_LOG(LogHAL, Fatal, TEXT("readlink() failed with errno = %d (%s)"), ErrNo,
+				StringCast< TCHAR >(strerror(ErrNo)).Get());
+			return CachedResult;
+		}
+		SelfPath[ARRAY_COUNT(SelfPath) - 1] = 0;
+
+		FCString::Strcpy(CachedResult, ARRAY_COUNT(CachedResult) - 1, UTF8_TO_TCHAR(SelfPath));
+		CachedResult[ARRAY_COUNT(CachedResult) - 1] = 0;
+		bHaveResult = true;
+	}
+	return CachedResult;
+}
+
 const TCHAR* FUnixPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	static bool bHaveResult = false;

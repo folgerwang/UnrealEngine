@@ -250,6 +250,7 @@ struct CORE_API FUnixPlatformProcess : public FGenericPlatformProcess
 	static FString GenerateApplicationPath(const FString& AppName, EBuildConfigurations::Type BuildConfiguration);
 	static FString GetApplicationName( uint32 ProcessId );
 	static bool SetProcessLimits(EProcessResource::Type Resource, uint64 Limit);
+	static const TCHAR* ExecutablePath();
 	static const TCHAR* ExecutableName(bool bRemoveExtension = true);
 	static const TCHAR* GetModulePrefix();
 	static const TCHAR* GetModuleExtension();

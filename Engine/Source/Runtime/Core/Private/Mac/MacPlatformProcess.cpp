@@ -920,6 +920,18 @@ FString FMacPlatformProcess::GetCurrentWorkingDirectory()
 	return UTF8_TO_TCHAR(CurrentDir);
 }
 
+const TCHAR* FMacPlatformProcess::ExecutablePath()
+{
+	static TCHAR Result[512]=TEXT("");
+	if( !Result[0] )
+	{
+		SCOPED_AUTORELEASE_POOL;
+		NSString *NSExeName = [[NSBundle mainBundle] executablePath];
+		FPlatformString::CFStringToTCHAR( ( CFStringRef )NSExeName, Result );
+	}
+	return Result;
+}
+
 const TCHAR* FMacPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
 	static TCHAR Result[512]=TEXT("");

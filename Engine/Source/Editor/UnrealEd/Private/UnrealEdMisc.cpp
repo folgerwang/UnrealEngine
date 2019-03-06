@@ -1790,7 +1790,7 @@ bool FUnrealEdMisc::GetURL( const TCHAR* InKey, FString& OutURL, const bool bChe
 
 FString FUnrealEdMisc::GetExecutableForCommandlets() const
 {
-	FString ExecutableName = FString(FPlatformProcess::BaseDir()) / FString(FPlatformProcess::ExecutableName(false));
+	FString ExecutableName = FString(FPlatformProcess::ExecutablePath());
 #if PLATFORM_WINDOWS
 	// turn UE4editor into UE4editor-cmd
 	if(ExecutableName.EndsWith(".exe", ESearchCase::IgnoreCase) && !FPaths::GetBaseFilename(ExecutableName).EndsWith("-cmd", ESearchCase::IgnoreCase))

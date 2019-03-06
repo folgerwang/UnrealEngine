@@ -243,6 +243,13 @@ struct CORE_API FGenericPlatformProcess
 	static void CleanShaderWorkingDir();
 
 	/**
+	 * Return the path to the currently running executable
+	 *
+	 * @return 	Path of the currently running executable
+	 */
+	static const TCHAR* ExecutablePath();
+
+	/**
 	 * Return the name of the currently running executable
 	 *
 	 * @param	bRemoveExtension	true to remove the extension of the executable name, false to leave it intact
