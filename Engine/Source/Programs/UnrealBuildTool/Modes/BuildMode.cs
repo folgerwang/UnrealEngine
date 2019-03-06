@@ -42,7 +42,7 @@ namespace UnrealBuildTool
 	/// <summary>
 	/// Builds a target
 	/// </summary>
-	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance | ToolModeOptions.StartPrefetchingEngine)]
+	[ToolMode("Build", ToolModeOptions.XmlConfig | ToolModeOptions.BuildPlatforms | ToolModeOptions.SingleInstance | ToolModeOptions.StartPrefetchingEngine | ToolModeOptions.ShowExecutionTime)]
 	class BuildMode : ToolMode
 	{
 		/// <summary>
@@ -77,7 +77,6 @@ namespace UnrealBuildTool
 		/// <returns>One of the values of ECompilationResult</returns>
 		public override int Execute(CommandLineArguments Arguments)
 		{
-			Stopwatch BuildTimer = Stopwatch.StartNew();
 			Arguments.ApplyTo(this);
 
 			// Initialize the log system, buffering the output until we can create the log file
@@ -204,9 +203,6 @@ namespace UnrealBuildTool
 				SourceFileMetadataCache.SaveAll();
 				CppDependencyCache.SaveAll();
 			}
-
-			// Figure out how long we took to execute.
-			Log.TraceInformation("Total build time: {0:0.00} seconds", BuildTimer.Elapsed.TotalSeconds);
 			return 0;
 		}
 

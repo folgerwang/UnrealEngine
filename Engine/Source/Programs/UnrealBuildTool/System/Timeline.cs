@@ -90,6 +90,14 @@ namespace UnrealBuildTool
 		static List<Event> Events = new List<Event>();
 
 		/// <summary>
+		/// Property for the total time elapsed
+		/// </summary>
+		public static TimeSpan Elapsed
+		{
+			get { return Stopwatch.Elapsed; }
+		}
+
+		/// <summary>
 		/// Start the stopwatch
 		/// </summary>
 		public static void Start()

@@ -44,6 +44,11 @@ namespace UnrealBuildTool
 		/// Only allow a single instance running in the branch at once
 		/// </summary>
 		SingleInstance = 16,
+
+		/// <summary>
+		/// Print out the total time taken to execute
+		/// </summary>
+		ShowExecutionTime = 32,
 	}
 
 	/// <summary>

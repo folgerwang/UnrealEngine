@@ -427,7 +427,14 @@ namespace UnrealBuildTool
 
 				// Create the appropriate handler
 				ToolMode Mode = (ToolMode)Activator.CreateInstance(ModeType);
-				return Mode.Execute(Arguments);
+
+				// Execute the mode
+				int Result = Mode.Execute(Arguments);
+				if((ModeOptions & ToolModeOptions.ShowExecutionTime) != 0)
+				{
+					Log.TraceInformation("Total execution time: {0:0.00} seconds", Timeline.Elapsed.TotalSeconds);
+				}
+				return Result;
 			}
 			catch (CompilationResultException Ex)
 			{
@@ -459,7 +466,7 @@ namespace UnrealBuildTool
 
 				// Print out all the performance info
 				Timeline.Print(TimeSpan.FromMilliseconds(20.0), LogEventType.Log);
-
+			
 				// Make sure we flush the logs however we exit
 				Trace.Close();
 
