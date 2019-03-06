@@ -1842,6 +1842,11 @@ namespace WindowsMixedReality
 				continue;
 			}
 
+			if (axis == HMDInputControllerAxes::SelectValue)
+			{
+				return static_cast<float>(state.SelectPressedValue());
+			}
+
 			SpatialInteractionControllerProperties controllerProperties = state.ControllerProperties();
 			if (controllerProperties == nullptr)
 			{

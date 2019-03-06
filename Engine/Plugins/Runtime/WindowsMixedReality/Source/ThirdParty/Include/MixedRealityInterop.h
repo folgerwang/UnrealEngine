@@ -68,6 +68,7 @@ namespace WindowsMixedReality
 
 		enum class HMDInputControllerAxes
 		{
+			SelectValue,
 			ThumbstickX,
 			ThumbstickY,
 			TouchpadX,

@@ -114,6 +114,14 @@ namespace WindowsMixedReality
 		{
 			MixedRealityInterop::HMDHand hand = (MixedRealityInterop::HMDHand)i;
 
+			// Trigger
+			position = FWindowsMixedRealityStatics::GetAxisPosition(hand, MixedRealityInterop::HMDInputControllerAxes::SelectValue);
+			key = (hand == MixedRealityInterop::HMDHand::Left) ?
+				EKeys::MotionController_Left_TriggerAxis :
+				EKeys::MotionController_Right_TriggerAxis;
+
+			SendControllerAxisEvent(MessageHandler, source, key, position);
+
 			// Thumbstick X
 			position = FWindowsMixedRealityStatics::GetAxisPosition(hand, MixedRealityInterop::HMDInputControllerAxes::ThumbstickX);
 			key = (hand == MixedRealityInterop::HMDHand::Left) ?
