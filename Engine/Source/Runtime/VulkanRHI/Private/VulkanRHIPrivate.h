@@ -77,8 +77,8 @@ inline EShaderFrequency VkStageBitToUEFrequency(VkShaderStageFlagBits FlagBits)
 	switch (FlagBits)
 	{
 	case VK_SHADER_STAGE_VERTEX_BIT:					return SF_Vertex;
-	//case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:		return SF_Hull;
-	//case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:		return SF_Domain;
+	case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:		return SF_Hull;
+	case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:	return SF_Domain;
 	case VK_SHADER_STAGE_FRAGMENT_BIT:					return SF_Pixel;
 	case VK_SHADER_STAGE_GEOMETRY_BIT:					return SF_Geometry;
 	case VK_SHADER_STAGE_COMPUTE_BIT:					return SF_Compute;
@@ -711,22 +711,6 @@ static inline VkFormat UEToVkBufferFormat(EVertexElementType Type)
 
 	check(!"Undefined vertex-element format conversion");
 	return VK_FORMAT_UNDEFINED;
-}
-
-static inline VkPrimitiveTopology UEToVulkanType(EPrimitiveType PrimitiveType)
-{
-	switch (PrimitiveType)
-	{
-	case PT_PointList:			return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
-	case PT_LineList:			return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	case PT_TriangleList:		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	case PT_TriangleStrip:		return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
-	default:
-		break;
-	}
-
-	checkf(false, TEXT("Unsupported primitive type"));
-	return VK_PRIMITIVE_TOPOLOGY_MAX_ENUM;
 }
 
 #if UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT

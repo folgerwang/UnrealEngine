@@ -236,15 +236,18 @@ FVulkanGraphicsPipelineDescriptorState::FVulkanGraphicsPipelineDescriptorState(F
 	}
 #endif
 
-/*
 	uint64 HullShaderKey = InGfxPipeline->GetShaderKey(SF_Hull);
 	if (HullShaderKey)
 	{
-		ensureMsgf(0, TEXT("Tessellation not supported yet!"));
-		PackedUniformBuffers[ShaderStage::Domain].Init(CodeHeaderPerStage[ShaderStage::Domain], PackedUniformBuffersMask[ShaderStage::Domain], UniformBuffersWithDataMask[ShaderStage::Domain], ResourcesDirtyMask[ShaderStage::Domain]);
-		PackedUniformBuffers[ShaderStage::Hull].Init(CodeHeaderPerStage[ShaderStage::Hull], PackedUniformBuffersMask[ShaderStage::Hull], UniformBuffersWithDataMask[ShaderStage::Hull], ResourcesDirtyMask[ShaderStage::Domain]);
+		const FVulkanHullShader* HullShader = ShaderFactory.LookupShader<FVulkanHullShader>(HullShaderKey);
+		PackedUniformBuffers[ShaderStage::Hull].Init(HullShader->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Hull]);
 	}
-*/
+	uint64 DomainShaderKey = InGfxPipeline->GetShaderKey(SF_Domain);
+	if (DomainShaderKey)
+	{
+		const FVulkanDomainShader* DomainShader = ShaderFactory.LookupShader<FVulkanDomainShader>(DomainShaderKey);
+		PackedUniformBuffers[ShaderStage::Domain].Init(DomainShader->GetCodeHeader(), PackedUniformBuffersMask[ShaderStage::Domain]);
+	}
 
 	CreateDescriptorWriteInfos();
 

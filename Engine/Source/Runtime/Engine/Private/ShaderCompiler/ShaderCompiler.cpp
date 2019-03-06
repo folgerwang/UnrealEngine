@@ -3087,7 +3087,16 @@ void GlobalBeginCompileShader(
 		{
 			Input.Environment.CompilerFlags.Add(CFLAG_ForceRemoveUnusedInterpolators);
 		}
-	} 
+	}
+
+	if (IsVulkanPlatform((EShaderPlatform)Target.Platform))
+	{
+		const auto* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Vulkan.EnableTessellation"));
+		if (CVar && CVar->GetInt() != 0)
+		{
+			Input.Environment.SetDefine(TEXT("VULKAN_ENABLE_TESSELLATION"), 1);
+		}
+	}
 	
 	if (IsMetalPlatform((EShaderPlatform)Target.Platform))
 	{

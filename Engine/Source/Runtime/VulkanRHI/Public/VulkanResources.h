@@ -241,8 +241,8 @@ public:
 		switch (Stage)
 		{
 		case ShaderStage::Vertex:		return GetVertexShader();
-		//case ShaderStage::Hull:		return GetHullShader();
-		//case ShaderStage::Domain:		return GetDomainShader();
+		case ShaderStage::Hull:			return GetHullShader();
+		case ShaderStage::Domain:		return GetDomainShader();
 		case ShaderStage::Pixel:		return GetPixelShader();
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case ShaderStage::Geometry:	return GetGeometryShader();

@@ -4709,9 +4709,7 @@ void GenShaderOutputForVariable(
 	FSemanticQualifier OutputQualifier,
 	ir_dereference* OutputVariableDeref,
 	exec_list* DeclInstructions,
-	exec_list* PostCallInstructions,
-	int SemanticArraySize,
-	int SemanticArrayIndex
+	exec_list* PostCallInstructions
 	)
 {
 	const glsl_type* OutputType = OutputVariableDeref->type;
@@ -4771,9 +4769,7 @@ void GenShaderOutputForVariable(
 					Qualifier,
 					FieldDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 			else
@@ -4812,9 +4808,7 @@ void GenShaderOutputForVariable(
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 		}
@@ -4930,9 +4924,7 @@ static ir_dereference_variable* GenShaderOutput(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		PostCallInstructions,
-		0,
-		0
+		PostCallInstructions
 		);
 	return TempVariableDeref;
 }
@@ -4975,9 +4967,7 @@ static void GenerateAppendFunctionBody(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		&sig->body,
-		0,
-		0
+		&sig->body
 		);
 
 	// If the output structure type contains a SV_RenderTargetArrayIndex semantic, add a custom user output semantic.
@@ -5021,9 +5011,7 @@ static void GenerateAppendFunctionBody(
 			Qualifier,
 			new(ParseState)ir_dereference_record(var, new_output_type->fields.structure[indexof_RenderTargetArrayIndex].name),
 			DeclInstructions,
-			&sig->body,
-			0,
-			0
+			&sig->body
 			);
 	}
 

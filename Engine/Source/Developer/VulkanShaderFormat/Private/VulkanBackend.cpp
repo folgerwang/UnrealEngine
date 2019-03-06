@@ -4653,16 +4653,21 @@ static ir_rvalue* GenShaderOutputSemantic(
 
 	*DestVariableType = Type;
 
-	// This code-section replacces "layout(location=0) out struct { vec4 Data; } out_TEXCOORD0;" pattern to
+	if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
+	{
+		Type = glsl_type::get_array_instance(Type, ParseState->tessellation.outputcontrolpoints);
+	}
+
+	// This code-section replaces "layout(location=0) out struct { vec4 Data; } out_TEXCOORD0;" pattern to
 	// "layout(location=0) out vec4 out_TEXCOORD0;".
 
 	// Regular attribute
 	Variable = new(ParseState)ir_variable(
 		Type,
-		ralloc_asprintf(ParseState, "%s_%s", "out", Semantic),
+		ralloc_asprintf(ParseState, "out_%s", Semantic),
 		ir_var_out
 		);
-	Variable->read_only = true;
+	//Variable->read_only = true;
 	Variable->centroid = OutputQualifier.Fields.bCentroid;
 	Variable->interpolation = OutputQualifier.Fields.InterpolationMode;
 	Variable->is_patch_constant = OutputQualifier.Fields.bIsPatchConstant;
@@ -4675,7 +4680,13 @@ static ir_rvalue* GenShaderOutputSemantic(
 	DeclInstructions->push_tail(Variable);
 	ParseState->symbols->add_variable(Variable);
 
-	ir_dereference_variable* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
+	ir_dereference* VariableDeref = new(ParseState)ir_dereference_variable(Variable);
+
+	if (Frequency == HSF_HullShader && !OutputQualifier.Fields.bIsPatchConstant)
+	{
+		VariableDeref = new(ParseState)ir_dereference_array(VariableDeref, new(ParseState)ir_dereference_variable(ParseState->symbols->get_variable("gl_InvocationID")));
+	}
+
 	return VariableDeref;
 }
 
@@ -4997,9 +5008,7 @@ static void GenShaderOutputForVariable(
 	FSemanticQualifier OutputQualifier,
 	ir_dereference* OutputVariableDeref,
 	exec_list* DeclInstructions,
-	exec_list* PostCallInstructions,
-	int SemanticArraySize,
-	int SemanticArrayIndex
+	exec_list* PostCallInstructions
 	)
 {
 	const glsl_type* OutputType = OutputVariableDeref->type;
@@ -5059,9 +5068,7 @@ static void GenShaderOutputForVariable(
 					Qualifier,
 					FieldDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 			else
@@ -5100,9 +5107,7 @@ static void GenShaderOutputForVariable(
 					OutputQualifier,
 					ArrayDeref,
 					DeclInstructions,
-					PostCallInstructions,
-					SemanticArraySize,
-					SemanticArrayIndex
+					PostCallInstructions
 					);
 			}
 		}
@@ -5189,7 +5194,7 @@ static void GenShaderOutputForVariable(
 * @param OutputQualifier - Qualifiers applied to the semantic.
 * @param OutputType - Value type.
 * @param DeclInstructions - IR to which declarations may be added.
-* @param PreCallInstructions - IR to which isntructions may be added before the
+* @param PreCallInstructions - IR to which instructions may be added before the
 entry point is called.
 * @param PostCallInstructions - IR to which instructions may be added after the
 *                               entry point returns.
@@ -5220,10 +5225,7 @@ static ir_dereference_variable* GenShaderOutput(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		PostCallInstructions,
-		0,
-		0
-		);
+		PostCallInstructions);
 	return TempVariableDeref;
 }
 
@@ -5265,10 +5267,7 @@ static void GenerateAppendFunctionBody(
 		OutputQualifier,
 		TempVariableDeref,
 		DeclInstructions,
-		&sig->body,
-		0,
-		0
-		);
+		&sig->body);
 
 	// If the output structure type contains a SV_RenderTargetArrayIndex semantic, add a custom user output semantic.
 	// It's used to pass layer index to pixel shader, as GLSL 1.50 doesn't allow pixel shader to read from gl_Layer.

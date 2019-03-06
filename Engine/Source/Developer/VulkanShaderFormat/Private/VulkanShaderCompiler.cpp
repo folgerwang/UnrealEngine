@@ -2018,6 +2018,7 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 
 	TArray<ANSICHAR> GeneratedGlslSource;
 	FVulkanBindingTable BindingTable(CompilerInfo.Frequency);
+	bool bSuccess = false;
 	if (CallHlslcc(PreprocessedShaderSource, BindingTable, CompilerInfo, EntryPointName, HlslCompilerTarget, Output, GeneratedGlslSource))
 	{
 		//#todo-rco: Once it's all cleaned up...
@@ -2030,7 +2031,7 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 			// For debugging: if you hit an error from Glslang/Spirv, use the SourceNoHeader for line numbers
 			auto* SourceWithHeader = GeneratedGlslSource.GetData();
 			char* SourceNoHeader = strstr(SourceWithHeader, "#version");
-			bool bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output, bHasRealUBs);
+			bSuccess = CompileUsingInternal(CompilerInfo, BindingTable, GeneratedGlslSource, EntryPointName, Output, bHasRealUBs);
 			if (bDirectCompile)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Success: %d\n%s\n"), bSuccess, ANSI_TO_TCHAR(SourceWithHeader));
@@ -2044,5 +2045,6 @@ void DoCompileVulkanShader(const FShaderCompilerInput& Input, FShaderCompilerOut
 		{
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s\n"), *Error.GetErrorString());
 		}
+		ensure(bSuccess);
 	}
 }
