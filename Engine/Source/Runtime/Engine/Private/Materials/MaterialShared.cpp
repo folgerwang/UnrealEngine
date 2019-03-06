@@ -2034,9 +2034,9 @@ void FMaterialRenderProxy::EvaluateUniformExpressions(FUniformExpressionCache& O
 	}
 	else
 	{
-		if (IsValidRef(OutUniformExpressionCache.UniformBuffer)
-			&& OutUniformExpressionCache.UniformBuffer->GetLayout() == UniformBufferStruct.GetLayout())
+		if (IsValidRef(OutUniformExpressionCache.UniformBuffer))
 		{
+			check(OutUniformExpressionCache.UniformBuffer->GetLayout() == UniformBufferStruct.GetLayout());
 			RHIUpdateUniformBuffer(OutUniformExpressionCache.UniformBuffer, TempBuffer);
 		}
 		else

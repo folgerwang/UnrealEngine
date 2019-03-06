@@ -17,7 +17,7 @@ class UTexture;
  * Cache uniform expressions for the given material instance.
  * @param MaterialInstance - The material instance for which to cache uniform expressions.
  */
-void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance);
+void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance, bool bRecreateUniformBuffer = false);
 
 /**
  * Recaches uniform expressions for all material instances with a given parent.

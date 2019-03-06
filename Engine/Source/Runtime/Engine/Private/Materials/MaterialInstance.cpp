@@ -45,11 +45,11 @@ DECLARE_CYCLE_STAT(TEXT("MaterialInstance CopyUniformParamsInternal"), STAT_Mate
  * Cache uniform expressions for the given material.
  * @param MaterialInstance - The material instance for which to cache uniform expressions.
  */
-void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance)
+void CacheMaterialInstanceUniformExpressions(const UMaterialInstance* MaterialInstance, bool bRecreateUniformBuffer)
 {
 	if (MaterialInstance->Resource)
 	{
-		MaterialInstance->Resource->CacheUniformExpressions_GameThread(false);
+		MaterialInstance->Resource->CacheUniformExpressions_GameThread(bRecreateUniformBuffer);
 	}
 }
 
@@ -3543,6 +3543,7 @@ void UMaterialInstance::UpdateStaticPermutation(const FStaticParameterSet& NewPa
 		StaticParameters = CompareParameters;
 
 		CacheResourceShadersForRendering();
+		RecacheUniformExpressions(true);
 
 		if (MaterialUpdateContext != nullptr)
 		{
@@ -3582,7 +3583,7 @@ void UMaterialInstance::UpdateParameterNames()
 
 void UMaterialInstance::RecacheUniformExpressions(bool bRecreateUniformBuffer) const
 {	
-	CacheMaterialInstanceUniformExpressions(this);
+	CacheMaterialInstanceUniformExpressions(this, bRecreateUniformBuffer);
 }
 
 #if WITH_EDITOR
