@@ -1333,33 +1333,6 @@ bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdLis
 		}
 	}
 
-	if (DistanceFieldShadows.Num() > 0)
-	{
-		// Dispatch distance field shadows first
-		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-		{
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("DistanceFieldShadows_View%d"), ViewIndex);
-
-			const FViewInfo& View = Views[ViewIndex];
-
-			// Set the device viewport for the view.
-			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
-
-			// Set the light's scissor rectangle.
-			LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View, View.ViewRect);
-
-			// Project the shadow depth buffers onto the scene.
-			for (int32 ShadowIndex = 0; ShadowIndex < DistanceFieldShadows.Num(); ShadowIndex++)
-			{
-				FProjectedShadowInfo* ProjectedShadowInfo = DistanceFieldShadows[ShadowIndex];
-				ProjectedShadowInfo->RenderRayTracedDistanceFieldProjection(RHICmdList, View, ScreenShadowMaskTexture, bProjectingForForwardShading);
-			}
-
-			// Reset the scissor rectangle.
-			RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
-		}
-	}
-
 	if (NormalShadows.Num() > 0)
 	{
 		// Render normal shadows
@@ -1429,6 +1402,33 @@ bool FSceneRenderer::RenderShadowProjections(FRHICommandListImmediate& RHICmdLis
 		else
 		{
 			RHICmdList.EndRenderPass();
+		}
+	}
+
+	if (DistanceFieldShadows.Num() > 0)
+	{
+		// Distance field shadows need to be renderer last as they blend over far shadow cascades.
+		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+		{
+			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, EventView, Views.Num() > 1, TEXT("DistanceFieldShadows_View%d"), ViewIndex);
+
+			const FViewInfo& View = Views[ViewIndex];
+
+			// Set the device viewport for the view.
+			RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+
+			// Set the light's scissor rectangle.
+			LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View, View.ViewRect);
+
+			// Project the shadow depth buffers onto the scene.
+			for (int32 ShadowIndex = 0; ShadowIndex < DistanceFieldShadows.Num(); ShadowIndex++)
+			{
+				FProjectedShadowInfo* ProjectedShadowInfo = DistanceFieldShadows[ShadowIndex];
+				ProjectedShadowInfo->RenderRayTracedDistanceFieldProjection(RHICmdList, View, ScreenShadowMaskTexture, bProjectingForForwardShading);
+			}
+
+			// Reset the scissor rectangle.
+			RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 		}
 	}
 
