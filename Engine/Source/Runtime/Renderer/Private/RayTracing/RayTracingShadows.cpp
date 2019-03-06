@@ -210,8 +210,6 @@ void FDeferredShadingSceneRenderer::RenderRayTracingShadows(
 			FRayTracingShaderBindingsWriter GlobalResources;
 			SetShaderParameters(GlobalResources, *RayGenerationShader, *PassParameters);
 
-			FRHIRayTracingPipelineState* Pipeline = nullptr;
-
 			FRayTracingSceneRHIParamRef RayTracingSceneRHI = View.RayTracingScene.RayTracingSceneRHI;
 
 			if (GRayTracingShadowsEnableMaterials)
