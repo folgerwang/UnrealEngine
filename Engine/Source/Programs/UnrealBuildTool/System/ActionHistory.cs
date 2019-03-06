@@ -45,6 +45,11 @@ namespace UnrealBuildTool
 		bool bModified;
 
 		/// <summary>
+		/// Object to use for guarding access to the OutputItemToCommandLine dictionary
+		/// </summary>
+		object LockObject = new object();
+
+		/// <summary>
 		/// Static cache of all loaded action history files
 		/// </summary>
 		static Dictionary<FileReference, ActionHistory> LoadedFiles = new Dictionary<FileReference, ActionHistory>();
@@ -117,7 +122,10 @@ namespace UnrealBuildTool
 		{
 			if(File.Location.IsUnderDirectory(BaseDirectory) || Parent == null)
 			{
-				return OutputItemToCommandLine.TryGetValue(File, out CommandLine);
+				lock (LockObject)
+				{
+					return OutputItemToCommandLine.TryGetValue(File, out CommandLine);
+				}
 			}
 			else
 			{
@@ -134,8 +142,11 @@ namespace UnrealBuildTool
 		{
 			if(File.Location.IsUnderDirectory(BaseDirectory) || Parent == null)
 			{
-				OutputItemToCommandLine[File] = CommandLine;
-				bModified = true;
+				lock(LockObject)
+				{
+					OutputItemToCommandLine[File] = CommandLine;
+					bModified = true;
+				}
 			}
 			else
 			{
