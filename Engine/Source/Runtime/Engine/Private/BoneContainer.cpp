@@ -260,7 +260,7 @@ void FBoneContainer::CacheRequiredAnimCurveUids(const FCurveEvaluationOption& Cu
 									{
 										const FBoneReference& BoneReference = CurveMetaData->LinkedBones[LinkedBoneIndex];
 										// when you enter first time, sometimes it does not have all info yet
-										if (BoneReference.BoneName != NAME_None)
+										if (BoneReference.BoneIndex != INDEX_NONE && BoneReference.BoneName != NAME_None)
 										{
 											// this linked bone alkways use skeleton index
 											ensure(BoneReference.bUseSkeletonIndex);

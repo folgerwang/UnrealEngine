@@ -1048,6 +1048,13 @@ void USkeleton::HandleSkeletonHierarchyChange()
 	RefreshAllRetargetSources();
 #endif
 
+	// refresh curve meta data that contains joint info
+	FSmartNameMapping* CurveMappingTable = SmartNames.GetContainerInternal(USkeleton::AnimCurveMappingName);
+	if (CurveMappingTable)
+	{
+		CurveMappingTable->InitializeCurveMetaData(this);
+	}
+
 	OnSkeletonHierarchyChanged.Broadcast();
 }
 
@@ -1645,6 +1652,13 @@ void USkeleton::HandleVirtualBoneChanges()
 			SkelMesh->RefSkeleton.RebuildRefSkeleton(this, bRebuildNameMap);
 			RebuildLinkup(SkelMesh);
 		}
+	}
+
+	// refresh curve meta data that contains joint info
+	FSmartNameMapping* CurveMappingTable = SmartNames.GetContainerInternal(USkeleton::AnimCurveMappingName);
+	if (CurveMappingTable)
+	{
+		CurveMappingTable->InitializeCurveMetaData(this);
 	}
 
 	for (TObjectIterator<USkinnedMeshComponent> It; It; ++It)
