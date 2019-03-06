@@ -116,7 +116,7 @@ void  SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InTo
 			.Visibility_Lambda([this]()->EVisibility { return this->GetContentEnabledState() ? EVisibility::Collapsed : EVisibility::Visible; })
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("DeleteUndo", "Insufficient mesh components found for merging."))
+				.Text(LOCTEXT("DeleteUndo", "Insufficient mesh components found for ProxyLOD merging."))
 			]
 		]
 	];

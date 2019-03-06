@@ -135,6 +135,13 @@ TSharedRef<ITableRow> FComponentSelectionControl::MakeComponentListItemWidget(TS
 		State = *StoredState;
 	}
 
+	if (UStaticMeshComponent* StaticMeshComponent = Cast<UStaticMeshComponent>(ComponentData->PrimComponent.Get()))
+	{
+		bEnabled = (StaticMeshComponent->GetStaticMesh() != nullptr);
+		bIsMesh = true;
+	}
+
+
 	return SNew(STableRow<TSharedPtr<FMergeComponentData>>, OwnerTable)
 		[
 			SNew(SBox)
