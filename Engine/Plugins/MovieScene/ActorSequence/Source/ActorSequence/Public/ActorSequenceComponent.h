@@ -39,9 +39,6 @@ public:
 
 protected:
 
-	UPROPERTY(EditAnywhere, Category="Playback")
-	bool bAutoPlay;
-
 	UPROPERTY(EditAnywhere, Category="Playback", meta=(ShowOnlyInnerProperties))
 	FMovieSceneSequencePlaybackSettings PlaybackSettings;
 
