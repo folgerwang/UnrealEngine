@@ -111,9 +111,9 @@ int32_t FVideoEncoder::InitEncode(const webrtc::VideoCodec* CodecSettings, int32
 	return 0;
 }
 
-int32_t FVideoEncoder::RegisterEncodeCompleteCallback(webrtc::EncodedImageCallback* Callback)
+int32_t FVideoEncoder::RegisterEncodeCompleteCallback(webrtc::EncodedImageCallback* InCallback)
 {
-	this->Callback = Callback;
+	this->Callback = InCallback;
 	return 0;
 }
 

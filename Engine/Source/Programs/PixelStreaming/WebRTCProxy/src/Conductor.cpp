@@ -135,17 +135,17 @@ void FConductor::AddStreams(FClientId ClientId)
 		{
 			Stream = PeerConnectionFactory->CreateLocalMediaStream(StreamId);
 
-			rtc::scoped_refptr<webrtc::AudioTrackInterface> AudioTrack(
+			rtc::scoped_refptr<webrtc::AudioTrackInterface> LocalAudioTrack(
 			    PeerConnectionFactory->CreateAudioTrack(AudioLabel, PeerConnectionFactory->CreateAudioSource(NULL)));
 
-			Stream->AddTrack(AudioTrack);
+			Stream->AddTrack(LocalAudioTrack);
 
 			std::unique_ptr<FNetworkVideoCapturer> VideoCapturerStrong = std::make_unique<FNetworkVideoCapturer>();
 			VideoCapturer = VideoCapturerStrong.get();
-			rtc::scoped_refptr<webrtc::VideoTrackInterface> VideoTrack(PeerConnectionFactory->CreateVideoTrack(
+			rtc::scoped_refptr<webrtc::VideoTrackInterface> LocalVideoTrack(PeerConnectionFactory->CreateVideoTrack(
 			    VideoLabel, PeerConnectionFactory->CreateVideoSource(std::move(VideoCapturerStrong))));
 
-			Stream->AddTrack(VideoTrack);
+			Stream->AddTrack(LocalVideoTrack);
 
 			typedef std::pair<std::string, rtc::scoped_refptr<webrtc::MediaStreamInterface> > MediaStreamPair;
 			Streams.insert(MediaStreamPair(Stream->id(), Stream));
