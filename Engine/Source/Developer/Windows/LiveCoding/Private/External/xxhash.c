@@ -35,6 +35,7 @@
 // BEGIN EPIC MODS
 #pragma warning(push)
 #pragma warning(disable:6385) // warning C6385: Reading invalid data from '&state'
+#pragma warning(disable:4668) // warning C4668: '__cplusplus' is not defined as a preprocessor macro, replacing with '0' for '#if/#elif'
 // END EPIC MODS
 
 // MM: tuning
@@ -118,7 +119,6 @@ static void* XXH_memcpy(void* dest, const void* src, size_t size) { return memcp
 
 #define XXH_STATIC_LINKING_ONLY
 #include "xxhash.h"
-
 
 /* *************************************
 *  Compiler Specific Options
