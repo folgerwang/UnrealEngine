@@ -2143,7 +2143,7 @@ class FRayTracingMeshResourceCollector : public FMeshElementCollector
 public:
 	// No MeshBatch should be allocated from an FRayTracingMeshResourceCollector.
 	inline FMeshBatch& AllocateMesh() = delete;
-	ENGINE_API void AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch) = delete;
+	void AddMesh(int32 ViewIndex, FMeshBatch& MeshBatch) = delete;
 	void RegisterOneFrameMaterialProxy(FMaterialRenderProxy* Proxy) = delete;
 
 	FRayTracingMeshResourceCollector(
