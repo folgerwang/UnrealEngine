@@ -120,9 +120,9 @@ protected:
 
 	uint64_t OnlineUserID = 0;
 
-	TSet<ovrAvatarAssetID> AssetIds;
-	TMap<ovrAvatarAssetID, TWeakObjectPtr<UPoseableMeshComponent>> MeshComponents;
-	TMap<ovrAvatarAssetID, TWeakObjectPtr<UPoseableMeshComponent>> DepthMeshComponents;
+	TSet<uint64> AssetIds;
+	TMap<uint64, TWeakObjectPtr<UPoseableMeshComponent>> MeshComponents;
+	TMap<uint64, TWeakObjectPtr<UPoseableMeshComponent>> DepthMeshComponents;
 
 	ovrAvatar* Avatar = nullptr;
 

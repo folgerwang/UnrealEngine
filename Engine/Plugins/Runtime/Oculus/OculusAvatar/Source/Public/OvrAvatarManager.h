@@ -54,8 +54,8 @@ private:
 
 	bool IsInitialized = false;
 
-	TMap<uint64_t, TWeakObjectPtr<UTexture>> Textures;
-	TSet<uint64_t> NormalMapIDs;
+	TMap<uint64, TWeakObjectPtr<UTexture>> Textures;
+	TSet<uint64> NormalMapIDs;
 
 	static FOvrAvatarManager* sAvatarManager;
 	const char* AVATAR_APP_ID = nullptr;
