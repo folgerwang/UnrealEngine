@@ -229,12 +229,12 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 		if (PrimitiveSceneInfo->Scene->GetShadingPath() == EShadingPath::Mobile && LightSceneInfo->Proxy->IsMovable())
 		{
 			const uint8 LightType = LightSceneInfo->Proxy->GetLightType();
-			static const auto CVarMobileEnableMovableSpotLights = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableMovableSpotLights"));
+			static const auto MobileEnableMovableSpotLightsVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Mobile.EnableMovableSpotLights"));
 
 			const bool bIsValidLightType = 
 				   LightType == LightType_Rect
 				|| LightType == LightType_Point
-				|| (LightType == LightType_Spot && CVarMobileEnableMovableSpotLights->GetValueOnRenderThread());
+				|| (LightType == LightType_Spot && MobileEnableMovableSpotLightsVar->GetValueOnRenderThread());
 
 			if( bIsValidLightType )
 			{

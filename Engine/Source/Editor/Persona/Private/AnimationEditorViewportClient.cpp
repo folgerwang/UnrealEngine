@@ -44,10 +44,6 @@ namespace {
 	// follow camera feature
 	static const float FollowCamera_InterpSpeed = 4.f;
 	static const float FollowCamera_InterpSpeed_Z = 1.f;
-
-	// @todo double define - fix it
-	const float FOVMin = 5.f;
-	const float FOVMax = 170.f;
 }
 
 namespace EAnimationPlaybackSpeeds
@@ -119,6 +115,10 @@ FAnimationViewportClient::FAnimationViewportClient(const TSharedRef<IPersonaPrev
 	{
 		SetRealtime(false,true); // We are PIE, don't start in realtime mode
 	}
+
+	// @todo double define - fix it
+	const float FOVMin = 5.f;
+	const float FOVMax = 170.f;
 
 	ViewFOV = FMath::Clamp<float>(ConfigOption->GetAssetEditorOptions(InAssetEditorToolkit->GetEditorName()).ViewportConfigs[ViewportIndex].ViewFOV, FOVMin, FOVMax);
 

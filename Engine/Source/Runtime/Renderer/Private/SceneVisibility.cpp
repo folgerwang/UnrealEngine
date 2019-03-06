@@ -3759,16 +3759,16 @@ void FSceneRenderer::PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTask
 			{
 				VisibleLightViewInfo.bInViewFrustum = true;
 
-				static const auto CVarMobileMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
-				bool bNotMobileMSAA = !(CVarMobileMSAA ? CVarMobileMSAA->GetValueOnRenderThread() > 1 : false);
+				static const auto MobileMSAAVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileMSAA"));
+				bool bNotMobileMSAA = !(MobileMSAAVar ? MobileMSAAVar->GetValueOnRenderThread() > 1 : false);
 
 				// Setup single sun-shaft from direction lights for mobile.
 				if(bCheckLightShafts && LightSceneInfo->bEnableLightShaftBloom)
 				{
 					// Find directional light for sun shafts.
 					// Tweaked values from UE3 implementation.
-					const float PointLightFadeDistanceIncrease = 200.0f;
-					const float PointLightRadiusFadeFactor = 5.0f;
+					extern const float PointLightFadeDistanceIncrease;
+					extern const float PointLightRadiusFadeFactor;
 
 					const FVector WorldSpaceBlurOrigin = LightSceneInfo->Proxy->GetPosition();
 					// Transform into post projection space

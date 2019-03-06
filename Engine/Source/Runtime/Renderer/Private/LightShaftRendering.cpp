@@ -31,8 +31,8 @@
 #include "PipelineStateCache.h"
 
 /** Tweaked values from UE3 implementation **/
-const float PointLightFadeDistanceIncrease = 200;
-const float PointLightRadiusFadeFactor = 5;
+extern const float PointLightFadeDistanceIncrease = 200;
+extern const float PointLightRadiusFadeFactor = 5;
 
 // 0 is off, any other value is on, later we can expose more quality settings e.g. sample count
 int32 GLightShafts = 1;
