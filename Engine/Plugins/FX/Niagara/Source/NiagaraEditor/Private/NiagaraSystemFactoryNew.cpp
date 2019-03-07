@@ -116,6 +116,10 @@ UObject* UNiagaraSystemFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	
 	if (SystemToCopy != nullptr)
 	{
+		if (SystemToCopy->IsReadyToRun() == false)
+		{
+			SystemToCopy->WaitForCompilationComplete();
+		}
 		NewSystem = Cast<UNiagaraSystem>(StaticDuplicateObject(SystemToCopy, InParent, Name, Flags, Class));
 		NewSystem->bIsTemplateAsset = false;
 		NewSystem->TemplateAssetDescription = FText();
