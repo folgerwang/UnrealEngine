@@ -16,6 +16,7 @@
 #include "SPerPlatformPropertiesWidget.h"
 #include "ScopedTransaction.h"
 #include "IPropertyUtilities.h"
+#include "UObject/MetaData.h"
 
 #define LOCTEXT_NAMESPACE "PerPlatformPropertyCustomization"
 
@@ -74,6 +75,21 @@ TSharedRef<SWidget> FPerPlatformPropertyCustomization<PerPlatformType>::GetWidge
 						}
 					}
 				}
+			}
+		}
+	
+	}
+
+	// Push down struct metadata to per-platform properties
+	{
+		// First get the source map
+		const TMap<FName, FString>* SourceMap = UMetaData::GetMapForObject(StructPropertyHandle->GetMetaDataProperty());
+		if (SourceMap)
+		{
+			// Iterate through source map, setting each key/value pair in the destination
+			for (const auto& It : *SourceMap)
+			{
+				EditProperty->SetInstanceMetaData(*It.Key.ToString(), *It.Value);
 			}
 		}
 	}
