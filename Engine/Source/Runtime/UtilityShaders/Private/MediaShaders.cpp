@@ -539,4 +539,26 @@ void FInvertAlphaPS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FR
 }
 
 
+/* FSetAlphaOnePS shader
+ *****************************************************************************/
 
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FSetAlphaOneUB, )
+SHADER_PARAMETER_TEXTURE(Texture2D, Texture)
+SHADER_PARAMETER_SAMPLER(SamplerState, SamplerP)
+END_GLOBAL_SHADER_PARAMETER_STRUCT()
+
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FSetAlphaOneUB, "SetAlphaOneUB");
+IMPLEMENT_SHADER_TYPE(, FSetAlphaOnePS, TEXT("/Engine/Private/MediaShaders.usf"), TEXT("SetAlphaOnePS"), SF_Pixel);
+
+
+void FSetAlphaOnePS::SetParameters(FRHICommandList& CommandList, TRefCountPtr<FRHITexture2D> RGBATexture)
+{
+	FSetAlphaOneUB UB;
+	{
+		UB.SamplerP = TStaticSamplerState<SF_Point>::GetRHI();
+		UB.Texture = RGBATexture;
+	}
+
+	TUniformBufferRef<FSetAlphaOneUB> Data = TUniformBufferRef<FSetAlphaOneUB>::CreateUniformBufferImmediate(UB, UniformBuffer_SingleFrame);
+	SetUniformBufferParameter(CommandList, GetPixelShader(), GetUniformBufferParameter<FSetAlphaOneUB>(), Data);
+}

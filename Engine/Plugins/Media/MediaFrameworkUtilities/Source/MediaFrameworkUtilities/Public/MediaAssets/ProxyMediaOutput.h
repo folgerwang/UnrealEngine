@@ -65,7 +65,7 @@ public:
 	virtual bool Validate(FString& OutFailureReason) const override;
 	virtual FIntPoint GetRequestedSize() const override;
 	virtual EPixelFormat GetRequestedPixelFormat() const override;
-	virtual EMediaCaptureConversionOperation GetConversionOperation() const override;
+	virtual EMediaCaptureConversionOperation GetConversionOperation(EMediaCaptureSourceType InSourceType) const override;
 
 protected:
 

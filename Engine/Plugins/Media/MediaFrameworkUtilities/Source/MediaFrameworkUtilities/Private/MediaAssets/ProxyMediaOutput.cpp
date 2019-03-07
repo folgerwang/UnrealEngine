@@ -73,7 +73,7 @@ EPixelFormat UProxyMediaOutput::GetRequestedPixelFormat() const
 }
 
 
-EMediaCaptureConversionOperation UProxyMediaOutput::GetConversionOperation() const
+EMediaCaptureConversionOperation UProxyMediaOutput::GetConversionOperation(EMediaCaptureSourceType InSourceType) const
 {
 	// Guard against reentrant calls.
 	if (bRequestedPixelFormatGuard)
@@ -84,7 +84,7 @@ EMediaCaptureConversionOperation UProxyMediaOutput::GetConversionOperation() con
 	TGuardValue<bool> GettingUrlGuard(bRequestedPixelFormatGuard, true);
 
 	UMediaOutput* CurrentProxy = GetMediaOutput();
-	return (CurrentProxy != nullptr) ? CurrentProxy->GetConversionOperation() : EMediaCaptureConversionOperation::NONE;
+	return (CurrentProxy != nullptr) ? CurrentProxy->GetConversionOperation(InSourceType) : EMediaCaptureConversionOperation::NONE;
 }
 
 

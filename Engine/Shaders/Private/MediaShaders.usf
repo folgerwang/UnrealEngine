@@ -358,3 +358,14 @@ void InvertAlphaPS(
 	OutColor.xyzw = float4(Color.rgb, 1 - Color.a);
 }
 
+
+// shader to set alpha to 1.0
+void SetAlphaOnePS(
+	float4 InPosition : SV_POSITION,
+	float2 InUV : TEXCOORD0,
+	out float4 OutColor : SV_Target0)
+{
+	float4 Color = SetAlphaOneUB.Texture.Sample(SetAlphaOneUB.SamplerP, InUV);
+	OutColor.xyzw = float4(Color.rgb, 1.0f);
+}
+

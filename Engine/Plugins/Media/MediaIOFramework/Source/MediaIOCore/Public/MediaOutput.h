@@ -19,6 +19,13 @@ enum class EMediaCaptureConversionOperation : int8
 	RGBA8_TO_YUV_8BIT,
 	RGB10_TO_YUVv210_10BIT,
 	INVERT_ALPHA,
+	SET_ALPHA_ONE,
+};
+
+enum class EMediaCaptureSourceType : int8
+{
+	RENDER_TARGET,
+	SCENE_VIEWPORT,
 };
 
 /**
@@ -56,7 +63,7 @@ public:
 public:
 	virtual FIntPoint GetRequestedSize() const PURE_VIRTUAL(UMediaOutput::GetRequestedSize, return FIntPoint::ZeroValue; );
 	virtual EPixelFormat GetRequestedPixelFormat() const PURE_VIRTUAL(UMediaOutput::GetRequestedPixelFormat, return EPixelFormat::PF_Unknown; );
-	virtual EMediaCaptureConversionOperation GetConversionOperation() const { return EMediaCaptureConversionOperation::NONE; }
+	virtual EMediaCaptureConversionOperation GetConversionOperation(EMediaCaptureSourceType InSourceType) const { return EMediaCaptureConversionOperation::NONE; }
 
 protected:
 	virtual UMediaCapture* CreateMediaCaptureImpl() { return nullptr; }

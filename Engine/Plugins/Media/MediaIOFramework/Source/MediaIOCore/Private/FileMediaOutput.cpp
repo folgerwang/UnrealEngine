@@ -76,6 +76,30 @@ EPixelFormat UFileMediaOutput::GetRequestedPixelFormat() const
 }
 
 
+EMediaCaptureConversionOperation UFileMediaOutput::GetConversionOperation(EMediaCaptureSourceType InSourceType) const
+{
+	// All formats supporting alpha
+	if (WriteOptions.Format == EDesiredImageFormat::EXR || WriteOptions.Format == EDesiredImageFormat::PNG)
+	{
+		// We invert alpha only when alpha channel as valid data when used with "passthrough tone mapper" or using a render target, otherwise we force it to 1.0f.
+		static const auto CVarPropagateAlpha = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.PostProcessing.PropagateAlpha"));
+		EAlphaChannelMode::Type PropagateAlpha = EAlphaChannelMode::FromInt(CVarPropagateAlpha->GetValueOnAnyThread());
+		if ((PropagateAlpha == EAlphaChannelMode::AllowThroughTonemapper) || (InSourceType == EMediaCaptureSourceType::RENDER_TARGET))
+		{
+			return EMediaCaptureConversionOperation::INVERT_ALPHA;
+		}
+		else
+		{
+			return EMediaCaptureConversionOperation::SET_ALPHA_ONE;
+		}
+	}
+	else
+	{
+		return EMediaCaptureConversionOperation::NONE;
+	}
+}
+
+
 UMediaCapture* UFileMediaOutput::CreateMediaCaptureImpl()
 {
 	UMediaCapture* Result = NewObject<UFileMediaCapture>();

@@ -637,3 +637,30 @@ public:
 
 	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> RGBATexture);
 };
+
+
+/**
+ * Pixel shader to set alpha component to 1.0f
+ *
+ * This shader expects a single texture in RGBA 8 or 10 bits format.
+ */
+class FSetAlphaOnePS
+	: public FGlobalShader
+{
+	DECLARE_EXPORTED_SHADER_TYPE(FSetAlphaOnePS, Global, UTILITYSHADERS_API);
+
+public:
+
+	static bool ShouldCompilePermutation(const FGlobalShaderPermutationParameters& Parameters)
+	{
+		return IsFeatureLevelSupported(Parameters.Platform, ERHIFeatureLevel::ES2);
+	}
+
+	FSetAlphaOnePS() { }
+
+	FSetAlphaOnePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{ }
+
+	UTILITYSHADERS_API void SetParameters(FRHICommandList& RHICmdList, TRefCountPtr<FRHITexture2D> RGBATexture);
+};
