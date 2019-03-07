@@ -34,7 +34,7 @@ namespace UnrealBuildTool
 			public static DependencyInfo Read(BinaryArchiveReader Reader)
 			{
 				long LastWriteTimeUtc = Reader.ReadLong();
-				List<FileItem> Files = Reader.ReadList(() => Reader.ReadFileItem());
+				List<FileItem> Files = Reader.ReadList(() => Reader.ReadCompactFileItem());
 
 				return new DependencyInfo(LastWriteTimeUtc, Files);
 			}
@@ -42,14 +42,14 @@ namespace UnrealBuildTool
 			public void Write(BinaryArchiveWriter Writer)
 			{
 				Writer.WriteLong(LastWriteTimeUtc);
-				Writer.WriteList<FileItem>(Files, File => Writer.WriteFileItem(File));
+				Writer.WriteList<FileItem>(Files, File => Writer.WriteCompactFileItem(File));
 			}
 		}
 
 		/// <summary>
 		/// The current file version
 		/// </summary>
-		public const int CurrentVersion = 1;
+		public const int CurrentVersion = 2;
 
 		/// <summary>
 		/// Location of this dependency cache
