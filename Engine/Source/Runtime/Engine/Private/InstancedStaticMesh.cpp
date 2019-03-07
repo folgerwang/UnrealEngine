@@ -2233,6 +2233,19 @@ void UInstancedStaticMeshComponent::OnPostLoadPerInstanceData()
 
 	// release InstanceDataBuffers
 	InstanceDataBuffers.Reset();
+
+	if (PerInstanceRenderData.IsValid())
+	{
+		AActor* Owner = GetOwner();
+		ULevel* OwnerLevel = Owner->GetLevel();
+		UWorld* OwnerWorld = OwnerLevel ? OwnerLevel->OwningWorld : nullptr;
+
+		if (OwnerWorld && OwnerWorld->GetActiveLightingScenario() != nullptr && OwnerWorld->GetActiveLightingScenario() != OwnerLevel)
+		{
+			//update the instance data if the lighting scenario isn't the owner level
+			InstanceUpdateCmdBuffer.Edit();
+		}
+	}
 }
 
 void UInstancedStaticMeshComponent::PartialNavigationUpdate(int32 InstanceIdx)
