@@ -1437,18 +1437,17 @@ bool FEdModeLandscape::ProcessEditCopy()
 
 		if (!Result)
 		{
-			TArray<ALandscapeBlueprintCustomBrush*> CurrentlySelectedBPBrush;
+			ALandscapeBlueprintCustomBrush* CurrentlySelectedBPBrush = nullptr;
 			for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
 			{
-				ALandscapeBlueprintCustomBrush* Actor = StaticCast<ALandscapeBlueprintCustomBrush*>(*It);
-
-				if (Actor != nullptr)
+				CurrentlySelectedBPBrush = Cast<ALandscapeBlueprintCustomBrush>(*It);
+				if (CurrentlySelectedBPBrush)
 				{
-					CurrentlySelectedBPBrush.Add(Actor);
+					break;
 				}
 			}
 
-			if (CurrentlySelectedBPBrush.Num() == 0)
+			if (!CurrentlySelectedBPBrush)
 			{
 				bool IsSlowTask = IsSlowSelect(CurrentGizmoActor->TargetLandscapeInfo);
 				if (IsSlowTask)
@@ -1493,18 +1492,17 @@ bool FEdModeLandscape::ProcessEditPaste()
 
 		if (!Result)
 		{
-			TArray<ALandscapeBlueprintCustomBrush*> CurrentlySelectedBPBrush;
+			ALandscapeBlueprintCustomBrush* CurrentlySelectedBPBrush = nullptr;
 			for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
 			{
-				ALandscapeBlueprintCustomBrush* Actor = StaticCast<ALandscapeBlueprintCustomBrush*>(*It);
-
-				if (Actor != nullptr)
+				CurrentlySelectedBPBrush = Cast<ALandscapeBlueprintCustomBrush>(*It);
+				if (CurrentlySelectedBPBrush)
 				{
-					CurrentlySelectedBPBrush.Add(Actor);
+					break;
 				}
 			}
 
-			if (CurrentlySelectedBPBrush.Num() == 0)
+			if (!CurrentlySelectedBPBrush)
 			{
 				bool IsSlowTask = IsSlowSelect(CurrentGizmoActor->TargetLandscapeInfo);
 				if (IsSlowTask)
