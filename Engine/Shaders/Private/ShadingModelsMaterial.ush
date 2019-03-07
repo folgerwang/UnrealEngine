@@ -18,7 +18,6 @@ void SetGBufferForShadingModel(
 	const half  Specular,
 	const float Roughness,
 	const float3 SubsurfaceColor,
-	const float SubsurfaceProfile,
 	const float dither)
 {
 	GBuffer.WorldNormal = MaterialParameters.WorldNormal;
