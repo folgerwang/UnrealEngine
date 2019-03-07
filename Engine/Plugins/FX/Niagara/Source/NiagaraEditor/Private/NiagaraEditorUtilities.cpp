@@ -772,6 +772,66 @@ void FNiagaraEditorUtilities::PreprocessFunctionGraph(const UEdGraphSchema_Niaga
 
 }
 
+void FNiagaraEditorUtilities::GetFilteredScriptAssets(FGetFilteredScriptAssetsOptions InFilter, TArray<FAssetData>& OutFilteredScriptAssets)
+{
+	FARFilter ScriptFilter;
+	ScriptFilter.ClassNames.Add(UNiagaraScript::StaticClass()->GetFName());
+
+	const UEnum* NiagaraScriptUsageEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
+	const FString QualifiedScriptUsageString = NiagaraScriptUsageEnum->GetNameStringByValue(static_cast<uint8>(InFilter.ScriptUsageToInclude));
+	int32 LastColonIndex;
+	QualifiedScriptUsageString.FindLastChar(TEXT(':'), LastColonIndex);
+	const FString UnqualifiedScriptUsageString = QualifiedScriptUsageString.RightChop(LastColonIndex + 1);
+	ScriptFilter.TagsAndValues.Add(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UnqualifiedScriptUsageString);
+
+	const FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	AssetRegistryModule.Get().GetAssets(ScriptFilter, OutFilteredScriptAssets);
+
+	// We remove deprecated scripts separately as FARFilter does not support filtering by non-string tags.
+	if (InFilter.bIncludeDeprecatedScripts == false)
+	{
+		bool bScriptIsDeprecated = false;
+		bool bFoundDeprecatedTag = false;
+		for (int i = OutFilteredScriptAssets.Num() - 1; i >= 0; --i)
+		{
+			bFoundDeprecatedTag = OutFilteredScriptAssets[i].GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, bDeprecated), bScriptIsDeprecated);
+			// If the asset does not have the metadata tag, check if it is loaded and if so check the bDeprecated value directly
+			if (bFoundDeprecatedTag == false)
+			{
+				if (OutFilteredScriptAssets[i].IsAssetLoaded())
+				{
+					UNiagaraScript* Script = static_cast<UNiagaraScript*>(OutFilteredScriptAssets[i].GetAsset());
+					if (Script != nullptr)
+					{
+						bScriptIsDeprecated = Script->bDeprecated;
+					}
+				}
+			}
+			if (bScriptIsDeprecated)
+			{
+				OutFilteredScriptAssets.RemoveAt(i);
+			}
+		}
+	}
+	// We remove scripts with non matching usage bitmasks separately as FARFilter does not support filtering by non-string tags.
+	if (InFilter.TargetUsageToMatch.IsSet())
+	{
+		FString BitfieldTagValue;
+		int32 BitfieldValue, TargetBit;
+		for (int i = OutFilteredScriptAssets.Num() - 1; i >= 0; --i)
+		{
+			BitfieldTagValue = OutFilteredScriptAssets[i].GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
+			BitfieldValue = FCString::Atoi(*BitfieldTagValue);
+
+			TargetBit = (BitfieldValue >> (int32)InFilter.TargetUsageToMatch.GetValue()) & 1;
+			if (TargetBit != 1)
+			{
+				OutFilteredScriptAssets.RemoveAt(i);
+			}
+		}
+	}
+}
+
 UNiagaraNodeOutput* FNiagaraEditorUtilities::GetScriptOutputNode(UNiagaraScript& Script)
 {
 	UNiagaraScriptSource* Source = CastChecked<UNiagaraScriptSource>(Script.GetSource());

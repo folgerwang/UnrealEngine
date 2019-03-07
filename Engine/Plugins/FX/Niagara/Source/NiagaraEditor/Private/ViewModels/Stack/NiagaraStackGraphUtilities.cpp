@@ -1236,37 +1236,6 @@ void FNiagaraStackGraphUtilities::GetNewParameterAvailableTypes(TArray<FNiagaraT
 	}
 }
 
-void FNiagaraStackGraphUtilities::GetScriptAssetsByUsage(ENiagaraScriptUsage AssetUsage, ENiagaraScriptUsage TargetUsage, TArray<FAssetData>& OutAssets)
-{
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	TArray<FAssetData> ScriptAssets;
-	AssetRegistryModule.Get().GetAssetsByClass(UNiagaraScript::StaticClass()->GetFName(), ScriptAssets);
-
-	UEnum* NiagaraScriptUsageEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
-
-	for (const FAssetData& ScriptAsset : ScriptAssets)
-	{
-		FName CandidateUsageName;
-		ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), CandidateUsageName);
-		FString QualifiedCandidateUsageName = "ENiagaraScriptUsage::" + CandidateUsageName.ToString();
-		int32 CandidateUsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedCandidateUsageName);
-		if (CandidateUsageIndex != INDEX_NONE)
-		{
-			ENiagaraScriptUsage CandidateAssetUsage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(CandidateUsageIndex));
-			if (CandidateAssetUsage == AssetUsage)
-			{
-				const FString TargetUsageBitfieldTagValue = ScriptAsset.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
-				int32 TargetUsageBitfieldValue = FCString::Atoi(*TargetUsageBitfieldTagValue);
-				bool bTargetUsageBitfieldHasTargetUsage = ((TargetUsageBitfieldValue >> (int32)TargetUsage) & 1) == 1;
-				if (bTargetUsageBitfieldHasTargetUsage)
-				{
-					OutAssets.Add(ScriptAsset);
-				}
-			}
-		}
-	}
-}
-
 void FNiagaraStackGraphUtilities::GetScriptAssetsByDependencyProvided(ENiagaraScriptUsage AssetUsage, FName DependencyName, TArray<FAssetData>& OutAssets)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));

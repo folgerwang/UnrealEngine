@@ -393,82 +393,44 @@ TArray<TSharedPtr<FNiagaraSchemaAction_NewNode> > UEdGraphSchema_Niagara::GetGra
 	};
 
 	//Add functions
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	TArray<FAssetData> ScriptAssets;
-	AssetRegistryModule.Get().GetAssetsByClass(UNiagaraScript::StaticClass()->GetFName(), ScriptAssets);
-	UEnum* NiagaraScriptUsageEnum = FindObjectChecked<UEnum>(ANY_PACKAGE, TEXT("ENiagaraScriptUsage"), true);
 	if (GbAllowAllNiagaraNodesInEmitterGraphs || bModuleGraph || bFunctionGraph || bDynamicInputGraph)
 	{
-		for (const FAssetData& ScriptAsset : ScriptAssets)
-		{
-			FName UsageName;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
+		TArray<FAssetData> FunctionScriptAssets;
+		FNiagaraEditorUtilities::FGetFilteredScriptAssetsOptions FunctionScriptFilterOptions;
+		FunctionScriptFilterOptions.ScriptUsageToInclude = ENiagaraScriptUsage::Function;
+		FNiagaraEditorUtilities::GetFilteredScriptAssets(FunctionScriptFilterOptions, FunctionScriptAssets);
 
-			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
-			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
-			if (UsageIndex != INDEX_NONE)
-			{
-				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
-				if (Usage == ENiagaraScriptUsage::Function)
-				{
-					AddScriptFunctionAction(LOCTEXT("Function Menu Title", "Functions"), ScriptAsset);
-				}
-			}
+		for (const FAssetData& FunctionScriptAsset : FunctionScriptAssets)
+		{
+			AddScriptFunctionAction(LOCTEXT("Function Menu Title", "Functions"), FunctionScriptAsset);
 		}
 	}
 
 	//Add modules
 	if (!bFunctionGraph)
 	{
-		for (const FAssetData& ScriptAsset : ScriptAssets)
+		TArray<FAssetData> ModuleScriptAssets;
+		FNiagaraEditorUtilities::FGetFilteredScriptAssetsOptions ModuleScriptFilterOptions;
+		ModuleScriptFilterOptions.ScriptUsageToInclude = ENiagaraScriptUsage::Module;
+		FNiagaraEditorUtilities::GetFilteredScriptAssets(ModuleScriptFilterOptions, ModuleScriptAssets);
+
+		for (const FAssetData& ModuleScriptAsset : ModuleScriptAssets)
 		{
-			FName UsageName;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
-			const FString BitfieldTagValue = ScriptAsset.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UNiagaraScript, ModuleUsageBitmask));
-			int32 BitfieldValue = FCString::Atoi(*BitfieldTagValue);
-
-			ENiagaraScriptUsage TargetUsage = ENiagaraScriptUsage::Module;
-			if (bParticleUpdateGraph)
-			{
-				TargetUsage = ENiagaraScriptUsage::ParticleUpdateScript;
-			}
-			else if (bSystemGraph)
-			{
-				TargetUsage = ENiagaraScriptUsage::SystemSpawnScript;
-			}
-
-			int32 TargetBit = (BitfieldValue >> (int32)TargetUsage) & 1;
-
-			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
-			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
-			if (UsageIndex != INDEX_NONE && TargetBit == 1)
-			{
-				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
-				if (Usage == ENiagaraScriptUsage::Module)
-				{
-					AddScriptFunctionAction(LOCTEXT("Module Menu Title", "Modules"), ScriptAsset);
-				}
-			}
+			AddScriptFunctionAction(LOCTEXT("Module Menu Title", "Modules"), ModuleScriptAsset);
 		}
 	}
 
 	// Add dynamic inputs for default usage in module and dynamic input graphs
 	if (bModuleGraph || bDynamicInputGraph)
 	{
-		for (const FAssetData& ScriptAsset : ScriptAssets)
+		TArray<FAssetData> DynamicInputScriptAssets;
+		FNiagaraEditorUtilities::FGetFilteredScriptAssetsOptions DynamicInputScriptFilterOptions;
+		DynamicInputScriptFilterOptions.ScriptUsageToInclude = ENiagaraScriptUsage::DynamicInput;
+		FNiagaraEditorUtilities::GetFilteredScriptAssets(DynamicInputScriptFilterOptions, DynamicInputScriptAssets);
+
+		for (const FAssetData& DynamicInputScriptAsset : DynamicInputScriptAssets)
 		{
-			FName UsageName;
-			ScriptAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, Usage), UsageName);
-			FString QualifiedUsageName = "ENiagaraScriptUsage::" + UsageName.ToString();
-			int32 UsageIndex = NiagaraScriptUsageEnum->GetIndexByNameString(QualifiedUsageName);
-			if (UsageIndex != INDEX_NONE)
-			{
-				ENiagaraScriptUsage Usage = static_cast<ENiagaraScriptUsage>(NiagaraScriptUsageEnum->GetValueByIndex(UsageIndex));
-				if (Usage == ENiagaraScriptUsage::DynamicInput)
-				{
-					AddScriptFunctionAction(LOCTEXT("Dynamic Input Menu Title", "Dynamic Inputs"), ScriptAsset);
-				}
-			}
+			AddScriptFunctionAction(LOCTEXT("Dynamic Input Menu Title", "Dynamic Inputs"), DynamicInputScriptAsset);
 		}
 	}
 

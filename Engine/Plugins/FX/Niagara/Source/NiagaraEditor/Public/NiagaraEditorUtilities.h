@@ -6,6 +6,7 @@
 #include "NiagaraCommon.h"
 #include "UObject/StructOnScope.h"
 #include "Misc/Attribute.h"
+#include "AssetData.h"
 
 class UNiagaraNodeInput;
 class UNiagaraNodeOutput;
@@ -136,6 +137,27 @@ namespace FNiagaraEditorUtilities
 	void FixUpNumericPins(const UEdGraphSchema_Niagara* Schema, UNiagaraNode* Node);
 
 	void PreprocessFunctionGraph(const UEdGraphSchema_Niagara* Schema, UNiagaraGraph* Graph, const TArray<UEdGraphPin*>& CallInputs, const TArray<UEdGraphPin*>& CallOutputs, ENiagaraScriptUsage ScriptUsage);
+
+	/** Options for the GetScriptsByFilter function. 
+	** @Param ScriptUsageToInclude Only return Scripts that have this usage
+	** @Param (Optional) TargetUsageToMatch Only return Scripts that have this target usage (output node) 
+	** @Param bIncludeDeprecatedScripts Whether or not to return Scripts that are deprecated (defaults to false) 
+	*/
+	struct FGetFilteredScriptAssetsOptions
+	{
+		FGetFilteredScriptAssetsOptions()
+			: ScriptUsageToInclude(ENiagaraScriptUsage::Module)
+			, TargetUsageToMatch()
+			, bIncludeDeprecatedScripts(false)
+		{
+		}
+
+		ENiagaraScriptUsage ScriptUsageToInclude;
+		TOptional<ENiagaraScriptUsage> TargetUsageToMatch;
+		bool bIncludeDeprecatedScripts;
+	};
+
+	NIAGARAEDITOR_API void GetFilteredScriptAssets(FGetFilteredScriptAssetsOptions InFilter, TArray<FAssetData>& OutFilteredScriptAssets); 
 
 	NIAGARAEDITOR_API UNiagaraNodeOutput* GetScriptOutputNode(UNiagaraScript& Script);
 

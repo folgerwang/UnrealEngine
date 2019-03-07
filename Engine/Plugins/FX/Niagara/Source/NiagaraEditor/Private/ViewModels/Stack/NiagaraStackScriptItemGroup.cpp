@@ -169,8 +169,11 @@ public:
 
 		// Generate actions for adding script asset modules.
 		TArray<FAssetData> ModuleAssets;
-		FNiagaraStackGraphUtilities::GetScriptAssetsByUsage(ENiagaraScriptUsage::Module, OutputNode->GetUsage(), ModuleAssets);
-		for(const FAssetData& ModuleAsset : ModuleAssets)
+		FNiagaraEditorUtilities::FGetFilteredScriptAssetsOptions ModuleScriptFilterOptions;
+		ModuleScriptFilterOptions.ScriptUsageToInclude = ENiagaraScriptUsage::Module;
+		ModuleScriptFilterOptions.TargetUsageToMatch = OutputNode->GetUsage();
+		FNiagaraEditorUtilities::GetFilteredScriptAssets(ModuleScriptFilterOptions, ModuleAssets);
+		for (const FAssetData& ModuleAsset : ModuleAssets)
 		{
 			OutAddActions.Add(FScriptGroupAddAction::CreateAssetModuleAction(ModuleAsset));
 		}

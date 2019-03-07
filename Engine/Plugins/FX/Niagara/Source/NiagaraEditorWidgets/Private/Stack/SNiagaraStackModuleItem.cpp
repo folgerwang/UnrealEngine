@@ -352,7 +352,10 @@ void OnActionSelected(const TArray<TSharedPtr<FEdGraphSchemaAction>>& SelectedAc
 void CollectModuleActions(FGraphActionListBuilderBase& ModuleActions, UNiagaraStackModuleItem* ModuleItem)
 {
 	TArray<FAssetData> ModuleAssets;
-	FNiagaraStackGraphUtilities::GetScriptAssetsByUsage(ENiagaraScriptUsage::Module, ModuleItem->GetOutputNode()->GetUsage(), ModuleAssets);
+	FNiagaraEditorUtilities::FGetFilteredScriptAssetsOptions ModuleScriptFilterOptions;
+	ModuleScriptFilterOptions.ScriptUsageToInclude = ENiagaraScriptUsage::Module;
+	ModuleScriptFilterOptions.TargetUsageToMatch = ModuleItem->GetOutputNode()->GetUsage();
+	FNiagaraEditorUtilities::GetFilteredScriptAssets(ModuleScriptFilterOptions, ModuleAssets);
 	for (const FAssetData& ModuleAsset : ModuleAssets)
 	{
 		FText Category;
@@ -360,14 +363,6 @@ void CollectModuleActions(FGraphActionListBuilderBase& ModuleActions, UNiagaraSt
 		if (Category.IsEmptyOrWhitespace())
 		{
 			Category = LOCTEXT("ModuleNotCategorized", "Uncategorized Modules");
-		}
-
-		uint32 bDeprecatedModule;
-		ModuleAsset.GetTagValue(GET_MEMBER_NAME_CHECKED(UNiagaraScript, bDeprecated), bDeprecatedModule);
-
-		if (bDeprecatedModule)
-		{
-			continue;
 		}
 
 		FString DisplayNameString = FName::NameToDisplayString(ModuleAsset.AssetName.ToString(), false);
