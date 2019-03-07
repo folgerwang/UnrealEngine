@@ -687,7 +687,7 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				Log.TraceWarning("No Visual C++ installation was found. Please download and install Visual Studio 2015 with C++ components.");
+				Log.TraceWarning("No Visual C++ installation was found. Please download and install Visual Studio 2017 with C++ components.");
 			}
 
 			// Finally, default to VS2017 anyway
