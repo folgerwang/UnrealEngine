@@ -71,7 +71,7 @@ public:
 	 * @param InStrikeBrush The new brush to use to strike through text
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Appearance")
-	void SetStrikeBrush(FSlateBrush& InStrikeBrush);
+	void SetStrikeBrush(FSlateBrush InStrikeBrush);
 
 	/**
 	 *  Set the text justification for this text block

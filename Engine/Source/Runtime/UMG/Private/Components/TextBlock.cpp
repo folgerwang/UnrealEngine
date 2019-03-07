@@ -94,7 +94,7 @@ void UTextBlock::SetFont(FSlateFontInfo InFontInfo)
 	}
 }
 
-void UTextBlock::SetStrikeBrush(FSlateBrush& InStrikeBrush)
+void UTextBlock::SetStrikeBrush(FSlateBrush InStrikeBrush)
 {
 	StrikeBrush = InStrikeBrush;
 	if (MyTextBlock.IsValid())
