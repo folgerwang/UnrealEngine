@@ -27,6 +27,7 @@ class FMenuBuilder;
 class FSCSEditorTreeNode;
 class SSCSEditor;
 class UPrimitiveComponent;
+class FScopedTransaction;
 struct EventData;
 
 // SCS tree node pointer type
@@ -279,8 +280,11 @@ public:
 	 */
 	virtual bool CanRename() const { return false; }
 
-	/** Requests a rename on the component */
-	void OnRequestRename(bool bTransactional);
+	/**
+	 * Requests a rename on the component.
+	 * @param OngoingCreateTransaction The transaction scoping the node creation which will end once the node is named by the user or null if the rename is not part of a the creation process.
+	 */
+	void OnRequestRename(TUniquePtr<FScopedTransaction> OngoingCreateTransaction);
 
 	/** Renames the component */
 	virtual void OnCompleteRename(const FText& InNewName);
@@ -304,12 +308,8 @@ protected:
 	/** Used to update the EFilteredState::ChildMatches flag for parent nodes, when this item's filtration state has changed */
 	void ApplyFilteredStateToParent();
 	
-	bool GetAndClearNonTransactionalRenameFlag()
-	{
-		const bool bResult = bNonTransactionalRename;
-		bNonTransactionalRename = false;
-		return bResult;
-	}
+	// Scope the creation of a component which ends when the initial component 'name' is given/accepted by the user, which can be several frames after the component was actually created.
+	TUniquePtr<FScopedTransaction> OngoingCreateTransaction;
 
 	// Component template represented by this node, if it's a component node, otherwise invalid
 	TWeakObjectPtr<UActorComponent> ComponentTemplatePtr;
@@ -323,7 +323,6 @@ private:
 	TArray<FSCSEditorTreeNodePtrType> Children;
 
 	/** Handles rename requests */
-	bool bNonTransactionalRename;
 	FOnRenameRequested RenameRequestedDelegate;
 
 	enum EFilteredState
@@ -812,19 +811,21 @@ public:
 	UActorComponent* AddNewComponent(UClass* NewComponentClass, UObject* Asset, const bool bSkipMarkBlueprintModified = false, bool bSetFocusToNewItem = true);
 
 	/** Adds a new SCS Node to the component Table
+	   @param OngoingCreateTransaction (In) The transaction containing the creation of the node. The transaction will remain ongoing until the node gets its initial name from user.
 	   @param NewNode	(In) The SCS node to add
 	   @param Asset		(In) Optional asset to assign to the component
 	   @param bMarkBlueprintModified (In) Whether or not to mark the Blueprint as structurally modified
 	   @param bSetFocusToNewItem (In) Select the new item and activate the inline rename widget (default is true)
 	   @return The reference of the newly created ActorComponent */
-	UActorComponent* AddNewNode(USCS_Node* NewNode, UObject* Asset, bool bMarkBlueprintModified, bool bSetFocusToNewItem = true);
+	UActorComponent* AddNewNode(TUniquePtr<FScopedTransaction> OngoingCreateTransaction, USCS_Node* NewNode, UObject* Asset, bool bMarkBlueprintModified, bool bSetFocusToNewItem = true);
 
 	/** Adds a new component instance node to the component Table
+		@param OngoingCreateTransaction (In) The transaction containing the creation of the node. The transaction will remain ongoing until the node gets its initial name from user.
 		@param NewInstanceComponent	(In) The component being added to the actor instance
 		@param Asset (In) Optional asset to assign to the component
 		@param bSetFocusToNewItem (In) Select the new item and activate the inline rename widget (default is true)
 		@return The reference of the newly created ActorComponent */
-	UActorComponent* AddNewNodeForInstancedComponent(UActorComponent* NewInstanceComponent, UObject* Asset, bool bSetFocusToNewItem = true);
+	UActorComponent* AddNewNodeForInstancedComponent(TUniquePtr<FScopedTransaction> OngoingCreateTransaction, UActorComponent* NewInstanceComponent, UObject* Asset, bool bSetFocusToNewItem = true);
 	
 	/** Returns true if the specified component is currently selected */
 	bool IsComponentSelected(const UPrimitiveComponent* PrimComponent) const;
@@ -989,11 +990,18 @@ protected:
 
 	/** Checks to see if renaming is allowed on the selected component */
 	bool CanRenameComponent() const;
+
 	/**
-	 * Requests a rename on the selected component
-	 * @param bTransactional Whether or not the rename should be transactional (i.e. undoable)
+	 * Requests a rename on the selected component just after creation so that the user can provide the initial
+	 * component name (overwriting the default generated one), which is considered part of the creation process.
+	 * @param OngoingCreateTransaction The ongoing transaction started when the component was created.
 	 */
-	void OnRenameComponent(bool bTransactional);
+	void OnRenameComponent(TUniquePtr<FScopedTransaction> OngoingCreateTransaction);
+
+	/**
+	 * Requests a rename on the selected component.
+	 */
+	void OnRenameComponent();
 
 	/** Called when component objects are replaced following construction script execution */
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
@@ -1134,8 +1142,8 @@ public:
 	/** Name of a node that has been requested to be renamed */
 	FName DeferredRenameRequest;
 
-	/** Whether or not the deferred rename request was flagged as transactional */
-	bool bIsDeferredRenameRequestTransactional;
+	/** Scope the creation of a component which ends when the initial component 'name' is given/accepted by the user, which can be several frames after the component was actually created. */
+	TUniquePtr<FScopedTransaction> OngoingCreateTransaction;
 
 	/** Attribute that provides access to the Actor context for which we are viewing/editing the SCS. */
 	TAttribute<class AActor*> ActorContext;
