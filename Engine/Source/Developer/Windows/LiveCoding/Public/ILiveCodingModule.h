@@ -14,6 +14,7 @@ public:
 	virtual bool IsEnabled() const = 0;
 	virtual void ShowConsole() = 0;
 	virtual void TriggerRecompile() = 0;
+	virtual bool IsCompiling() const = 0;
 	virtual void Tick() = 0;
 };
 

@@ -1050,6 +1050,14 @@ void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 
 bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 {
+#if WITH_LIVE_CODING
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding != nullptr && LiveCoding->IsEnabled())
+	{
+		return !LiveCoding->IsCompiling();
+	}
+#endif
+
 	// We can't recompile while in PIE
 	if (GEditor->bIsPlayWorldQueued || GEditor->PlayWorld)
 	{

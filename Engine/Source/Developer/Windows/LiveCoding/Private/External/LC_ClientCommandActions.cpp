@@ -190,10 +190,17 @@ bool actions::LogOutput::Execute(CommandType* command, const DuplexPipe* pipe, v
 	return true;
 }
 
+// BEGIN EPIC MOD - Notification that compilation has finished
+extern bool GIsCompileActive;
+// END EPIC MOD
 
 bool actions::CompilationFinished::Execute(CommandType*, const DuplexPipe* pipe, void*)
 {
 	pipe->SendAck();
+
+	// BEGIN EPIC MOD - Notification that compilation has finished
+	GIsCompileActive = false;
+	// END EPIC MOD
 
 	// don't continue execution
 	return false;

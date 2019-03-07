@@ -18,6 +18,7 @@ IMPLEMENT_MODULE(FLiveCodingModule, LiveCoding)
 
 #define LOCTEXT_NAMESPACE "LiveCodingModule"
 
+bool GIsCompileActive = false;
 FString GLiveCodingConsolePath;
 FString GLiveCodingConsoleArguments;
 
@@ -135,15 +136,24 @@ void FLiveCodingModule::ShowConsole()
 
 void FLiveCodingModule::TriggerRecompile()
 {
-	if (!bStarted)
+	if(!GIsCompileActive)
 	{
-		bShouldStart = true;
-		Tick();
+		if (!bStarted)
+		{
+			bShouldStart = true;
+			Tick();
+		}
+		if(bStarted)
+		{
+			LppTriggerRecompile();
+			GIsCompileActive = true;
+		}
 	}
-	if(bStarted)
-	{
-		LppTriggerRecompile();
-	}
+}
+
+bool FLiveCodingModule::IsCompiling() const
+{
+	return GIsCompileActive;
 }
 
 void FLiveCodingModule::Tick()
