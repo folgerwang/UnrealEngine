@@ -384,26 +384,20 @@ namespace UnrealBuildTool
 			foreach (FileItem ProducedItem in RootAction.ProducedItems)
 			{
 				// Check if the command-line of the action previously used to produce the item is outdated.
-				string OldProducingCommandLine = "";
 				string NewProducingCommandLine = RootAction.CommandPath.FullName + " " + RootAction.CommandArguments;
-				if (!ActionHistory.TryGetProducingCommandLine(ProducedItem, out OldProducingCommandLine)
-				|| !String.Equals(OldProducingCommandLine, NewProducingCommandLine, StringComparison.OrdinalIgnoreCase))
+				if (ActionHistory.UpdateProducingCommandLine(ProducedItem, NewProducingCommandLine))
 				{
 					if(ProducedItem.Exists)
 					{
 						Log.TraceLog(
-							"{0}: Produced item \"{1}\" was produced by outdated command-line.\n  Old command-line: {2}\n  New command-line: {3}",
+							"{0}: Produced item \"{1}\" was produced by outdated command-line.\n  New command-line: {2}",
 							RootAction.StatusDescription,
 							Path.GetFileName(ProducedItem.AbsolutePath),
-							OldProducingCommandLine,
 							NewProducingCommandLine
 							);
 					}
 
 					bIsOutdated = true;
-
-					// Update the command-line used to produce this item in the action history.
-					ActionHistory.SetProducingCommandLine(ProducedItem, NewProducingCommandLine);
 				}
 
 				// If the produced file doesn't exist or has zero size, consider it outdated.  The zero size check is to detect cases

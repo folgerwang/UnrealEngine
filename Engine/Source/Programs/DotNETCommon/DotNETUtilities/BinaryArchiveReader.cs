@@ -231,6 +231,49 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Reads a byte array from the stream
+		/// </summary>
+		/// <param name="Length">Length of the array to read</param>
+		/// <returns>The data that was read</returns>
+		public byte[] ReadFixedSizeByteArray(int Length)
+		{
+			return ReadFixedSizePrimitiveArray<byte>(sizeof(byte), Length);
+		}
+
+		/// <summary>
+		/// Reads a short array from the stream
+		/// </summary>
+		/// <param name="Length">Length of the array to read</param>
+		/// <returns>The data that was read</returns>
+		public short[] ReadFixedSizeShortArray(int Length)
+		{
+			return ReadFixedSizePrimitiveArray<short>(sizeof(short), Length);
+		}
+
+		/// <summary>
+		/// Reads an int array from the stream
+		/// </summary>
+		/// <param name="Length">Length of the array to read</param>
+		/// <returns>The data that was read</returns>
+		public int[] ReadFixedSizeIntArray(int Length)
+		{
+			return ReadFixedSizePrimitiveArray<int>(sizeof(int), Length);
+		}
+
+		/// <summary>
+		/// Reads an array of primitive types from the stream
+		/// </summary>
+		/// <param name="ElementSize">Size of a single element</param>
+		/// <param name="ElementCount">Number of elements to read</param>
+		/// <returns>The data that was read</returns>
+		private T[] ReadFixedSizePrimitiveArray<T>(int ElementSize, int ElementCount) where T : struct
+		{
+			T[] Result = new T[ElementCount];
+			ReadBulkData(Result, ElementSize * ElementCount);
+			return Result;
+		}
+
+		/// <summary>
 		/// Reads bulk data from the stream into the given buffer
 		/// </summary>
 		/// <param name="Data">Array which receives the data that was read</param>

@@ -288,6 +288,42 @@ namespace Tools.DotNETCommon
 		}
 
 		/// <summary>
+		/// Writes an array of bytes to the output
+		/// </summary>
+		/// <param name="Data">Data to write. May be null.</param>
+		public void WriteFixedSizeByteArray(byte[] Data)
+		{
+			WriteFixedSizePrimitiveArray(Data, sizeof(byte));
+		}
+
+		/// <summary>
+		/// Writes an array of shorts to the output
+		/// </summary>
+		/// <param name="Data">Data to write. May be null.</param>
+		public void WriteFixedSizeShortArray(short[] Data)
+		{
+			WriteFixedSizePrimitiveArray(Data, sizeof(short));
+		}
+
+		/// <summary>
+		/// Writes an array of ints to the output
+		/// </summary>
+		/// <param name="Data">Data to write. May be null.</param>
+		public void WriteFixedSizeIntArray(int[] Data)
+		{
+			WriteFixedSizePrimitiveArray(Data, sizeof(int));
+		}
+
+		/// <summary>
+		/// Writes an array of primitive types to the output.
+		/// </summary>
+		/// <param name="Data">Data to write. May be null.</param>
+		private void WriteFixedSizePrimitiveArray<T>(T[] Data, int ElementSize) where T : struct
+		{
+			WriteBulkData(Data, Data.Length * ElementSize);
+		}
+
+		/// <summary>
 		/// Writes primitive data from the given array to the output buffer.
 		/// </summary>
 		/// <param name="Data">Data to write.</param>

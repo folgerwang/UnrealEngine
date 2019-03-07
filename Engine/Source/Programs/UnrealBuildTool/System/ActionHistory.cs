@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
+using System.Text;
 using Tools.DotNETCommon;
 
 namespace UnrealBuildTool
@@ -17,7 +19,12 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Version number to check
 		/// </summary>
-		const int CurrentVersion = 1;
+		const int CurrentVersion = 2;
+
+		/// <summary>
+		/// Size of each hash value
+		/// </summary>
+		const int HashLength = 16;
 
 		/// <summary>
 		/// Path to store the cache data to.
@@ -37,7 +44,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// The command lines used to produce files, keyed by the absolute file paths.
 		/// </summary>
-		Dictionary<FileItem, string> OutputItemToCommandLine = new Dictionary<FileItem, string>();
+		Dictionary<FileItem, byte[]> OutputItemToCommandLineHash = new Dictionary<FileItem, byte[]>();
 
 		/// <summary>
 		/// Whether the dependency cache is dirty and needs to be saved.
@@ -88,7 +95,7 @@ namespace UnrealBuildTool
 						return;
 					}
 
-					OutputItemToCommandLine = Reader.ReadDictionary(() => Reader.ReadFileItem(), () => Reader.ReadString());
+					OutputItemToCommandLineHash = Reader.ReadDictionary(() => Reader.ReadFileItem(), () => Reader.ReadFixedSizeByteArray(HashLength));
 				}
 			}
 			catch(Exception Ex)
@@ -107,9 +114,39 @@ namespace UnrealBuildTool
 			using(BinaryArchiveWriter Writer = new BinaryArchiveWriter(Location))
 			{
 				Writer.WriteInt(CurrentVersion);
-				Writer.WriteDictionary(OutputItemToCommandLine, Key => Writer.WriteFileItem(Key), Value => Writer.WriteString(Value));
+				Writer.WriteDictionary(OutputItemToCommandLineHash, Key => Writer.WriteFileItem(Key), Value => Writer.WriteFixedSizeByteArray(Value));
 			}
 			bModified = false;
+		}
+
+		/// <summary>
+		/// Computes the case-invariant hash for a string
+		/// </summary>
+		/// <param name="Text">The text to hash</param>
+		/// <returns>Hash of the string</returns>
+		static byte[] ComputeHash(string Text)
+		{
+			string InvariantText = Text.ToUpperInvariant();
+			byte[] InvariantBytes = Encoding.Unicode.GetBytes(InvariantText);
+			return new MD5CryptoServiceProvider().ComputeHash(InvariantBytes);
+		}
+
+		/// <summary>
+		/// Compares two hashes for equality
+		/// </summary>
+		/// <param name="A">The first hash value</param>
+		/// <param name="B">The second hash value</param>
+		/// <returns>True if the hashes are equal</returns>
+		static bool CompareHashes(byte[] A, byte[] B)
+		{
+			for(int Idx = 0; Idx < HashLength; Idx++)
+			{
+				if(A[Idx] != B[Idx])
+				{
+					return false;
+				}
+			}
+			return true;
 		}
 
 		/// <summary>
@@ -118,39 +155,26 @@ namespace UnrealBuildTool
 		/// <param name="File">The output file to look for</param>
 		/// <param name="CommandLine">Receives the command line used to produce this file</param>
 		/// <returns>True if the output item exists</returns>
-		public bool TryGetProducingCommandLine(FileItem File, out string CommandLine)
+		public bool UpdateProducingCommandLine(FileItem File, string CommandLine)
 		{
 			if(File.Location.IsUnderDirectory(BaseDirectory) || Parent == null)
 			{
+				byte[] NewHash = ComputeHash(CommandLine);
 				lock (LockObject)
 				{
-					return OutputItemToCommandLine.TryGetValue(File, out CommandLine);
+					byte[] CurrentHash;
+					if(!OutputItemToCommandLineHash.TryGetValue(File, out CurrentHash) || !CompareHashes(CurrentHash, NewHash))
+					{
+						OutputItemToCommandLineHash[File] = NewHash;
+						bModified = true;
+						return true;
+					}
+					return false;
 				}
 			}
 			else
 			{
-				return Parent.TryGetProducingCommandLine(File, out CommandLine);
-			}
-		}
-
-		/// <summary>
-		/// Updates the producing command line for the given file
-		/// </summary>
-		/// <param name="File">The output file to update</param>
-		/// <param name="CommandLine">The command line used to produce this file</param>
-		public void SetProducingCommandLine(FileItem File, string CommandLine)
-		{
-			if(File.Location.IsUnderDirectory(BaseDirectory) || Parent == null)
-			{
-				lock(LockObject)
-				{
-					OutputItemToCommandLine[File] = CommandLine;
-					bModified = true;
-				}
-			}
-			else
-			{
-				Parent.SetProducingCommandLine(File, CommandLine);
+				return Parent.UpdateProducingCommandLine(File, CommandLine);
 			}
 		}
 
@@ -173,7 +197,7 @@ namespace UnrealBuildTool
 				AppName = UEBuildTarget.GetAppNameForTargetType(TargetType);
 			}
 
-			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", Platform.ToString(), AppName, "ActionHistory.dat");
+			return FileReference.Combine(UnrealBuildTool.EngineDirectory, "Intermediate", "Build", Platform.ToString(), AppName, "ActionHistory.bin");
 		}
 
 		/// <summary>
@@ -185,7 +209,7 @@ namespace UnrealBuildTool
 		/// <returns>Path to the project action history</returns>
 		public static FileReference GetProjectLocation(FileReference ProjectFile, string TargetName, UnrealTargetPlatform Platform)
 		{
-			return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", Platform.ToString(), TargetName, "ActionHistory.dat");
+			return FileReference.Combine(ProjectFile.Directory, "Intermediate", "Build", Platform.ToString(), TargetName, "ActionHistory.bin");
 		}
 
 		/// <summary>
