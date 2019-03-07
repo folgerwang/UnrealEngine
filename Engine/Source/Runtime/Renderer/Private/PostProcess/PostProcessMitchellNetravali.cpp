@@ -77,7 +77,7 @@ void FRCPassMitchellNetravaliDownsample::Process(FRenderingCompositePassContext&
 		DestRect.Width(), DestRect.Height());
 
 	// Common setup
-	SetRenderTarget(Context.RHICmdList, nullptr, nullptr);
+	UnbindRenderTargets(Context.RHICmdList);
 	Context.SetViewportAndCallRHI(DestRect, 0.0f, 1.0f);
 
 	FTextureRHIRef EyeAdaptationTex = GWhiteTexture->TextureRHI;

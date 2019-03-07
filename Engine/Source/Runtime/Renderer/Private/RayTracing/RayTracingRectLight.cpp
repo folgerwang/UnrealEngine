@@ -270,7 +270,9 @@ void FDeferredShadingSceneRenderer::VisualizeRectLightMipTree(
 		SceneContext.GetSceneColor()->GetRenderTargetItem().TargetableTexture,
 		RectLightMipTreeRT->GetRenderTargetItem().TargetableTexture
 	};
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	SetRenderTargets(RHICmdList, 2, RenderTargets, SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilNop);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	// PSO definition
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;

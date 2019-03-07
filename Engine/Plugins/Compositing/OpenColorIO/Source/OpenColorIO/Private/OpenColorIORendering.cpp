@@ -71,13 +71,8 @@ static void ProcessOCIOColorSpaceTransform_RenderThread(
 
 	SCOPED_DRAW_EVENT(InRHICmdList, ProcessOCIOColorSpaceTransform);
 
-	// Set render target.
-	SetRenderTarget(
-		InRHICmdList,
-		OutputSpaceColorResource->TextureRHI,
-		FTextureRHIRef(),
-		ESimpleRenderTargetMode::EUninitializedColorAndDepth,
-		FExclusiveDepthStencil::DepthNop_StencilNop);
+	FRHIRenderPassInfo RPInfo(OutputSpaceColorResource->TextureRHI, ERenderTargetActions::DontLoad_Store);
+	InRHICmdList.BeginRenderPass(RPInfo, TEXT("ProcessOCIOColorSpaceXfrm"));
 
 	FIntPoint Resolution(OutputSpaceColorResource->GetSizeX(), OutputSpaceColorResource->GetSizeY());
 
@@ -115,7 +110,7 @@ static void ProcessOCIOColorSpaceTransform_RenderThread(
 	InRHICmdList.DrawPrimitive(0, 2, 1);
 
 	// Resolve render target.
-	InRHICmdList.CopyToResolveTarget(OutputSpaceColorResource->TextureRHI, OutputSpaceColorResource->TextureRHI, FResolveParams());
+	InRHICmdList.EndRenderPass();
 }
 
 // static

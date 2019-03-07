@@ -667,7 +667,9 @@ void UMediaCapture::OnEndFrame_GameThread()
 					// convert the source with a draw call
 					FGraphicsPipelineStateInitializer GraphicsPSOInit;
 					FRHITexture* RenderTarget = DestRenderTarget.TargetableTexture.GetReference();
+					PRAGMA_DISABLE_DEPRECATION_WARNINGS
 					SetRenderTargets(RHICmdList, 1, &RenderTarget, nullptr, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthNop_StencilNop);
+					PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 					RHICmdList.ApplyCachedRenderTargets(GraphicsPSOInit);
 

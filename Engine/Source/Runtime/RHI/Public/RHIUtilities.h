@@ -418,6 +418,7 @@ inline void TransitionRenderPassTargets(FRHICommandList& RHICmdList, const FRHIR
 }
 
 /** Helper for the common case of using a single color and depth render target. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, bool bWritableBarrier = false)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, ERenderTargetLoadAction::ELoad);
@@ -428,10 +429,13 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, NULL);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, ESimpleRenderTargetMode Mode, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite, bool bWritableBarrier = false)
 {
 	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction, StencilLoadAction;
@@ -447,7 +451,9 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	// now make the FRHISetRenderTargetsInfo that encapsulates all of the info
 	FRHIRenderTargetView ColorView(NewRenderTarget, 0, -1, ColorLoadAction, ColorStoreAction);
 	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView(NewDepthStencilTarget, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess));
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargetsAndClear(Info);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
@@ -462,7 +468,9 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
@@ -477,7 +485,9 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 	{
 		TransitionSetRenderTargetsHelper(RHICmdList, NewRenderTarget, NewDepthStencilTarget, FExclusiveDepthStencil::DepthWrite_StencilWrite);
 	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
@@ -506,10 +516,13 @@ inline void SetRenderTargets(
 	}
 
 	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, ERenderTargetLoadAction::ELoad, ERenderTargetStoreAction::EStore);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, NewNumUAVs, UAVs);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+UE_DEPRECATED(4.22, "SetRenderTargets API is deprecated; please use RHIBegin/EndRenderPass instead.")
 inline void SetRenderTargets(
 	FRHICommandList& RHICmdList,
 	uint32 NewNumSimultaneousRenderTargets,
@@ -538,9 +551,12 @@ inline void SetRenderTargets(
 	}
 
 	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, DepthLoadAction, DepthStoreAction, StencilLoadAction, StencilStoreAction, DepthStencilAccess);
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, 0, nullptr);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
+// Will soon be deprecated as well...
 inline void UnbindRenderTargets(FRHICommandList& RHICmdList)
 {
 	check(RHICmdList.IsOutsideRenderPass());

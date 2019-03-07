@@ -453,7 +453,9 @@ void FVisualizeTexturePresent::PresentContent(FRHICommandListImmediate& RHICmdLi
 	}
 
 	auto& RenderTarget = View.Family->RenderTarget->GetRenderTargetTexture();
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	SetRenderTarget(RHICmdList, RenderTarget, FTextureRHIRef(), true);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 	RHICmdList.SetViewport(DestRect.Min.X, DestRect.Min.Y, 0.0f, DestRect.Max.X, DestRect.Max.Y, 1.0f);
 
 	FGraphicsPipelineStateInitializer GraphicsPSOInit;
