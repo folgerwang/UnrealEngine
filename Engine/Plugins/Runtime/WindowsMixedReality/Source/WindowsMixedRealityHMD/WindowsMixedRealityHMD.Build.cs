@@ -30,7 +30,9 @@ namespace UnrealBuildTool.Rules
             {
                 releaseId = Convert.ToInt32(releaseIdString);
             }
-            bool bAllowWindowsMixedReality = (releaseId >= 1803);
+
+            bool bIsBuildMachine = Environment.GetEnvironmentVariable("IsBuildMachine") == "1";
+            bool bAllowWindowsMixedReality = (releaseId >= 1803) || bIsBuildMachine;
 
             if (bAllowWindowsMixedReality)
             {
