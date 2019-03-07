@@ -8,6 +8,7 @@
 #include "IAssetRegistry.h"
 #include "AssetRegistryModule.h"
 #include "UObject/UObjectGlobals.h"
+#include "TakesCoreFwd.h"
 
 class UWorld;
 class ULevelSequence;
@@ -86,5 +87,50 @@ namespace TakesUtils
 		}
 
 		return true;
+	}
+
+	/**
+	 * Utility function that creates an asset with the specified asset path and name.
+	 * If the asset cannot be created (as one already exists), we try to postfix the asset
+	 * name until we can successfully create the asset.
+	 */
+	template<typename AssetType>
+	static AssetType* MakeNewAsset(const FString& BaseAssetPath, const FString& BaseAssetName)
+	{
+		const FString Dot(TEXT("."));
+		FString AssetPath = BaseAssetPath;
+		FString AssetName = BaseAssetName;
+		AssetName = AssetName.Replace(TEXT("."), TEXT("_"));
+
+		AssetPath /= AssetName;
+		AssetPath += Dot + AssetName;
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		FAssetData AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*AssetPath);
+
+		// if object with same name exists, try a different name until we don't find one
+		int32 ExtensionIndex = 0;
+		while (AssetData.IsValid() && AssetData.GetClass() == AssetType::StaticClass())
+		{
+			AssetName = FString::Printf(TEXT("%s_%d"), *AssetName, ExtensionIndex);
+			AssetPath = (BaseAssetPath / AssetName) + Dot + AssetName;
+			AssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*AssetPath);
+
+			ExtensionIndex++;
+		}
+
+		// Create the new asset in the package we just made
+		AssetPath = (BaseAssetPath / AssetName);
+
+		FString FileName;
+		if (FPackageName::TryConvertLongPackageNameToFilename(AssetPath, FileName))
+		{
+			UObject* Package = CreatePackage(nullptr, *AssetPath);
+			return NewObject<AssetType>(Package, *AssetName, RF_Public | RF_Standalone);
+		}
+
+		UE_LOG(LogTakesCore, Error, TEXT("Couldn't create file for package %s"), *AssetPath);
+
+		return nullptr;
 	}
 }

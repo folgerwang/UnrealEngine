@@ -8,7 +8,6 @@
 #include "AnimationRecorder.h"
 #include "MovieScene.h"
 #include "AssetRegistryModule.h"
-#include "SequenceRecorderUtils.h"
 #include "SequenceRecorderSettings.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimSequence.h"
@@ -40,7 +39,7 @@ void UMovieSceneAnimationTrackRecorder::CreateAnimationAssetAndSequence(const AA
 	{
 		ComponentTransform = SkeletalMeshComponent->GetComponentToWorld().GetRelativeTransform(Actor->GetTransform());
 		FString AnimationAssetName = Actor->GetActorLabel();
-		AnimSequence = SequenceRecorderUtils::MakeNewAsset<UAnimSequence>(AnimationDirectory.Path, AnimationAssetName);
+		AnimSequence = TakesUtils::MakeNewAsset<UAnimSequence>(AnimationDirectory.Path, AnimationAssetName);
 		if (AnimSequence.IsValid())
 		{
 			FAssetRegistryModule::AssetCreated(AnimSequence.Get());
