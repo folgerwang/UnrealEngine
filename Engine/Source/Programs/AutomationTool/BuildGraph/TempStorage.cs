@@ -1112,6 +1112,14 @@ namespace AutomationTool
 			{
 				return true;
 			}
+			if(FileName.Equals("dxil.dll", StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
+			if(FileName.Equals("dxcompiler.dll", StringComparison.OrdinalIgnoreCase))
+			{
+				return true;
+			}
 			return false;
 		}
 	}
