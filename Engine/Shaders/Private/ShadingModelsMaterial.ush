@@ -18,7 +18,8 @@ void SetGBufferForShadingModel(
 	const half  Specular,
 	const float Roughness,
 	const float3 SubsurfaceColor,
-	const float SubsurfaceProfile)
+	const float SubsurfaceProfile,
+	const float dither)
 {
 	GBuffer.WorldNormal = MaterialParameters.WorldNormal;
 	GBuffer.BaseColor = BaseColor;
@@ -86,6 +87,7 @@ void SetGBufferForShadingModel(
 	float LayerAttenuation = lerp( 1, (1 - F), ClearCoat );
 
 	GBuffer.BaseColor = lerp( BaseColor * LayerAttenuation, MetalSpec * Absorption * RefractionScale, Metallic * ClearCoat );
+	GBuffer.BaseColor+= dither / 255.f;
 	GBuffer.Specular *= lerp( 1, RefractionScale, ClearCoat );
 
 	GBuffer.CustomData.x = ClearCoat;
