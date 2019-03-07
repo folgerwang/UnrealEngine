@@ -42,11 +42,11 @@ inline uint64 GetShaderKeyForGfxStage(const FBoundShaderStateInput& BSI, ShaderS
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 	case ShaderStage::Geometry:
 		return GetShaderKey(BSI.GeometryShaderRHI);
-#endif
 	case ShaderStage::Hull:
 		return GetShaderKey(BSI.HullShaderRHI);
 	case ShaderStage::Domain:
 		return GetShaderKey(BSI.DomainShaderRHI);
+#endif
 	default:
 		check(0);
 	}

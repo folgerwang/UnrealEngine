@@ -25,7 +25,7 @@ namespace ShaderStage
 		Vertex			= 0,
 		Pixel			= 1,
 
-#if PLATFORM_ANDROID && !PLATFORM_LUMIN && !PLATFORM_LUMINGL4
+#if !VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		NumStages		= 2,
 
 		MaxNumSets		= 4,
@@ -49,11 +49,11 @@ namespace ShaderStage
 		switch (Stage)
 		{
 		case SF_Vertex:		return Vertex;
-		case SF_Hull:		return Hull;
-		case SF_Domain:		return Domain;
 		case SF_Pixel:		return Pixel;
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case SF_Geometry:	return Geometry;
+		case SF_Hull:		return Hull;
+		case SF_Domain:		return Domain;
 #endif
 		case SF_Compute:	return Compute;
 		default:
@@ -69,11 +69,11 @@ namespace ShaderStage
 		switch (Stage)
 		{
 		case EStage::Vertex:	return SF_Vertex;
-		case EStage::Hull:		return SF_Hull;
-		case EStage::Domain:	return SF_Domain;
 		case EStage::Pixel:		return SF_Pixel;
 #if VULKAN_SUPPORTS_GEOMETRY_SHADERS
 		case EStage::Geometry:	return SF_Geometry;
+		case EStage::Hull:		return SF_Hull;
+		case EStage::Domain:	return SF_Domain;
 #endif
 		default:
 			checkf(0, TEXT("Invalid shader Stage %d"), (int32)Stage);
