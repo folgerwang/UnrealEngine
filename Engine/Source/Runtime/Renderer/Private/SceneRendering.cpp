@@ -2869,32 +2869,28 @@ void FSceneRenderer::OnStartRender(FRHICommandListImmediate& RHICmdList)
 
 bool FSceneRenderer::ShouldCompositeEditorPrimitives(const FViewInfo& View)
 {
-	// If the show flag is enabled
-	if (!View.Family->EngineShowFlags.CompositeEditorPrimitives)
-	{
-		return false;
-	}
-
 	if (View.Family->EngineShowFlags.VisualizeHDR || View.Family->UseDebugViewPS())
 	{
 		// certain visualize modes get obstructed too much
 		return false;
 	}
 
-	if (GIsEditor && View.Family->EngineShowFlags.Wireframe)
+	if (View.Family->EngineShowFlags.Wireframe)
 	{
-		// In Editor we want wire frame view modes to be in MSAA
+		// We want wireframe view use MSAA if possible.
 		return true;
 	}
-
-	// Any elements that needed compositing were drawn then compositing should be done
-	if (View.ViewMeshElements.Num() 
-		|| View.TopViewMeshElements.Num() 
-		|| View.BatchedViewElements.HasPrimsToDraw() 
-		|| View.TopBatchedViewElements.HasPrimsToDraw() 
-		|| View.NumVisibleDynamicEditorPrimitives > 0)
+	else if (View.Family->EngineShowFlags.CompositeEditorPrimitives)
 	{
-		return true;
+	    // Any elements that needed compositing were drawn then compositing should be done
+	    if (View.ViewMeshElements.Num() 
+		    || View.TopViewMeshElements.Num() 
+		    || View.BatchedViewElements.HasPrimsToDraw() 
+		    || View.TopBatchedViewElements.HasPrimsToDraw() 
+		    || View.NumVisibleDynamicEditorPrimitives > 0)
+	    {
+		    return true;
+	    }
 	}
 
 	return false;

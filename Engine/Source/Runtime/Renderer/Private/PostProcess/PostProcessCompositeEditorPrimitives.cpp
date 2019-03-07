@@ -499,6 +499,9 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 	FIntPoint SrcSize = InputDesc->Extent;
 
+	// Editor primitive is used when rendering VMI_WIREFRAME in order to use MSAA.
+	// This mean we might not actually want to render composite editor primitives here.
+	if (Context.View.Family->EngineShowFlags.CompositeEditorPrimitives)
 	{
 		FRHIRenderPassInfo RPInfo;
 		RPInfo.ColorRenderTargets[0].RenderTarget = EditorColorTarget;

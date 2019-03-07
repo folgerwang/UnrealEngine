@@ -424,6 +424,7 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 		{
 			EngineShowFlags.SetLighting(false);
 			EngineShowFlags.AtmosphericFog = 0;
+			EngineShowFlags.Fog = (ViewModeIndex == VMI_Unlit); // Only unlit uses it 
 		}
 
 		if( ViewModeIndex == VMI_Lit ||
