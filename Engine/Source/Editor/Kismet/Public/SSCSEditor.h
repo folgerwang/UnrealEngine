@@ -22,12 +22,12 @@
 #include "BlueprintEditor.h"
 #include "Widgets/SToolTip.h"
 #include "SComponentClassCombo.h"
+#include "ScopedTransaction.h"
 
 class FMenuBuilder;
 class FSCSEditorTreeNode;
 class SSCSEditor;
 class UPrimitiveComponent;
-class FScopedTransaction;
 struct EventData;
 
 // SCS tree node pointer type
