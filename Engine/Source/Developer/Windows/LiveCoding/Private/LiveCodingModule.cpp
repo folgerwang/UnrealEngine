@@ -27,12 +27,17 @@ FLiveCodingModule::FLiveCodingModule()
 	, bStarted(false)
 {
 #if WITH_EDITOR
-	GConfig->GetBool(TEXT("LiveCoding"), TEXT("Enabled"), bEnabled, GEditorPerProjectIni);
+//	GConfig->GetBool(TEXT("LiveCoding"), TEXT("Enabled"), bEnabled, GEditorPerProjectIni);
 #endif
 }
 
 void FLiveCodingModule::StartupModule()
 {
+	if(FParse::Param(FCommandLine::Get(), TEXT("LiveCoding")))
+	{
+		bEnabled = true;
+	}
+
 	IConsoleManager& ConsoleManager = IConsoleManager::Get();
 
 	EnableCommand = ConsoleManager.RegisterConsoleCommand(
@@ -49,7 +54,7 @@ void FLiveCodingModule::StartupModule()
 		ECVF_Cheat
 	);
 
-	EndFrameDelegateHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FLiveCodingModule::OnEndFrame);
+	EndFrameDelegateHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FLiveCodingModule::Tick);
 
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if (SettingsModule != nullptr)
@@ -130,10 +135,18 @@ void FLiveCodingModule::ShowConsole()
 
 void FLiveCodingModule::TriggerRecompile()
 {
-	LppTriggerRecompile();
+	if (!bStarted)
+	{
+		bShouldStart = true;
+		Tick();
+	}
+	if(bStarted)
+	{
+		LppTriggerRecompile();
+	}
 }
 
-void FLiveCodingModule::OnEndFrame()
+void FLiveCodingModule::Tick()
 {
 	if (bShouldStart && !bStarted)
 	{
