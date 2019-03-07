@@ -86,7 +86,7 @@ bool FSourceCodeAccessModule::IsSourceCodeAccessorAvailable(FName Name) const
 	{
 		if (Accessor->GetFName() == Name)
 		{
-			return true;
+			return Accessor->CanAccessSourceCode();
 		}
 	}
 	return false;
