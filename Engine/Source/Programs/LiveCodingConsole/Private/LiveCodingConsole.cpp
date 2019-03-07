@@ -303,6 +303,8 @@ private:
 	{
 		if (!CompileNotification.IsValid())
 		{
+			ShowConsole();
+
 			FNotificationInfo Info(FText::FromString(TEXT("Starting...")));
 			Info.bFireAndForget = false;
 			Info.FadeOutDuration = 0.0f;

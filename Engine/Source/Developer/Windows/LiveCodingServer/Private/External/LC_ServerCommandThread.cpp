@@ -566,6 +566,23 @@ unsigned int __stdcall ServerCommandThread::CompileThreadProxy(void* context)
 	return instance->CompileThread();
 }
 
+// BEGIN EPIC MOD - Focus application windows on patch complete
+BOOL CALLBACK FocusApplicationWindows(HWND WindowHandle, LPARAM Lparam)
+{
+	DWORD WindowProcessId;
+    GetWindowThreadProcessId(WindowHandle, &WindowProcessId);
+
+	const types::vector<LiveProcess*>& Processes = *(const types::vector<LiveProcess*>*)Lparam;
+	for (LiveProcess* Process : Processes)
+	{
+		if (Process->GetProcessId() == WindowProcessId && IsWindowVisible(WindowHandle))
+		{
+			SetForegroundWindow(WindowHandle);
+		}
+	}
+    return Windows::TRUE;
+}
+// END EPIC MOD
 
 void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 {
@@ -765,6 +782,7 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 
 		case LiveModule::ErrorType::SUCCESS:
 			GLiveCodingServer->GetCompileFinishedDelegate().ExecuteIfBound(ELiveCodingResult::Success, L"Patch creation successful.");
+			EnumWindows(FocusApplicationWindows, (LPARAM)&m_liveProcesses);
 			break;
 
 		default:
