@@ -2,13 +2,15 @@
 
 #include "ObjectTemplates/DatasmithPostProcessVolumeTemplate.h"
 
+#include "ObjectTemplates/DatasmithActorTemplate.h"
+
 #include "Engine/PostProcessVolume.h"
 
 void UDatasmithPostProcessVolumeTemplate::Apply( UObject* Destination, bool bForce )
 {
 #if WITH_EDITORONLY_DATA
-	APostProcessVolume* PostProcessVolume = Cast< APostProcessVolume >( Destination );
 
+	APostProcessVolume* PostProcessVolume = UDatasmithActorTemplate::GetActor< APostProcessVolume >( Destination );
 	if ( !PostProcessVolume )
 	{
 		return;
@@ -28,8 +30,7 @@ void UDatasmithPostProcessVolumeTemplate::Apply( UObject* Destination, bool bFor
 void UDatasmithPostProcessVolumeTemplate::Load( const UObject* Source )
 {
 #if WITH_EDITORONLY_DATA
-	const APostProcessVolume* PostProcessVolume = Cast< APostProcessVolume >( Source );
-
+	const APostProcessVolume* PostProcessVolume = UDatasmithActorTemplate::GetActor< const APostProcessVolume >( Source );
 	if ( !PostProcessVolume )
 	{
 		return;
