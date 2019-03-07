@@ -740,14 +740,11 @@ bool FAvfMediaPlayer::Open(const FString& Url, const IMediaOptions* /*Options*/)
 
 	[[NSNotificationCenter defaultCenter] addObserver:MediaHelper selector:@selector(playerItemPlaybackEndReached:) name:AVPlayerItemDidPlayToEndTimeNotification object:PlayerItem];
 	[PlayerItem addObserver:MediaHelper forKeyPath:@"status" options:0 context:PlayerItem];
-
-	[MediaPlayer replaceCurrentItemWithPlayerItem : PlayerItem];
-	PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	[[MediaPlayer currentItem] seekToTime:kCMTimeZero];
-	PRAGMA_ENABLE_DEPRECATION_WARNINGS
-
+	
 	MediaPlayer.rate = 0.0;
 	CurrentTime = FTimespan::Zero();
+
+	[MediaPlayer replaceCurrentItemWithPlayerItem : PlayerItem];
 
 	if (!EnteredForegroundHandle.IsValid())
     {
@@ -818,10 +815,6 @@ void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 						if(Tracks->GetSelectedTrack(EMediaTrackType::Audio) != INDEX_NONE)
 						{
 							SyncTime = GetAudioTimeSync();
-						}
-						else if(Tracks->GetSelectedTrack(EMediaTrackType::Video) != INDEX_NONE)
-						{
-							SyncTime = GetVideoTimeSync();
 						}
 						else /* Default Use AVPlayer time*/
 #endif
