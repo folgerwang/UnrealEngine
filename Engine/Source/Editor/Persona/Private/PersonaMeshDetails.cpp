@@ -329,6 +329,17 @@ void SSkeletalLODActions::Construct(const FArguments& InArgs)
 /**
 * FPersonaMeshDetails
 */
+FPersonaMeshDetails::FPersonaMeshDetails(TSharedRef<class IPersonaToolkit> InPersonaToolkit) : PersonaToolkitPtr(InPersonaToolkit), MeshDetailLayout(nullptr)
+{
+	CustomLODEditMode = false;
+	bDeleteWarningConsumed = false;
+
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostLODImport.AddRaw(this, &FPersonaMeshDetails::OnAssetPostLODImported);
+}
+
+/**
+* FPersonaMeshDetails
+*/
 FPersonaMeshDetails::~FPersonaMeshDetails()
 {
 	if (HasValidPersonaToolkit())
@@ -336,6 +347,8 @@ FPersonaMeshDetails::~FPersonaMeshDetails()
 		TSharedRef<IPersonaPreviewScene> PreviewScene = GetPersonaToolkit()->GetPreviewScene();
 		PreviewScene->UnregisterOnPreviewMeshChanged(this);
 	}
+
+	GEditor->GetEditorSubsystem<UImportSubsystem>()->OnAssetPostLODImport.RemoveAll(this);
 }
 
 TSharedRef<IDetailCustomization> FPersonaMeshDetails::MakeInstance(TWeakPtr<class IPersonaToolkit> InPersonaToolkit)
@@ -1385,6 +1398,14 @@ bool FPersonaMeshDetails::IsLODInfoEditingEnabled(int32 LODIndex) const
 	return true;
 }
 
+void FPersonaMeshDetails::OnAssetPostLODImported(UObject* InObject, int32 InLODIndex)
+{
+	if (InObject == GetPersonaToolkit()->GetMesh())
+	{
+		MeshDetailLayout->ForceRefreshDetails();
+	}
+}
+
 void FPersonaMeshDetails::OnImportLOD(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo, IDetailLayoutBuilder* DetailLayout)
 {
 	int32 LODIndex = 0;
@@ -1394,8 +1415,6 @@ void FPersonaMeshDetails::OnImportLOD(TSharedPtr<FString> NewValue, ESelectInfo:
 		check(SkelMesh);
 
 		FbxMeshUtils::ImportMeshLODDialog(SkelMesh, LODIndex);
-
-		DetailLayout->ForceRefreshDetails();
 	}
 }
 

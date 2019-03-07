@@ -47,6 +47,8 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAssetPostImport, UFactory*, UObject*);
 	/** delegate type fired when new assets have been reimported. Note: InCreatedObject can be NULL if import failed. Params: UObject* InCreatedObject */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAssetReimport, UObject*);
+	/** delegate type fired when new LOD have been imported to an asset. */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAssetPostLODImport, UObject*, int32);
 
 	// Broadcast AssetPreImport, do not broadcast with OnAssetPostImport directly.
 	void BroadcastAssetPreImport(UFactory* InFactory, UClass* InClass, UObject* InParent, const FName& Name, const TCHAR* Type);
@@ -54,11 +56,14 @@ public:
 	void BroadcastAssetPostImport(UFactory* InFactory, UObject* InCreatedObject);
 	// Broadcast AssetReimport, do not broadcast with OnAssetReimport directly.
 	void BroadcastAssetReimport(UObject* InCreatedObject);
+	// Broadcast AssetPostLODImport, do not broadcast with OnAssetPostLODImport directly.
+	void BroadcastAssetPostLODImport(UObject* InObject, int32 inLODIndex);
 
 	// Used to register and unregister ONLY use Broadcast functions to execute the delegate
 	FOnAssetPreImport OnAssetPreImport;
 	FOnAssetPostImport OnAssetPostImport;
 	FOnAssetReimport OnAssetReimport;
+	FOnAssetPostLODImport OnAssetPostLODImport;
 
 private:
 
@@ -71,6 +76,8 @@ private:
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAssetPostImport_Dyn, UFactory*, InFactory, UObject*, InCreatedObject);
 	/** delegate type fired when new assets have been reimported. Note: InCreatedObject can be NULL if import failed. Params: UObject* InCreatedObject */
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAssetReimport_Dyn, UObject*, InCreatedObject);
+	/** delegate type fired when new LOD have been imported to an asset. */
+	DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAssetPostLODImport_Dyn, UObject*, InObject, int32, InLODIndex);
 
 	UPROPERTY(BlueprintAssignable, DisplayName = "OnAssetPreImport", meta = (ScriptName = "OnAssetPreImport"))
 	FOnAssetPreImport_Dyn OnAssetPreImport_BP;
@@ -78,6 +85,8 @@ private:
 	FOnAssetPostImport_Dyn OnAssetPostImport_BP;
 	UPROPERTY(BlueprintAssignable, DisplayName = "OnAssetReimport", meta = (ScriptName = "OnAssetReimport"))
 	FOnAssetReimport_Dyn OnAssetReimport_BP;
+	UPROPERTY(BlueprintAssignable, DisplayName = "OnAssetPostLODImport", meta = (ScriptName = "OnAssetPostLODImport"))
+	FOnAssetPostLODImport_Dyn OnAssetPostLODImport_BP;
 
 	/* Tasks waiting to be run next tick */
 	TQueue<TSharedPtr<IImportSubsystemTask>> PendingTasks;

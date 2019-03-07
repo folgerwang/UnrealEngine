@@ -161,4 +161,10 @@ void UImportSubsystem::BroadcastAssetReimport(UObject* InCreatedObject)
 	OnAssetReimport.Broadcast(InCreatedObject);
 	OnAssetReimport_BP.Broadcast(InCreatedObject);
 }
+
+void UImportSubsystem::BroadcastAssetPostLODImport(UObject* InObject, int32 inLODIndex)
+{
+	OnAssetPostLODImport.Broadcast(InObject, inLODIndex);
+	OnAssetPostLODImport_BP.Broadcast(InObject, inLODIndex);
+}
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
