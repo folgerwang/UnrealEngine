@@ -9,7 +9,9 @@
 #include "D3D11Util.h"
 
 #if WITH_WINDOWS_MIXED_REALITY
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "MixedRealityInterop.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 namespace WindowsMixedReality

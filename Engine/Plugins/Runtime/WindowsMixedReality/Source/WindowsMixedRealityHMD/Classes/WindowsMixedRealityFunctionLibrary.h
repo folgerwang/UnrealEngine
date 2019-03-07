@@ -7,7 +7,9 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 
 #if WITH_WINDOWS_MIXED_REALITY
+#include "Windows/AllowWindowsPlatformTypes.h"
 #include "MixedRealityInterop.h"
+#include "Windows/HideWindowsPlatformTypes.h"
 #endif
 
 #include "WindowsMixedRealityFunctionLibrary.Generated.h"
