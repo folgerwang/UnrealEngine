@@ -52,6 +52,9 @@ bool CORE_API GKSMMergeAllPages = false;
 // Used to enable or disable timing of ensures. Enabled by default
 bool CORE_API GTimeEnsures = true;
 
+// Allows settings a specific signal to maintain its default handler rather then ignoring the signal
+int32 CORE_API GSignalToDefault = 0;
+
 #if UE_SERVER
 // Scale factor for how much we would like to increase or decrease the memory pool size
 float CORE_API GPoolTableScale = 1.0f;
@@ -175,6 +178,20 @@ class FMalloc* FUnixPlatformMemory::BaseAllocator()
 				if (FCStringAnsi::Stricmp(Arg, "-noensuretiming") == 0)
 				{
 					GTimeEnsures = false;
+				}
+
+				const char SignalToDefaultCmd[] = "-sigdfl=";
+				if (const char* Cmd = FCStringAnsi::Stristr(Arg, SignalToDefaultCmd))
+				{
+					int32 SignalToDefault = FCStringAnsi::Atoi(Cmd + sizeof(SignalToDefaultCmd) - 1);
+
+					// Valid signals are only from 1 -> SIGRTMAX
+					if (SignalToDefault > SIGRTMAX)
+					{
+						SignalToDefault = 0;
+					}
+
+					GSignalToDefault = FMath::Max(SignalToDefault, 0);
 				}
 
 				const char FileMapCacheCmd[] = "-filemapcachesize=";

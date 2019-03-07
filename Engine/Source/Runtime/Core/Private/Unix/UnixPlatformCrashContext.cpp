@@ -735,6 +735,9 @@ void FUnixPlatformMisc::SetGracefulTerminationHandler()
 // reserve stack for the main thread in BSS
 char FRunnableThreadUnix::MainThreadSignalHandlerStack[FRunnableThreadUnix::EConstants::CrashHandlerStackSize];
 
+// Defined in UnixPlatformMemory.cpp. Allows settings a specific signal to maintain its default handler rather then ignoring it
+extern int32 GSignalToDefault;
+
 void FUnixPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext & Context))
 {
 	GCrashHandlerPointer = CrashHandler;
@@ -794,6 +797,11 @@ void FUnixPlatformMisc::SetCrashHandler(void (* CrashHandler)(const FGenericCras
 				bSignalShouldBeIgnored = false;
 				break;
 			}
+		}
+
+		if (GSignalToDefault && Signal == GSignalToDefault)
+		{
+			bSignalShouldBeIgnored = false;
 		}
 
 		if (bSignalShouldBeIgnored)
