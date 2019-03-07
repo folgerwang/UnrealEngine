@@ -1127,6 +1127,21 @@ void UAnimSharingInstance::TickOnDemandInstances()
 				else
 				{
 					SetupSlaveComponent(NewState, ActorIndex);
+
+					// If we are setting up a slave to an on-demand state that is not in use yet it needs to create a new On Demand Instance which will not be kicked-off yet, so do that directly.
+					if (PerStateData[NewState].bIsOnDemand)
+					{
+						const int32 OnDemandInstanceIndex = PerActorData[ActorIndex].OnDemandInstanceIndex;
+						if (OnDemandInstanceIndex != INDEX_NONE)
+						{
+							FOnDemandInstance& NewOnDemandInstance = OnDemandInstances[OnDemandInstanceIndex];
+							if (!NewOnDemandInstance.bActive)
+							{
+								NewOnDemandInstance.bActive = true;
+								NewOnDemandInstance.StartTime = WorldTime;
+							}
+						}
+					}
 				}
 
 				// Set actor states
