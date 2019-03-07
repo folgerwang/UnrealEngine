@@ -29,6 +29,8 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FPathTracingLightData, )
 	// Light-specific
 	SHADER_PARAMETER_ARRAY(FVector, Dimensions, [GLightCountMaximum])
 	SHADER_PARAMETER_ARRAY(float, Attenuation, [GLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(float, RectLightBarnCosAngle, [GLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(float, RectLightBarnLength, [GLightCountMaximum])
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
 

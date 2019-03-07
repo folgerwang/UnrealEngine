@@ -244,95 +244,18 @@ float GetLocalLightAttenuation(
 }
 
 #define RECLIGHT_BARNDOOR 1
+// Wrapper for FDeferredLightData for computing visible rect light (i.e., unoccluded by barn doors)
 FRect GetRect(float3 ToLight, FDeferredLightData LightData)
 {
-	// Is blocked by barn doors
-	FRect Rect;
-	Rect.Origin = ToLight;
-	Rect.Axis[1] = LightData.Tangent;
-	Rect.Axis[2] = LightData.Direction;
-	Rect.Axis[0] = cross( Rect.Axis[1], Rect.Axis[2] );
-	Rect.Extent = float2(LightData.SourceRadius, LightData.SourceLength);
-	Rect.FullExtent = Rect.Extent;
-	Rect.Offset = 0;
-
-#if RECLIGHT_BARNDOOR == 1
-	// Compute the visible rectangle from the current shading point. 
-	// The new rectangle will have reduced width/height, and a shifted origin
-	//
-	// Common setup for occlusion computation
-	// Notes: Barn angle & length are identical for all sides
-	//					D_B
-	//					<-->
-	//							D_S
-	//		            <--------------->     O         +X
-	//					   -------------.--------------->------       ^
-	//					  /        .          |                \      |
-	//					 /   .                |					\     |  BarnDepth
-	//				   ./                     |					 \    v
-	//		     .      C                     v +Z
-	//		.  
-	// .
-	// S
-	//
-	// Only compute the occluded rect if the barn door has an angle less 
-	// than 88 degrees
-	if (LightData.RectLightBarnCosAngle > 0.035f)
-	{	
-		const float3 LightNormal	=-Rect.Axis[2];
-		const float3 LightdPdv		=-Rect.Axis[1];
-		const float3 LightdPdu		=-Rect.Axis[0];
-		const float2 LightExtent	= float2(LightData.SourceRadius, LightData.SourceLength);
-		const float BarnLength		= LightData.RectLightBarnLength;
-	
-		// Project shading point S into light space
-    	const float3 S_World = -ToLight;
-        float3 S_Light = float3(dot(S_World, LightdPdu), dot(S_World, LightdPdv), dot(S_World, LightNormal));
-		
-		// Compute barn door projection (D_B). Clamp the projection to the shading point if it is closer 
-		// to the light than the actual barn door
-		// Theta is the angle between the Z axis and the barn door
-		const float CosTheta = LightData.RectLightBarnCosAngle;
-        const float SinTheta = sqrt(1 - max(0, CosTheta * CosTheta));
-        const float BarnDepth = min(S_Light.z, CosTheta * BarnLength);
-        const float S_ratio = BarnDepth / (CosTheta * BarnLength);
-		const float D_B	= SinTheta * BarnLength * S_ratio;
-		
-		// Clamp shading point onto the closest edge, if it is inside the rect light
-		const float2 SignS = sign(S_Light.xy);
-		S_Light.xy = float2(SignS.x, SignS.y) * max(abs(S_Light.xy), LightExtent + D_B.xx);
-		
-		// Compute the closest rect lignt corner, offset by the barn door size
-        const float3 C = float3(SignS.x * (LightExtent.x + D_B), SignS.y * (LightExtent.y + D_B), BarnDepth);
-			
-		// Compute projected distance (D_S) of barn door onto the rect light
-		// Eta is the angle between the Z axis and the direction vector (S-C)
-		const float3 SProj  = S_Light - C;
-		const float  CosEta = max(SProj.z, 0);
-		const float2 SinEta = abs(SProj.xy);
-		const float2 TanEta	= CosEta > 0.001f ? abs(SProj.xy)/CosEta : 10000.f;
-        const float2 D_S = BarnDepth * TanEta;
-
-		// Equivalent to (e.g., X axis):
-		//  if (SignS.x < 0) MinMaxX.x += D_S - D_B;
-		//  if (SignS.x > 0) MinMaxX.y -= D_S - D_B;
-		float2 MinMaxX = float2(-LightExtent.x, LightExtent.x);
-		float2 MinMaxY = float2(-LightExtent.y, LightExtent.y);
-		MinMaxX += (D_S.x - D_B) * float2(max(0, -SignS.x), -max(0, SignS.x));
-		MinMaxY += (D_S.y - D_B) * float2(max(0, -SignS.y), -max(0, SignS.y));					
-		MinMaxX = clamp(MinMaxX, -LightExtent.x, LightExtent.x);
-		MinMaxY = clamp(MinMaxY, -LightExtent.y, LightExtent.y);
-		
-        const float2 RectOffset = 0.5f * float2(MinMaxX.x + MinMaxX.y, MinMaxY.x + MinMaxY.y);
-
-        Rect.Extent = 0.5f * float2(MinMaxX.y - MinMaxX.x, MinMaxY.y - MinMaxY.x);
-        Rect.Origin = Rect.Origin +  LightdPdu * RectOffset.x + LightdPdv * RectOffset.y;
-		Rect.Offset = -RectOffset;
-		Rect.FullExtent = LightExtent;
-    }
-#endif
-
-	return Rect;
+	return GetRect(
+		ToLight, 
+		LightData.Direction, 
+		LightData.Tangent, 
+		LightData.SourceRadius, 
+		LightData.SourceLength, 
+		LightData.RectLightBarnCosAngle, 
+		LightData.RectLightBarnLength,
+		RECLIGHT_BARNDOOR);
 }
 
 FCapsuleLight GetCapsule( float3 ToLight, FDeferredLightData LightData )

@@ -107,6 +107,16 @@ float GetAttenuation(int LightId)
 	return SceneLightsData.Attenuation[LightId];
 }
 
+float GetRectLightBarnCosAngle(int LightId)
+{
+	return SceneLightsData.RectLightBarnCosAngle[LightId];
+}
+
+float GetRectLightBarnLength(int LightId)
+{
+	return SceneLightsData.RectLightBarnLength[LightId];
+}
+
 float ComputeAttenuationFalloff(float Distance, float Attenuation)
 {
 #ifdef USE_ATTENUATION_TERM

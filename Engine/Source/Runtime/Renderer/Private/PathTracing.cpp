@@ -201,6 +201,8 @@ public:
 						LightData.Color[LightData.Count] = LightParameters.Color / 4.0;
 						LightData.Dimensions[LightData.Count] = FVector(2.0f * LightParameters.SourceRadius, 2.0f * LightParameters.SourceLength, 0.0f);
 						LightData.Attenuation[LightData.Count] = 1.0 / LightParameters.InvRadius;
+						LightData.RectLightBarnCosAngle[LightData.Count] = LightParameters.RectLightBarnCosAngle;
+						LightData.RectLightBarnLength[LightData.Count] = LightParameters.RectLightBarnLength;
 						break;
 					}
 					case LightType_Spot:
