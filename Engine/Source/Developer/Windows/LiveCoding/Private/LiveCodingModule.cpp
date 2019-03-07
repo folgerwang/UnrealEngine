@@ -27,7 +27,7 @@ FLiveCodingModule::FLiveCodingModule()
 	, bStarted(false)
 {
 #if WITH_EDITOR
-//	GConfig->GetBool(TEXT("LiveCoding"), TEXT("Enabled"), bEnabled, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("LiveCoding"), TEXT("Enabled"), bEnabled, GEditorPerProjectIni);
 #endif
 }
 
