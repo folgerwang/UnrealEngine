@@ -5,8 +5,8 @@
 #include "HAL/FileManager.h"
 #include "Misc/ScopeLock.h"
 #include "Misc/Paths.h"
-#include "Serialization/MemoryWriter.h"
-#include "Serialization/MemoryReader.h"
+#include "Serialization/LargeMemoryWriter.h"
+#include "Serialization/LargeMemoryReader.h"
 #include "HAL/IConsoleManager.h"
 #include "UObject/Package.h"
 #include "Templates/Casts.h"
@@ -74,7 +74,7 @@ protected:
  */
 struct FObjectAndSize
 {
-	FObjectAndSize( const UObject* InObject, int32 InSize )
+	FObjectAndSize( const UObject* InObject, int64 InSize )
 	:	Object( InObject )
 	,	Size( InSize )
 	{}
@@ -82,7 +82,7 @@ struct FObjectAndSize
 	/** Object associated with size. */
 	const UObject*	Object;
 	/** Size associated with object. */
-	int32			Size;
+	int64			Size;
 };
 
 /** Hash function required for TMap support */
@@ -303,14 +303,14 @@ void FUntypedBulkData::DumpBulkDataUsage( FOutputDevice& Log )
 	for( int32 PerClassIndex=0; PerClassIndex<PerClassSizeArray.Num(); PerClassIndex++ )
 	{
 		const FObjectAndSize& PerClassSize = PerClassSizeArray[ PerClassIndex ];
-		Log.Logf( TEXT("  %5d KByte of bulk data for Class %s"), PerClassSize.Size / 1024, *PerClassSize.Object->GetPathName() );
+		Log.Logf( TEXT("  %5lld KByte of bulk data for Class %s"), PerClassSize.Size / 1024, *PerClassSize.Object->GetPathName() );
 	}
 	UE_LOG(LogSerialization, Log, TEXT(""));
 	UE_LOG(LogSerialization, Log, TEXT("Detailed per object stats of bulk data use:"));
 	for( int32 PerObjectIndex=0; PerObjectIndex<PerObjectSizeArray.Num(); PerObjectIndex++ )
 	{
 		const FObjectAndSize& PerObjectSize = PerObjectSizeArray[ PerObjectIndex ];
-		Log.Logf( TEXT("  %5d KByte of bulk data for %s"), PerObjectSize.Size / 1024, *PerObjectSize.Object->GetFullName() );
+		Log.Logf( TEXT("  %5lld KByte of bulk data for %s"), PerObjectSize.Size / 1024, *PerObjectSize.Object->GetFullName() );
 	}
 	UE_LOG(LogSerialization, Log, TEXT(""));
 #else
@@ -328,7 +328,7 @@ void FUntypedBulkData::DumpBulkDataUsage( FOutputDevice& Log )
  *
  * @return Number of elements in this bulk data array
  */
-int32 FUntypedBulkData::GetElementCount() const
+int64 FUntypedBulkData::GetElementCount() const
 {
 	return ElementCount;
 }
@@ -337,7 +337,7 @@ int32 FUntypedBulkData::GetElementCount() const
  *
  * @return Size of the bulk data in bytes
  */
-int32 FUntypedBulkData::GetBulkDataSize() const
+int64 FUntypedBulkData::GetBulkDataSize() const
 {
 	return GetElementCount() * GetElementSize();
 }
@@ -347,7 +347,7 @@ int32 FUntypedBulkData::GetBulkDataSize() const
  *
  * @return Size of the bulk data on disk or INDEX_NONE in case there's no association
  */
-int32 FUntypedBulkData::GetBulkDataSizeOnDisk() const
+int64 FUntypedBulkData::GetBulkDataSizeOnDisk() const
 {
 	return BulkDataSizeOnDisk;
 }
@@ -487,7 +487,7 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 			// Can't/ Don't discard so we need to allocate and copy.
 			else
 			{
-				int32 BulkDataSize = GetBulkDataSize();
+				int64 BulkDataSize = GetBulkDataSize();
 				if (BulkDataSize != 0)
 				{
 					// Allocate enough memory for data...
@@ -505,7 +505,7 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 		// Data isn't currently loaded so we need to load it from disk.
 		else
 		{
-			int32 BulkDataSize = GetBulkDataSize();
+			int64 BulkDataSize = GetBulkDataSize();
 			if (BulkDataSize != 0)
 			{
 				// Allocate enough memory for data...
@@ -584,7 +584,7 @@ const void* FUntypedBulkData::LockReadOnly() const
  *
  * @param InElementCount	Number of elements array should be resized to
  */
-void* FUntypedBulkData::Realloc( int32 InElementCount )
+void* FUntypedBulkData::Realloc( int64 InElementCount )
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::Realloc"), STAT_UBD_Realloc, STATGROUP_Memory);
 
@@ -887,13 +887,29 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx, bool 
 		int64 SavedBulkDataFlagsPos = Ar.Tell();
 		{
 			FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+
+			// If the bulk data size is greater than can be held in an int32, then potentially the ElementCount
+			// and BulkDataSizeOnDisk need to be held as int64s, so set a flag indicating the new format.
+			if (Ar.IsSaving() && GetBulkDataSize() >= (1LL << 31))
+			{
+				BulkDataFlags |= BULKDATA_Size64Bit;
+			}
 			Ar << BulkDataFlags;
 		}
 
 
 		// Number of elements in array.
-		Ar << ElementCount;
-		
+		if (BulkDataFlags & BULKDATA_Size64Bit)
+		{
+			Ar << ElementCount;
+		}
+		else
+		{
+			int32 ElementCountAsInt32 = ElementCount;
+			Ar << ElementCountAsInt32;
+			ElementCount = ElementCountAsInt32;
+		}
+
 		// We're loading from the persistent archive.
 		if( Ar.IsLoading() )
 		{
@@ -915,8 +931,17 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx, bool 
 			}
 
 			// Size on disk, which in the case of compression is != GetBulkDataSize()
-			Ar << BulkDataSizeOnDisk;
-			
+			if (BulkDataFlags & BULKDATA_Size64Bit)
+			{
+				Ar << BulkDataSizeOnDisk;
+			}
+			else
+			{
+				int32 BulkDataSizeOnDiskAsInt32;
+				Ar << BulkDataSizeOnDiskAsInt32;
+				BulkDataSizeOnDisk = BulkDataSizeOnDiskAsInt32;
+			}
+
 			Ar << BulkDataOffsetInFile;
 
 			// determine whether the payload is stored inline or at the end of the file
@@ -1072,7 +1097,15 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx, bool 
 				FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
 
 				// And serialize the placeholder which is going to be overwritten later.
-				Ar << BulkDataSizeOnDisk;
+				if (BulkDataFlags & BULKDATA_Size64Bit)
+				{
+					Ar << BulkDataSizeOnDisk;
+				}
+				else
+				{
+					int32 BulkDataSizeOnDiskAsInt32 = BulkDataSizeOnDisk;
+					Ar << BulkDataSizeOnDiskAsInt32;
+				}
 				// Keep track of position we are going to serialize placeholder BulkDataOffsetInFile.
 				SavedBulkDataOffsetInFilePos = Ar.Tell();
 				BulkDataOffsetInFile = INDEX_NONE;
@@ -1145,7 +1178,15 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx, bool 
 
 				// Seek back and overwrite placeholder for BulkDataSizeOnDisk
 				Ar.Seek(SavedBulkDataSizeOnDiskPos);
-				Ar << BulkDataSizeOnDisk;
+				if (BulkDataFlags & BULKDATA_Size64Bit)
+				{
+					Ar << BulkDataSizeOnDisk;
+				}
+				else
+				{
+					int32 BulkDataSizeOnDiskAsInt32 = BulkDataSizeOnDisk;
+					Ar << BulkDataSizeOnDiskAsInt32;
+				}
 
 				// Seek back and overwrite placeholder for BulkDataOffsetInFile
 				Ar.Seek(SavedBulkDataOffsetInFilePos);
@@ -1276,7 +1317,7 @@ void FUntypedBulkData::InitializeMemberVariables()
 void FUntypedBulkData::SerializeElements(FArchive& Ar, void* Data)
 {
 	// Serialize each element individually.				
-	for (int32 ElementIndex = 0; ElementIndex < ElementCount; ElementIndex++)
+	for (int64 ElementIndex = 0; ElementIndex < ElementCount; ElementIndex++)
 	{
 		SerializeElement(Ar, Data, ElementIndex);
 	}
@@ -1297,7 +1338,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 	}
 
 	// Skip serialization for bulk data of zero length
-	const int32 BulkDataSize = GetBulkDataSize();
+	const int64 BulkDataSize = GetBulkDataSize();
 	if(BulkDataSize == 0)
 	{
 		return;
@@ -1337,21 +1378,16 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 		// Serialize data compressed.
 		if( BulkDataFlags & BULKDATA_SerializeCompressed )
 		{
-			// Placeholder for to be serialized data.
-			TArray<uint8> SerializedData;
-			
 			// Loading, data is compressed in archive and needs to be decompressed.
 			if( Ar.IsLoading() )
 			{
-				// Create space for uncompressed data.
-				SerializedData.Empty( GetBulkDataSize() );
-				SerializedData.AddUninitialized( GetBulkDataSize() );
+				TUniquePtr<uint8[]> SerializedData = MakeUnique<uint8[]>( GetBulkDataSize() );
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
+				Ar.SerializeCompressed( SerializedData.Get(), GetBulkDataSize(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
 				
 				// Initialize memory reader with uncompressed data array and propagate forced byte swapping
-				FMemoryReader MemoryReader( SerializedData, true );
+				FLargeMemoryReader MemoryReader( SerializedData.Get(), GetBulkDataSize(), ELargeMemoryReaderFlags::Persistent );
 				MemoryReader.SetByteSwapping( Ar.ForceByteSwapping() );
 
 				// Serialize each element individually via memory reader.
@@ -1361,14 +1397,14 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 			else if( Ar.IsSaving() )
 			{			
 				// Initialize memory writer with blank data array and propagate forced byte swapping
-				FMemoryWriter MemoryWriter( SerializedData, true );
+				FLargeMemoryWriter MemoryWriter( GetBulkDataSize(), true );
 				MemoryWriter.SetByteSwapping( Ar.ForceByteSwapping() );
 
 				// Serialize each element individually via memory writer.			
 				SerializeElements(MemoryWriter, Data);
 
 				// Serialize data with passed in archive and compress.
-				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
+				Ar.SerializeCompressed( MemoryWriter.GetData(), GetBulkDataSize(), GetDecompressionFormat(), COMPRESS_NoFlags, false );
 			}
 		}
 		// Uncompressed/ regular serialization.
@@ -1399,7 +1435,7 @@ void FUntypedBulkData::MakeSureBulkDataIsLoaded()
 		}
 		else
 		{
-			const int32 BytesNeeded = GetBulkDataSize();
+			const int64 BytesNeeded = GetBulkDataSize();
 			// Allocate memory for bulk data.
 			BulkData.Reallocate(BytesNeeded, BulkDataAlignment);
 
@@ -1419,7 +1455,7 @@ void FUntypedBulkData::WaitForAsyncLoading()
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::WaitForAsyncLoading"), STAT_UBD_WaitForAsyncLoading, STATGROUP_Memory);
 	while (!SerializeFuture.WaitFor(FTimespan::FromMilliseconds(1000.0)))
 	{
-		UE_LOG(LogSerialization, Warning, TEXT("Waiting for %s bulk data (%d) to be loaded longer than 1000ms"), *Filename, GetBulkDataSize());
+		UE_LOG(LogSerialization, Warning, TEXT("Waiting for %s bulk data (%lld) to be loaded longer than 1000ms"), *Filename, GetBulkDataSize());
 	}
 	check(BulkDataAsync);
 }
@@ -1574,7 +1610,7 @@ int32 FByteBulkData::GetElementSize() const
  * @param Data			Base pointer to data
  * @param ElementIndex	Element index to serialize
  */
-void FByteBulkData::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void FByteBulkData::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	uint8& ByteData = *((uint8*)Data + ElementIndex);
 	Ar << ByteData;
@@ -1601,7 +1637,7 @@ int32 FWordBulkData::GetElementSize() const
  * @param Data			Base pointer to data
  * @param ElementIndex	Element index to serialize
  */
-void FWordBulkData::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void FWordBulkData::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	uint16& WordData = *((uint16*)Data + ElementIndex);
 	Ar << WordData;
@@ -1628,7 +1664,7 @@ int32 FIntBulkData::GetElementSize() const
  * @param Data			Base pointer to data
  * @param ElementIndex	Element index to serialize
  */
-void FIntBulkData::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void FIntBulkData::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	int32& IntData = *((int32*)Data + ElementIndex);
 	Ar << IntData;
@@ -1655,7 +1691,7 @@ int32 FFloatBulkData::GetElementSize() const
  * @param Data			Base pointer to data
  * @param ElementIndex	Element index to serialize
  */
-void FFloatBulkData::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void FFloatBulkData::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	float& FloatData = *((float*)Data + ElementIndex);
 	Ar << FloatData;

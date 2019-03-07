@@ -2509,7 +2509,7 @@ int32 TQuantizedLightSampleBulkData<QuantizedLightSampleType>::GetElementSize() 
  * @param ElementIndex	Element index to serialize
  */
 template<class QuantizedLightSampleType>
-void TQuantizedLightSampleBulkData<QuantizedLightSampleType>::SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+void TQuantizedLightSampleBulkData<QuantizedLightSampleType>::SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 {
 	QuantizedLightSampleType* QuantizedLightSample = (QuantizedLightSampleType*)Data + ElementIndex;
 	// serialize as colors

@@ -511,7 +511,7 @@ struct FStaticMeshTriangleBulkData : public FUntypedBulkData
 		return sizeof(FStaticMeshTriangle);
 	}
 
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex )
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex )
 	{
 		FStaticMeshTriangle& StaticMeshTriangle = *((FStaticMeshTriangle*)Data + ElementIndex);
 		Ar << StaticMeshTriangle.Vertices[0];

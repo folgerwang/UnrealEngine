@@ -38,6 +38,8 @@ enum EBulkDataFlags
 	BULKDATA_Force_NOT_InlinePayload			= 1 << 10,
 	/** This payload is optional and may not be on device */
 	BULKDATA_OptionalPayload					= 1 << 11,
+	/** Bulk data size is 64 bits long */
+	BULKDATA_Size64Bit							= 1 << 12
 };
 
 /**
@@ -121,7 +123,7 @@ private:
 			return bAllocated;
 		}
 
-		void Reallocate(int32 Count, int32 Alignment = DEFAULT_ALIGNMENT)
+		void Reallocate(int64 Count, int32 Alignment = DEFAULT_ALIGNMENT)
 		{
 			check(!MappedHandle && !MappedRegion); // not legal for mapped bulk data
 			if (Count)
@@ -225,7 +227,7 @@ public:
 	 *
 	 * @return Number of elements in this bulk data array
 	 */
-	int32 GetElementCount() const;
+	int64 GetElementCount() const;
 	/**
 	 * Returns size in bytes of single element.
 	 *
@@ -239,14 +241,14 @@ public:
 	 *
 	 * @return Size of the bulk data in bytes
 	 */
-	int32 GetBulkDataSize() const;
+	int64 GetBulkDataSize() const;
 	/**
 	 * Returns the size of the bulk data on disk. This can differ from GetBulkDataSize if
 	 * BULKDATA_SerializeCompressed is set.
 	 *
 	 * @return Size of the bulk data on disk or INDEX_NONE in case there's no association
 	 */
-	int32 GetBulkDataSizeOnDisk() const;
+	int64 GetBulkDataSizeOnDisk() const;
 	/**
 	 * Returns the offset into the file the bulk data is located at.
 	 *
@@ -364,7 +366,7 @@ public:
 	 *
 	 * @param InElementCount	Number of elements array should be resized to
 	 */
-	void* Realloc( int32 InElementCount );
+	void* Realloc( int64 InElementCount );
 
 	/** 
 	 * Unlocks bulk data after which point the pointer returned by Lock no longer is valid.
@@ -454,7 +456,7 @@ protected:
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Index of element to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex ) = 0;
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex ) = 0;
 
 	/**
 	 * Returns whether single element serialization is required given an archive. This e.g.
@@ -528,21 +530,21 @@ private:
 
 	/** Serialized flags for bulk data																					*/
 	uint32					BulkDataFlags;
+	/** Alignment of bulk data																							*/
+	uint16					BulkDataAlignment;
+	/** Current lock status																								*/
+	uint16					LockStatus;
 	/** Number of elements in bulk data array																			*/
-	int32					ElementCount;
+	int64					ElementCount;
 	/** Offset of bulk data into file or INDEX_NONE if no association													*/
 	int64					BulkDataOffsetInFile;
 	/** Size of bulk data on disk or INDEX_NONE if no association														*/
-	int32					BulkDataSizeOnDisk;
-	/** Alignment of bulk data																							*/
-	int32					BulkDataAlignment;
+	int64					BulkDataSizeOnDisk;
 
 	/** Pointer to cached bulk data																						*/
 	FAllocatedPtr		BulkData;
 	/** Pointer to cached async bulk data																				*/
 	FAllocatedPtr		BulkDataAsync;
-	/** Current lock status																								*/
-	uint32				LockStatus;
 	/** Async helper for loading bulk data on a separate thread */
 	TFuture<bool> SerializeFuture;
 
@@ -581,7 +583,7 @@ struct COREUOBJECT_API FByteBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -604,7 +606,7 @@ struct COREUOBJECT_API FWordBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -627,7 +629,7 @@ struct COREUOBJECT_API FIntBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 /*-----------------------------------------------------------------------------
@@ -650,7 +652,7 @@ struct COREUOBJECT_API FFloatBulkData : public FUntypedBulkData
 	 * @param Data			Base pointer to data
 	 * @param ElementIndex	Element index to serialize
 	 */
-	virtual void SerializeElement( FArchive& Ar, void* Data, int32 ElementIndex );
+	virtual void SerializeElement( FArchive& Ar, void* Data, int64 ElementIndex );
 };
 
 class FFormatContainer
