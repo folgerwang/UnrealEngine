@@ -14,7 +14,7 @@ void UFileMediaCapture::OnFrameCaptured_RenderingThread(const FCaptureBaseData& 
 	IImageWriteQueueModule* ImageWriteQueueModule = FModuleManager::Get().GetModulePtr<IImageWriteQueueModule>("ImageWriteQueue");
 	if (ImageWriteQueueModule == nullptr)
 	{
-		MediaState = EMediaCaptureState::Error;
+		SetState(EMediaCaptureState::Error);
 		return;
 	}
 
@@ -61,7 +61,7 @@ bool UFileMediaCapture::CaptureSceneViewportImpl(TSharedPtr<FSceneViewport>& InS
 	FModuleManager::Get().LoadModuleChecked<IImageWriteQueueModule>("ImageWriteQueue");
 	CacheMediaOutputValues();
 
-	MediaState = EMediaCaptureState::Capturing;
+	SetState(EMediaCaptureState::Capturing);
 	return true;
 }
 
@@ -71,7 +71,7 @@ bool UFileMediaCapture::CaptureRenderTargetImpl(UTextureRenderTarget2D* InRender
 	FModuleManager::Get().LoadModuleChecked<IImageWriteQueueModule>("ImageWriteQueue");
 	CacheMediaOutputValues();
 
-	MediaState = EMediaCaptureState::Capturing;
+	SetState(EMediaCaptureState::Capturing);
 	return true;
 }
 

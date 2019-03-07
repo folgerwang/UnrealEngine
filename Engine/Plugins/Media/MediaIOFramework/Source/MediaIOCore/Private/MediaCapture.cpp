@@ -2,6 +2,7 @@
 
 #include "MediaCapture.h"
 
+#include "Async/Async.h"
 #include "Engine/GameEngine.h"
 #include "Engine/RendererSettings.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -11,13 +12,14 @@
 #include "MediaOutput.h"
 #include "MediaShaders.h"
 #include "Misc/App.h"
+#include "Misc/ScopeLock.h"
 #include "PipelineStateCache.h"
 #include "RendererInterface.h"
 #include "RenderUtils.h"
 #include "RHIStaticStates.h"
 #include "SceneUtils.h"
 #include "Slate/SceneViewport.h"
-#include "Misc/ScopeLock.h"
+#include "UObject/WeakObjectPtrTemplates.h"
 
 #if WITH_EDITOR
 #include "Editor.h"
@@ -84,9 +86,9 @@ FMediaCaptureOptions::FMediaCaptureOptions()
 
 UMediaCapture::UMediaCapture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, MediaState(EMediaCaptureState::Stopped)
 	, CurrentResolvedTargetIndex(0)
 	, NumberOfCaptureFrame(2)
+	, MediaState(EMediaCaptureState::Stopped)
 	, DesiredSize(1280, 720)
 	, DesiredPixelFormat(EPixelFormat::PF_A2B10G10R10)
 	, DesiredOutputSize(1280, 720)
@@ -100,7 +102,7 @@ UMediaCapture::UMediaCapture(const FObjectInitializer& ObjectInitializer)
 
 void UMediaCapture::BeginDestroy()
 {
-	if (MediaState == EMediaCaptureState::Capturing || MediaState == EMediaCaptureState::Preparing)
+	if (GetState() == EMediaCaptureState::Capturing || GetState() == EMediaCaptureState::Preparing)
 	{
 		UE_LOG(LogMediaIOCore, Warning, TEXT("%s will be destroyed and the capture was not stopped."), *GetName());
 	}
@@ -156,10 +158,10 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 		return false;
 	}
 
-	MediaState = EMediaCaptureState::Preparing;
+	SetState(EMediaCaptureState::Preparing);
 	if (!CaptureSceneViewportImpl(InSceneViewport))
 	{
-		MediaState = EMediaCaptureState::Stopped;
+		SetState(EMediaCaptureState::Stopped);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
 	}
@@ -196,10 +198,10 @@ bool UMediaCapture::CaptureTextureRenderTarget2D(UTextureRenderTarget2D* InRende
 		return false;
 	}
 
-	MediaState = EMediaCaptureState::Preparing;
+	SetState(EMediaCaptureState::Preparing);
 	if (!CaptureRenderTargetImpl(InRenderTarget2D))
 	{
-		MediaState = EMediaCaptureState::Stopped;
+		SetState(EMediaCaptureState::Stopped);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
 	}
@@ -328,23 +330,23 @@ void UMediaCapture::StopCapture(bool bAllowPendingFrameToBeProcess)
 {
 	check(IsInGameThread());
 
-	if (MediaState != EMediaCaptureState::StopRequested && MediaState != EMediaCaptureState::Capturing)
+	if (GetState() != EMediaCaptureState::StopRequested && GetState() != EMediaCaptureState::Capturing)
 	{
 		bAllowPendingFrameToBeProcess = false;
 	}
 
 	if (bAllowPendingFrameToBeProcess)
 	{
-		if (MediaState != EMediaCaptureState::Stopped && MediaState != EMediaCaptureState::StopRequested)
+		if (GetState() != EMediaCaptureState::Stopped && GetState() != EMediaCaptureState::StopRequested)
 		{
-			MediaState = EMediaCaptureState::StopRequested;
+			SetState(EMediaCaptureState::StopRequested);
 		}
 	}
 	else
 	{
-		if (MediaState != EMediaCaptureState::Stopped)
+		if (GetState() != EMediaCaptureState::Stopped)
 		{
-			MediaState = EMediaCaptureState::Stopped;
+			SetState(EMediaCaptureState::Stopped);
 
 			FCoreDelegates::OnEndFrame.RemoveAll(this);
 
@@ -376,11 +378,41 @@ void UMediaCapture::SetMediaOutput(UMediaOutput* InMediaOutput)
 	}
 }
 
+void UMediaCapture::SetState(EMediaCaptureState InNewState)
+{
+	if (MediaState != InNewState)
+	{
+		MediaState = InNewState;
+		if (IsInGameThread())
+		{
+			BroadcastStateChanged();
+		}
+		else
+		{
+			TWeakObjectPtr<UMediaCapture> Self = this;
+			AsyncTask(ENamedThreads::GameThread, [Self]
+			{
+				UMediaCapture* MediaCapture = Self.Get();
+				if (MediaCapture)
+				{
+					MediaCapture->BroadcastStateChanged();
+				}
+			});
+		}
+	}
+}
+
+void UMediaCapture::BroadcastStateChanged()
+{
+	OnStateChanged.Broadcast();
+	OnStateChangedNative.Broadcast();
+}
+
 bool UMediaCapture::HasFinishedProcessing() const
 {
 	return WaitingForResolveCommandExecutionCounter == 0
-		|| MediaState == EMediaCaptureState::Error
-		|| MediaState == EMediaCaptureState::Stopped;
+		|| GetState() == EMediaCaptureState::Error
+		|| GetState() == EMediaCaptureState::Stopped;
 }
 
 void UMediaCapture::InitializeResolveTarget(int32 InNumberOfBuffers)
@@ -482,6 +514,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 	TWeakPtr<FSceneViewport> InCapturingSceneViewport = CapturingSceneViewport;
 	FTextureRenderTargetResource* InTextureRenderTargetResource = nullptr;
 	FIntPoint InDesiredSize = DesiredSize;
+	FMediaCaptureStateChangedSignature InOnStateChanged = OnStateChanged;
 	UMediaCapture* InMediaCapture = this;
 
 	{
@@ -494,7 +527,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 	// RenderCommand to be executed on the RenderThread
 	ENQUEUE_RENDER_COMMAND(FMediaOutputCaptureFrameCreateTexture)(
-		[CapturingFrame, ReadyFrame, InCapturingSceneViewport, InTextureRenderTargetResource, InDesiredSize, InMediaCapture](FRHICommandListImmediate& RHICmdList)
+		[CapturingFrame, ReadyFrame, InCapturingSceneViewport, InTextureRenderTargetResource, InDesiredSize, InOnStateChanged, InMediaCapture](FRHICommandListImmediate& RHICmdList)
 	{
 		FTexture2DRHIRef SourceTexture;
 		{
@@ -527,14 +560,14 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 		if (!SourceTexture.IsValid())
 		{
-			InMediaCapture->MediaState = EMediaCaptureState::Error;
+			InMediaCapture->SetState(EMediaCaptureState::Error);
 			UE_LOG(LogMediaIOCore, Error, TEXT("Can't grab the Texture to capture for '%s'."), *InMediaCapture->MediaOutputName);
 		}
 		else if (CapturingFrame)
 		{
 			if (InMediaCapture->DesiredPixelFormat != SourceTexture->GetFormat())
 			{
-				InMediaCapture->MediaState = EMediaCaptureState::Error;
+				InMediaCapture->SetState(EMediaCaptureState::Error);
 				UE_LOG(LogMediaIOCore, Error, TEXT("The capture will stop for '%s'. The Source pixel format doesn't match with the user requested pixel format. Requested: %s Source: %s")
 					, *InMediaCapture->MediaOutputName
 					, GetPixelFormatString(InMediaCapture->DesiredPixelFormat)
@@ -544,7 +577,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 			{
 				if (InDesiredSize.X != SourceTexture->GetSizeX() || InDesiredSize.Y != SourceTexture->GetSizeY())
 				{
-					InMediaCapture->MediaState = EMediaCaptureState::Error;
+					InMediaCapture->SetState(EMediaCaptureState::Error);
 					UE_LOG(LogMediaIOCore, Error, TEXT("The capture will stop for '%s'. The Source size doesn't match with the user requested size. Requested: %d,%d  Source: %d,%d")
 						, *InMediaCapture->MediaOutputName
 						, InDesiredSize.X, InDesiredSize.Y
@@ -561,7 +594,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 
 				if ((uint32)(InDesiredSize.X + StartCapturePoint.X) > SourceTexture->GetSizeX() || (uint32)(InDesiredSize.Y + StartCapturePoint.Y) > SourceTexture->GetSizeY())
 				{
-					InMediaCapture->MediaState = EMediaCaptureState::Error;
+					InMediaCapture->SetState(EMediaCaptureState::Error);
 					UE_LOG(LogMediaIOCore, Error, TEXT("The capture will stop for '%s'. The Source size doesn't match with the user requested size. Requested: %d,%d  Source: %d,%d")
 						, *InMediaCapture->MediaOutputName
 						, InDesiredSize.X, InDesiredSize.Y
@@ -570,13 +603,13 @@ void UMediaCapture::OnEndFrame_GameThread()
 			}
 		}
 
-		if (CapturingFrame && InMediaCapture->MediaState != EMediaCaptureState::Error)
+		if (CapturingFrame && InMediaCapture->GetState() != EMediaCaptureState::Error)
 		{
 			SCOPE_CYCLE_COUNTER(STAT_MediaCapture_RenderThread_CopyToResolve);
 
 			FPooledRenderTargetDesc OutputDesc = FPooledRenderTargetDesc::Create2DDesc(
-					InMediaCapture->DesiredOutputSize,
-					InMediaCapture->DesiredOutputPixelFormat,
+				InMediaCapture->DesiredOutputSize,
+				InMediaCapture->DesiredOutputPixelFormat,
 				FClearValueBinding::None,
 				TexCreate_None,
 				TexCreate_RenderTargetable,
@@ -705,7 +738,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 			CapturingFrame->bResolvedTargetRequested = true;
 		}
 
-		if (ReadyFrame && InMediaCapture->MediaState != EMediaCaptureState::Error)
+		if (ReadyFrame && InMediaCapture->GetState() != EMediaCaptureState::Error)
 		{
 			check(ReadyFrame->ReadbackTexture.IsValid());
 

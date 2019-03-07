@@ -22,8 +22,8 @@ class UTextureRenderTarget2D;
 /**
  * Possible states of media capture.
  */
-UENUM()
-enum class EMediaCaptureState
+UENUM(BlueprintType)
+enum class EMediaCaptureState : uint8
 {
 	/** Unrecoverable error occurred during capture. */
 	Error,
@@ -50,7 +50,7 @@ class FMediaCaptureUserData
 /**
  * Type of cropping 
  */
-UENUM()
+UENUM(BlueprintType)
 enum class EMediaCaptureCroppingType : uint8
 {
 	/** Do not crop the captured image. */
@@ -85,6 +85,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MediaCapture")
 	FIntPoint CustomCapturePoint;
 };
+
+
+/** Delegate signatures */
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMediaCaptureStateChangedSignature);
+DECLARE_MULTICAST_DELEGATE(FMediaCaptureStateChangedSignatureNative);
+
 
 /**
  * Abstract base class for media capture.
@@ -173,6 +179,16 @@ public:
 	/** Check whether this capture has any processing left to do. */
 	virtual bool HasFinishedProcessing() const;
 
+	/** Called when the state of the capture changed. */
+	UPROPERTY(BlueprintAssignable, Category = "Media|Output")
+	FMediaCaptureStateChangedSignature OnStateChanged;
+
+	/**
+	 * Called when the state of the capture changed.
+	 * The callback is called on the game thread. Note that the change may occur on the rendering thread.
+	 */
+	FMediaCaptureStateChangedSignatureNative OnStateChangedNative;
+
 public:
 	//~ UObject interface
 	virtual void BeginDestroy() override;
@@ -202,12 +218,11 @@ protected:
 	UTextureRenderTarget2D* GetTextureRenderTarget() { return CapturingRenderTarget; }
 	TSharedPtr<FSceneViewport> GetCapturingSceneViewport() { return CapturingSceneViewport.Pin(); }
 	EMediaCaptureConversionOperation GetConversionOperation() const { return ConversionOperation; }
+	void SetState(EMediaCaptureState InNewState);
 
 protected:
 	UPROPERTY(Transient)
 	UMediaOutput* MediaOutput;
-
-	EMediaCaptureState MediaState;
 
 private:
 	void InitializeResolveTarget(int32 InNumberOfBuffers);
@@ -215,6 +230,7 @@ private:
 	void CacheMediaOutput(EMediaCaptureSourceType InSourceType);
 	FIntPoint GetOutputSize(const FIntPoint & InSize, const EMediaCaptureConversionOperation & InConversionOperation) const;
 	EPixelFormat GetOutputPixelFormat(const EPixelFormat & InPixelFormat, const EMediaCaptureConversionOperation & InConversionOperation) const;
+	void BroadcastStateChanged();
 
 private:
 	struct FCaptureFrame
@@ -230,6 +246,7 @@ private:
 	TArray<FCaptureFrame> CaptureFrames;
 	int32 CurrentResolvedTargetIndex;
 	int32 NumberOfCaptureFrame;
+	EMediaCaptureState MediaState;
 
 	UPROPERTY(Transient)
 	UTextureRenderTarget2D* CapturingRenderTarget;

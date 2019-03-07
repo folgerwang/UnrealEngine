@@ -625,11 +625,16 @@ void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
 
 			if (SceneViewport.IsValid())
 			{
-				GEditor->OnLevelViewportClientListChanged().AddRaw(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged);
+				GEditor->OnLevelViewportClientListChanged().AddSP(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged);
 				EditorSceneViewport = SceneViewport;
 				FIntPoint TargetSize = MediaOutputPtr->GetRequestedSize();
 				SceneViewport->SetFixedViewportSize(TargetSize.X, TargetSize.Y);
-				MediaCapture->CaptureSceneViewport(SceneViewport, CaptureOptions);
+				MediaCapture->OnStateChangedNative.AddSP(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnMediaCaptureStateChanged);
+
+				if (!MediaCapture->CaptureSceneViewport(SceneViewport, CaptureOptions))
+				{
+					ShutdownViewport();
+				}
 			}
 		}
 	}
@@ -654,6 +659,18 @@ void SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChang
 	if (!bFound)
 	{
 		ShutdownViewport();
+	}
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::OnMediaCaptureStateChanged()
+{
+	if (MediaCapture.IsValid())
+	{
+		EMediaCaptureState State = MediaCapture->GetState();
+		if (State != EMediaCaptureState::Capturing && State != EMediaCaptureState::Preparing)
+		{
+			ShutdownViewport();
+		}
 	}
 }
 
@@ -701,6 +718,7 @@ void SMediaFrameworkCaptureCurrentViewportWidget::ShutdownViewport()
 
 	LevelViewport.Reset();
 	EditorSceneViewport.Reset();
+	MediaCapture.Reset();
 }
 
 #undef LOCTEXT_NAMESPACE

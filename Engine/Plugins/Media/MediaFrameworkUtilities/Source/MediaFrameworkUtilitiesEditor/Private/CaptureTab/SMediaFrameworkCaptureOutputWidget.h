@@ -176,6 +176,7 @@ public:
 private:
 	void ShutdownViewport();
 	void OnLevelViewportClientListChanged();
+	void OnMediaCaptureStateChanged();
 
 private:
 	TWeakPtr<FSceneViewport> EditorSceneViewport;
