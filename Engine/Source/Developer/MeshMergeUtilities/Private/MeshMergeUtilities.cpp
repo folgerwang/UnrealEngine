@@ -1133,6 +1133,10 @@ void FMeshMergeUtilities::CreateProxyMesh(const TArray<UStaticMeshComponent*>& I
 	if (ComponentsToMerge.Num() == 0)
 	{
 		UE_LOG(LogMeshMerging, Log, TEXT("No static mesh specified to generate a proxy mesh for"));
+		
+		TArray<UObject*> OutAssetsToSync;
+		InProxyCreatedDelegate.ExecuteIfBound(InGuid, OutAssetsToSync);
+
 		return;
 	}
 

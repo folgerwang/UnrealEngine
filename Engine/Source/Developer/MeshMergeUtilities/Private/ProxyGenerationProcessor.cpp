@@ -111,6 +111,9 @@ void FProxyGenerationProcessor::ProxyGenerationFailed(const FGuid OutJobGUID, co
 	{
 		UE_LOG(LogMeshMerging, Log, TEXT("Failed to generate proxy mesh for cluster %s, %s"), *(*FindData)->ProxyBasePackageName, *ErrorMessage);
 		ProxyMeshJobs.Remove(OutJobGUID);
+		
+		TArray<UObject*> OutAssetsToSync;
+		(*FindData)->CallbackDelegate.ExecuteIfBound(OutJobGUID, OutAssetsToSync);
 	}
 }
 
