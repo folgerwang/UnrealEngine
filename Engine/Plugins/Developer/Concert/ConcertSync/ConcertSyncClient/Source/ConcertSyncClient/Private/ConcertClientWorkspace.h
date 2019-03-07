@@ -90,9 +90,6 @@ private:
 	void HandleEndPIE(const bool InIsSimulating);
 
 	/** */
-	void HandleMapChanged(UWorld* InWorld, EMapChangeType InMapChangeType);
-
-	/** */
 	void HandleTransactionStateChanged(const FTransactionContext& InTransactionContext, const ETransactionStateEventType InTransactionState);
 
 	/** */
@@ -170,9 +167,6 @@ private:
 
 	/** */
 	FDelegateHandle EndPIEHandle;
-
-	/** */
-	FDelegateHandle MapChangedHandle;
 
 	/** */
 	FDelegateHandle TransactionStateChangedHandle;

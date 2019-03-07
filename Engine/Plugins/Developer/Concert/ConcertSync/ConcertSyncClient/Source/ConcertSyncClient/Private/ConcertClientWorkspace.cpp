@@ -270,13 +270,6 @@ void FConcertClientWorkspace::BindSession(const TSharedRef<IConcertClientSession
 	SwitchBeginPIEAndSIEHandle = FEditorDelegates::OnSwitchBeginPIEAndSIE.AddRaw(this, &FConcertClientWorkspace::HandleSwitchBeginPIEAndSIE);
 	EndPIEHandle = FEditorDelegates::EndPIE.AddRaw(this, &FConcertClientWorkspace::HandleEndPIE);
 
-	// Register Map Change Events
-	if (GIsEditor)
-	{
-		FLevelEditorModule& LevelEditor = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		MapChangedHandle = LevelEditor.OnMapChanged().AddRaw(this, &FConcertClientWorkspace::HandleMapChanged);
-	}
-
 	// Register Object Transaction events
 	if (GUnrealEd)
 	{
@@ -375,16 +368,6 @@ void FConcertClientWorkspace::UnbindSession()
 		{
 			FEditorDelegates::EndPIE.Remove(EndPIEHandle);
 			EndPIEHandle.Reset();
-		}
-
-		// Unregister Map Change Events
-		if (MapChangedHandle.IsValid())
-		{
-			if (FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
-			{
-				LevelEditor->OnMapChanged().Remove(MapChangedHandle);
-			}
-			MapChangedHandle.Reset();
 		}
 
 		// Unregister Object Transaction events
@@ -624,20 +607,9 @@ void FConcertClientWorkspace::HandleAssetRenamed(const FAssetData& Data, const F
 
 void FConcertClientWorkspace::HandleAssetLoaded(UObject* InAsset)
 {
-	const FName LoadedPackageName = InAsset->GetOutermost()->GetFName();
-
-	// Skip world assets that are being loaded as the editor world
-	// We handle these via HandleMapChanged instead (which also calls this function, but the entry in UWorld::WorldTypePreLoadMap will have been removed by then)
-	if (const EWorldType::Type* WorldTypePtr = UWorld::WorldTypePreLoadMap.Find(LoadedPackageName))
+	if (TransactionManager.IsValid() && bHasSyncedWorkspace)
 	{
-		if (*WorldTypePtr == EWorldType::Editor)
-		{
-			return;
-		}
-	}
-
-	if (TransactionManager.IsValid())
-	{
+		const FName LoadedPackageName = InAsset->GetOutermost()->GetFName();
 		TransactionManager->ReplayTransactions(LoadedPackageName);
 	}
 }
@@ -696,14 +668,6 @@ void FConcertClientWorkspace::HandleEndPIE(const bool InIsSimulating)
 	}
 }
 
-void FConcertClientWorkspace::HandleMapChanged(UWorld* InWorld, EMapChangeType InMapChangeType)
-{
-	if (InMapChangeType == EMapChangeType::NewMap || InMapChangeType == EMapChangeType::LoadMap)
-	{
-		HandleAssetLoaded(InWorld);
-	}
-}
-
 void FConcertClientWorkspace::HandleTransactionStateChanged(const FTransactionContext& InTransactionContext, const ETransactionStateEventType InTransactionState)
 {
 	if (TransactionManager.IsValid())
@@ -742,6 +706,9 @@ void FConcertClientWorkspace::OnEndFrame()
 			InitialSyncSlowTask->EnterProgressFrame(0.0f, LOCTEXT("ApplyingSynchronizedTransactions", "Applying Synchronized Transactions..."));
 		}
 		TransactionManager->ReplayAllTransactions();
+
+		// We process all pending transactions we just replayed before finalizing the sync to prevent package being loaded as a result to trigger replaying transactions again
+		TransactionManager->ProcessPending();
 
 		// Finalize the sync
 		bHasSyncedWorkspace = true;
