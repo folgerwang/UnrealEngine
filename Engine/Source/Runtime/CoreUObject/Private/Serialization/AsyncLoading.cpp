@@ -5642,7 +5642,7 @@ void FAsyncPackage::GetLoadedAssets(TArray<FWeakObjectPtr>& AssetList)
 	{
 		if (Obj && !Obj->IsPendingKill() && Obj->IsAsset())
 		{
-			AssetList.Add(Obj);
+			AssetList.AddUnique(Obj);
 		}
 	}
 }
