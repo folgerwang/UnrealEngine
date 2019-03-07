@@ -867,6 +867,7 @@ void FPixelShaderInOut_MainPS(
 		Specular, 
 		Roughness, 
 		SubsurfaceColor,
+		SubsurfaceProfile,
 		GBufferDither);
 
 #if USES_GBUFFER
