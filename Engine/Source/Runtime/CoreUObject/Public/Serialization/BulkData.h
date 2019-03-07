@@ -38,8 +38,10 @@ enum EBulkDataFlags
 	BULKDATA_Force_NOT_InlinePayload			= 1 << 10,
 	/** This payload is optional and may not be on device */
 	BULKDATA_OptionalPayload					= 1 << 11,
+	/** This payload will be memory mapped, this requires alignment, no compression etc. */
+	BULKDATA_MemoryMappedPayload = 1 << 12,
 	/** Bulk data size is 64 bits long */
-	BULKDATA_Size64Bit							= 1 << 12
+	BULKDATA_Size64Bit							= 1 << 13
 };
 
 /**
