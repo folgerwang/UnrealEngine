@@ -49,21 +49,27 @@ namespace InternalEditorMeshLibrary
 	/** Note: This method is a replicate of FStaticMeshEditor::DoDecomp */
 	bool GenerateConvexCollision(UStaticMesh* StaticMesh, uint32 HullCount, int32 MaxHullVerts, uint32 HullPrecision)
 	{
-		// Check we have a selected StaticMesh
-		if (!StaticMesh || !StaticMesh->RenderData)
+		// Check we have a valid StaticMesh
+		if (!StaticMesh || !StaticMesh->IsMeshDescriptionValid(0))
 		{
 			return false;
 		}
 
-		FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
+		// If RenderData has not been computed yet, do it
+		if (!StaticMesh->RenderData)
+		{
+			StaticMesh->CacheDerivedData();
+		}
+
+		const FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[0];
 
 		// Make vertex buffer
 		int32 NumVerts = LODModel.VertexBuffers.StaticMeshVertexBuffer.GetNumVertices();
 		TArray<FVector> Verts;
+		Verts.Reserve(NumVerts);
 		for(int32 i=0; i<NumVerts; i++)
 		{
-			FVector Vert = LODModel.VertexBuffers.PositionVertexBuffer.VertexPosition(i);
-			Verts.Add(Vert);
+			Verts.Add(LODModel.VertexBuffers.PositionVertexBuffer.VertexPosition(i));
 		}
 
 		// Grab all indices
@@ -713,13 +719,16 @@ bool UEditorStaticMeshLibrary::SetConvexDecompositionCollisions(UStaticMesh* Sta
 		bStaticMeshIsEdited = true;
 	}
 
-	// Remove simple collisions
-	StaticMesh->BodySetup->Modify();
+	if (StaticMesh->BodySetup)
+	{
+		// Remove simple collisions
+		StaticMesh->BodySetup->Modify();
 
-	StaticMesh->BodySetup->RemoveSimpleCollision();
+		StaticMesh->BodySetup->RemoveSimpleCollision();
 
-	// refresh collision change back to static mesh components
-	RefreshCollisionChange(*StaticMesh);
+		// refresh collision change back to static mesh components
+		RefreshCollisionChange(*StaticMesh);
+	}
 
 	// Generate convex collision on mesh
 	bool bResult = InternalEditorMeshLibrary::GenerateConvexCollision(StaticMesh, HullCount, MaxHullVerts, HullPrecision);
