@@ -20,7 +20,7 @@ void UAppleARKitTimecodeProvider::Shutdown(class UEngine*)
 
 FTimecode UAppleARKitTimecodeProvider::GetTimecode() const
 {
-	return FTimecode(FPlatformTime::Seconds(), FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate));
+	return FTimecode(FPlatformTime::Seconds(), FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate), true);
 }
 
 FFrameRate UAppleARKitTimecodeProvider::GetFrameRate() const

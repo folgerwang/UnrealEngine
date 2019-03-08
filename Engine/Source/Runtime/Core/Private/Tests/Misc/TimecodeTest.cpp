@@ -79,11 +79,22 @@ bool FTimecodeTest::RunTest(const FString& Parameters)
 			if (bDoTest)
 			{
 				const FTimespan TimespanFromTimecode = TimecodeValue.ToTimespan(FrameRate);
-				const FTimecode TimecodeFromTimespan = FTimecode::FromTimespan(TimespanFromTimecode, FrameRate, bIsDropFrame);
+				const FTimecode TimecodeFromTimespanWithRollover = FTimecode::FromTimespan(TimespanFromTimecode, FrameRate, bIsDropFrame, true);
+				const FTimecode TimecodeFromTimespanWithoutRollover = FTimecode::FromTimespan(TimespanFromTimecode, FrameRate, bIsDropFrame, false);
 
-				if (TimecodeFromTimespan != TimecodeValue)
+				if (TimecodeFromTimespanWithoutRollover != TimecodeValue)
 				{
-					AddError(FString::Printf(TEXT("Timecode '%s' didn't convert properly from Timespan '%f' for frame rate '%s'.")
+					AddError(FString::Printf(TEXT("Timecode '%s' didn't convert properly from Timespan '%f' with rollover for frame rate '%s'.")
+						, *TimecodeValue.ToString()
+						, TimespanFromTimecode.GetTotalSeconds()
+						, *FrameRate.ToPrettyText().ToString()
+					));
+					bDoTest = false;
+					++NumberOfErrors;
+				}
+				else if (TimecodeFromTimespanWithoutRollover.Minutes != TimecodeValue.Minutes || TimecodeFromTimespanWithoutRollover.Seconds != TimecodeValue.Seconds || TimecodeFromTimespanWithoutRollover.Frames != TimecodeValue.Frames)
+				{
+					AddError(FString::Printf(TEXT("Timecode '%s' didn't convert properly from Timespan '%f' without rollover for frame rate '%s'.")
 						, *TimecodeValue.ToString()
 						, TimespanFromTimecode.GetTotalSeconds()
 						, *FrameRate.ToPrettyText().ToString()
@@ -94,10 +105,11 @@ bool FTimecodeTest::RunTest(const FString& Parameters)
 				else if (!bIsDropFrame)
 				{
 					// Do they have the same hours, minutes, seconds
-					bool bHoursAreValid = TimespanFromTimecode.GetHours() == TimecodeValue.Hours || ((TimecodeValue.Hours%24) == TimespanFromTimecode.GetHours() && (TimecodeValue.Hours/24) == TimespanFromTimecode.GetDays());
+					bool bRolloverHoursAreValid = TimespanFromTimecode.GetHours() == TimecodeFromTimespanWithRollover.Hours;
+					bool bHoursAreValid = (TimecodeValue.Hours % 24) == TimespanFromTimecode.GetHours() && (TimecodeValue.Hours / 24) == TimespanFromTimecode.GetDays();
 					bool bMinutesAreValid = TimespanFromTimecode.GetMinutes() == TimecodeValue.Minutes;
 					bool bSecondsAreValid = TimespanFromTimecode.GetSeconds() == TimecodeValue.Seconds;
-					if (!bHoursAreValid || !bMinutesAreValid || !bSecondsAreValid)
+					if (!bRolloverHoursAreValid || !bHoursAreValid || !bMinutesAreValid || !bSecondsAreValid)
 					{
 						AddError(FString::Printf(TEXT("Timecode '%s' hours/minutes/seconds doesn't matches with Timespan '%s' from frame rate '%s'.")
 							, *TimecodeValue.ToString()
@@ -153,7 +165,6 @@ bool FTimecodeTest::RunTest(const FString& Parameters)
 					AddError(FString::Printf(TEXT("Timecode '%s' didn't convert properly from FrameNumber '%d' when the frame rate is tripled.")
 						, *TimecodeValue.ToString()
 						, FrameNumber.Value
-						, *FrameRate.ToPrettyText().ToString()
 					));
 					bDoTest = false;
 					++NumberOfErrors;
@@ -175,6 +186,44 @@ bool FTimecodeTest::RunTest(const FString& Parameters)
 			if (TimecodeValue.Hours >= 40)
 			{
 				break;
+			}
+		}
+
+		// Conversion from current time to Timecode
+		if (NumberOfErrors == 0)
+		{
+			const FTimespan CurrentTimespan = FTimespan(11694029893428);
+			const double CurrentSeconds = 1169402.9893428; //from FPlatformTime::Seconds()
+
+			const FTimecode FromTimespanTimecodeValueWithRollover = FTimecode::FromTimespan(CurrentTimespan, FrameRate, bIsDropFrame, true);
+			const FTimecode FromTimespanTimecodeValueWithoutRollover = FTimecode::FromTimespan(CurrentTimespan, FrameRate, bIsDropFrame, false);
+			const FTimecode FromSecondsTimecodeValueWithRollover = FTimecode(CurrentSeconds, FrameRate, bIsDropFrame, true);
+			const FTimecode FromSecondsTimecodeValueWithoutRollover = FTimecode(CurrentSeconds, FrameRate, bIsDropFrame, false);
+
+			if (FromTimespanTimecodeValueWithRollover != FromSecondsTimecodeValueWithRollover)
+			{
+				AddError(FString::Printf(TEXT("The timecode '%s' do not match timecode '%s' when converted from the computer clock's time and the frame rate is '%s'")
+					, *FromTimespanTimecodeValueWithRollover.ToString()
+					, *FromSecondsTimecodeValueWithRollover.ToString()
+					, *FrameRate.ToPrettyText().ToString()
+				));
+				++NumberOfErrors;
+			}
+			else if (FromTimespanTimecodeValueWithoutRollover != FromSecondsTimecodeValueWithoutRollover)
+			{
+				AddError(FString::Printf(TEXT("The timecode '%s' do not match timecode '%s' when converted from the computer clock's time and the frame rate is '%s'")
+					, *FromTimespanTimecodeValueWithoutRollover.ToString()
+					, *FromSecondsTimecodeValueWithoutRollover.ToString()
+					, *FrameRate.ToPrettyText().ToString()
+				));
+				++NumberOfErrors;
+			}
+			else if (!bIsDropFrame && FromTimespanTimecodeValueWithRollover.Frames != FromTimespanTimecodeValueWithoutRollover.Frames)
+			{
+				AddError(FString::Printf(TEXT("The timecode didn't convert properly from the computer clock's time when the frame rate is '%s'")
+					, *FrameRate.ToPrettyText().ToString()
+				));
+				++NumberOfErrors;
 			}
 		}
 

@@ -11,5 +11,5 @@ FTimecode USystemTimeTimecodeProvider::GetTimecode() const
 	const FDateTime DateTime = FDateTime::Now();
 	const FTimespan Timespan = DateTime.GetTimeOfDay();
 
-	return FTimecode::FromTimespan(Timespan, FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate));
+	return FTimecode::FromTimespan(Timespan, FrameRate, FTimecode::IsDropFormatTimecodeSupported(FrameRate), false);
 }

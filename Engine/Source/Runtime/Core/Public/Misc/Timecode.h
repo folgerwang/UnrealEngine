@@ -41,12 +41,22 @@ struct FTimecode
 
 	/**
 	 * User construction from a time in seconds
-	 * @param InbDropFrame - If true, this Timecode represents a "Drop Frame Timecode" format which
+	 * @param InbDropFrame	- If true, this Timecode represents a "Drop Frame Timecode" format which
 							skips the first frames of every minute (except those ending in multiples of 10)
 							to account for drift when using a fractional NTSC framerate.
+	 * @param InbRollover	- If true, the hours will be the modulo of 24.
+	 * @note Be aware that the Cycles may not correspond to the System Time. See FDateTime and "leap seconds".
 	 */
-	explicit FTimecode(double InSeconds, const FFrameRate& InFrameRate, bool InbDropFrame)
+	explicit FTimecode(double InSeconds, const FFrameRate& InFrameRate, bool InbDropFrame, bool InbRollover)
 	{
+		if (InbRollover)
+		{
+			const int32 NumberOfSecondsPerDay = 60 * 60 * 24;
+			double IntegralPart = 0.0;
+			double Fractional = FMath::Modf(InSeconds, &IntegralPart);
+			const int32 CurrentRolloverSeconds = (int32)IntegralPart % NumberOfSecondsPerDay;
+			InSeconds = (double)CurrentRolloverSeconds + Fractional;
+		}
 		int32 NumberOfFrames = InbDropFrame ? (int32)FMath::RoundToDouble(InSeconds * InFrameRate.AsDecimal()) : (int32)FMath::RoundToDouble(InSeconds * FMath::RoundToDouble(InFrameRate.AsDecimal()));
 		*this = FromFrameNumber(FFrameNumber(NumberOfFrames), InFrameRate, InbDropFrame);
 	}
@@ -196,16 +206,17 @@ public:
 	 * Create a FTimecode from a timespan at the given frame rate. Optionally supports creating a drop frame timecode,
 	 * which drops certain timecode display numbers to help account for NTSC frame rates which are fractional.
 	 *
-	 * @param InFrameNumber - The timespan to convert into a timecode.
+	 * @param InFrameNumber	- The timespan to convert into a timecode.
 	 * @param InFrameRate	- The framerate that this timecode is based in. This should be the playback framerate as it is used to determine
 	 *						  when the Frame value wraps over.
 	 * @param InbDropFrame	- If true, the returned timecode will drop the first two frames on every minute (except when Minute % 10 == 0)
 	 *						  This is only valid for NTSC framerates (29.97, 59.94) and will assert if you try to create a drop-frame format
 	 *						  from a non-valid framerate. All framerates can be represented when in non-drop frame format.
+	 * @param InbRollover	- If true, the hours will be the modulo of 24.
 	 */
-	static FTimecode FromTimespan(const FTimespan& InTimespan, const FFrameRate& InFrameRate, bool InbDropFrame)
+	static FTimecode FromTimespan(const FTimespan& InTimespan, const FFrameRate& InFrameRate, bool InbDropFrame, bool InbRollover)
 	{
-		return FTimecode(InTimespan.GetTotalSeconds(), InFrameRate, InbDropFrame);
+		return FTimecode(InTimespan.GetTotalSeconds(), InFrameRate, InbDropFrame, InbRollover);
 	}
 
 	static bool IsDropFormatTimecodeSupported(const FFrameRate& InFrameRate)
