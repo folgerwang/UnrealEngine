@@ -276,7 +276,71 @@ int32 UEditorStaticMeshLibrary::SetLodFromStaticMesh(UStaticMesh* DestinationSta
 		DestinationStaticMesh->CreateMeshDescription(DestinationLodIndex);
 	}
 
-	const FMeshDescription& SourceMeshDescription = *SourceStaticMesh->GetMeshDescription(SourceLodIndex);
+	// Transfers the build settings and the reduction settings.
+	const FStaticMeshSourceModel& SourceMeshSourceModel = SourceStaticMesh->SourceModels[SourceLodIndex];
+	FStaticMeshSourceModel& DestinationMeshSourceModel = DestinationStaticMesh->SourceModels[DestinationLodIndex];
+	DestinationMeshSourceModel.BuildSettings = SourceMeshSourceModel.BuildSettings;
+	DestinationMeshSourceModel.ReductionSettings = SourceMeshSourceModel.ReductionSettings;
+	// Base the reduction on the new lod
+	DestinationMeshSourceModel.ReductionSettings.BaseLODModel = DestinationLodIndex;
+
+	// Fragile. If a public function emerge to determine if a reduction will be used please consider using it and remove this code.
+	bool bDoesSourceLodUseReduction = false;
+	switch (SourceMeshSourceModel.ReductionSettings.TerminationCriterion)
+	{
+	case EStaticMeshReductionTerimationCriterion::Triangles:
+		bDoesSourceLodUseReduction = !FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentTriangles, 100.f);
+		break;
+	case EStaticMeshReductionTerimationCriterion::Vertices:
+		bDoesSourceLodUseReduction = !FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentVertices, 100.f);
+		break;
+	case EStaticMeshReductionTerimationCriterion::Any:
+		bDoesSourceLodUseReduction = !(FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentTriangles, 100.f) && FMath::IsNearlyEqual(SourceMeshSourceModel.ReductionSettings.PercentVertices, 100.f));
+		break;
+	default:
+		break;
+	}
+	bDoesSourceLodUseReduction |= SourceMeshSourceModel.ReductionSettings.MaxDeviation > 0.f;
+
+
+	int32 BaseSourceLodIndex  = bDoesSourceLodUseReduction ? SourceMeshSourceModel.ReductionSettings.BaseLODModel : SourceLodIndex;
+	bool bIsReductionSettingAproximated = false;
+
+	// Find the original mesh description for this LOD
+	while (!SourceStaticMesh->IsMeshDescriptionValid(BaseSourceLodIndex ))
+	{
+		if (!SourceStaticMesh->SourceModels.IsValidIndex(BaseSourceLodIndex ))
+		{
+			UE_LOG(LogEditorScripting, Error, TEXT("SetLodFromStaticMesh: The SourceStaticMesh is in a invalid state."));
+			return -1;
+		}
+
+		const FMeshReductionSettings& PossibleSourceMeshReductionSetting = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].ReductionSettings;
+		DestinationMeshSourceModel.ReductionSettings.PercentTriangles *= PossibleSourceMeshReductionSetting.PercentTriangles;
+		DestinationMeshSourceModel.ReductionSettings.PercentVertices *= PossibleSourceMeshReductionSetting.PercentVertices;
+		BaseSourceLodIndex  = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].ReductionSettings.BaseLODModel;
+
+		bIsReductionSettingAproximated = true;
+	}
+
+	if (bIsReductionSettingAproximated)
+	{
+		TArray<FStringFormatArg> InOrderedArguments;
+		InOrderedArguments.Reserve(4);
+		InOrderedArguments.Add(SourceStaticMesh->GetName());
+		InOrderedArguments.Add(SourceLodIndex);
+		InOrderedArguments.Add(DestinationLodIndex);
+		InOrderedArguments.Add(DestinationStaticMesh->GetName());
+
+		UE_LOG(LogEditorScripting, Warning, TEXT("%s"), *FString::Format(TEXT("SetLodFromStaticMesh: The reduction settings from the SourceStaticMesh {0} LOD {1} were approximated."
+			" The LOD {2} from {3} might not be identical."), InOrderedArguments));
+	}
+
+	// Copy the source import file.
+	DestinationMeshSourceModel.SourceImportFilename = SourceStaticMesh->SourceModels[BaseSourceLodIndex ].SourceImportFilename;
+
+	// Copy the mesh description
+	const FMeshDescription& SourceMeshDescription = *SourceStaticMesh->GetMeshDescription(BaseSourceLodIndex );
 	FMeshDescription& DestinationMeshDescription = *DestinationStaticMesh->GetMeshDescription(DestinationLodIndex);
 	DestinationMeshDescription = SourceMeshDescription;
 	DestinationStaticMesh->CommitMeshDescription(DestinationLodIndex);
