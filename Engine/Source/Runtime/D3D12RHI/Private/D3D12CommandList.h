@@ -58,49 +58,11 @@ private:
 
 		~FD3D12CommandListData();
 
-		void Close()
-		{
-			if (!IsClosed)
-			{
-				FlushResourceBarriers();
-				VERIFYD3D12RESULT(CommandList->Close());
-
-				D3DX12Residency::Close(ResidencySet);
-				IsClosed = true;
-			}
-		}
+		void Close();
 
 		// Reset the command list with a specified command allocator and optional initial state.
 		// Note: Command lists can be reset immediately after they are submitted for execution.
-		void Reset(FD3D12CommandAllocator& CommandAllocator)
-		{
-			VERIFYD3D12RESULT(CommandList->Reset(CommandAllocator, nullptr));
-
-			CurrentCommandAllocator = &CommandAllocator;
-			IsClosed = false;
-
-			// Indicate this command allocator is being used.
-			CurrentCommandAllocator->IncrementPendingCommandLists();
-
-			CleanupActiveGenerations();
-
-			// Remove all pendering barriers from the command list
-			PendingResourceBarriers.Reset();
-
-			// Empty tracked resource state for this command list
-			TrackedResourceState.Empty();
-
-			// If this fails there are too many concurrently open residency sets. Increase the value of MAX_NUM_CONCURRENT_CMD_LISTS
-			// in the residency manager. Beware, this will increase the CPU memory usage of every tracked resource.
-			D3DX12Residency::Open(ResidencySet);
-
-			// If this fails then some previous resource barriers were never submitted.
-			check(ResourceBarrierBatcher.GetBarriers().Num() == 0);
-
-#if DEBUG_RESOURCE_STATES
-			ResourceBarriers.Reset();
-#endif
-		}
+		void Reset(FD3D12CommandAllocator& CommandAllocator, bool bTrackExecTime);
 
 		bool IsComplete(uint64 Generation)
 		{
@@ -254,6 +216,7 @@ private:
 		uint64									CurrentGeneration;
 		uint64									LastCompleteGeneration;
 		bool									IsClosed;
+		bool									bShouldTrackStartEndTime;
 		typedef TPair<uint64, FD3D12SyncPoint>	GenerationSyncPointPair;	// Pair of command list generation to a sync point
 		TQueue<GenerationSyncPointPair>			ActiveGenerations;	// Queue of active command list generations and their sync points. Used to determine what command lists have been completed on the GPU.
 		FCriticalSection						ActiveGenerationsCS;	// While only a single thread can record to a command list at any given time, multiple threads can ask for the state of a given command list. So the associated tracking must be thread-safe.
@@ -289,16 +252,43 @@ private:
 		// Tracks all the resources barriers being issued on this command list in order
 		TArray<D3D12_RESOURCE_BARRIER> ResourceBarriers;
 #endif
+
+	private:
+		/** Helper to allocate and queue a new timestamp query */
+		int32 CreateAndInsertTimestampQuery();
+
+		/** Enable execution time tracking and mark commandlist start time */
+		void StartTrackingCommandListTime();
+
+		/** Disable execution time tracking and mark commandlist end time */
+		void FinishTrackingCommandListTime();
+
+#if WITH_PROFILEGPU
+		int32 StartTimeQueryIdx;
+#endif
 	};
 
 public:
 
 	FD3D12CommandListHandle() : CommandListData(nullptr) {}
 
-	FD3D12CommandListHandle(const FD3D12CommandListHandle& CL) : CommandListData(CL.CommandListData)
+	FD3D12CommandListHandle(const FD3D12CommandListHandle& CL)
+		: FD3D12CommandListHandle(CL.CommandListData)
+	{}
+
+	FD3D12CommandListHandle(FD3D12CommandListData* InData)
+		: CommandListData(InData)
 	{
 		if (CommandListData)
+		{
 			CommandListData->AddRef();
+		}
+	}
+
+	FD3D12CommandListHandle(FD3D12CommandListHandle&& CL)
+		: CommandListData(CL.CommandListData)
+	{
+		CL.CommandListData = nullptr;
 	}
 
 	virtual ~FD3D12CommandListHandle()
@@ -327,6 +317,20 @@ public:
 			}
 		}
 
+		return *this;
+	}
+
+	FD3D12CommandListHandle& operator=(FD3D12CommandListHandle&& CL)
+	{
+		if (CommandListData != CL.CommandListData)
+		{
+			if (CommandListData && CommandListData->Release() == 0)
+			{
+				delete CommandListData;
+			}
+			CommandListData = CL.CommandListData;
+			CL.CommandListData = nullptr;
+		}
 		return *this;
 	}
 
@@ -370,7 +374,7 @@ public:
 	void Create(FD3D12Device* ParentDevice, D3D12_COMMAND_LIST_TYPE CommandListType, FD3D12CommandAllocator& CommandAllocator, FD3D12CommandListManager* InCommandListManager);
 
 	void Execute(bool WaitForCompletion = false);
-
+	
 	void Close()
 	{
 		check(CommandListData);
@@ -379,12 +383,12 @@ public:
 
 	// Reset the command list with a specified command allocator and optional initial state.
 	// Note: Command lists can be reset immediately after they are submitted for execution.
-	void Reset(FD3D12CommandAllocator& CommandAllocator)
+	void Reset(FD3D12CommandAllocator& CommandAllocator, bool bTrackExecTime = false)
 	{
 		check(CommandListData);
-		CommandListData->Reset(CommandAllocator);
+		CommandListData->Reset(CommandAllocator, bTrackExecTime);
 	}
-
+	
 	ID3D12CommandList* CommandList() const
 	{
 		check(CommandListData);
@@ -588,6 +592,8 @@ public:
 
 	FD3D12CLSyncPoint(FD3D12CommandListHandle& CL) : CommandList(CL), Generation(CL.CommandList() ? CL.CurrentGeneration() : 0) {}
 
+	FD3D12CLSyncPoint(FD3D12CommandListHandle&& CL) : CommandList(MoveTemp(CL)), Generation(CommandList.CommandList() ? CommandList.CurrentGeneration() : 0) {}
+
 	FD3D12CLSyncPoint(const FD3D12CLSyncPoint& SyncPoint) : CommandList(SyncPoint.CommandList), Generation(SyncPoint.Generation) {}
 
 	FD3D12CLSyncPoint& operator = (FD3D12CommandListHandle& CL)
@@ -595,6 +601,13 @@ public:
 		CommandList = CL;
 		Generation = (CL != nullptr) ? CL.CurrentGeneration() : 0;
 
+		return *this;
+	}
+
+	FD3D12CLSyncPoint& operator=(FD3D12CommandListHandle&& CL)
+	{
+		Generation = (CL != nullptr) ? CL.CurrentGeneration() : 0;
+		CommandList = MoveTemp(CL);
 		return *this;
 	}
 

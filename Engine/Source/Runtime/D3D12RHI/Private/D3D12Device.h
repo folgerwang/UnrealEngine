@@ -53,6 +53,7 @@ public:
 
 	inline FD3D12QueryHeap* GetOcclusionQueryHeap() { return &OcclusionQueryHeap; }
 	inline FD3D12QueryHeap* GetTimestampQueryHeap() { return &TimestampQueryHeap; }
+	FD3D12LinearQueryHeap* GetCmdListExecTimeQueryHeap();
 
 	template <typename TViewDesc> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator();
 	template<> FD3D12OfflineDescriptorManager& GetViewDescriptorAllocator<D3D12_SHADER_RESOURCE_VIEW_DESC>() { return SRVAllocator; }
@@ -144,6 +145,9 @@ protected:
 
 	FD3D12QueryHeap OcclusionQueryHeap;
 	FD3D12QueryHeap TimestampQueryHeap;
+#if WITH_PROFILEGPU
+	FD3D12LinearQueryHeap CmdListExecTimeQueryHeap;
+#endif
 
 	FD3D12DefaultBufferAllocator DefaultBufferAllocator;
 

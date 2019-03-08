@@ -8,74 +8,72 @@ D3D12Stats.cpp:RHI Stats and timing implementation.
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
 
-namespace D3D12RHI
+void D3D12RHI::FD3DGPUProfiler::BeginFrame(FD3D12DynamicRHI* InRHI)
 {
-	void FD3DGPUProfiler::BeginFrame(FD3D12DynamicRHI* InRHI)
+	CurrentEventNode = NULL;
+	check(!bTrackingEvents);
+	check(!CurrentEventNodeFrame); // this should have already been cleaned up and the end of the previous frame
+
+	// update the crash tracking variables
+	static auto* CrashCollectionEnableCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.collectionenable"));
+	static auto* CrashCollectionDataDepth = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.datadepth"));
+
+	bTrackingGPUCrashData = CrashCollectionEnableCvar ? CrashCollectionEnableCvar->GetValueOnRenderThread() != 0 : false;
+	GPUCrashDataDepth = CrashCollectionDataDepth ? CrashCollectionDataDepth->GetValueOnRenderThread() : -1;
+
+	// latch the bools from the game thread into our private copy
+	bLatchedGProfilingGPU = GTriggerGPUProfile;
+	bLatchedGProfilingGPUHitches = GTriggerGPUHitchProfile;
+	if (bLatchedGProfilingGPUHitches)
 	{
-		CurrentEventNode = NULL;
-		check(!bTrackingEvents);
-		check(!CurrentEventNodeFrame); // this should have already been cleaned up and the end of the previous frame
+		bLatchedGProfilingGPU = false; // we do NOT permit an ordinary GPU profile during hitch profiles
+	}
 
-		// update the crash tracking variables
-		static auto* CrashCollectionEnableCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.collectionenable"));
-		static auto* CrashCollectionDataDepth = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.gpucrash.datadepth"));
+	// if we are starting a hitch profile or this frame is a gpu profile, then save off the state of the draw events
+	if (bLatchedGProfilingGPU || (!bPreviousLatchedGProfilingGPUHitches && bLatchedGProfilingGPUHitches))
+	{
+		bOriginalGEmitDrawEvents = GetEmitDrawEvents();
+	}
 
-		bTrackingGPUCrashData = CrashCollectionEnableCvar ? CrashCollectionEnableCvar->GetValueOnRenderThread() != 0 : false;
-		GPUCrashDataDepth = CrashCollectionDataDepth ? CrashCollectionDataDepth->GetValueOnRenderThread() : -1;
-
-									   // latch the bools from the game thread into our private copy
-		bLatchedGProfilingGPU = GTriggerGPUProfile;
-		bLatchedGProfilingGPUHitches = GTriggerGPUHitchProfile;
-		if (bLatchedGProfilingGPUHitches)
+	if (bLatchedGProfilingGPU || bLatchedGProfilingGPUHitches)
+	{
+		if (bLatchedGProfilingGPUHitches && GPUHitchDebounce)
 		{
-			bLatchedGProfilingGPU = false; // we do NOT permit an ordinary GPU profile during hitch profiles
+			// if we are doing hitches and we had a recent hitch, wait to recover
+			// the reasoning is that collecting the hitch report may itself hitch the GPU
+			GPUHitchDebounce--;
 		}
-
-		// if we are starting a hitch profile or this frame is a gpu profile, then save off the state of the draw events
-		if (bLatchedGProfilingGPU || (!bPreviousLatchedGProfilingGPUHitches && bLatchedGProfilingGPUHitches))
+		else
 		{
-			bOriginalGEmitDrawEvents = GetEmitDrawEvents();
+			SetEmitDrawEvents(true);  // thwart an attempt to turn this off on the game side
+			bTrackingEvents = true;
+			DoPreProfileGPUWork();
+			CurrentEventNodeFrame = new FD3D12EventNodeFrame(GetParentAdapter());
+			CurrentEventNodeFrame->StartFrame();
 		}
+	}
+	else if (bPreviousLatchedGProfilingGPUHitches)
+	{
+		// hitch profiler is turning off, clear history and restore draw events
+		GPUHitchEventNodeFrames.Empty();
+		SetEmitDrawEvents(bOriginalGEmitDrawEvents);
+	}
+	bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
 
-		if (bLatchedGProfilingGPU || bLatchedGProfilingGPUHitches)
-		{
-			if (bLatchedGProfilingGPUHitches && GPUHitchDebounce)
-			{
-				// if we are doing hitches and we had a recent hitch, wait to recover
-				// the reasoning is that collecting the hitch report may itself hitch the GPU
-				GPUHitchDebounce--;
-			}
-			else
-			{
-				SetEmitDrawEvents(true);  // thwart an attempt to turn this off on the game side
-				bTrackingEvents = true;
-				CurrentEventNodeFrame = new FD3D12EventNodeFrame(GetParentAdapter());
-				CurrentEventNodeFrame->StartFrame();
-			}
-		}
-		else if (bPreviousLatchedGProfilingGPUHitches)
-		{
-			// hitch profiler is turning off, clear history and restore draw events
-			GPUHitchEventNodeFrames.Empty();
-			SetEmitDrawEvents(bOriginalGEmitDrawEvents);
-		}
-		bPreviousLatchedGProfilingGPUHitches = bLatchedGProfilingGPUHitches;
+	FrameTiming.StartTiming();
 
-		FrameTiming.StartTiming();
-
-		if (GetEmitDrawEvents())
-		{
+	if (GetEmitDrawEvents())
+	{
 #if NV_AFTERMATH
-			// Assuming that grabbing the device 0 command list here is OK
-			PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255), InRHI->GetAdapter().GetDevice(0)->GetCommandContext().CommandListHandle.AftermathCommandContext());
+		// Assuming that grabbing the device 0 command list here is OK
+		PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255), InRHI->GetAdapter().GetDevice(0)->GetCommandContext().CommandListHandle.AftermathCommandContext());
 #else
-			PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
+		PushEvent(TEXT("FRAME"), FColor(0, 255, 0, 255));
 #endif
-		}
 	}
 }
 
-void FD3DGPUProfiler::EndFrame(FD3D12DynamicRHI* InRHI)
+void D3D12RHI::FD3DGPUProfiler::EndFrame(FD3D12DynamicRHI* InRHI)
 {
 	if (GetEmitDrawEvents())
 	{
@@ -115,6 +113,7 @@ void FD3DGPUProfiler::EndFrame(FD3D12DynamicRHI* InRHI)
 		if (bTrackingEvents)
 		{
 			SetEmitDrawEvents(bOriginalGEmitDrawEvents);
+			DoPostProfileGPUWork();
 			UE_LOG(LogD3D12RHI, Log, TEXT(""));
 			UE_LOG(LogD3D12RHI, Log, TEXT(""));
 			CurrentEventNodeFrame->DumpEventTree();
@@ -190,7 +189,7 @@ void FD3DGPUProfiler::EndFrame(FD3D12DynamicRHI* InRHI)
 	CurrentEventNodeFrame = NULL;
 }
 
-void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
+void D3D12RHI::FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 {
 #if WITH_DX_PERF
 	D3DPERF_BeginEvent(Color.DWColor(), Name);
@@ -202,7 +201,7 @@ void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color)
 static FString EventDeepString(TEXT("EventTooDeep"));
 static const uint32 EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
 #if NV_AFTERMATH
-void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context)
+void D3D12RHI::FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath_ContextHandle Context)
 {
 
 	if (GDX12NVAfterMathEnabled && bTrackingGPUCrashData)
@@ -237,7 +236,7 @@ void FD3DGPUProfiler::PushEvent(const TCHAR* Name, FColor Color, GFSDK_Aftermath
 }
 #endif
 
-void FD3DGPUProfiler::PopEvent()
+void D3D12RHI::FD3DGPUProfiler::PopEvent()
 {
 #if WITH_DX_PERF
 	D3DPERF_EndEvent();
@@ -372,14 +371,14 @@ void UpdateBufferStats(FD3D12ResourceLocation* ResourceLocation, bool bAllocatin
 }
 
 #if NV_AFTERMATH
-void FD3DGPUProfiler::RegisterCommandList(GFSDK_Aftermath_ContextHandle context)
+void D3D12RHI::FD3DGPUProfiler::RegisterCommandList(GFSDK_Aftermath_ContextHandle context)
 {
 	FScopeLock Lock(&AftermathLock);
 
 	AftermathContexts.Push(context);
 }
 
-void FD3DGPUProfiler::UnregisterCommandList(GFSDK_Aftermath_ContextHandle context)
+void D3D12RHI::FD3DGPUProfiler::UnregisterCommandList(GFSDK_Aftermath_ContextHandle context)
 {
 	FScopeLock Lock(&AftermathLock);
 
@@ -390,7 +389,7 @@ void FD3DGPUProfiler::UnregisterCommandList(GFSDK_Aftermath_ContextHandle contex
 #endif
 
 extern CORE_API bool GIsGPUCrashed;
-bool FD3DGPUProfiler::CheckGpuHeartbeat() const
+bool D3D12RHI::FD3DGPUProfiler::CheckGpuHeartbeat() const
 {
 #if NV_AFTERMATH
 	if (GDX12NVAfterMathEnabled)
@@ -460,4 +459,83 @@ bool FD3DGPUProfiler::CheckGpuHeartbeat() const
 	}
 #endif
 	return true;
+}
+
+static int32 FindCmdListTimingPairIndex(const TArray<uint64>& CmdListStartTimestamps, uint64 Value)
+{
+	int32 Pos = Algo::UpperBound(CmdListStartTimestamps, Value) - 1;
+	return FMath::Max(Pos, 0);
+}
+
+uint64 D3D12RHI::FD3DGPUProfiler::CalculateIdleTime(uint64 StartTime, uint64 EndTime)
+{
+	const int32 NumTimingPairs = CmdListStartTimestamps.Num();
+	check(NumTimingPairs == CmdListEndTimestamps.Num() && NumTimingPairs == IdleTimeCDF.Num());
+	
+	if (!NumTimingPairs)
+	{
+		return 0;
+	}
+
+	const int32 StartIdx = FindCmdListTimingPairIndex(CmdListStartTimestamps, StartTime);
+	const int32 EndIdx = FindCmdListTimingPairIndex(CmdListStartTimestamps, EndTime);
+	return IdleTimeCDF[EndIdx] - IdleTimeCDF[StartIdx];
+}
+
+void D3D12RHI::FD3DGPUProfiler::DoPreProfileGPUWork()
+{
+	typedef typename FD3D12CommandContext::EFlushCommandsExtraAction EFlushCmdsAction;
+	constexpr bool bWaitForCommands = false;
+	constexpr EFlushCmdsAction FlushAction = EFlushCmdsAction::FCEA_StartProfilingGPU;
+
+	FD3D12Adapter* Adapter = GetParentAdapter();
+	for (uint32 GPUIdx : FRHIGPUMask::All())
+	{
+		FD3D12Device* Device = Adapter->GetDevice(GPUIdx);
+		Device->GetDefaultCommandContext().FlushCommands(bWaitForCommands, FlushAction);
+	}
+}
+
+void D3D12RHI::FD3DGPUProfiler::DoPostProfileGPUWork()
+{
+	typedef typename FD3D12CommandContext::EFlushCommandsExtraAction EFlushCmdsAction;
+	constexpr bool bWaitForCommands = false;
+	constexpr EFlushCmdsAction FlushAction = EFlushCmdsAction::FCEA_EndProfilingGPU;
+
+	TArray<FResolvedCmdListExecTime> CmdListExecTimes;
+	FD3D12Adapter* Adapter = GetParentAdapter();
+	for (uint32 GPUIdx : FRHIGPUMask::All())
+	{
+		FD3D12Device* Device = Adapter->GetDevice(GPUIdx);
+		Device->GetDefaultCommandContext().FlushCommands(bWaitForCommands, FlushAction);
+		TArray<FResolvedCmdListExecTime> TimingPairs;
+		Device->GetCommandListManager().GetCommandListTimingResults(TimingPairs);
+		CmdListExecTimes.Append(MoveTemp(TimingPairs));
+	}
+
+	const int32 NumTimingPairs = CmdListExecTimes.Num();
+	CmdListStartTimestamps.Empty(NumTimingPairs);
+	CmdListEndTimestamps.Empty(NumTimingPairs);
+	IdleTimeCDF.Empty(NumTimingPairs);
+
+	if (NumTimingPairs > 0)
+	{
+		Algo::Sort(CmdListExecTimes, [](const FResolvedCmdListExecTime& A, const FResolvedCmdListExecTime& B)
+		{
+			return A.StartTimestamp < B.StartTimestamp;
+		});
+		CmdListStartTimestamps.Add(CmdListExecTimes[0].StartTimestamp);
+		CmdListEndTimestamps.Add(CmdListExecTimes[0].EndTimestamp);
+		IdleTimeCDF.Add(0);
+		for (int32 Idx = 1; Idx < NumTimingPairs; ++Idx)
+		{
+			const FResolvedCmdListExecTime& Prev = CmdListExecTimes[Idx - 1];
+			const FResolvedCmdListExecTime& Cur = CmdListExecTimes[Idx];
+			ensure(Cur.StartTimestamp >= Prev.EndTimestamp);
+			CmdListStartTimestamps.Add(Cur.StartTimestamp);
+			CmdListEndTimestamps.Add(Cur.EndTimestamp);
+			const uint64 Bubble = Cur.StartTimestamp >= Prev.EndTimestamp ? Cur.StartTimestamp - Prev.EndTimestamp : 0;
+			IdleTimeCDF.Add(IdleTimeCDF.Last() + Bubble);
+		}
+	}
 }

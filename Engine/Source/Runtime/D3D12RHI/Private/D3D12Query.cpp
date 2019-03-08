@@ -437,6 +437,201 @@ void FD3D12QueryHeap::CreateResultBuffer()
 }
 
 /*=============================================================================
+* class FD3D12LinearQueryHeap
+*=============================================================================*/
+
+FD3D12LinearQueryHeap::FD3D12LinearQueryHeap(FD3D12Device* InParent, D3D12_QUERY_HEAP_TYPE InHeapType, int32 GrowCount)
+	: FD3D12DeviceChild(InParent)
+	, FD3D12SingleNodeGPUObject(InParent->GetGPUMask())
+	, QueryHeapType(InHeapType)
+	, QueryType(HeapTypeToQueryType(InHeapType))
+	, GrowNumQueries(GrowCount)
+	, SlotToHeapIdxShift(FPlatformMath::CountBits(GrowCount - 1))
+	, HeapState(HS_Open)
+	, NextFreeIdx(0)
+	, CurMaxNumQueries(0)
+	, NextChunkIdx(0)
+{
+	check(GrowCount > 0 && !(GrowCount & (GrowCount - 1)));
+}
+
+FD3D12LinearQueryHeap::~FD3D12LinearQueryHeap()
+{
+	ReleaseResources();
+}
+
+int32 FD3D12LinearQueryHeap::BeginQuery(FD3D12CommandListHandle CmdListHandle)
+{
+	const int32 SlotIdx = AllocateQueryHeapSlot();
+	const int32 HeapIdx = SlotIdx >> SlotToHeapIdxShift;
+	const int32 Offset = SlotIdx & (GrowNumQueries - 1);
+
+	FChunk& Chunk = AllocatedChunks[HeapIdx];
+	CmdListHandle->BeginQuery(Chunk.QueryHeap, QueryType, Offset);
+	CmdListHandle.UpdateResidency(&Chunk.QueryHeapResidencyHandle);
+	FD3D12CommandContext* Context = CmdListHandle.GetCurrentOwningContext();
+	if (Context)
+	{
+		++Context->otherWorkCounter;
+	}
+	return SlotIdx;
+}
+
+int32 FD3D12LinearQueryHeap::EndQuery(FD3D12CommandListHandle CmdListHandle)
+{
+	const int32 SlotIdx = AllocateQueryHeapSlot();
+	const int32 HeapIdx = SlotIdx >> SlotToHeapIdxShift;
+	const int32 Offset = SlotIdx & (GrowNumQueries - 1);
+
+	FChunk& Chunk = AllocatedChunks[HeapIdx];
+	CmdListHandle->EndQuery(Chunk.QueryHeap, QueryType, Offset);
+	CmdListHandle.UpdateResidency(&Chunk.QueryHeapResidencyHandle);
+	FD3D12CommandContext* Context = CmdListHandle.GetCurrentOwningContext();
+	if (Context)
+	{
+		++Context->otherWorkCounter;
+	}
+	return SlotIdx;
+}
+
+void FD3D12LinearQueryHeap::Reset()
+{
+	HeapState = HS_Open;
+	NextFreeIdx = 0;
+}
+
+void FD3D12LinearQueryHeap::FlushAndGetResults(TArray<uint64>& QueryResults, bool bReleaseResources)
+{
+	HeapState = HS_Closed;
+	
+	int32 NumActiveQueries = NextFreeIdx;
+	const uint64 ResultBuffSize = ResultSize * NumActiveQueries;
+	TRefCountPtr<FD3D12Resource> ResultBuff;
+	CreateResultBuffer(ResultBuffSize, ResultBuff.GetInitReference());
+
+	FD3D12CommandContext& Context = GetParentDevice()->GetDefaultCommandContext();
+	++Context.otherWorkCounter;
+	const int32 NumHeaps = (NumActiveQueries + GrowNumQueries - 1) >> SlotToHeapIdxShift;
+	for (int32 HeapIdx = 0; HeapIdx < NumHeaps; ++HeapIdx)
+	{
+		const int32 NumQueriesInHeap = FMath::Min(NumActiveQueries, GrowNumQueries);
+		NumActiveQueries -= GrowNumQueries;
+		FChunk& Chunk = AllocatedChunks[HeapIdx];
+		Context.CommandListHandle->ResolveQueryData(
+			Chunk.QueryHeap,
+			QueryType,
+			0,
+			NumQueriesInHeap,
+			ResultBuff->GetResource(),
+			ResultSize * HeapIdx * GrowNumQueries);
+		Context.CommandListHandle.UpdateResidency(&Chunk.QueryHeapResidencyHandle);
+		Context.CommandListHandle.UpdateResidency(ResultBuff);
+	}
+
+	Context.FlushCommands(true);
+	const int32 NumResults = NextFreeIdx;
+	QueryResults.Empty(NumResults);
+	QueryResults.AddUninitialized(NumResults);
+	void* MappedResult;
+	VERIFYD3D12RESULT(ResultBuff->GetResource()->Map(0, nullptr, &MappedResult));
+	FMemory::Memcpy(QueryResults.GetData(), MappedResult, ResultBuffSize);
+	ResultBuff->GetResource()->Unmap(0, nullptr);
+
+	if (bReleaseResources)
+	{
+		ReleaseResources();
+	}
+	Reset();
+}
+
+D3D12_QUERY_TYPE FD3D12LinearQueryHeap::HeapTypeToQueryType(D3D12_QUERY_HEAP_TYPE HeapType)
+{
+	switch (HeapType)
+	{
+	case D3D12_QUERY_HEAP_TYPE_OCCLUSION:
+		return D3D12_QUERY_TYPE_OCCLUSION;
+	case D3D12_QUERY_HEAP_TYPE_TIMESTAMP:
+		return D3D12_QUERY_TYPE_TIMESTAMP;
+	default:
+		check(false);
+		return (D3D12_QUERY_TYPE)-1;
+	}
+}
+
+int32 FD3D12LinearQueryHeap::AllocateQueryHeapSlot()
+{
+	check(HeapState == HS_Open);
+	const int32 SlotIdx = FPlatformAtomics::InterlockedIncrement(&NextFreeIdx) - 1;
+
+	if (SlotIdx >= CurMaxNumQueries)
+	{
+		FScopeLock Lock(&CS);
+		while (SlotIdx >= CurMaxNumQueries)
+		{
+			Grow();
+		}
+	}
+	return SlotIdx;
+}
+
+void FD3D12LinearQueryHeap::Grow()
+{
+	const int32 ChunkIdx = NextChunkIdx++;
+	checkf(ChunkIdx < MaxNumChunks, TEXT("Running out of chunks, consider increase MaxNumChunks or GrowNumQueries"));
+	FChunk& NewChunk = AllocatedChunks[ChunkIdx];
+	CreateQueryHeap(GrowNumQueries, NewChunk.QueryHeap.GetInitReference(), NewChunk.QueryHeapResidencyHandle);
+	CurMaxNumQueries += GrowNumQueries;
+}
+
+void FD3D12LinearQueryHeap::CreateQueryHeap(int32 NumQueries, ID3D12QueryHeap** OutHeap, FD3D12ResidencyHandle& OutResidencyHandle)
+{
+	D3D12_QUERY_HEAP_DESC Desc;
+	Desc.Type = QueryHeapType;
+	Desc.Count = static_cast<uint32>(NumQueries);
+	Desc.NodeMask = static_cast<uint32>(GetGPUMask());
+	VERIFYD3D12RESULT(GetParentDevice()->GetDevice()->CreateQueryHeap(&Desc, IID_PPV_ARGS(OutHeap)));
+	SetName(*OutHeap, TEXT("FD3D12LinearQueryHeap"));
+
+#if ENABLE_RESIDENCY_MANAGEMENT
+	D3DX12Residency::Initialize(OutResidencyHandle, *OutHeap, ResultSize * Desc.Count);
+	D3DX12Residency::BeginTrackingObject(GetParentDevice()->GetResidencyManager(), OutResidencyHandle);
+#endif
+}
+
+void FD3D12LinearQueryHeap::CreateResultBuffer(uint64 SizeInBytes, FD3D12Resource** OutBuffer)
+{
+	FD3D12Adapter* Adapter = GetParentDevice()->GetParentAdapter();
+	const D3D12_HEAP_PROPERTIES ResultBufferHeapProperties = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK, (uint32)GetGPUMask(), (uint32)GetVisibilityMask());
+	const D3D12_RESOURCE_DESC ResultBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(SizeInBytes);
+
+	VERIFYD3D12RESULT(Adapter->CreateCommittedResource(
+		ResultBufferDesc,
+		ResultBufferHeapProperties,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		OutBuffer,
+		TEXT("FD3D12LinearQueryHeap Result Buffer")));
+}
+
+void FD3D12LinearQueryHeap::ReleaseResources()
+{
+#if ENABLE_RESIDENCY_MANAGEMENT
+	const int32 NumChunks = NextChunkIdx;
+	for (int32 Idx = 0; Idx < NumChunks; ++Idx)
+	{
+		FChunk& Chunk = AllocatedChunks[Idx];
+		if (D3DX12Residency::IsInitialized(Chunk.QueryHeapResidencyHandle))
+		{
+			D3DX12Residency::EndTrackingObject(GetParentDevice()->GetResidencyManager(), Chunk.QueryHeapResidencyHandle);
+			Chunk.QueryHeapResidencyHandle = {};
+		}
+	}
+#endif
+	NextChunkIdx = 0;
+	CurMaxNumQueries = 0;
+}
+
+/*=============================================================================
  * class FD3D12BufferedGPUTiming
  *=============================================================================*/
 
@@ -671,7 +866,9 @@ uint64 FD3D12BufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 					
 					if (EndTime > StartTime)
 					{
-						return EndTime - StartTime;
+						const uint64 Bubble = GetParentAdapter()->GetGPUProfiler().CalculateIdleTime(StartTime, EndTime);
+						const uint64 ElapsedTime = EndTime - StartTime;
+						return ElapsedTime >= Bubble ? ElapsedTime - Bubble : 0;
 					}
 				}
 
@@ -719,7 +916,9 @@ uint64 FD3D12BufferedGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 
 			if (EndTime > StartTime)
 			{
-				return EndTime - StartTime;
+				const uint64 Bubble = GetParentAdapter()->GetGPUProfiler().CalculateIdleTime(StartTime, EndTime);
+				const uint64 ElapsedTime = EndTime - StartTime;
+				return ElapsedTime >= Bubble ? ElapsedTime - Bubble : 0;
 			}
 		}
 	}

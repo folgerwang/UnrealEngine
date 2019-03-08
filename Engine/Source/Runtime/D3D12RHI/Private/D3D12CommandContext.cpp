@@ -244,17 +244,35 @@ void FD3D12CommandContext::CloseCommandList()
 	CommandListHandle.Close();
 }
 
-FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion)
+FD3D12CommandListHandle FD3D12CommandContext::FlushCommands(bool WaitForCompletion, EFlushCommandsExtraAction ExtraAction)
 {
 	// We should only be flushing the default context
 	check(IsDefaultContext());
 
+	bool bHasProfileGPUAction = false;
+#if WITH_PROFILEGPU
+	// Only graphics command list supports ID3D12GraphicsCommandList::EndQuery currently
+	if (!bIsAsyncComputeContext)
+	{
+		if (ExtraAction == FCEA_StartProfilingGPU)
+		{
+			GetCommandListManager().StartTrackingCommandListTime();
+		}
+		else if (ExtraAction == FCEA_EndProfilingGPU)
+		{
+			GetCommandListManager().EndTrackingCommandListTime();
+		}
+		bHasProfileGPUAction = true;
+	}
+#endif
+
 	FD3D12Device* Device = GetParentDevice();
 	const bool bHasPendingWork = Device->PendingCommandLists.Num() > 0;
 	const bool bHasDoneWork = HasDoneWork() || bHasPendingWork;
+	const bool bOpenNewCmdList = WaitForCompletion || bHasDoneWork || bHasProfileGPUAction;
 
 	// Only submit a command list if it does meaningful work or the flush is expected to wait for completion.
-	if (WaitForCompletion || bHasDoneWork)
+	if (bOpenNewCmdList)
 	{
 		// Close the current command list
 		CloseCommandList();

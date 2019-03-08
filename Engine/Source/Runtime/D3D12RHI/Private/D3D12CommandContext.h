@@ -88,6 +88,14 @@ protected:
 class FD3D12CommandContext : public FD3D12CommandContextBase, public FD3D12DeviceChild
 {
 public:
+	enum EFlushCommandsExtraAction
+	{
+		FCEA_None,
+		FCEA_StartProfilingGPU,
+		FCEA_EndProfilingGPU,
+		FCEA_Num
+	};
+
 	FD3D12CommandContext(class FD3D12Device* InParent, FD3D12SubAllocatedOnlineHeap::SubAllocationDesc& SubHeapDesc, bool InIsDefaultContext, bool InIsAsyncComputeContext = false);
 	virtual ~FD3D12CommandContext();
 
@@ -122,7 +130,7 @@ public:
 	void CloseCommandList();
 
 	// Close the D3D command list and execute it.  Optionally wait for the GPU to finish. Returns the handle to the command list so you can wait for it later.
-	FD3D12CommandListHandle FlushCommands(bool WaitForCompletion = false);
+	FD3D12CommandListHandle FlushCommands(bool WaitForCompletion = false, EFlushCommandsExtraAction ExtraAction = FCEA_None);
 
 	void Finish(TArray<FD3D12CommandListHandle>& CommandLists);
 
@@ -429,7 +437,7 @@ public:
 
 	uint32 GetGPUIndex() const { return GPUMask.ToIndex(); }
 
-protected: 
+protected:
 
 	FD3D12CommandContext* GetContext(uint32 InGPUIndex) final override 
 	{  

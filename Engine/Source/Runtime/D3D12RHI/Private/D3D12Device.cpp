@@ -36,6 +36,9 @@ FD3D12Device::FD3D12Device(FRHIGPUMask InGPUMask, FD3D12Adapter* InAdapter) :
 	GlobalViewHeap(this, InGPUMask),
 	OcclusionQueryHeap(this, D3D12_QUERY_HEAP_TYPE_OCCLUSION, 65536, 4 /*frames to keep results */ * 1 /*batches per frame*/),
 	TimestampQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192, 4 /*frames to keep results */ * 5 /*batches per frame*/ ),
+#if WITH_PROFILEGPU
+	CmdListExecTimeQueryHeap(this, D3D12_QUERY_HEAP_TYPE_TIMESTAMP, 8192),
+#endif
 	DefaultBufferAllocator(this, InGPUMask), //Note: Cross node buffers are possible 
 	SamplerID(0),
 	DefaultFastAllocator(this, InGPUMask, D3D12_HEAP_TYPE_UPLOAD, 1024 * 1024 * 4),
@@ -74,6 +77,15 @@ ID3D12Device5* FD3D12Device::GetRayTracingDevice()
 	return GetParentAdapter()->GetD3DRayTracingDevice();
 }
 #endif // D3D12_RHI_RAYTRACING
+
+FD3D12LinearQueryHeap* FD3D12Device::GetCmdListExecTimeQueryHeap()
+{
+#if WITH_PROFILEGPU
+	return &CmdListExecTimeQueryHeap;
+#else
+	return nullptr;
+#endif
+}
 
 FD3D12DynamicRHI* FD3D12Device::GetOwningRHI()
 { 

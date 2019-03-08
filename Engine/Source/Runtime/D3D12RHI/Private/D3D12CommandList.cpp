@@ -45,8 +45,12 @@ FD3D12CommandListHandle::FD3D12CommandListData::FD3D12CommandListData(FD3D12Devi
 	, CurrentGeneration(1)
 	, LastCompleteGeneration(0)
 	, IsClosed(false)
+	, bShouldTrackStartEndTime(false)
 	, PendingResourceBarriers()
 	, ResidencySet(nullptr)
+#if WITH_PROFILEGPU
+	, StartTimeQueryIdx(INDEX_NONE)
+#endif
 {
 	VERIFYD3D12RESULT(ParentDevice->GetDevice()->CreateCommandList((uint32)GetGPUMask(), CommandListType, CommandAllocator, nullptr, IID_PPV_ARGS(CommandList.GetInitReference())));
 	INC_DWORD_STAT(STAT_D3D12NumCommandLists);
@@ -108,6 +112,84 @@ FD3D12CommandListHandle::FD3D12CommandListData::~FD3D12CommandListData()
 	DEC_DWORD_STAT(STAT_D3D12NumCommandLists);
 
 	D3DX12Residency::DestroyResidencySet(GetParentDevice()->GetResidencyManager(), ResidencySet);
+}
+
+void FD3D12CommandListHandle::FD3D12CommandListData::Close()
+{
+	if (!IsClosed)
+	{
+		FlushResourceBarriers();
+		if (bShouldTrackStartEndTime)
+		{
+			FinishTrackingCommandListTime();
+		}
+		VERIFYD3D12RESULT(CommandList->Close());
+
+		D3DX12Residency::Close(ResidencySet);
+		IsClosed = true;
+	}
+}
+
+void FD3D12CommandListHandle::FD3D12CommandListData::Reset(FD3D12CommandAllocator& CommandAllocator, bool bTrackExecTime)
+{
+	VERIFYD3D12RESULT(CommandList->Reset(CommandAllocator, nullptr));
+
+	CurrentCommandAllocator = &CommandAllocator;
+	IsClosed = false;
+
+	// Indicate this command allocator is being used.
+	CurrentCommandAllocator->IncrementPendingCommandLists();
+
+	CleanupActiveGenerations();
+
+	// Remove all pendering barriers from the command list
+	PendingResourceBarriers.Reset();
+
+	// Empty tracked resource state for this command list
+	TrackedResourceState.Empty();
+
+	// If this fails there are too many concurrently open residency sets. Increase the value of MAX_NUM_CONCURRENT_CMD_LISTS
+	// in the residency manager. Beware, this will increase the CPU memory usage of every tracked resource.
+	D3DX12Residency::Open(ResidencySet);
+
+	// If this fails then some previous resource barriers were never submitted.
+	check(ResourceBarrierBatcher.GetBarriers().Num() == 0);
+
+#if DEBUG_RESOURCE_STATES
+	ResourceBarriers.Reset();
+#endif
+
+	if (bTrackExecTime)
+	{
+		StartTrackingCommandListTime();
+	}
+}
+
+int32 FD3D12CommandListHandle::FD3D12CommandListData::CreateAndInsertTimestampQuery()
+{	
+	FD3D12LinearQueryHeap* QueryHeap = GetParentDevice()->GetCmdListExecTimeQueryHeap();
+	check(QueryHeap);
+	return QueryHeap->EndQuery(this);
+}
+
+void FD3D12CommandListHandle::FD3D12CommandListData::StartTrackingCommandListTime()
+{
+#if WITH_PROFILEGPU
+	check(!IsClosed && !bShouldTrackStartEndTime && StartTimeQueryIdx == INDEX_NONE);
+	bShouldTrackStartEndTime = true;
+	StartTimeQueryIdx = CreateAndInsertTimestampQuery();
+#endif
+}
+
+void FD3D12CommandListHandle::FD3D12CommandListData::FinishTrackingCommandListTime()
+{
+#if WITH_PROFILEGPU
+	check(!IsClosed && bShouldTrackStartEndTime && StartTimeQueryIdx != INDEX_NONE);
+	bShouldTrackStartEndTime = false;
+	const int32 EndTimeQueryIdx = CreateAndInsertTimestampQuery();
+	CommandListManager->AddCommandListTimingPair(StartTimeQueryIdx, EndTimeQueryIdx);
+	StartTimeQueryIdx = INDEX_NONE;
+#endif
 }
 
 void inline FD3D12CommandListHandle::FD3D12CommandListData::FCommandListResourceState::ConditionalInitalize(FD3D12Resource* pResource, CResourceState& ResourceState)
