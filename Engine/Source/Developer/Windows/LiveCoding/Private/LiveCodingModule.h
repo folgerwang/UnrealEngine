@@ -8,6 +8,7 @@
 
 struct IConsoleCommand;
 class IConsoleVariable;
+class ULiveCodingSettings;
 
 class FLiveCodingModule final : public ILiveCodingModule
 {
@@ -19,16 +20,18 @@ public:
 	virtual void ShutdownModule() override;
 
 	// ILiveCodingModule implementation
-	virtual void Enable(bool bInEnabled) override;
-	virtual bool IsEnabled() const override;
+	virtual void EnableByDefault(bool bInEnabled) override;
+	virtual bool IsEnabledByDefault() const override;
+	virtual void EnableForSession(bool bInEnabled) override;
+	virtual bool IsEnabledForSession() const override;
 	virtual void ShowConsole() override;
-	virtual void TriggerRecompile() override;
+	virtual void Compile() override;
 	virtual bool IsCompiling() const override;
 	virtual void Tick() override;
 
 private:
-	bool bEnabled;
-	bool bShouldStart;
+	ULiveCodingSettings* Settings;
+	bool bEnabledLastTick;
 	bool bStarted;
 	TSet<FString> EnabledModules;
 

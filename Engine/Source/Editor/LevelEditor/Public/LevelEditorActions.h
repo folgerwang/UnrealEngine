@@ -107,9 +107,10 @@ public:
 	TSharedPtr< FUICommandInfo > RecompileGameCode;
 
 #if WITH_LIVE_CODING
-	TSharedPtr< FUICommandInfo > HotReloadMode_Legacy;
-	TSharedPtr< FUICommandInfo > HotReloadMode_LiveCoding;
-	TSharedPtr< FUICommandInfo > HotReload_ShowConsole;
+	TSharedPtr< FUICommandInfo > LiveCoding_Enable;
+	TSharedPtr< FUICommandInfo > LiveCoding_StartSession;
+	TSharedPtr< FUICommandInfo > LiveCoding_ShowConsole;
+	TSharedPtr< FUICommandInfo > LiveCoding_Settings;
 #endif
 
 	/**
@@ -853,22 +854,37 @@ public:
 	/**
 	 * Enables live coding mode
 	 */
-	static void HotReload_EnableLiveCoding(bool bEnable);
-
-	/**
-	 * Determines if hot reload is set to use legacy mode.
-	 */
-	static bool HotReload_IsLegacyMode();
+	static void LiveCoding_ToggleEnabled();
 
 	/**
 	 * Determines if live coding is enabled
 	 */
-	static bool HotReload_IsLiveCodingMode();
+	static bool LiveCoding_IsEnabled();
+
+	/**
+	 * Starts live coding (in manual mode)
+	 */
+	static void LiveCoding_StartSession_Clicked();
+
+	/**
+	 * Determines whether we can manually start live coding for the current session
+	 */
+	static bool LiveCoding_CanStartSession();
 
 	/**
 	 * Shows the console
 	 */
-	static void HotReload_ShowConsole_Clicked();
+	static void LiveCoding_ShowConsole_Clicked();
+
+	/**
+	 * Determines whether the console can be shown
+	 */
+	static bool LiveCoding_CanShowConsole();
+
+	/**
+	 * Shows the settings panel
+	 */
+	static void LiveCoding_Settings_Clicked();
 #endif
 
 	/**

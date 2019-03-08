@@ -657,21 +657,25 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 
 #if WITH_LIVE_CODING
 	ActionList.MapAction( 
-		Commands.HotReloadMode_Legacy, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::HotReload_EnableLiveCoding, false ),
+		Commands.LiveCoding_Enable, 
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_ToggleEnabled ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::HotReload_IsLegacyMode ) );
+		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_IsEnabled ) );
 
 	ActionList.MapAction( 
-		Commands.HotReloadMode_LiveCoding, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::HotReload_EnableLiveCoding, true ),
-		FCanExecuteAction(),
-		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::HotReload_IsLiveCodingMode ) );
+		Commands.LiveCoding_StartSession, 
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_StartSession_Clicked ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_CanStartSession ) );
 
 	ActionList.MapAction( 
-		Commands.HotReload_ShowConsole, 
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::HotReload_ShowConsole_Clicked ),
-		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::HotReload_IsLiveCodingMode ) );
+		Commands.LiveCoding_ShowConsole, 
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_ShowConsole_Clicked ),
+		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_CanShowConsole ) );
+
+	ActionList.MapAction( 
+		Commands.LiveCoding_Settings, 
+		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::LiveCoding_Settings_Clicked ),
+		FCanExecuteAction());
 
 #endif
 

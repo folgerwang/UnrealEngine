@@ -90,6 +90,7 @@
 #include "ActorGroupingUtils.h"
 #include "LevelUtils.h"
 #include "ISceneOutliner.h"
+#include "ISettingsModule.h"
 
 #if WITH_LIVE_CODING
 #include "ILiveCodingModule.h"
@@ -1032,9 +1033,9 @@ void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 {
 #if WITH_LIVE_CODING
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	if (LiveCoding != nullptr && LiveCoding->IsEnabled())
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
 	{
-		LiveCoding->TriggerRecompile();
+		LiveCoding->Compile();
 		return;
 	}
 #endif
@@ -1052,7 +1053,7 @@ bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 {
 #if WITH_LIVE_CODING
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	if (LiveCoding != nullptr && LiveCoding->IsEnabled())
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
 	{
 		return !LiveCoding->IsCompiling();
 	}
@@ -1071,33 +1072,54 @@ bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 }
 
 #if WITH_LIVE_CODING
-void FLevelEditorActionCallbacks::HotReload_EnableLiveCoding(bool bEnable)
+void FLevelEditorActionCallbacks::LiveCoding_ToggleEnabled()
 {
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
 	if (LiveCoding != nullptr)
 	{
-		LiveCoding->Enable(bEnable);
+		LiveCoding->EnableByDefault(!LiveCoding->IsEnabledByDefault());
 	}
 }
 
-bool FLevelEditorActionCallbacks::HotReload_IsLegacyMode( )
-{
-	return !HotReload_IsLiveCodingMode();
-}
-
-bool FLevelEditorActionCallbacks::HotReload_IsLiveCodingMode( )
+bool FLevelEditorActionCallbacks::LiveCoding_IsEnabled( )
 {
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	return LiveCoding != nullptr && LiveCoding->IsEnabled();
+	return LiveCoding != nullptr && LiveCoding->IsEnabledByDefault();
 }
 
-void FLevelEditorActionCallbacks::HotReload_ShowConsole_Clicked()
+void FLevelEditorActionCallbacks::LiveCoding_StartSession_Clicked()
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	if (LiveCoding!= nullptr)
+	{
+		LiveCoding->EnableForSession(true);
+	}
+}
+
+bool FLevelEditorActionCallbacks::LiveCoding_CanStartSession()
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	return LiveCoding != nullptr && LiveCoding->IsEnabledByDefault() && !LiveCoding->IsEnabledForSession();
+}
+
+void FLevelEditorActionCallbacks::LiveCoding_ShowConsole_Clicked()
 {
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
 	if (LiveCoding!= nullptr)
 	{
 		LiveCoding->ShowConsole();
 	}
+}
+
+bool FLevelEditorActionCallbacks::LiveCoding_CanShowConsole()
+{
+	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
+	return LiveCoding!= nullptr && LiveCoding->IsEnabledForSession();
+}
+
+void FLevelEditorActionCallbacks::LiveCoding_Settings_Clicked()
+{
+	FModuleManager::LoadModuleChecked<ISettingsModule>("Settings").ShowViewer("Editor", "General", "Live Coding");
 }
 #endif
 
@@ -3148,9 +3170,10 @@ void FLevelEditorCommands::RegisterCommands()
 	UI_COMMAND( RecompileGameCode, "Recompile Game Code", "Recompiles and reloads C++ code for game systems on the fly", EUserInterfaceActionType::Button, FInputChord( EKeys::P, EModifierKey::Alt | EModifierKey::Control | EModifierKey::Shift ) );
 
 #if WITH_LIVE_CODING
-	UI_COMMAND( HotReloadMode_Legacy, "Legacy", "Use the legacy hot reload system", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( HotReloadMode_LiveCoding, "Live Coding (Experimental)", "Hot-patches C++ function changes into the current process. Currently does not allow class layout changes.", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( HotReload_ShowConsole, "Show Console", "Displays the live coding console window.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LiveCoding_Enable, "Enable Live Coding (Experimental)", "Hot-patches C++ function changes into the current process. Currently does not allow class layout changes.", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( LiveCoding_StartSession, "Start Session", "Starts a live coding session.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LiveCoding_ShowConsole, "Show Console", "Displays the live coding console window.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( LiveCoding_Settings, "Settings...", "Open the live coding settings", EUserInterfaceActionType::Button, FInputChord() );
 #endif
 
 	UI_COMMAND( EditAsset, "Edit Asset", "Edits the asset associated with the selected actor", EUserInterfaceActionType::Button, FInputChord( EKeys::E, EModifierKey::Control ) );

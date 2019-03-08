@@ -10,10 +10,12 @@
 class ILiveCodingModule : public IModuleInterface
 {
 public:
-	virtual void Enable(bool bEnabled) = 0;
-	virtual bool IsEnabled() const = 0;
+	virtual void EnableByDefault(bool bEnabled) = 0;
+	virtual bool IsEnabledByDefault() const = 0;
+	virtual void EnableForSession(bool bEnabled) = 0;
+	virtual bool IsEnabledForSession() const = 0;
 	virtual void ShowConsole() = 0;
-	virtual void TriggerRecompile() = 0;
+	virtual void Compile() = 0;
 	virtual bool IsCompiling() const = 0;
 	virtual void Tick() = 0;
 };

@@ -1889,16 +1889,17 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateCompileMenuContent( TSharedRe
 	const bool bShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList );
 
-	MenuBuilder.BeginSection("HotReloadMode", LOCTEXT( "HotReloadMode", "Mode" ) );
+	MenuBuilder.BeginSection("LiveCodingMode", LOCTEXT( "LiveCodingMode", "General" ) );
 	{
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReloadMode_Legacy );
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReloadMode_LiveCoding );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().LiveCoding_Enable );
 	}
 	MenuBuilder.EndSection();
 
-	MenuBuilder.BeginSection("HotReloadActions", LOCTEXT( "HotReloadActions", "Actions" ) );
+	MenuBuilder.BeginSection("LiveCodingActions", LOCTEXT( "LiveCodingActions", "Actions" ) );
 	{
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().HotReload_ShowConsole );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().LiveCoding_StartSession );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().LiveCoding_ShowConsole );
+		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().LiveCoding_Settings );
 	}
 	MenuBuilder.EndSection();
 
