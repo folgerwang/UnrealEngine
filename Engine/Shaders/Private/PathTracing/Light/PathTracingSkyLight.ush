@@ -76,7 +76,7 @@ void SkyLight_EstimateLight(
 #else
 	uint Width, Height, NumberOfLevels;
 	SkyLight.Texture.GetDimensions(0, Width, Height, NumberOfLevels);
-	float LightPower = Luminance(GetColor(LightId) * TextureCubeSampleLevel(SkyLight.Texture, SkyLight.TextureSampler, float3(0.0, 1.0, 0.0), NumberOfLevels - 1));
+	float LightPower = Luminance(GetColor(LightId) * TextureCubeSampleLevel(SkyLight.Texture, SkyLight.TextureSampler, float3(0.0, 1.0, 0.0), NumberOfLevels - 1).xyz);
 	OutIrradiance = LightPower * 2.0 * PI;
 #endif
 }
@@ -150,7 +150,7 @@ void SkyLight_SampleLight(
 	//MipPdf = PdfSkyLightOcclusionRay(WorldNormal, RayDirection);
 
 	float2 PixelOffset = RandSample.yz;
-	float2 MipPixelUV = (MipPixel + PixelOffset) / float2(DimensionsAtLevel(SkyLight.MipDimensions, StopLevel));
+	float2 MipPixelUV = (MipPixel + PixelOffset) / float2(DimensionsAtLevel(SkyLight.MipDimensions.xy, StopLevel));
 
 	// Construct Cubemap coordinate
 	uint2 TextureDimensions;

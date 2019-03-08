@@ -90,17 +90,21 @@ bool SampleLightSelection(
 	// Build irradiance estimate prefix sum
 	float IrradianceEstimate[LIGHT_COUNT_MAXIMUM];
 	EstimateLight(0, Ray, Payload, IrradianceEstimate[0]);
-	for (uint LightIndex = 1; LightIndex < SceneLightsData.Count; ++LightIndex)
 	{
-		EstimateLight(LightIndex, Ray, Payload, IrradianceEstimate[LightIndex]);
-		IrradianceEstimate[LightIndex] += IrradianceEstimate[LightIndex - 1];
+		for (uint LightIndex = 1; LightIndex < SceneLightsData.Count; ++LightIndex)
+		{
+			EstimateLight(LightIndex, Ray, Payload, IrradianceEstimate[LightIndex]);
+			IrradianceEstimate[LightIndex] += IrradianceEstimate[LightIndex - 1];
+		}
 	}
 	// dxr_todo: Consider when IrradianceEstimate[SceneLightsData.Count] == 0
 
 	// CDF normalization
-	for (uint LightIndex = 0; LightIndex < SceneLightsData.Count; ++LightIndex)
 	{
-		IrradianceEstimate[LightIndex] /= IrradianceEstimate[SceneLightsData.Count - 1];
+		for (uint LightIndex = 0; LightIndex < SceneLightsData.Count; ++LightIndex)
+		{
+			IrradianceEstimate[LightIndex] /= IrradianceEstimate[SceneLightsData.Count - 1];
+		}
 	}
 	IrradianceEstimate[SceneLightsData.Count - 1] = 1.0;
 
@@ -138,17 +142,21 @@ void PdfLightSelection(
 	// Build irradiance estimate prefix sum
 	float IrradianceEstimate[LIGHT_COUNT_MAXIMUM];
 	EstimateLight(0, Ray, Payload, IrradianceEstimate[0]);
-	for (uint LightIndex = 1; LightIndex < SceneLightsData.Count; ++LightIndex)
 	{
-		EstimateLight(LightIndex, Ray, Payload, IrradianceEstimate[LightIndex]);
-		IrradianceEstimate[LightIndex] += IrradianceEstimate[LightIndex - 1];
+		for (uint LightIndex = 1; LightIndex < SceneLightsData.Count; ++LightIndex)
+		{
+			EstimateLight(LightIndex, Ray, Payload, IrradianceEstimate[LightIndex]);
+			IrradianceEstimate[LightIndex] += IrradianceEstimate[LightIndex - 1];
+		}
 	}
 	// dxr_todo: Consider when IrradianceEstimate[SceneLightsData.Count] == 0
 
 	// CDF normalization
-	for (uint LightIndex = 0; LightIndex < SceneLightsData.Count; ++LightIndex)
 	{
-		IrradianceEstimate[LightIndex] /= IrradianceEstimate[SceneLightsData.Count - 1];
+		for (uint LightIndex = 0; LightIndex < SceneLightsData.Count; ++LightIndex)
+		{
+			IrradianceEstimate[LightIndex] /= IrradianceEstimate[SceneLightsData.Count - 1];
+		}
 	}
 	IrradianceEstimate[SceneLightsData.Count - 1] = 1.0;
 
