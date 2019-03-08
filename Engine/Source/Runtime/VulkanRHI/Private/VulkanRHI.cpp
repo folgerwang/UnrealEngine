@@ -432,7 +432,7 @@ void FVulkanDynamicRHI::CreateInstance()
 #if VULKAN_HAS_DEBUGGING_ENABLED
 	SetupDebugLayerCallback();
 
-	if (!GRHISupportsRHIThread || GRenderDocFound)
+	if (GRenderDocFound)
 	{
 		EnableIdealGPUCaptureOptions(true);
 	}
