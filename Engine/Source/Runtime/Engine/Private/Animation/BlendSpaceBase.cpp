@@ -510,6 +510,22 @@ int32 UBlendSpaceBase::GetMarkerUpdateCounter() const
 { 
 	return MarkerDataUpdateCounter; 
 }
+
+void UBlendSpaceBase::RuntimeValidateMarkerData()
+{
+	check(IsInGameThread());
+
+	for (FBlendSample& Sample : SampleData)
+	{
+		if (Sample.Animation && Sample.CachedMarkerDataUpdateCounter != Sample.Animation->GetMarkerUpdateCounter())
+		{
+			// Revalidate data
+			ValidateSampleData();
+			return;
+		}
+	}
+}
+
 #endif // WITH_EDITOR
 
 // @todo fixme: slow approach. If the perbone gets popular, we should change this to array of weight 
@@ -778,6 +794,8 @@ void UBlendSpaceBase::ValidateSampleData()
 				// @todo : should apply scale? If so, we'll need to apply also when blend
 				AnimLength = Sample.Animation->SequenceLength;
 			}
+
+			Sample.CachedMarkerDataUpdateCounter = Sample.Animation->GetMarkerUpdateCounter();
 
 			if (Sample.Animation->AuthoredSyncMarkers.Num() > 0)
 			{

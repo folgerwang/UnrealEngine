@@ -19,6 +19,7 @@
 #include "Animation/AnimCompress.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
+#include "Animation/BlendSpaceBase.h"
 #include "Animation/Rig.h"
 #include "Animation/AnimationSettings.h"
 #include "Animation/AnimCurveCompressionCodec.h"
@@ -5190,6 +5191,19 @@ void UAnimSequence::RefreshSyncMarkerDataFromAuthored()
 	{
 		UniqueMarkerNames.Empty();
 	}
+
+#if WITH_EDITOR
+	check(IsInGameThread());
+
+	// Update blend spaces that may be referencing us
+	for(TObjectIterator<UBlendSpaceBase> It; It; ++It)
+	{
+		if(!It->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad))
+		{
+			It->RuntimeValidateMarkerData();
+		}
+	}
+#endif
 }
 
 bool IsMarkerValid(const FAnimSyncMarker* Marker, bool bLooping, const TArray<FName>& ValidMarkerNames)
