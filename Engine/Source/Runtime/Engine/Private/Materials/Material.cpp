@@ -4281,6 +4281,9 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 
 void UMaterial::PreEditChange(UProperty* PropertyThatChanged)
 {
+	// In Editor realtime rendering changing a material connection (or via undo/redo) changes what is rendered on the RT (specifically in FMeshDecalMeshProcessor::AddMeshBatch() Emmissive connection test)
+	// before the Shader Map has been updated in PostEditChangeProperty() below - Viewport render command enqueue has already happenned so we need to flush that before the material change.
+	FlushRenderingCommands();
 	Super::PreEditChange(PropertyThatChanged);
 }
 
