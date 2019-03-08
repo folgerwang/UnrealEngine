@@ -34,7 +34,7 @@ public:
 	static bool ShouldCompilePermutation(EShaderPlatform Platform, const FMaterial* Material, const FVertexFactoryType* VertexFactoryType)
 	{
 		// See FDebugViewModeMaterialProxy::GetFriendlyName()
-		return AllowDebugViewPS(DVSM_OutputMaterialTextureScales, Platform) && Material->GetFriendlyName().Contains(TEXT("MaterialTexCoordScale"));
+		return AllowDebugViewShaderMode(DVSM_OutputMaterialTextureScales, Platform, GetMaxSupportedFeatureLevel(Platform)) && Material->GetFriendlyName().Contains(TEXT("MaterialTexCoordScale"));
 	}
 
 	FMaterialTexCoordScalePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):

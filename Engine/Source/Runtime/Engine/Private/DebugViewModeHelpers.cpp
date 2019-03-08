@@ -21,8 +21,17 @@ static bool PlatformSupportsDebugViewShaders(EShaderPlatform Platform)
 	// List of platforms that have been tested and proved functional.
 	return Platform == SP_PCD3D_SM4 || Platform == SP_PCD3D_SM5 || Platform == SP_OPENGL_SM4;
 }
- 
-bool AllowDebugViewPS(EDebugViewShaderMode ShaderMode, EShaderPlatform Platform)
+
+bool AllowDebugViewVSDSHS(EShaderPlatform Platform)
+{
+#if WITH_EDITOR
+	return true; 
+#else
+	return false;
+#endif
+}
+
+bool AllowDebugViewShaderMode(EDebugViewShaderMode ShaderMode, EShaderPlatform Platform, ERHIFeatureLevel::Type FeatureLevel)
 {
 #if WITH_EDITOR
 	// Those options are used to test compilation on specific platforms
@@ -35,38 +44,24 @@ bool AllowDebugViewPS(EDebugViewShaderMode ShaderMode, EShaderPlatform Platform)
 	case DVSM_None:
 		return false;
 	case DVSM_ShaderComplexity:
-		return true;
+		return FeatureLevel != ERHIFeatureLevel::SM4; // SM4 doesn't apply post-processes correctly in the deferred path.
 	case DVSM_ShaderComplexityContainedQuadOverhead:
 	case DVSM_ShaderComplexityBleedingQuadOverhead:
 	case DVSM_QuadComplexity:
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && (bForceQuadOverdraw || PlatformSupportsDebugViewShaders(Platform));
+		return FeatureLevel >= ERHIFeatureLevel::SM5 && (bForceQuadOverdraw || PlatformSupportsDebugViewShaders(Platform));
 	case DVSM_PrimitiveDistanceAccuracy:
 	case DVSM_MeshUVDensityAccuracy:
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && (bForceStreamingAccuracy || PlatformSupportsDebugViewShaders(Platform));
+		return FeatureLevel >= ERHIFeatureLevel::SM5 && (bForceStreamingAccuracy || PlatformSupportsDebugViewShaders(Platform));
 	case DVSM_MaterialTextureScaleAccuracy:
 	case DVSM_RequiredTextureResolution:
 	case DVSM_OutputMaterialTextureScales:
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && (bForceTextureStreamingBuild || PlatformSupportsDebugViewShaders(Platform));
+		return FeatureLevel >= ERHIFeatureLevel::SM5 && (bForceTextureStreamingBuild || PlatformSupportsDebugViewShaders(Platform));
 	default:
 		return false;
 	}
 #else
-	return ShaderMode == DVSM_ShaderComplexity;
+	return ShaderMode == DVSM_ShaderComplexity && FeatureLevel != ERHIFeatureLevel::SM4;
 #endif
-}
-
-bool AllowDebugViewVSDSHS(EShaderPlatform Platform)
-{
-#if WITH_EDITOR
-	return true; 
-#else
-	return false;
-#endif
-}
-
-bool AllowDebugViewShaderMode(EDebugViewShaderMode ShaderMode)
-{
-	return AllowDebugViewPS(ShaderMode, GMaxRHIShaderPlatform);
 }
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -204,7 +199,7 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
 			}
 		}
 	}
-	return true;
+	return OutMaterials.Num() != 0;
 #else
 	return false;
 #endif
@@ -223,12 +218,10 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
 bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, bool bFullRebuild, bool bWaitForPreviousShaders, TSet<UMaterialInterface*>& Materials, FSlowTask& ProgressTask)
 {
 #if WITH_EDITORONLY_DATA
-	if (!GShaderCompilingManager)
+	if (!GShaderCompilingManager || !Materials.Num())
 	{
 		return false;
 	}
-
-	check(Materials.Num())
 
 	// Finish compiling pending shaders first.
 	if (!bWaitForPreviousShaders)

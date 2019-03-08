@@ -2350,7 +2350,7 @@ FSceneViewFamily::FSceneViewFamily(const ConstructionValues& CVS)
 	ViewModeParam = CVS.ViewModeParam;
 	ViewModeParamName = CVS.ViewModeParamName;
 
-	if (!AllowDebugViewPS(DebugViewShaderMode, GetShaderPlatform()))
+	if (!AllowDebugViewShaderMode(DebugViewShaderMode, GetShaderPlatform(), GetFeatureLevel()))
 	{
 		DebugViewShaderMode = DVSM_None;
 	}
