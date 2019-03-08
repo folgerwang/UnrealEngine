@@ -80,13 +80,10 @@ UMovieSceneSection* FGeometryCacheSection::GetSectionObject()
 
 FText FGeometryCacheSection::GetSectionTitle() const
 {
-	if (Section.Params.GeometryCache.Get() != nullptr)
+	if (Section.Params.GeometryCacheAsset != nullptr)
 	{
-		UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.Get());
-		if (GeometryCache && GeometryCache->GetOwner() != nullptr)
-		{
-			return FText::FromString(GeometryCache->GetOwner()->GetName());
-		}
+		return FText::FromString(Section.Params.GeometryCacheAsset->GetName());
+	
 	}
 	return LOCTEXT("NoGeometryCacheSection", "No GeometryCache");
 }
@@ -117,7 +114,8 @@ int32 FGeometryCacheSection::OnPaintSection(FSequencerSectionPainter& Painter) c
 
 	// Add lines where the animation starts and ends/loops
 	float AnimPlayRate = FMath::IsNearlyZero(Section.Params.PlayRate) ? 1.0f : Section.Params.PlayRate;
-	float SeqLength = Section.Params.GetSequenceLength() - TickResolution.AsSeconds(Section.Params.StartFrameOffset + Section.Params.EndFrameOffset) / AnimPlayRate;
+	float Duration = Section.Params.GetSequenceLength();
+	float SeqLength = Duration - TickResolution.AsSeconds(Section.Params.StartFrameOffset + Section.Params.EndFrameOffset) / AnimPlayRate;
 
 	if (!FMath::IsNearlyZero(SeqLength, KINDA_SMALL_NUMBER) && SeqLength > 0)
 	{
@@ -148,14 +146,14 @@ int32 FGeometryCacheSection::OnPaintSection(FSequencerSectionPainter& Painter) c
 	if (Painter.bIsSelected && SequencerPtr.IsValid())
 	{
 		FFrameTime CurrentTime = SequencerPtr->GetLocalTime().Time;
-		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCache.Get() != nullptr)
+		if (Section.GetRange().Contains(CurrentTime.FrameNumber) && Section.Params.GeometryCacheAsset != nullptr)
 		{
 			const float Time = TimeToPixelConverter.FrameToPixel(CurrentTime);
 
-			UGeometryCacheComponent* GeometryCache = Cast<UGeometryCacheComponent>(Section.Params.GeometryCache.Get());
+			UGeometryCache* GeometryCache = Section.Params.GeometryCacheAsset;
 
 			// Draw the current time next to the scrub handle
-			const float AnimTime = Section.MapTimeToAnimation(CurrentTime, TickResolution);
+			const float AnimTime = Section.MapTimeToAnimation(Duration, CurrentTime, TickResolution);
 			int32 FrameTime = GeometryCache->GetFrameAtTime(AnimTime);
 			FString FrameString = FString::FromInt(FrameTime);
 

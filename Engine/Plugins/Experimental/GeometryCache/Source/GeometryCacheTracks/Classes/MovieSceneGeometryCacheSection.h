@@ -6,22 +6,23 @@
 #include "UObject/ObjectMacros.h"
 #include "MovieSceneSection.h"
 #include "GeometryCacheComponent.h"
+#include "GeometryCache.h"
 #include "Channels/MovieSceneFloatChannel.h"
 #include "UObject/SoftObjectPath.h"
 #include "MovieSceneGeometryCacheSection.generated.h"
 
 USTRUCT()
-struct FMovieSceneGeometryCacheParams
+ struct GEOMETRYCACHETRACKS_API FMovieSceneGeometryCacheParams
 {
 	GENERATED_BODY()
 
 	FMovieSceneGeometryCacheParams();
 
-	/** Gets the animation duration, modified by play rate */
-	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || GeometryCache.Get() == nullptr ? 0.f : Cast<UGeometryCacheComponent>(GeometryCache.Get())->GetDuration() / PlayRate; }
-
 	/** Gets the animation sequence length, not modified by play rate */
-	float GetSequenceLength() const { return GeometryCache.Get() != nullptr ? Cast<UGeometryCacheComponent>(GeometryCache.Get())->GetDuration() : 0.f; }
+	 float GetSequenceLength() const;
+	/** The animation this section plays */
+	UPROPERTY(EditAnywhere, Category = "GeometryCache", DisplayName = "Geometry Cache")
+	UGeometryCache* GeometryCacheAsset;
 
 	/** The offset into the beginning of the animation clip */
 	UPROPERTY(EditAnywhere, Category = "GeometryCache")
@@ -45,7 +46,8 @@ struct FMovieSceneGeometryCacheParams
 	UPROPERTY()
 	float EndOffset_DEPRECATED;
 
-	TWeakObjectPtr<UGeometryCacheComponent> GeometryCache;
+	UPROPERTY()
+	FSoftObjectPath GeometryCache_DEPRECATED;
 };
 
 /**
@@ -63,7 +65,7 @@ public:
 	FMovieSceneGeometryCacheParams Params;
 
 	/** Get Frame Time as Animation Time*/
-	virtual float MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const;
+	virtual float MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const;
 
 protected:
 	//~ UMovieSceneSection interface

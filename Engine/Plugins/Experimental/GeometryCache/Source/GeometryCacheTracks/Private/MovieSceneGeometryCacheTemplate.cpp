@@ -83,18 +83,21 @@ struct FGeometryCacheExecutionToken
 			{
 				if (UObject* Obj = WeakObj.Get())
 				{
-					UGeometryCacheComponent* GeometryCache = GeometryMeshComponentFromObject(Obj);
-					if (GeometryCache)
+					UGeometryCacheComponent* GeometryComp = GeometryMeshComponentFromObject(Obj);
+					if (GeometryComp)
 					{
-						if (Params.SectionParams->GeometryCache.Get() == nullptr)
+						if (Params.GeometryCacheAsset != GeometryComp->GetGeometryCache())
 						{
-							Params.SectionParams->GeometryCache = GeometryCache;
+							UGeometryCache* GeomCache = Params.GeometryCacheAsset;
+							{
+								GeometryComp->SetGeometryCache(GeomCache);
+							}
 						}
-						Player.SavePreAnimatedState(*GeometryCache, FPreAnimatedGeometryCacheTokenProducer::GetAnimTypeID(), FPreAnimatedGeometryCacheTokenProducer());
-						GeometryCache->SetManualTick(true);
+						Player.SavePreAnimatedState(*GeometryComp, FPreAnimatedGeometryCacheTokenProducer::GetAnimTypeID(), FPreAnimatedGeometryCacheTokenProducer());
+						GeometryComp->SetManualTick(true);
 						// calculate the time at which to evaluate the animation
-						float EvalTime = Params.MapTimeToAnimation(Context.GetTime(), Context.GetFrameRate());
-						GeometryCache->TickAtThisTime(EvalTime, true, Params.SectionParams->bReverse, true);
+						float EvalTime = Params.MapTimeToAnimation(GeometryComp->GetDuration(), Context.GetTime(), Context.GetFrameRate());
+						GeometryComp->TickAtThisTime(EvalTime, true, Params.bReverse, true);
 					}
 				}
 			}
@@ -117,31 +120,31 @@ void FMovieSceneGeometryCacheSectionTemplate::Evaluate(const FMovieSceneEvaluati
 		ExecutionTokens.Add(FGeometryCacheExecutionToken(Params));
 }
 
-float FMovieSceneGeometryCacheSectionTemplateParameters::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
+float FMovieSceneGeometryCacheSectionTemplateParameters::MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const
 {
-	FFrameTime AnimationLength = SectionParams->GetSequenceLength() * InFrameRate;
+	float SequenceLength = ComponentDuration;
+	FFrameTime AnimationLength = SequenceLength * InFrameRate;
 	int32 LengthInFrames = AnimationLength.FrameNumber.Value + (int)(AnimationLength.GetSubFrame() + 0.5f) + 1;
 	//we only play end if we are not looping, and assuming we are looping if Length is greater than default length;
 	bool bLooping = (SectionEndTime.Value - SectionStartTime.Value) > LengthInFrames;
 
 	InPosition = FMath::Clamp(InPosition, FFrameTime(SectionStartTime), FFrameTime(SectionEndTime - 1));
 
-	const float SectionPlayRate = SectionParams->PlayRate;
+	const float SectionPlayRate = PlayRate;
 	const float AnimPlayRate = FMath::IsNearlyZero(SectionPlayRate) ? 1.0f : SectionPlayRate;
 
-	const float SeqLength = SectionParams->GetSequenceLength() - InFrameRate.AsSeconds(SectionParams->StartFrameOffset + SectionParams->EndFrameOffset);
+	const float SeqLength = SequenceLength - InFrameRate.AsSeconds(StartFrameOffset + EndFrameOffset);
 
 	float AnimPosition = FFrameTime::FromDecimal((InPosition - SectionStartTime).AsDecimal() * AnimPlayRate) / InFrameRate;
 	if (SeqLength > 0.f && (bLooping || !FMath::IsNearlyEqual(AnimPosition, SeqLength, 1e-4f)))
 	{
 		AnimPosition = FMath::Fmod(AnimPosition, SeqLength);
 	}
-	AnimPosition += InFrameRate.AsSeconds(SectionParams->StartFrameOffset);
-	if (SectionParams->bReverse)
+	AnimPosition += InFrameRate.AsSeconds(StartFrameOffset);
+	if (bReverse)
 	{
-		AnimPosition = (SeqLength - (AnimPosition - InFrameRate.AsSeconds(SectionParams->StartFrameOffset))) + InFrameRate.AsSeconds(SectionParams->StartFrameOffset);
+		AnimPosition = (SeqLength - (AnimPosition - InFrameRate.AsSeconds(StartFrameOffset))) + InFrameRate.AsSeconds(StartFrameOffset);
 	}
 
 	return AnimPosition;
-
 }

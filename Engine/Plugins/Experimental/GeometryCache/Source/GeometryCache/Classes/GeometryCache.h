@@ -71,6 +71,13 @@ public:
 
 	/** Get the end frame */
 	int32 GetEndFrame() const;
+	
+	/** Calculate it's duration */
+	float CalculateDuration() const;
+
+	/** Get the Frame at the Specified Time*/
+	int32  GetFrameAtTime(const float Time) const;
+
 private:
 	/** A fence which is used to keep track of the rendering thread releasing the geometry cache resources. */
 	FRenderCommandFence ReleaseResourcesFence;

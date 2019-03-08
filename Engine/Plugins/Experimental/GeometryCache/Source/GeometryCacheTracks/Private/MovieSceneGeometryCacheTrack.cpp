@@ -38,7 +38,8 @@ UMovieSceneSection* UMovieSceneGeometryCacheTrack::AddNewAnimation(FFrameNumber 
 	{
 		FFrameTime AnimationLength = GeomCacheComp->GetDuration()* GetTypedOuter<UMovieScene>()->GetTickResolution();
 		NewSection->InitialPlacementOnRow(AnimationSections, KeyTime, AnimationLength.FrameNumber.Value, INDEX_NONE);
-		NewSection->Params.GeometryCache = GeomCacheComp;
+		
+		NewSection->Params.GeometryCacheAsset = (GeomCacheComp->GetGeometryCache());
 	}
 
 	AddSection(*NewSection);

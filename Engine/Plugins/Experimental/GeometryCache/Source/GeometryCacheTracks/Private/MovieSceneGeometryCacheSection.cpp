@@ -16,6 +16,8 @@ namespace
 
 FMovieSceneGeometryCacheParams::FMovieSceneGeometryCacheParams()
 {
+	GeometryCacheAsset = nullptr;
+	GeometryCache_DEPRECATED = nullptr;
 	StartOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
 	EndOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
 	PlayRate = 1.f;
@@ -58,6 +60,16 @@ void UMovieSceneGeometryCacheSection::PostLoad()
 		Params.EndFrameOffset = UpgradeLegacyMovieSceneTime(this, LegacyFrameRate, Params.EndOffset_DEPRECATED).Value;
 
 		Params.EndOffset_DEPRECATED = GeometryCacheDeprecatedMagicNumber;
+	}
+
+	if (Params.GeometryCache_DEPRECATED.ResolveObject() != nullptr
+		&& Params.GeometryCacheAsset == nullptr)
+	{
+		UGeometryCacheComponent *Comp = Cast<UGeometryCacheComponent>(Params.GeometryCache_DEPRECATED.ResolveObject());
+		if (Comp)
+		{
+			Params.GeometryCacheAsset = (Comp->GetGeometryCache());
+		}
 	}
 }
 
@@ -153,10 +165,10 @@ void UMovieSceneGeometryCacheSection::GetSnapTimes(TArray<FFrameNumber>& OutSnap
 	}
 }
 
-float UMovieSceneGeometryCacheSection::MapTimeToAnimation(FFrameTime InPosition, FFrameRate InFrameRate) const
+float UMovieSceneGeometryCacheSection::MapTimeToAnimation(float ComponentDuration, FFrameTime InPosition, FFrameRate InFrameRate) const
 {
-	FMovieSceneGeometryCacheSectionTemplateParameters TemplateParams(const_cast<FMovieSceneGeometryCacheParams&> (Params), GetInclusiveStartFrame(), GetExclusiveEndFrame());
-	return TemplateParams.MapTimeToAnimation(InPosition, InFrameRate);
+	FMovieSceneGeometryCacheSectionTemplateParameters TemplateParams(Params, GetInclusiveStartFrame(), GetExclusiveEndFrame());
+	return TemplateParams.MapTimeToAnimation(ComponentDuration, InPosition, InFrameRate);
 }
 
 
@@ -186,8 +198,13 @@ void UMovieSceneGeometryCacheSection::PostEditChangeProperty(FPropertyChangedEve
 			PreviousPlayRate = NewPlayRate;
 		}
 	}
-
+	
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+
+float FMovieSceneGeometryCacheParams::GetSequenceLength() const
+{
+	return GeometryCacheAsset != nullptr ? GeometryCacheAsset->CalculateDuration() : 0.f;
 }
 #endif
 

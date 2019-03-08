@@ -156,4 +156,27 @@ int32 UGeometryCache::GetEndFrame() const
 	return EndFrame;
 }
 
+float UGeometryCache::CalculateDuration() const
+{
+	int32 NumTracks = Tracks.Num();
+	float Duration = 0.0f;
+	// Create mesh sections for each GeometryCacheTrack
+	for (int32 TrackIndex = 0; TrackIndex < NumTracks; ++TrackIndex)
+	{
+		const float TrackMaxSampleTime = Tracks[TrackIndex]->GetMaxSampleTime();
+		Duration = (Duration > TrackMaxSampleTime) ? Duration : TrackMaxSampleTime;
+	}
+	return Duration;
+}
+
+int32 UGeometryCache::GetFrameAtTime(const float Time) const
+{
+	const float Duration = CalculateDuration();
+	const int32 NumberOfFrames = GetEndFrame() - GetStartFrame() + 1;;
+	const float FrameTime = NumberOfFrames > 1 ? Duration / (float)(NumberOfFrames - 1) : 0.0f;
+	const int32 NormalizedFrame = FMath::Clamp(FMath::RoundToInt(Time / FrameTime), 0, NumberOfFrames - 1);
+	const int32 StartFrame =  GetStartFrame();
+	return StartFrame + NormalizedFrame; 
+
+}
 #undef LOCTEXT_NAMESPACE // "GeometryCache"
