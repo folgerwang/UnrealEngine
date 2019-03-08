@@ -248,7 +248,8 @@ void PathTracingMainRG()
 			float3 Direction;
 			float3 Throughput;
 			float4 RandSample = RandomSequence_GenerateSample4D(RandSequence, SampleIndex);
-			SampleMaterial(Ray.Direction, RayHitInfo, RandSample, Direction, Throughput, MaterialPdf);
+			bool bIsTransmitted;
+			SampleMaterial(Ray.Direction, RayHitInfo, RandSample, Direction, Throughput, MaterialPdf, bIsTransmitted);
 			if (MaterialPdf == 0.0)
 			{
 				break;
@@ -256,7 +257,7 @@ void PathTracingMainRG()
 
 			// Update ray
 			Ray.Direction = Direction;
-			ApplyPositionBias(Ray, Payload.WorldNormal, AdaptiveSamplingData.MaxNormalBias);
+			ApplyPositionBias(Ray, bIsTransmitted ? -Payload.WorldNormal : Payload.WorldNormal, AdaptiveSamplingData.MaxNormalBias);
 			RayThroughput *= Throughput;
 			RayPdf *= MaterialPdf;
 

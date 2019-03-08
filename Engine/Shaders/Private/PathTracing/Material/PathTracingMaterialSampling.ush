@@ -35,8 +35,10 @@ void SampleMaterial(
 	float4 RandSample,
 	out float3 OutDirection,
 	out float3 OutThroughput,
-	out float OutPdf)
+	out float OutPdf,
+	out bool bIsTransmitted)
 {
+	bIsTransmitted = false;
 	if (IsPureSpecularReflection(Payload))
 	{
 		SpecularReflection_SampleMaterial(RayDirection, Payload, OutDirection, OutThroughput, OutPdf);
@@ -44,6 +46,7 @@ void SampleMaterial(
 	else if (IsPureSpecularTransmission(Payload))
 	{
 		SpecularRefraction_SampleMaterial(RayDirection, Payload, OutDirection, OutThroughput, OutPdf);
+		bIsTransmitted = true;
 	}
 	else if(IsLambert(Payload))
 	{
