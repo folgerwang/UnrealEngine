@@ -60,7 +60,7 @@ void FLiveCodingModule::StartupModule()
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if (SettingsModule != nullptr)
 	{
-		SettingsModule->RegisterSettings("Project", "Project", "Live Coding",
+		SettingsModule->RegisterSettings("Editor", "General", "Live Coding",
 			LOCTEXT("LiveCodingSettingsName", "Live Coding"),
 			LOCTEXT("LiveCodintSettingsDescription", "Settings for recompiling C++ code while the engine is running."),
 			GetMutableDefault<ULiveCodingSettings>()
