@@ -142,9 +142,8 @@ void FMediaIOCorePlayerBase::TickTimeManagement()
 {
 	if (bUseTimeSynchronization)
 	{
-		FTimecode Timecode = FApp::GetTimecode();
-		FFrameRate FrameRate = FApp::GetTimecodeFrameRate();
-		CurrentTime = FTimespan(0, Timecode.Hours, Timecode.Minutes, Timecode.Seconds, static_cast<int32>((ETimespan::TicksPerSecond * Timecode.Frames) / FrameRate.AsDecimal()) * ETimespan::NanosecondsPerTick);
+		const FTimecode Timecode = FApp::GetTimecode();
+		CurrentTime = Timecode.ToTimespan(FApp::GetTimecodeFrameRate());
 	}
 	else
 	{

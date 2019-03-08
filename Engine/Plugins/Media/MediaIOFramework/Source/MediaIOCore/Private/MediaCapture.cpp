@@ -504,6 +504,7 @@ void UMediaCapture::OnEndFrame_GameThread()
 		}
 
 		CapturingFrame->CaptureBaseData.SourceFrameTimecode = FApp::GetTimecode();
+		CapturingFrame->CaptureBaseData.SourceFrameTimecodeFramerate = FApp::GetTimecodeFrameRate();
 		CapturingFrame->CaptureBaseData.SourceFrameNumberRenderThread = GFrameNumber;
 		CapturingFrame->UserData = GetCaptureFrameUserData_GameThread();
 	}

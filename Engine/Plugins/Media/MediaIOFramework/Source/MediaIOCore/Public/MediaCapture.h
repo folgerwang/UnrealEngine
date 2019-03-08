@@ -209,6 +209,7 @@ protected:
 		FCaptureBaseData();
 
 		FTimecode SourceFrameTimecode;
+		FFrameRate SourceFrameTimecodeFramerate;
 		uint32 SourceFrameNumberRenderThread;
 	};
 	virtual TSharedPtr<FMediaCaptureUserData> GetCaptureFrameUserData_GameThread() { return TSharedPtr<FMediaCaptureUserData>(); }
