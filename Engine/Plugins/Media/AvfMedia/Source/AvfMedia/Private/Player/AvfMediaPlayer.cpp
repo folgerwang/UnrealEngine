@@ -812,7 +812,8 @@ void FAvfMediaPlayer::TickInput(FTimespan DeltaTime, FTimespan /*Timecode*/)
 					{
 						FTimespan SyncTime = FTimespan::MinValue();
 #if AUDIO_PLAYBACK_VIA_ENGINE
-						if(Tracks->GetSelectedTrack(EMediaTrackType::Audio) != INDEX_NONE)
+						// There is no audio in reverse - can't use as sync point - same issue as if no audio track video
+						if(Tracks->GetSelectedTrack(EMediaTrackType::Audio) != INDEX_NONE && CurrentRate >= 0.f)
 						{
 							SyncTime = GetAudioTimeSync();
 						}
