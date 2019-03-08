@@ -350,8 +350,7 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 	// Shadermap can be null while shaders are compiling.
 	if (DebugViewModeInterface->bNeedsInstructionCount && BatchMaterial->GetRenderingThreadShaderMap())
 	{
-		ShaderElementData.NumVSInstructions = BatchMaterial->GetShader<TBasePassVS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(VertexFactoryType)->GetNumInstructions();
-		ShaderElementData.NumPSInstructions = BatchMaterial->GetShader<TBasePassPS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(VertexFactoryType)->GetNumInstructions();
+		UpdateInstructionCount(ShaderElementData, BatchMaterial, VertexFactoryType);
 	}
 
 	ShaderElementData.InitializeMeshMaterialData(ViewIfDynamicMeshCommand, PrimitiveSceneProxy, MeshBatch, StaticMeshId, true);
@@ -371,6 +370,35 @@ void FDebugViewModeMeshProcessor::AddMeshBatch(const FMeshBatch& RESTRICT MeshBa
 		SortKey,
 		EMeshPassFeatures::Default,
 		ShaderElementData);
+}
+
+void FDebugViewModeMeshProcessor::UpdateInstructionCount(FDebugViewModeShaderElementData& OutShaderElementData, const FMaterial* InBatchMaterial, FVertexFactoryType* InVertexFactoryType)
+{
+	check(InBatchMaterial && InVertexFactoryType);
+
+	const bool bDeferred = !IsAnyForwardShadingEnabled(GetFeatureLevelShaderPlatform(InBatchMaterial->GetFeatureLevel()));
+	const bool bLit = InBatchMaterial->GetShadingModel() != MSM_Unlit;
+
+	OutShaderElementData.NumVSInstructions = InBatchMaterial->GetShader<TBasePassVS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(InVertexFactoryType)->GetNumInstructions();
+	OutShaderElementData.NumPSInstructions = InBatchMaterial->GetShader<TBasePassPS<TUniformLightMapPolicy<LMP_NO_LIGHTMAP>, false>>(InVertexFactoryType)->GetNumInstructions();
+
+	// Those numbers are taken from a simple material where common inputs are bound to vector parameters (to prevent constant optimizations).
+	if (bDeferred)
+	{
+		OutShaderElementData.NumVSInstructions -= 41;
+		OutShaderElementData.NumPSInstructions -= bLit ? 111 : 33;
+	}
+	else
+	{
+		OutShaderElementData.NumVSInstructions -= 134;
+		OutShaderElementData.NumPSInstructions -= bLit ? 635 : 47;
+	}
+
+	// Ensure a minimum instruction count so that overdraw accumulates.
+	const int32 MinInstructionCount = IsTranslucentBlendMode(InBatchMaterial->GetBlendMode()) ? 20 : 0;
+	
+	OutShaderElementData.NumVSInstructions = FMath::Max<int32>(MinInstructionCount, OutShaderElementData.NumVSInstructions);
+	OutShaderElementData.NumPSInstructions = FMath::Max<int32>(MinInstructionCount, OutShaderElementData.NumPSInstructions);
 }
 
 FMeshPassProcessor* CreateDebugViewModePassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)

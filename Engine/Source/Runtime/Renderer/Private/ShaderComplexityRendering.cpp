@@ -29,14 +29,6 @@ void TComplexityAccumulatePS<bQuadComplexity>::GetDebugViewModeShaderBindings(
 	FMeshDrawSingleShaderBindings& ShaderBindings
 ) const
 {
-	const float NormalizeMul = 1.0f / GetMaxShaderComplexityCount(Material.GetFeatureLevel());
-	const int32 DeferredBasePassBuiltinInstructions = 83;
-	const int32 ForwardBasePassBuiltinInstructions = 476;
-	// Attempt to remove instructions from code features only present in the forward renderer, so we are showing users their graph cost
-	const int32 LitBaseline = IsAnyForwardShadingEnabled(GetFeatureLevelShaderPlatform(Material.GetFeatureLevel())) ? (ForwardBasePassBuiltinInstructions - DeferredBasePassBuiltinInstructions) : 0;
-	const int32 Baseline = Material.GetShadingModel() == MSM_Unlit ? 0 : LitBaseline;
-	const int32 AdjustedInstructionCount = FMath::Max<int32>(NumPSInstructions - Baseline, 0);
-
 	// normalize the complexity so we can fit it in a low precision scene color which is necessary on some platforms
 	// late value is for overdraw which can be problematic with a low precision float format, at some point the precision isn't there any more and it doesn't accumulate
 	if (DebugViewMode == DVSM_QuadComplexity)
@@ -45,7 +37,8 @@ void TComplexityAccumulatePS<bQuadComplexity>::GetDebugViewModeShaderBindings(
 	}
 	else
 	{
-		ShaderBindings.Add(NormalizedComplexity, FVector4(AdjustedInstructionCount * NormalizeMul, NumVSInstructions * NormalizeMul, 1 / 32.0f));
+		const float NormalizeMul = 1.0f / GetMaxShaderComplexityCount(Material.GetFeatureLevel());
+		ShaderBindings.Add(NormalizedComplexity, FVector4(NumPSInstructions * NormalizeMul, NumVSInstructions * NormalizeMul, 1 / 32.0f));
 	}
 	ShaderBindings.Add(ShowQuadOverdraw, DebugViewMode != DVSM_ShaderComplexity ? 1 : 0);
 }
