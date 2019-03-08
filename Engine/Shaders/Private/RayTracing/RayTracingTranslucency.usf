@@ -47,6 +47,7 @@ uint UpscaleFactor;
 float TranslucencyMinRayDistance;
 float TranslucencyMaxRayDistance;
 float TranslucencyMaxRoughness;
+uint  TranslucencyRefraction;
 float MaxNormalBias;
 
 RaytracingAccelerationStructure TLAS;
@@ -239,19 +240,22 @@ void RayTracingTranslucencyRGS()
 		}
 
 		// Set refraction ray for next iteration
-		float Ior1 = DielectricF0ToIor(DielectricSpecularToF0(Payload.Specular)); // Not using Payload.Ior but parameterisation from specular.
-		float Ior2 = LastIor;
-		bHasScattered |= Ior1 != Ior2;
-		float3 RefractedDirection;
-		float ReflectionRefractionEventThroughput;
-		if (!RefractRay(Ray.Direction, Payload.WorldNormal, Ior1, Ior2, RefractedDirection, ReflectionRefractionEventThroughput))
+		float3 RefractedDirection = Ray.Direction;
+		if (TranslucencyRefraction)
 		{
-			//#dxr_todo: handle total internal reflection ray event. We could jsuit continue form this path. And not use the new IOR.
-			// We should combine that step with the one above reflection evaluation. For now we stop tracing.
-			break;
+			float Ior1 = DielectricF0ToIor(DielectricSpecularToF0(Payload.Specular)); // Not using Payload.Ior but parameterisation from specular.
+			float Ior2 = LastIor;
+			bHasScattered |= Ior1 != Ior2;
+			float ReflectionRefractionEventThroughput;
+			if (!RefractRay(Ray.Direction, Payload.WorldNormal, Ior1, Ior2, RefractedDirection, ReflectionRefractionEventThroughput))
+			{
+				//#dxr_todo: handle total internal reflection ray event. We could jsuit continue form this path. And not use the new IOR.
+				// We should combine that step with the one above reflection evaluation. For now we stop tracing.
+				break;
+			}
+			LastIor = Ior1;
+			PathThroughput *= ReflectionRefractionEventThroughput;
 		}
-		LastIor = Ior1;
-		PathThroughput *= ReflectionRefractionEventThroughput;
 
 
 		//
