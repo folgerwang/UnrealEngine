@@ -7416,6 +7416,11 @@ bool IsEventDrivenLoaderEnabledInCookedBuilds()
 		FEventDrivenLoaderEnabledInCookedBuildsInit()
 			: bEventDrivenLoaderEnabled(false)
 		{
+			SetEventDrivenLoaderEnabled();
+		}
+
+		void SetEventDrivenLoaderEnabled()
+		{
 			check(GConfig || GIsRequestingExit);
 			if (GConfig)
 			{
@@ -7429,6 +7434,14 @@ bool IsEventDrivenLoaderEnabledInCookedBuilds()
 			}
 		}
 	} EventDrivenLoaderEnabledInCookedBuilds;
+
+#if WITH_EDITOR	
+	// when building from the UE4 Editor, s.EventDrivenLoaderEnabled can be changed from Project Settings, so we need to test it at every call
+	if (GIsEditor)
+	{
+		EventDrivenLoaderEnabledInCookedBuilds.SetEventDrivenLoaderEnabled();
+	}
+#endif
 	return EventDrivenLoaderEnabledInCookedBuilds.bEventDrivenLoaderEnabled;
 }
 
