@@ -739,6 +739,7 @@ namespace Audio
 			CurrentVolume = WaveInstance->GetVolume();
 			CurrentVolume *= WaveInstance->GetVolumeApp();
 			CurrentVolume *= AudioDevice->GetPlatformAudioHeadroom();
+			CurrentVolume *= WaveInstance->GetDynamicVolume();
 			CurrentVolume = FMath::Clamp<float>(GetDebugVolume(CurrentVolume), 0.0f, MAX_VOLUME);
 		}
 
