@@ -26,9 +26,6 @@ class ENGINE_API UAnimCurveCompressionSettings : public UObject
 	//////////////////////////////////////////////////////////////////////////
 
 #if WITH_EDITORONLY_DATA
-	// UObject overrides
-	virtual void PostInitProperties() override;
-
 	/** Returns whether or not we can use these settings to compress. */
 	bool AreSettingsValid() const;
 
