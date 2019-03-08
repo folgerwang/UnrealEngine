@@ -196,7 +196,7 @@ private:
 		}
 
 		FString ManifestFileName = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir() / TEXT("LiveCoding.json"));
-		Arguments += FString::Printf(TEXT("-LiveCoding -LiveCodingManifest=\"%s\""), *ManifestFileName);
+		Arguments += FString::Printf(TEXT("-LiveCoding -LiveCodingManifest=\"%s\" -WaitMutex"), *ManifestFileName);
 
 		AppendLogLine(ELiveCodingLogVerbosity::Info, *FString::Printf(TEXT("Running %s %s"), *Executable, *Arguments));
 
