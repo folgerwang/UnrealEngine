@@ -469,6 +469,32 @@ namespace iPhonePackager
 				return (KeyNode != null);
 			}
 
+			public void RemoveKeyValue(string KeyName)
+			{
+				if (bReadOnly)
+				{
+					throw new AccessViolationException("PList has been set to read only and may not be modified");
+				}
+
+				XmlNode DictionaryNode = Doc.DocumentElement.SelectSingleNode("/plist/dict");
+
+				string PathToKey = String.Format("/plist/dict/key[.='{0}']", KeyName);
+				XmlNode KeyNode = Doc.DocumentElement.SelectSingleNode(PathToKey);
+				if (KeyNode != null && KeyNode.ParentNode != null)
+				{
+					XmlNode ValueNode = KeyNode.NextSibling;
+					//remove value
+					if (ValueNode != null)
+					{
+						ValueNode.RemoveAll();
+						ValueNode.ParentNode.RemoveChild(ValueNode);
+					}
+					//remove key
+					KeyNode.RemoveAll();
+					KeyNode.ParentNode.RemoveChild(KeyNode);
+				}
+			}
+
 			public void SetValueForKey(string KeyName, object Value)
 			{
 				if (bReadOnly)
