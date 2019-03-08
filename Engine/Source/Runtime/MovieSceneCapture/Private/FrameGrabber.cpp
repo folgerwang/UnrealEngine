@@ -203,6 +203,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 	TargetSize = DesiredBufferSize;
 
 	CurrentFrameIndex = 0;
+	TargetWindowPtr = nullptr;
 
 	check(NumSurfaces != 0);
 
@@ -216,7 +217,7 @@ FFrameGrabber::FFrameGrabber(TSharedRef<FSceneViewport> Viewport, FIntPoint Desi
 		TSharedPtr<SWindow> Window = FSlateApplication::Get().FindWidgetWindow(ViewportWidget.ToSharedRef());
 		if (Window.IsValid())
 		{
-			CaptureWindow = Window;
+			TargetWindowPtr = Window.Get();
 			FGeometry InnerWindowGeometry = Window->GetWindowGeometryInWindow();
 			
 			// Find the widget path relative to the window
@@ -371,8 +372,7 @@ TArray<FCapturedFrameData> FFrameGrabber::GetCapturedFrames()
 void FFrameGrabber::OnBackBufferReadyToPresentCallback(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer)
 {
 	// We only care about our own Slate window
-	TSharedPtr<SWindow> Window = CaptureWindow.Pin();
-	if (Window.Get() != &SlateWindow)
+	if (&SlateWindow != TargetWindowPtr)
 	{
 		return;
 	}

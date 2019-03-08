@@ -176,8 +176,12 @@ private:
 	FFrameGrabber(const FFrameGrabber&);
 	FFrameGrabber& operator=(const FFrameGrabber&);
 
-	/** The window we'll capture, and the capture rectangle */
-	TWeakPtr<SWindow> CaptureWindow;
+	/**
+	 * Pointer to the window we want to capture.
+	 * Only held for comparison inside OnBackBufferReadyToPresentCallback - never to be dereferenced or cast to an SWindow.
+	 * Held as a raw pointer to ensure that no referenc counting occurs from the background thread in OnBackBufferReadyToPresentCallback.
+	 */
+	void* TargetWindowPtr;
 
 	/** Delegate handle for the OnBackBufferReadyToPresent event */
 	FDelegateHandle OnBackBufferReadyToPresent;
