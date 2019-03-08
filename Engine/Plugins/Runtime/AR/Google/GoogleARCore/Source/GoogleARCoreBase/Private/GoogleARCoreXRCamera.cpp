@@ -50,12 +50,31 @@ void FGoogleARCoreXRCamera::PreRenderViewFamily_RenderThread(FRHICommandListImme
 
 void FGoogleARCoreXRCamera::PostRenderBasePass_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView)
 {
+	TArray<FVector2D> Tmp;
+	if (GetPassthroughCameraUVs_RenderThread(Tmp))
+	{
+		PassthroughRenderer->RenderVideoOverlay_RenderThread(RHICmdList, InView);
+	}
+}
+
+bool FGoogleARCoreXRCamera::GetPassthroughCameraUVs_RenderThread(TArray<FVector2D>& OutUVs)
+{
 	if (GoogleARCoreTrackingSystem.ARCoreDeviceInstance->GetIsARCoreSessionRunning() && bEnablePassthroughCameraRendering_RT)
 	{
 		TArray<float> TransformedUVs;
+		// TODO save the transformed UVs and only calculate if uninitialized or FGoogleARCoreFrame::IsDisplayRotationChanged() returns true
 		GoogleARCoreTrackingSystem.ARCoreDeviceInstance->GetPassthroughCameraImageUVs(PassthroughRenderer->OverlayQuadUVs, TransformedUVs);
 		PassthroughRenderer->UpdateOverlayUVCoordinate_RenderThread(TransformedUVs, FGoogleARCoreAndroidHelper::GetDisplayRotation());
-		PassthroughRenderer->RenderVideoOverlay_RenderThread(RHICmdList, InView);
+		OutUVs.SetNumUninitialized(4);
+		OutUVs[0] = FVector2D(TransformedUVs[0], TransformedUVs[1]);
+		OutUVs[1] = FVector2D(TransformedUVs[2], TransformedUVs[3]);
+		OutUVs[2] = FVector2D(TransformedUVs[4], TransformedUVs[5]);
+		OutUVs[3] = FVector2D(TransformedUVs[6], TransformedUVs[7]);
+		return true;
+	}
+	else
+	{
+		return false;
 	}
 }
 

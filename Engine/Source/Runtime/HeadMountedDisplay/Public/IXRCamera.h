@@ -59,5 +59,12 @@ public:
 	 */
 	virtual void CalculateStereoCameraOffset(const enum EStereoscopicPass StereoPassType, FRotator& ViewRotation, FVector& ViewLocation) = 0;
 
-
+	/**
+	 * Fetches the UV coordinates of an AR passthrough camera relative to the screen. Takes into account cropping, orientation and difference between
+	 * camera and screen aspect ratios. Returns false if the UVs are not available or if the feature is not supported or implemented by the current platform.
+	 * If the result is true, OutUVs will contain the four corner UVs of the passthrough camera rectangle.
+	 *
+	 * This method should only be called from the render thread.
+	 */
+	virtual bool GetPassthroughCameraUVs_RenderThread(TArray<FVector2D>& OutUVs) { return false; }
 };
