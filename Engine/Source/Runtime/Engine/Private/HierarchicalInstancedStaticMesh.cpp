@@ -2412,6 +2412,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTree()
 	{
 		// this is allowed only in editor, at runtime upload will happen when buffer is built from component data
 		PerInstanceRenderData->UpdateFromCommandBuffer(InstanceUpdateCmdBuffer);
+		MarkRenderStateDirty();
 	}
 
 	// all pending edits will be updated
@@ -2716,6 +2717,7 @@ void UHierarchicalInstancedStaticMeshComponent::BuildTreeAsync()
 	{
 		// this is allowed only in editor, at runtime upload will happen when buffer is built from component data
 		PerInstanceRenderData->UpdateFromCommandBuffer(InstanceUpdateCmdBuffer);
+		MarkRenderStateDirty();
 	}
 
 	// Verify that the mesh is valid before using it.
