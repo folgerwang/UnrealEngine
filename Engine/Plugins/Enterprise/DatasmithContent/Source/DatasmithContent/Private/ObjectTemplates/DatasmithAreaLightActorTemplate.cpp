@@ -5,6 +5,7 @@
 #include "Engine/TextureLightProfile.h"
 
 UDatasmithAreaLightActorTemplate::UDatasmithAreaLightActorTemplate()
+	: UDatasmithObjectTemplate(true)
 {
 	Load( ADatasmithAreaLightActor::StaticClass()->GetDefaultObject() );
 }

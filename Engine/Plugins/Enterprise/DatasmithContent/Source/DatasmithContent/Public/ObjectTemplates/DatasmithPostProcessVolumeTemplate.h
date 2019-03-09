@@ -16,6 +16,9 @@ class DATASMITHCONTENT_API UDatasmithPostProcessVolumeTemplate : public UDatasmi
 	GENERATED_BODY()
 
 public:
+	UDatasmithPostProcessVolumeTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
 
 	UPROPERTY()
 	FDatasmithPostProcessSettingsTemplate Settings;

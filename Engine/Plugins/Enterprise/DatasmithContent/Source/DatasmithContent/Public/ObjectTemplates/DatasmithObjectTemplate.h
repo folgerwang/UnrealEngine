@@ -12,6 +12,18 @@ class DATASMITHCONTENT_API UDatasmithObjectTemplate : public UObject
 	GENERATED_BODY()
 
 public:
+
+	UDatasmithObjectTemplate()
+		: UObject()
+		, bIsActorTemplate(false)
+	{}
+
+
+	UDatasmithObjectTemplate(bool bInIsActorTemplate)
+		: UObject()
+		, bIsActorTemplate(bInIsActorTemplate)
+	{}
+
 	/**
 	 * Applies the object template to a Destination object
 	 *
@@ -29,6 +41,9 @@ public:
 	 * Returns if this template equals another template of the same type.
 	 */
 	virtual bool Equals( const UDatasmithObjectTemplate* Other ) const { return false; }
+
+	// Is this template for an actor
+	const bool bIsActorTemplate = false;
 };
 
 // Sets Destination->MemberName with the value of MemberName only if PreviousTemplate is null or has the same value for MemberName as the Destination.

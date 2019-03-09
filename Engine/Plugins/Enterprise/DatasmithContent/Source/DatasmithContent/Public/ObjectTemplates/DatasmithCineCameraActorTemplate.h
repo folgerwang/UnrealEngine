@@ -34,6 +34,10 @@ class DATASMITHCONTENT_API UDatasmithCineCameraActorTemplate : public UDatasmith
 	GENERATED_BODY()
 
 public:
+	UDatasmithCineCameraActorTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
+
 	UPROPERTY()
 	FDatasmithCameraLookatTrackingSettingsTemplate LookatTrackingSettings;
 

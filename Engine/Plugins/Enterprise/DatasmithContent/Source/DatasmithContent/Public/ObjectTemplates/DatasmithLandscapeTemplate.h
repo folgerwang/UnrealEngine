@@ -14,6 +14,10 @@ class DATASMITHCONTENT_API UDatasmithLandscapeTemplate : public UDatasmithObject
 	GENERATED_BODY()
 
 public:
+	UDatasmithLandscapeTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
+
 	UPROPERTY()
 	UMaterialInterface* LandscapeMaterial;
 

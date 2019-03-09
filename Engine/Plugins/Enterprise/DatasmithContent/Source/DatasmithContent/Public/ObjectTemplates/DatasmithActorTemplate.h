@@ -16,6 +16,10 @@ class DATASMITHCONTENT_API UDatasmithActorTemplate : public UDatasmithObjectTemp
 
 public:
 
+	UDatasmithActorTemplate()
+		: UDatasmithObjectTemplate(true)
+	{}
+	  
 	/** Layers this actor belongs to. (see AActor::Layers) */
 	UPROPERTY()
 	TSet<FName> Layers;
