@@ -201,11 +201,11 @@ void UMovieSceneGeometryCacheSection::PostEditChangeProperty(FPropertyChangedEve
 	
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+#endif
 
 float FMovieSceneGeometryCacheParams::GetSequenceLength() const
 {
 	return GeometryCacheAsset != nullptr ? GeometryCacheAsset->CalculateDuration() : 0.f;
 }
-#endif
 
 #undef LOCTEXT_NAMESPACE 
