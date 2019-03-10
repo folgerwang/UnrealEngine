@@ -163,7 +163,7 @@ namespace AutomationTool
         /// <param name="Maps">List of maps to cook, can be null in which case -MapIniSection=AllMaps is used.</param>
         /// <param name="TargetPlatform">Target platform.</param>
         /// <param name="Parameters">List of additional parameters.</param>
-        public static List<string> GenerateDistillFileSetsCommandlet(FileReference ProjectName, string ManifestFile, string UE4Exe = "UE4Editor-Cmd.exe", string[] Maps = null, string Parameters = "")
+        public static List<FileReference> GenerateDistillFileSetsCommandlet(FileReference ProjectName, string ManifestFile, string UE4Exe = "UE4Editor-Cmd.exe", string[] Maps = null, string Parameters = "")
         {
             string MapsToCook = "";
             if (!IsNullOrEmpty(Maps))
@@ -193,7 +193,7 @@ namespace AutomationTool
             {
                 throw new AutomationException("GenerateDistillFileSets for {0} did not produce any files.", ProjectName);
             }
-            var Result = new List<string>();
+            var Result = new List<FileReference>();
             foreach (var ThisFile in Lines)
             {
                 var TestFile = CombinePaths(ThisFile);
@@ -203,8 +203,8 @@ namespace AutomationTool
                 }
                 // we correct the case here
                 var TestFileInfo = new FileInfo(TestFile);
-                var FinalFile = CombinePaths(TestFileInfo.FullName);
-                if (!FileExists_NoExceptions(FinalFile))
+                var FinalFile = new FileReference(TestFileInfo);
+                if (!FileReference.Exists(FinalFile))
                 {
                     throw new AutomationException("GenerateDistillFileSets produced {0}, but {1} doesn't exist.", ThisFile, FinalFile);
                 }
