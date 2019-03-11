@@ -357,7 +357,6 @@ bool FAVPlayerMovieStreamer::LoadMovie(FString InMovieName)
     {
         // !!! This block will execute asynchronously !!!
         // Once loaded, initialize our reader object to start pulling frames.
-		FScopeLock LockVideoTracksLoading(&VideoTracksLoadingLock);
         bVideoTracksLoaded = FinishLoadingTracks();
 
 		// Play the next movie in the queue
