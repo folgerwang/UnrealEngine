@@ -41,7 +41,9 @@
 
 	#define CONFIG_HISTORY_REJECTION HISTORY_REJECTION_VAR_BOUNDARIES
 
-	#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+	// Uses nearest to not leak informations on geometric edges by bilateral. This is OK because just blury greyscale details.
+	// TODO: a bit hacky, need find better solution.
+	#define CONFIG_USE_NEAREST_HISTORY 1
 
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	// Input and output layout.
@@ -125,6 +127,11 @@
 /** The number of signal that should be processed per signal domain. */
 #ifndef CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN
 	#define CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN MAX_SIGNAL_MULTIPLEXING
+#endif
+
+/** Whether can use a nearest sampler when sampling the history */
+#ifndef CONFIG_USE_NEAREST_HISTORY
+	#define CONFIG_USE_NEAREST_HISTORY 0
 #endif
 
 
@@ -291,6 +298,7 @@ void TemporallyAccumulate(
 		float2 ClampedHistoryBufferUV = clamp(HistoryBufferUV, View.BufferBilinearUVMinMax.xy, View.BufferBilinearUVMinMax.zw);
 		bool bIsPreviousFrameOffscreen = any(HistoryBufferUV != ClampedHistoryBufferUV);
 
+		// TODO: global camera cut to save perf that is going to be required for panic post filtering.
 		BRANCH
 		if (!bIsPreviousFrameOffscreen)
 		{
@@ -302,6 +310,10 @@ void TemporallyAccumulate(
 			KernelConfig.MultiplexedSignalsPerSignalDomain = CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
 			KernelConfig.bUnroll = true;
 			KernelConfig.bPreviousFrameMetadata = true;
+			KernelConfig.BilateralDistanceComputation = SIGNAL_WORLD_FREQUENCY_MIN_METADATA;
+			
+			if (CONFIG_USE_NEAREST_HISTORY)
+				KernelConfig.SampleSet = SAMPLE_SET_1X1;
 
 			// SGPR configuration of the kernel.
 			KernelConfig.BufferSizeAndInvSize = View.BufferSizeAndInvSize;
@@ -320,8 +332,9 @@ void TemporallyAccumulate(
 				PrevHistory_Textures_3,
 				/* inout */ SignalAccumulators);
 		
-			UNROLL
-			for (uint BatchedSignalId = 0; BatchedSignalId < MAX_SIGNAL_BATCH_SIZE; BatchedSignalId++)
+			// Exports the history sample from accumulator.
+			FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
+			for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
 			{
 				HistorySamples.Array[BatchedSignalId] = SignalAccumulators.Array[BatchedSignalId].Moment1;
 				BRANCH
@@ -330,6 +343,19 @@ void TemporallyAccumulate(
 					HistorySamples.Array[BatchedSignalId] = CreateSignalSampleFromScalarValue(0.0);
 				}
 			}
+
+			// Override the previous frame's inverse frequency with the current frame's one, because don't know how much it changed.
+			FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
+			for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
+			{
+				FSSFSignalSample CurrentFrameSample = CurrentFrameSamples.Array[BatchedSignalId];
+				FSSFSignalSample HistorySample = HistorySamples.Array[BatchedSignalId];
+
+				HistorySamples.Array[BatchedSignalId].WorldBluringRadius = (
+					HistorySample.AccumulatedSampleCount *
+					CurrentFrameSample.WorldBluringRadius *
+					SafeRcp(CurrentFrameSample.AccumulatedSampleCount));
+			} // for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
 		} // if (!bIsPreviousFrameOffscreen)
 	}
 	
@@ -351,6 +377,11 @@ void TemporallyAccumulate(
 			// History rejection is already fudge factor by how reprojection. Want to prioritize rejection stability with more sample
 			// than accuracy, so only take the blur distance of the reference sample that depends on depth and pixel size of the current frame.
 			KernelConfig.BilateralDistanceComputation = SIGNAL_WORLD_FREQUENCY_REF_METADATA_ONLY;
+
+			// TODO: Should be done for all signals.
+			// TODO: Should also take into account the world bluring radius du to size of the pixel.
+			if (CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA)
+				KernelConfig.BilateralDistanceComputation = SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS;
 			
 			KernelConfig.MultiplexedSignalsPerSignalDomain = CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
 
@@ -417,7 +448,7 @@ void TemporallyAccumulate(
 		FSSDSignalAccumulatorArray SignalAccumulators = CreateSignalAccumulatorArray();		
 		if (bUseCurrentSampleForCenter)
 		{
-			UNROLL
+			FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
 			for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
 			{
 				const uint BatchedSignalId = ComputeSignalBatchIdFromSignalMultiplexId(KernelConfig, SignalMultiplexId);
@@ -431,6 +462,12 @@ void TemporallyAccumulate(
 				SampleInfos.Sample = TransformedCurrentFrame;
 				SampleInfos.FinalWeight = 1.0;
 				SampleInfos.InvFrequency = GetSignalWorldBluringRadius(TransformedCurrentFrame, RefSceneMetadata, BatchedSignalId);
+				
+				if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
+				{
+					// TODO: this is ineficient, could fetch the normalised WorldBluringRadius instead of SafeRcp().
+					SampleInfos.InvFrequency = TransformedCurrentFrame.WorldBluringRadius * SafeRcp(TransformedCurrentFrame.AccumulatedSampleCount);
+				}
 
 				AccumulateSample(
 					/* inout */ SignalAccumulators.Array[SignalMultiplexId],
@@ -447,7 +484,7 @@ void TemporallyAccumulate(
 			/* inout */ SignalAccumulators);
 		
 		// Clamp history
-		UNROLL
+		FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
 		for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
 		{
 			FSSFSignalSample NeighborMin = SignalAccumulators.Array[BatchedSignalId].Min;
@@ -560,7 +597,23 @@ void TemporallyAccumulate(
 			}
 			#endif
 
+			// Dilate the smallest inv frequency.
+			if (1)
+			{
+				float NeightborMinBluringRadius = SignalAccumulators.Array[BatchedSignalId].MinInvFrequency;
+				CurrentFrameSample.WorldBluringRadius = min(CurrentFrameSample.WorldBluringRadius, NeightborMinBluringRadius * CurrentFrameSample.AccumulatedSampleCount); 
+			
+				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA && 1
+					DebugOutput[DispatchThreadId] = float4(
+						NeightborMinBluringRadius,
+						NeightborMinBluringRadius == WORLD_RADIUS_MISS,
+						0,
+						0);
+				#endif
+			}
+			
 			HistorySamples.Array[BatchedSignalId] = HistorySample;
+			CurrentFrameSamples.Array[BatchedSignalId] = CurrentFrameSample;
 		} // for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
 	}
 	#endif // CONFIG_HISTORY_REJECTION > 0
@@ -666,6 +719,12 @@ void TemporallyAccumulate(
 				/* SrcBasis = */ CONFIG_HISTORY_BLENDING_COLOR_SPACE,
 				/* DestBasis = */ STANDARD_BUFFER_COLOR_SPACE);
 			
+			// Ignore the bluring radius of previous frame frequencies as it gets clamped anyway, just take the current frame.
+			HistorySample.WorldBluringRadius = (
+				CurrentFrameSample.WorldBluringRadius *
+				SafeRcp(CurrentFrameSample.AccumulatedSampleCount) *
+				HistorySample.AccumulatedSampleCount);
+
 			HistorySamples.Array[BatchedSignalId] = HistorySample;
 		}
 	}

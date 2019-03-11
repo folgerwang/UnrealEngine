@@ -61,7 +61,9 @@
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY
 
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
-		#define CONFIG_SAMPLE_SUBSET        1
+		//#define CONFIG_SAMPLE_SUBSET        1
+		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
+		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
 
 	#elif DIM_STAGE == STAGE_FINAL_OUTPUT
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY
@@ -430,6 +432,12 @@ void MainCS(
 				SampleInfos.Sample = CenterSample;
 				SampleInfos.FinalWeight = 1.0;
 				SampleInfos.InvFrequency = GetSignalWorldBluringRadius(CenterSample, RefSceneMetadata, BatchedSignalId);
+				
+				if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
+				{
+					// TODO: this is ineficient, could fetch the normalised WorldBluringRadius instead of SafeRcp().
+					SampleInfos.InvFrequency = CenterSample.WorldBluringRadius * SafeRcp(CenterSample.AccumulatedSampleCount);
+				}
 
 				AccumulateSample(
 					/* inout */ SignalAccumulators.Array[SignalMultiplexId],
@@ -514,29 +522,31 @@ void MainCS(
 	}
 
 	// Color processing of the signal to reduce highlight flickering.
-	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 	{
-		#if CONFIG_REJECT_HIGHEST_COLOR
-		if (Accumulator.Moment1[MultiplexId].AccumulatedSampleCount > 0)
+		FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
+		for (uint MultiplexId = 0; MultiplexId < CONFIG_SIGNAL_BATCH_SIZE; MultiplexId++)
 		{
-			const float MaxNeighborWeight = saturate(SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount * rcp(10) - 1);
+			#if CONFIG_REJECT_HIGHEST_COLOR
+			if (Accumulator.Moment1[MultiplexId].AccumulatedSampleCount > 0)
+			{
+				const float MaxNeighborWeight = saturate(SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount * rcp(10) - 1);
 
-			SignalAccumulators.Array[MultiplexId].Moment1.SceneColor.rgb =
-				(SignalAccumulators.Array[MultiplexId].Moment1.SceneColor.rgb - MaxNeighbor.SceneColor.rgb * MaxNeighborWeight) *
-				(SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount / (SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount - MaxNeighborWeight));
+				SignalAccumulators.Array[MultiplexId].Moment1.SceneColor.rgb =
+					(SignalAccumulators.Array[MultiplexId].Moment1.SceneColor.rgb - MaxNeighbor.SceneColor.rgb * MaxNeighborWeight) *
+					(SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount / (SignalAccumulators.Array[MultiplexId].Moment1.AccumulatedSampleCount - MaxNeighborWeight));
+			}
+			#endif
+
+			SignalAccumulators.Array[MultiplexId].Moment1 = TransformSignal(
+				SignalAccumulators.Array[MultiplexId].Moment1, 
+				/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
+				/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
+
+			SignalAccumulators.Array[MultiplexId].Moment2 = TransformSignal(
+				SignalAccumulators.Array[MultiplexId].Moment2, 
+				/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
+				/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
 		}
-		#endif
-
-		SignalAccumulators.Array[MultiplexId].Moment1 = TransformSignal(
-			SignalAccumulators.Array[MultiplexId].Moment1, 
-			/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
-			/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
-
-		SignalAccumulators.Array[MultiplexId].Moment2 = TransformSignal(
-			SignalAccumulators.Array[MultiplexId].Moment2, 
-			/* SrcBasis  = */ CONFIG_ACCUMULATION_COLOR_SPACE, 
-			/* DestBasis = */ CONFIG_OUTPUT_COLOR_SPACE);
 	}
 
 	// Transcode the spatial accumulation into multiplexed signal according to different modes.
@@ -571,20 +581,44 @@ void MainCS(
 			for (uint MultiplexId = 0; MultiplexId < CONFIG_SIGNAL_BATCH_SIZE; MultiplexId++)
 			{
 				OutputSamples.Array[MultiplexId] = SignalAccumulators.Array[MultiplexId].Previous;
+
+				// Output the minimal inverse frequency as new world bluring radius for subsequent passes.
+				// TODO: store this in its own signal to avoid *= N; *= rcp(N);
+				OutputSamples.Array[MultiplexId].WorldBluringRadius = 
+					OutputSamples.Array[MultiplexId].AccumulatedSampleCount * SignalAccumulators.Array[MultiplexId].MinInvFrequency;
+			
+				// No need to keep the VGPR pressure at this point for WorldBluringRadius, because no passes use it after.
+				if (DIM_STAGE == STAGE_POST_FILTERING && 0)
+				{
+					OutputSamples.Array[MultiplexId].WorldBluringRadius = 0;
+				}
 			}
 
 			if (0)
 			{
 				DebugOutput[DispatchThreadId] = float4(
 					SignalAccumulators.Array[0].Previous.AccumulatedSampleCount,
-					SignalAccumulators.Array[0].Current.AccumulatedSampleCount,
-					0,
-					0);
+					SignalAccumulators.Array[0].CurrentTranslucency,
+					SignalAccumulators.Array[0].Previous.LeavingRayCount * SafeRcp(SignalAccumulators.Array[0].Previous.AccumulatedSampleCount),
+					SignalAccumulators.Array[0].Current.LeavingRayCount * SafeRcp(SignalAccumulators.Array[0].Current.AccumulatedSampleCount));
 			}
 		}
 		#else
 			#error Unknown output mode.
 		#endif
+	}
+	
+	// Clamp the number of sample recorded.
+	if (DIM_STAGE == STAGE_POST_FILTERING)
+	{
+		FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
+		for (uint MultiplexId = 0; MultiplexId < CONFIG_SIGNAL_BATCH_SIZE; MultiplexId++)
+		{
+			float CurrentSampleCount = OutputSamples.Array[MultiplexId].AccumulatedSampleCount;
+			float NewSampleCount = min(CurrentSampleCount, 128);
+
+			OutputSamples.Array[MultiplexId] = Mul(OutputSamples.Array[MultiplexId], NewSampleCount / CurrentSampleCount);
+		}
 	}
 
 	// TODO:  LeaveRayCount = (LeaveRayCount - 1) * 9 / (9 - 2) post processing to reject when for history rejection

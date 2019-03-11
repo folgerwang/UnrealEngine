@@ -28,6 +28,11 @@ static TAutoConsoleVariable<int32> CVarShadowTemporalAccumulation(
 	TEXT(""),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarShadowHistoryConvolutionSampleCount(
+	TEXT("r.Shadow.Denoiser.HistoryConvolutionSamples"), 1,
+	TEXT("Number of samples to use to convolve the history over time."),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarReflectionReconstructionSampleCount(
 	TEXT("r.Reflections.Denoiser.ReconstructionSamples"), 16,
 	TEXT("Maximum number of samples for the reconstruction pass (default = 16)."),
@@ -674,6 +679,14 @@ static void DenoiseSignalAtConstantPixelDensity(
 	TStaticArray<FRDGTextureDesc, kMaxBufferProcessingCount> HistoryDescs;
 	FRDGTextureDesc DebugDesc;
 	{
+		static const EPixelFormat PixelFormatPerChannel[] = {
+			PF_Unknown,
+			PF_R16F,
+			PF_G16R16F,
+			PF_FloatRGBA, // there is no 16bits float RGB
+			PF_FloatRGBA,
+		};
+
 		FRDGTextureDesc RefDesc = FRDGTextureDesc::Create2DDesc(
 			SceneBlackboard.SceneDepthBuffer->Desc.Extent,
 			PF_Unknown,
@@ -694,30 +707,26 @@ static void DenoiseSignalAtConstantPixelDensity(
 
 		if (Settings.SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
 		{
-			static const EPixelFormat InjestPixelFormat[] = {
-				PF_Unknown,
-				PF_R16F,
-				PF_G16R16F,
-				PF_FloatRGBA, // there is no 16bits float RGB
-				PF_FloatRGBA,
-			};
-
 			check(Settings.SignalBatchSize >= 1 && Settings.SignalBatchSize <= IScreenSpaceDenoiser::kMaxBatchSize);
 			if (!bUseMultiInputSPPShaderPath)
-				InjestDescs[0].Format = InjestPixelFormat[Settings.SignalBatchSize];
+			{
+				InjestDescs[0].Format = PixelFormatPerChannel[Settings.SignalBatchSize];
+				InjestTextureCount = 1;
+			}
 
 			for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
 			{
 				if (bUseMultiInputSPPShaderPath)
+				{
 					InjestDescs[BatchedSignalId / 2].Format = (BatchedSignalId % 2) ? PF_FloatRGBA :  PF_G16R16F;
-
-				ReconstructionDescs[BatchedSignalId / 2].Format = (BatchedSignalId % 2) ? PF_FloatRGBA :  PF_G16R16F;
-				HistoryDescs[BatchedSignalId].Format = PF_G16R16F;
+					InjestTextureCount = BatchedSignalId / 2 + 1;
+				}
+				ReconstructionDescs[BatchedSignalId].Format = PF_FloatRGBA;
+				HistoryDescs[BatchedSignalId].Format = PF_FloatRGBA;
 			}
 
-			InjestTextureCount = 1;
 			HistoryTextureCountPerSignal = 1;
-			ReconstructionTextureCount = FMath::DivideAndRoundUp(Settings.SignalBatchSize, 2);
+			ReconstructionTextureCount = Settings.SignalBatchSize;
 			bHasReconstructionLayoutDifferentFromHistory = true;
 		}
 		else if (Settings.SignalProcessing == ESignalProcessing::Reflections)
@@ -1152,7 +1161,7 @@ public:
 		Settings.InputResolutionFraction = 1.0f;
 		Settings.ReconstructionSamples = CVarShadowReconstructionSampleCount.GetValueOnRenderThread();
 		Settings.bUseTemporalAccumulation = CVarShadowTemporalAccumulation.GetValueOnRenderThread() != 0;
-		Settings.HistoryConvolutionSampleCount = 1;
+		Settings.HistoryConvolutionSampleCount = CVarShadowHistoryConvolutionSampleCount.GetValueOnRenderThread();
 		Settings.SignalBatchSize = InputParameterCount;
 
 		for (int32 BatchedSignalId = 0; BatchedSignalId < InputParameterCount; BatchedSignalId++)

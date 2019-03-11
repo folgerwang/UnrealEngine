@@ -12,12 +12,18 @@
  */
 struct FSSDSignalAccumulator
 {
+	// Sums of moment.
 	FSSFSignalSample Moment1;
 	FSSFSignalSample Moment2;
 
+	// Per component min and max values.
 	FSSFSignalSample Min;
 	FSSFSignalSample Max;
+
+	// Minimal inverse frequency found and intersected when sampling.
+	float MinInvFrequency;
 	
+	// Descending ring bucketing.
 	FSSFSignalSample Current;
 	float CurrentInvFrequency;
 	float CurrentTranslucency;
@@ -39,6 +45,8 @@ FSSDSignalAccumulator CreateSignalAccumulator()
 		
 	Accumulator.Min = CreateSignalSampleFromScalarValue(1.#INF);
 	Accumulator.Max = CreateSignalSampleFromScalarValue(0.0); // TODO: -1.#INF? otherwise there is a risk to color clamp with YCoCg.
+
+	Accumulator.MinInvFrequency = WORLD_RADIUS_MISS;
 
 	// DRB initialization.
 	{
@@ -109,6 +117,10 @@ void AccumulateSampleInDomainBoundaries(inout FSSDSignalAccumulator Accumulator,
 	{
 		Accumulator.Min = Min(Accumulator.Min, SampleInfos.Sample);
 		Accumulator.Max = Max(Accumulator.Max, SampleInfos.Sample);
+		
+		// Track the minimal frequency inverse.
+		if (SampleInfos.InvFrequency != WORLD_RADIUS_MISS)
+			Accumulator.MinInvFrequency = min(Accumulator.MinInvFrequency, SampleInfos.InvFrequency);
 	}
 }
 
@@ -121,7 +133,7 @@ void StartAccumulatingClusterInDRB(
 	inout FSSDSignalAccumulator Accumulator,
 	uint RingId)
 {
-	const uint ErrorCorrection = 1;
+	const uint ErrorCorrection = 2;
 	
 	// Compute the bluring radius of the output pixel itself.
 	float RefPixelWorldBluringRadius = AmendWorldBluringRadiusCausedByPixelSize(ComputeWorldBluringRadiusCausedByPixelSize(RefSceneMetadata));
@@ -160,20 +172,28 @@ void AccumulateSampleInDRB(inout FSSDSignalAccumulator Accumulator, FSSDSampleAc
 	{
 		float CurrentWeight = A.FinalWeight * (1.0 - bBelongsToPrevious);
 		Accumulator.Current = Add(Accumulator.Current, Mul(A.Sample, CurrentWeight));
-		Accumulator.CurrentInvFrequency += ClampedInvFrequency * CurrentWeight;
+		Accumulator.CurrentInvFrequency += A.Sample.AccumulatedSampleCount * ClampedInvFrequency * CurrentWeight;
 	}
 
 	// Accumulate current bucket translucency.
 	{
 		float SampleTranslucency = saturate(ClampedInvFrequency - Accumulator.BorderingRadius);
-		Accumulator.CurrentTranslucency += SampleTranslucency;
+		
+		// TODO: do need (A.Sample.LeavingRayCount * SafeRcp(A.Sample.AccumulatedSampleCount)) computation onen 1spp reconstruction.
+		// TODO: could pass down a normalised version of A.Sample to avoid Rcp.
+		float R = A.Sample.LeavingRayCount * SafeRcp(A.Sample.AccumulatedSampleCount);
+		
+		//Accumulator.CurrentTranslucency += SampleTranslucency;
+		Accumulator.CurrentTranslucency += lerp(R, 1, SampleTranslucency);
+		//Accumulator.CurrentTranslucency += saturate(1 - (1 - SampleTranslucency) * (1 - R));
+		//Accumulator.CurrentTranslucency += lerp(R, 1, SampleTranslucency);
 	}
 
 	// Accumulate previous bucket.
 	{
 		float PreviousWeight = A.FinalWeight * bBelongsToPrevious;
 		Accumulator.Previous = Add(Accumulator.Previous, Mul(A.Sample, PreviousWeight));
-		Accumulator.PreviousInvFrequency += ClampedInvFrequency * PreviousWeight;
+		Accumulator.PreviousInvFrequency += A.Sample.AccumulatedSampleCount * ClampedInvFrequency * PreviousWeight;
 	}
 }
 
@@ -203,7 +223,9 @@ void DijestSampleClusterInDRB(
 	// Compute final factor to use to with previous bucket.
 	float PreviousBucketFactor = (Accumulator.Previous.AccumulatedSampleCount == 0.0) ? 0.0 : (1.0 - CurrentClusterOpacity * bOccludingCluster);
 
-	//PreviousBucketFactor = 1;
+	// TODO: the big difference in sample count could lead to wrong opacity between sample clusters.
+	//if (PreviousBucketFactor < 1 && Accumulator.Previous.AccumulatedSampleCount > 0)
+	//	PreviousBucketFactor *= Accumulator.Current.AccumulatedSampleCount * rcp(Accumulator.Previous.AccumulatedSampleCount);
 
 	Accumulator.Previous = Add(Mul(Accumulator.Previous, PreviousBucketFactor), Accumulator.Current);
 	Accumulator.PreviousInvFrequency = Accumulator.PreviousInvFrequency * PreviousBucketFactor + Accumulator.CurrentInvFrequency;

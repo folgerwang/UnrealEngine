@@ -272,7 +272,8 @@ void AccumulateSampledMultiplexedSignals(
 		// But the signal's bluring radius might already be pre computed.
 		if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
 		{
-			SignalConvolutionBluringRadius = Sample.WorldBluringRadius;
+			// TODO: this is ineficient, could fetch the normalised WorldBluringRadius instead of SafeRcp().
+			SignalConvolutionBluringRadius = Sample.WorldBluringRadius * SafeRcp(Sample.AccumulatedSampleCount);
 		}
 
 		// Compute the final world distance to use for bilateral rejection.
@@ -720,7 +721,7 @@ void ConvolveStackowiakKernel(
 			{
 				const uint SampleId = (BatchCountCount - BatchId) * kSamplingBatchSize - 1 - SampleBatchId;
 
-				const bool bIsKernelCenterSample = SampleId == 0 && (SampleBatchId == 3);
+				const bool bIsKernelCenterSample = SampleId == 0 && (SampleBatchId == (kSamplingBatchSize - 1));
 				
 				float2 SampleOffset = kStackowiakSampleSet0[kStackowiakSampleSetCount * SampleId + KernelConfig.SampleTrackId];
 				if (KernelConfig.SampleSubSetId == 1)

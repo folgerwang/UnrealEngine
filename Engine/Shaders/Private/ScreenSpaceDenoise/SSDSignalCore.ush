@@ -254,32 +254,37 @@ void DecodeMultiplexedSignals(
 			OutSamples.Array[MultiplexId].WorldBluringRadius = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (Channels.g == -1 ? WORLD_RADIUS_MISS : Channels.g);
 		}
 	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	//else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	//{
+	//	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	//	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+	//	{
+	//		float2 Channels = float2(RawSample[MultiplexId / 2][2 * (MultiplexId % 2)], RawSample[MultiplexId / 2][2 * (MultiplexId % 2) + 1]);
+	//
+	//		if (bNormalizeSample)
+	//		{
+	//			OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g > 0 ? 1 : 0;
+	//			OutSamples.Array[MultiplexId].LeavingRayCount = Channels.g > 0 ? Channels.r : 0;
+	//		}
+	//		else
+	//		{
+	//			OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g;
+	//			OutSamples.Array[MultiplexId].LeavingRayCount = Channels.r * Channels.g;
+	//		}
+	//	}
+	//}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY || SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
 	{
 		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
 		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 		{
-			float2 Channels = float2(RawSample[MultiplexId / 2][2 * (MultiplexId % 2)], RawSample[MultiplexId / 2][2 * (MultiplexId % 2) + 1]);
-	
-			if (bNormalizeSample)
-			{
-				OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g > 0 ? 1 : 0;
-				OutSamples.Array[MultiplexId].LeavingRayCount = Channels.g > 0 ? Channels.r : 0;
-			}
-			else
-			{
-				OutSamples.Array[MultiplexId].AccumulatedSampleCount = Channels.g;
-				OutSamples.Array[MultiplexId].LeavingRayCount = Channels.r * Channels.g;
-			}
-		}
-	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY)
-	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
-		{
-			OutSamples.Array[MultiplexId].LeavingRayCount = RawSample[MultiplexId].r * RawSample[MultiplexId].g;
-			OutSamples.Array[MultiplexId].AccumulatedSampleCount = RawSample[MultiplexId].g;
+			float3 Channels = RawSample[MultiplexId].xyz;
+			
+			float SampleCount = bNormalizeSample ? (Channels.g > 0 ? 1 : 0) : (Channels.g);
+
+			OutSamples.Array[MultiplexId].LeavingRayCount = Channels.r * SampleCount;
+			OutSamples.Array[MultiplexId].AccumulatedSampleCount = SampleCount;
+			OutSamples.Array[MultiplexId].WorldBluringRadius = (Channels.b == -1 ? WORLD_RADIUS_MISS : Channels.b) * SampleCount;
 		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
@@ -454,31 +459,35 @@ void EncodeMultiplexedSignals(
 		}
 		OutBufferCount = (MultiplexCount + 1) / 2;
 	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	//else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
+	//{
+	//	UNROLL
+	//	for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
+	//	{
+	//		float2 EncodedChannels = float2(
+	//			Sample[MultiplexId].LeavingRayCount * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount),
+	//			Sample[MultiplexId].AccumulatedSampleCount);
+	//
+	//		if (MultiplexId % 2)
+	//			OutRawSample[MultiplexId / 2].zw = EncodedChannels;
+	//		else
+	//			OutRawSample[MultiplexId / 2].xy = EncodedChannels;
+	//	}
+	//	OutBufferCount = (MultiplexCount + 1) / 2;
+	//}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY || SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
 	{
 		UNROLL
 		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
 		{
-			float2 EncodedChannels = float2(
-				Sample[MultiplexId].LeavingRayCount * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount),
-				Sample[MultiplexId].AccumulatedSampleCount);
+			float NormalizationFactor = SafeRcp(Sample[MultiplexId].AccumulatedSampleCount);
 
-			if (MultiplexId % 2)
-				OutRawSample[MultiplexId / 2].zw = EncodedChannels;
-			else
-				OutRawSample[MultiplexId / 2].xy = EncodedChannels;
-		}
-		OutBufferCount = (MultiplexCount + 1) / 2;
-	}
-	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY)
-	{
-		UNROLL
-		for (uint MultiplexId = 0; MultiplexId < MultiplexCount; MultiplexId++)
-		{
+			float NormalizedWorldBluringRadius = Sample[MultiplexId].WorldBluringRadius * NormalizationFactor;
+
 			OutRawSample[MultiplexId] = float4(
-				Sample[MultiplexId].LeavingRayCount * SafeRcp(Sample[MultiplexId].AccumulatedSampleCount),
+				Sample[MultiplexId].LeavingRayCount * NormalizationFactor,
 				Sample[MultiplexId].AccumulatedSampleCount,
-				0,
+				NormalizedWorldBluringRadius == WORLD_RADIUS_MISS ? -1 : NormalizedWorldBluringRadius,
 				0);
 		}
 		OutBufferCount = MultiplexCount;
