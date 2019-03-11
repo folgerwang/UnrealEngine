@@ -45,6 +45,15 @@
 	// TODO: a bit hacky, need find better solution.
 	#define CONFIG_USE_NEAREST_HISTORY 1
 
+	// Use pre transformed rejection buffer that contains pre transformed momment 1 & 2.
+	#if 0
+		#define CONFIG_USE_REJECTION_BUFFER               1
+		#define CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT    SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION
+		
+		#define CONFIG_REJECTION_INPUT_MODE               REJECTION_INPUT_MODE_2PRETRANSFORMED_MOMMENTS
+		#define CONFIG_REJECTION_SAMPLE_SET               REJECTION_SAMPLE_SET_SOBEK2018
+	#endif
+
 #elif CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_REFLECTIONS
 	// Input and output layout.
 	#define CONFIG_SIGNAL_INPUT_LAYOUT   SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
@@ -383,8 +392,6 @@ void TemporallyAccumulate(
 			if (CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA)
 				KernelConfig.BilateralDistanceComputation = SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS;
 			
-			KernelConfig.MultiplexedSignalsPerSignalDomain = CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
-
 			#if CONFIG_REJECTION_SAMPLE_SET == REJECTION_SAMPLE_SET_SOBEK2018
 			{
 				KernelConfig.SampleSet = SAMPLE_SET_3X3_SOBEK2018;
@@ -402,6 +409,9 @@ void TemporallyAccumulate(
 
 			if (bUsesHistoryRejectionSignal)
 			{
+				// History rejection have two moments of the signal being denoised.
+				KernelConfig.MultiplexedSignalsPerSignalDomain = 2;
+				
 				KernelConfig.BufferLayout = CONFIG_SIGNAL_HISTORY_REJECTION_LAYOUT;
 				KernelConfig.bNormalizeSample = false;
 			
@@ -416,6 +426,7 @@ void TemporallyAccumulate(
 			}
 			else
 			{
+				KernelConfig.MultiplexedSignalsPerSignalDomain = CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
 				KernelConfig.BufferLayout = CONFIG_SIGNAL_INPUT_LAYOUT;
 				KernelConfig.bNormalizeSample = true;
 			
@@ -500,12 +511,9 @@ void TemporallyAccumulate(
 			}
 			#elif CONFIG_REJECTION_INPUT_MODE == REJECTION_INPUT_MODE_2PRETRANSFORMED_MOMMENTS
 			{
-				#if CONFIG_SIGNAL_BATCH_SIZE != 1
-					#error Unable to support more than one signal.
-				#endif
-				float NormalizeFactor = SafeRcp(SignalAccumulators.Array[0].Moment1.AccumulatedSampleCount);
-				NeighborMoment1 = Mul(SignalAccumulators.Array[0].Moment1, NormalizeFactor);
-				NeighborMoment2 = Mul(SignalAccumulators.Array[1].Moment1, NormalizeFactor);
+				float NormalizeFactor = SafeRcp(SignalAccumulators.Array[BatchedSignalId * 2 + 0].Moment1.AccumulatedSampleCount);
+				NeighborMoment1 = Mul(SignalAccumulators.Array[BatchedSignalId * 2 + 0].Moment1, NormalizeFactor);
+				NeighborMoment2 = Mul(SignalAccumulators.Array[BatchedSignalId * 2 + 1].Moment1, NormalizeFactor);
 			}
 			#else
 				#error NOrmalized samples. 

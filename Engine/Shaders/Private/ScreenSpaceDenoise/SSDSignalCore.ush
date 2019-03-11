@@ -32,7 +32,7 @@ struct FSSFSignalSample
 /** Array of signal samples. Technically should be a typedef, but there is a bug in HLSL with the out operator of an array. */
 struct FSSDSignalArray
 {
-	FSSFSignalSample Array[MAX_SIGNAL_BATCH_SIZE];
+	FSSFSignalSample Array[MAX_SIGNAL_MULTIPLEXING];
 };
 
 
@@ -56,8 +56,8 @@ FSSFSignalSample CreateSignalSample()
 FSSDSignalArray CreateSignalArrayFromScalarValue(float Scalar)
 {
 	FSSDSignalArray OutSamples;
-	FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
-	for (uint BatchedSignalId = 0; BatchedSignalId < MAX_SIGNAL_BATCH_SIZE; BatchedSignalId++)
+	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+	for (uint BatchedSignalId = 0; BatchedSignalId < MAX_SIGNAL_MULTIPLEXING; BatchedSignalId++)
 	{
 		OutSamples.Array[BatchedSignalId] = CreateSignalSampleFromScalarValue(Scalar);
 	}
@@ -211,9 +211,10 @@ void DecodeMultiplexedSignals(
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_1SPP)
 	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint BatchSignalId = 0; BatchSignalId < MAX_SIGNAL_BATCH_SIZE; BatchSignalId++)
 		{
+			uint MultiplexId = BatchSignalId;
 			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (RawSample[MultiplexId].r == -2.0 ? 0.0 : 1.0);
 			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (RawSample[MultiplexId].r > 0.0 ? 0.0 : 1.0);
 			OutSamples.Array[MultiplexId].PenumbraClosestHit = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (RawSample[MultiplexId].r == -1 ? 1000000 : RawSample[MultiplexId].r);
@@ -221,9 +222,10 @@ void DecodeMultiplexedSignals(
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INPUT_NSPP)
 	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint BatchSignalId = 0; BatchSignalId < MAX_SIGNAL_BATCH_SIZE; BatchSignalId++)
 		{
+			uint MultiplexId = BatchSignalId;
 			// TODO: feed the actual number of sample.
 			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (RawSample[MultiplexId].g == -2.0 ? 0.0 : 1.0);
 			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * RawSample[MultiplexId].r;
@@ -232,9 +234,10 @@ void DecodeMultiplexedSignals(
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_1SPP)
 	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint BatchSignalId = 0; BatchSignalId < MAX_SIGNAL_BATCH_SIZE; BatchSignalId++)
 		{
+			uint MultiplexId = BatchSignalId;
 			float EncodedWorldBluringRadius = RawSample[MultiplexId / 4][MultiplexId % 4];
 			OutSamples.Array[MultiplexId].AccumulatedSampleCount = (EncodedWorldBluringRadius == -2.0 ? 0.0 : 1.0);
 			OutSamples.Array[MultiplexId].LeavingRayCount = OutSamples.Array[MultiplexId].AccumulatedSampleCount * (EncodedWorldBluringRadius > 0.0 ? 0.0 : 1.0);
@@ -243,9 +246,10 @@ void DecodeMultiplexedSignals(
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_INJESTION_NSPP)
 	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint BatchSignalId = 0; BatchSignalId < MAX_SIGNAL_BATCH_SIZE; BatchSignalId++)
 		{
+			uint MultiplexId = BatchSignalId;
 			float2 Channels = float2(RawSample[MultiplexId / 2][2 * (MultiplexId % 2)], RawSample[MultiplexId / 2][2 * (MultiplexId % 2) + 1]);
 	
 			// TODO: feed the actual number of sample.
@@ -275,8 +279,8 @@ void DecodeMultiplexedSignals(
 	//}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY || SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION)
 	{
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_BATCH_SIZE; MultiplexId++)
 		{
 			float3 Channels = RawSample[MultiplexId].xyz;
 			
@@ -285,6 +289,23 @@ void DecodeMultiplexedSignals(
 			OutSamples.Array[MultiplexId].LeavingRayCount = Channels.r * SampleCount;
 			OutSamples.Array[MultiplexId].AccumulatedSampleCount = SampleCount;
 			OutSamples.Array[MultiplexId].WorldBluringRadius = (Channels.b == -1 ? WORLD_RADIUS_MISS : Channels.b) * SampleCount;
+		}
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION)
+	{
+		FIX_UNROLL(MAX_SIGNAL_BATCH_SIZE)
+		for (uint BatchSignalId = 0; BatchSignalId < MAX_SIGNAL_BATCH_SIZE; BatchSignalId++)
+		{
+			uint MultiplexId = BatchSignalId * 2;
+			float4 Channels = RawSample[BatchSignalId];
+			float SampleCount = Channels.b;
+
+			OutSamples.Array[MultiplexId + 0].AccumulatedSampleCount = SampleCount;
+			OutSamples.Array[MultiplexId + 0].LeavingRayCount = Channels.r * SampleCount;
+			OutSamples.Array[MultiplexId + 0].WorldBluringRadius = (Channels.a == -1 ? WORLD_RADIUS_MISS : Channels.a) * SampleCount;
+			
+			OutSamples.Array[MultiplexId + 1].AccumulatedSampleCount = SampleCount;
+			OutSamples.Array[MultiplexId + 1].LeavingRayCount = Channels.g * SampleCount;
 		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_INPUT)
@@ -491,6 +512,29 @@ void EncodeMultiplexedSignals(
 				0);
 		}
 		OutBufferCount = MultiplexCount;
+	}
+	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION)
+	{
+		const uint BatchSignalCount = MultiplexCount / 2;
+		OutBufferCount = BatchSignalCount;
+
+		UNROLL
+		for (uint BatchSignalId = 0; BatchSignalId < BatchSignalCount; BatchSignalId++)
+		{
+			uint MultiplexId = BatchSignalId * 2;
+
+			float NormalizationFactor = SafeRcp(Sample[MultiplexId + 0].AccumulatedSampleCount);
+
+			float NormalizedWorldBluringRadius = Sample[MultiplexId + 0].WorldBluringRadius * NormalizationFactor;
+
+			// Samples are normalised when doing history preconvolution, so the number of is either 0 or 1 on both momments. Therefore
+			// Sample[MultiplexId + 0].AccumulatedSampleCount == Sample[MultiplexId + 1].AccumulatedSampleCount.
+			OutRawSample[BatchSignalId] = float4(
+				Sample[MultiplexId + 0].LeavingRayCount * NormalizationFactor,
+				Sample[MultiplexId + 1].LeavingRayCount * NormalizationFactor,
+				Sample[MultiplexId + 0].AccumulatedSampleCount,
+				NormalizedWorldBluringRadius == WORLD_RADIUS_MISS ? -1 : NormalizedWorldBluringRadius);
+		}
 	}
 	else if (SignalBufferLayout == SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION)
 	{

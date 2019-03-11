@@ -59,10 +59,10 @@
 #define MAX_SIGNAL_BATCH_SIZE 4
 
 // Maximum number of signal that can be multiplexed into single output.
-#define MAX_SIGNAL_MULTIPLEXING (MAX_SIGNAL_BATCH_SIZE)
+#define MAX_SIGNAL_MULTIPLEXING 8
 
 // Maximum number of buffer multiple signals can be encode to/decoded from.
-#define MAX_MULTIPLEXED_TEXTURES (MAX_SIGNAL_BATCH_SIZE)
+#define MAX_MULTIPLEXED_TEXTURES 4
 
 
 //------------------------------------------------------- ENUMS
@@ -88,6 +88,9 @@
 	 * This buffer layout is able to pack two signals per render target.
 	 */
 	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION 12
+
+	/** Internal buffer to encode history rejection preconvolution. */
+	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION 17
 
 	/** Internal buffer layout for the shadow penumbra to be stored in indivual per light histories. */
 	#define SIGNAL_BUFFER_LAYOUT_PENUMBRA_HISTORY 11

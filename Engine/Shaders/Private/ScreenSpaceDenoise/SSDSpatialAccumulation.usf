@@ -37,6 +37,7 @@
 #define CONFIG_SIGNAL_BATCH_SIZE DIM_SIGNAL_BATCH_SIZE
 
 
+// Configures all the pass for each individual signals.
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
 	//#define CONFIG_VIEW_POSITION_BASED_BILATERAL 2
 	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 3
@@ -54,6 +55,13 @@
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
 		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
 		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
+
+	#elif DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION
+		// Input and output layout.
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_REJECTION
+
+		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
 
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		// Input and output layout.
@@ -101,21 +109,12 @@
 		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_REFLECTIONS_HISTORY
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_REFLECTIONS_REJECTION
 
-		#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3_PLUS
-
 		// Can only be done using tokoyashi because have more than one sample at a time.
 		#define CONFIG_TOKOYASHI_LOBE_BILATERAL 1
 		#define CONFIG_TOKOYASHI_AXES_BILATERAL 1
 
-		// Normalize the input, because want to measure the spatial variance regardless of how many samples where used to reconstruct the signal.
-		#define CONFIG_NORMALIZE_INPUT 1
-
 		#define CONFIG_ACCUMULATION_COLOR_SPACE REFLECTIONS_REJECTION_COLOR_SPACE
 		#define CONFIG_OUTPUT_COLOR_SPACE       REFLECTIONS_REJECTION_COLOR_SPACE
-
-		// Output the 2 momment because history rejection is varaiance based, and may flicker with momment 2 loss since the pre
-		// convolution will reduce the variance of momment 1.
-		#define CONFIG_OUTPUT_MODE OUTPUT_MODE_2MOMMENT_SUM
 
 	#elif DIM_STAGE == STAGE_POST_FILTERING
 		// Input and output layout.
@@ -192,6 +191,19 @@
 
 #else
 	#error Unknown signal processing.
+#endif
+
+// Configures pass regardless of the signals.
+#if DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION
+	#define CONFIG_SAMPLE_SET           SAMPLE_SET_3X3_PLUS
+
+	// Normalize the input, because want to measure the spatial variance regardless of how many samples where used to reconstruct the signal.
+	#define CONFIG_NORMALIZE_INPUT 1
+
+	// Output the 2 momment because history rejection is varaiance based, and may flicker with momment 2 loss since the pre
+	// convolution will reduce the variance of momment 1.
+	#define CONFIG_OUTPUT_MODE OUTPUT_MODE_2MOMMENT_SUM
+
 #endif
 
 
@@ -565,13 +577,14 @@ void MainCS(
 		}
 		#elif CONFIG_OUTPUT_MODE == OUTPUT_MODE_2MOMMENT_SUM
 		{
-			#if CONFIG_SIGNAL_BATCH_SIZE != 1
-				#error Unable to batch multiple signals at the same time.
-			#endif
+			MultiplexCount = 2 * CONFIG_SIGNAL_BATCH_SIZE;
 
-			OutputSamples.Array[0] = SignalAccumulators.Array[0].Moment1;
-			OutputSamples.Array[1] = SignalAccumulators.Array[0].Moment2;
-			MultiplexCount = 2;
+			FIX_UNROLL(CONFIG_SIGNAL_BATCH_SIZE)
+			for (uint BatchedSignalId = 0; BatchedSignalId < CONFIG_SIGNAL_BATCH_SIZE; BatchedSignalId++)
+			{
+				OutputSamples.Array[BatchedSignalId * 2 + 0] = SignalAccumulators.Array[BatchedSignalId * CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN + 0].Moment1;
+				OutputSamples.Array[BatchedSignalId * 2 + 1] = SignalAccumulators.Array[BatchedSignalId * CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN + 0].Moment2;
+			}
 		}
 		#elif CONFIG_OUTPUT_MODE == OUTPUT_MODE_DRB
 		{

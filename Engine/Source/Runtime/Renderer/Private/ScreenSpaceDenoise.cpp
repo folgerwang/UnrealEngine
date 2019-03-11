@@ -148,7 +148,9 @@ static bool SignalUsesInjestion(ESignalProcessing SignalProcessing)
 /** Returns whether a signal processing uses a history rejection pre convolution pass. */
 static bool SignalUsesRejectionPreConvolution(ESignalProcessing SignalProcessing)
 {
-	return SignalProcessing == ESignalProcessing::Reflections;
+	return (
+		//SignalProcessing == ESignalProcessing::MonochromaticPenumbra ||
+		SignalProcessing == ESignalProcessing::Reflections);
 }
 
 /** Returns whether a signal processing uses a history rejection pre convolution pass. */
@@ -248,10 +250,10 @@ const TCHAR* const kReconstructionResourceNames[] = {
 
 const TCHAR* const kRejectionPreConvolutionResourceNames[] = {
 	// Penumbra
-	nullptr,
-	nullptr,
-	nullptr,
-	nullptr,
+	TEXT("ShadowRejectionPreConvolution0"),
+	TEXT("ShadowRejectionPreConvolution1"),
+	TEXT("ShadowRejectionPreConvolution2"),
+	TEXT("ShadowRejectionPreConvolution3"),
 
 	// Reflections
 	TEXT("ReflectionsRejectionPreConvolution0"),
@@ -885,7 +887,15 @@ static void DenoiseSignalAtConstantPixelDensity(
 					RejectionSignalProcessingDescs[i] = HistoryDescs[i];
 				}
 
-				if (Settings.SignalProcessing == ESignalProcessing::Reflections)
+				if (Settings.SignalProcessing == ESignalProcessing::MonochromaticPenumbra)
+				{
+					for (int32 BatchedSignalId = 0; BatchedSignalId < Settings.SignalBatchSize; BatchedSignalId++)
+					{
+						RejectionSignalProcessingDescs[BatchedSignalId].Format = PF_FloatRGBA;
+					}
+					RejectionTextureCount = Settings.SignalBatchSize;
+				}
+				else if (Settings.SignalProcessing == ESignalProcessing::Reflections)
 				{
 					RejectionSignalProcessingDescs[0].Format = PF_FloatRGBA;
 					RejectionSignalProcessingDescs[1].Format = PF_G16R16F;
