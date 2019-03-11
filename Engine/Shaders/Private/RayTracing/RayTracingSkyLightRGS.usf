@@ -310,6 +310,9 @@ void SkyLightRGS()
 
 		uint RayFlags = 0
 			| RAY_FLAG_FORCE_OPAQUE; // #dxr_todo: generate a special shader permutation for occlusion ray tracing that includes any-hit shaders for masked geometry
+#if !ENABLE_TWO_SIDED_GEOMETRY
+		RayFlags |= RAY_FLAG_CULL_BACK_FACING_TRIANGLES;
+#endif
 		FDefaultPayload Payload = (FDefaultPayload)0;
 
 		TraceRay(
