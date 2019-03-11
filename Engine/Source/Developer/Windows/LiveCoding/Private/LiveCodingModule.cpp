@@ -226,6 +226,7 @@ bool FLiveCodingModule::StartLiveCoding()
 
 		// Mark it as started
 		bStarted = true;
+		bEnabledForSession = true;
 	}
 	return true;
 }
