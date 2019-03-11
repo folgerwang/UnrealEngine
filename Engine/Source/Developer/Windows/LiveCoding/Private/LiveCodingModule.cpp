@@ -25,6 +25,7 @@ FString GLiveCodingConsoleArguments;
 
 FLiveCodingModule::FLiveCodingModule()
 	: bEnabledLastTick(false)
+	, bEnabledForSession(false)
 	, bStarted(false)
 {
 }
@@ -135,9 +136,15 @@ void FLiveCodingModule::EnableForSession(bool bEnable)
 			LppSetVisible(false);
 		}
 	}
+	bEnabledForSession = bEnable;
 }
 
 bool FLiveCodingModule::IsEnabledForSession() const
+{
+	return bEnabledForSession;
+}
+
+bool FLiveCodingModule::HasStarted() const
 {
 	return bStarted;
 }

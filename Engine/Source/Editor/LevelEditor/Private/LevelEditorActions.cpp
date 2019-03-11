@@ -1033,7 +1033,7 @@ void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 {
 #if WITH_LIVE_CODING
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledByDefault())
 	{
 		LiveCoding->Compile();
 		return;
@@ -1053,7 +1053,7 @@ bool FLevelEditorActionCallbacks::Recompile_CanExecute()
 {
 #if WITH_LIVE_CODING
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	if (LiveCoding != nullptr && LiveCoding->IsEnabledForSession())
+	if (LiveCoding != nullptr && LiveCoding->IsEnabledByDefault())
 	{
 		return !LiveCoding->IsCompiling();
 	}
@@ -1099,7 +1099,7 @@ void FLevelEditorActionCallbacks::LiveCoding_StartSession_Clicked()
 bool FLevelEditorActionCallbacks::LiveCoding_CanStartSession()
 {
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	return LiveCoding != nullptr && LiveCoding->IsEnabledByDefault() && !LiveCoding->IsEnabledForSession();
+	return LiveCoding != nullptr && LiveCoding->IsEnabledByDefault() && !LiveCoding->HasStarted();
 }
 
 void FLevelEditorActionCallbacks::LiveCoding_ShowConsole_Clicked()
