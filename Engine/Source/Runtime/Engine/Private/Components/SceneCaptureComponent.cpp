@@ -141,8 +141,7 @@ void USceneCaptureComponent::OnRegister()
 			ProxyMeshComponent->SetIsVisualizationComponent(true);
 			ProxyMeshComponent->SetStaticMesh(CaptureMesh);
 			ProxyMeshComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-			ProxyMeshComponent->bVisible = bVisible; // Match the visibility of the component
-			ProxyMeshComponent->bHiddenInGame = true; // Hidden in game should always be true as this is a visualization component
+			ProxyMeshComponent->bHiddenInGame = true;
 			ProxyMeshComponent->CastShadow = false;
 			ProxyMeshComponent->PostPhysicsComponentTick.bCanEverTick = false;
 			ProxyMeshComponent->CreationMethod = CreationMethod;
@@ -411,18 +410,6 @@ void USceneCaptureComponent::OnUnregister()
 	}
 
 	Super::OnUnregister();
-}
-
-void USceneCaptureComponent::OnVisibilityChanged()
-{
-	// ProxyMeshComponent only exists in Editor
-#if WITH_EDITORONLY_DATA
-	if (ProxyMeshComponent != nullptr)
-	{
-		ProxyMeshComponent->SetVisibility(bVisible);
-	}
-#endif
-	Super::OnVisibilityChanged();
 }
 
 // -----------------------------------------------
