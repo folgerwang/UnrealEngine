@@ -1880,16 +1880,6 @@ public:
 
 	// ---------------------------------------------------------------------------------------------------------------------------------
 
-#if WITH_EDITORONLY_DATA
-	/** Template to derive starting values and editing customization from */
-	UPROPERTY()
-	UGameplayEffectTemplate*	Template;
-
-	/** When false, show a limited set of properties for editing, based on the template we are derived from */
-	UPROPERTY()
-	bool ShowAllProperties;
-#endif
-
 	/** Policy for the duration of this effect */
 	UPROPERTY(EditDefaultsOnly, Category=GameplayEffect)
 	EGameplayEffectDurationType DurationPolicy;

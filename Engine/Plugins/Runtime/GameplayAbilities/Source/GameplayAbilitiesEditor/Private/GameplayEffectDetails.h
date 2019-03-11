@@ -7,11 +7,8 @@
 
 class IDetailLayoutBuilder;
 class IPropertyHandle;
-class UGameplayEffectTemplate;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGameplayEffectDetails, Log, All);
-
-class UGameplayEffectTemplate;
 
 class FGameplayEffectDetails : public IDetailCustomization
 {
@@ -31,13 +28,6 @@ private:
 
 	IDetailLayoutBuilder* MyDetailLayout;
 
-	TSharedPtr<IPropertyHandle> TemplateProperty;
-	TSharedPtr<IPropertyHandle> ShowAllProperty;
-
-	void OnShowAllChange();
-	void OnTemplateChange();
 	void OnDurationPolicyChange();
-
-	bool HideProperties(IDetailLayoutBuilder& DetailLayout, TSharedPtr<IPropertyHandle> PropHandle, UGameplayEffectTemplate* Template);
 };
 
