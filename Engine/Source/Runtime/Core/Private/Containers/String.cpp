@@ -257,6 +257,7 @@ void FString::RemoveSpacesInline()
 	if (CopyToIndex <= StringLength)
 	{
 		RawData[CopyToIndex] = '\0';
+		Data.SetNum(CopyToIndex + 1, false);
 	}
 }
 
