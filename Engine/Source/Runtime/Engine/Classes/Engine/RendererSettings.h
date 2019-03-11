@@ -447,11 +447,6 @@ class ENGINE_API URendererSettings : public UDeveloperSettings
 		ToolTip="Whether to use a depth only pass to initialize Z culling for the base pass."))
 	TEnumAsByte<EEarlyZPass::Type> EarlyZPass;
 
-	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
-		ConsoleVariable="r.EarlyZPassMovable",DisplayName="Movables in early Z-pass",
-		ToolTip="Whether to render movable objects in the early Z pass. Need to reload the level!"))
-	uint32 bEarlyZPassMovable:1;
-
 	UPROPERTY(config, EditAnywhere, Category = Optimizations, meta = (
 		EditCondition = "EarlyZPass == OpaqueAndMasked && bEarlyZPassMovable",
 		ConsoleVariable = "r.EarlyZPassOnlyMaterialMasking", DisplayName = "Mask material only in early Z-pass",

@@ -37,37 +37,6 @@
 #include "RayTracingDefinitions.h"
 #include "RayTracingInstance.h"
 
-TAutoConsoleVariable<int32> CVarEarlyZPass(
-	TEXT("r.EarlyZPass"),
-	3,	
-	TEXT("Whether to use a depth only pass to initialize Z culling for the base pass. Cannot be changed at runtime.\n")
-	TEXT("Note: also look at r.EarlyZPassMovable\n")
-	TEXT("  0: off\n")
-	TEXT("  1: good occluders only: not masked, and large on screen\n")
-	TEXT("  2: all opaque (including masked)\n")
-	TEXT("  x: use built in heuristic (default is 3)"),
-	ECVF_Scalability);
-
-int32 GEarlyZPassMovable = 1;
-
-/** Affects static draw lists so must reload level to propagate. */
-static FAutoConsoleVariableRef CVarEarlyZPassMovable(
-	TEXT("r.EarlyZPassMovable"),
-	GEarlyZPassMovable,
-	TEXT("Whether to render movable objects into the depth only pass. Defaults to on.\n")
-	TEXT("Note: also look at r.EarlyZPass"),
-	ECVF_RenderThreadSafe | ECVF_Scalability
-	);
-
-/** Affects BasePassPixelShader.usf so must relaunch editor to recompile shaders. */
-static TAutoConsoleVariable<int32> CVarEarlyZPassOnlyMaterialMasking(
-	TEXT("r.EarlyZPassOnlyMaterialMasking"),
-	0,
-	TEXT("Whether to compute materials' mask opacity only in early Z pass. Changing this setting requires restarting the editor.\n")
-	TEXT("Note: Needs r.EarlyZPass == 2 && r.EarlyZPassMovable == 1"),
-	ECVF_RenderThreadSafe | ECVF_ReadOnly
-	);
-
 static TAutoConsoleVariable<int32> CVarStencilForLODDither(
 	TEXT("r.StencilForLODDither"),
 	0,
@@ -125,12 +94,6 @@ static FAutoConsoleVariableRef CVarDoPrepareDistanceFieldSceneAfterRHIFlush(
 	TEXT("If true, then do the distance field scene after the RHI sync and flush. Improves pipelining."),
 	ECVF_RenderThreadSafe
 );
-
-static TAutoConsoleVariable<int32> CVarBasePassWriteDepthEvenWithFullPrepass(
-	TEXT("r.BasePassWriteDepthEvenWithFullPrepass"),
-	0,
-	TEXT("0 to allow a readonly base pass, which skips an MSAA depth resolve, and allows masked materials to get EarlyZ (writing to depth while doing clip() disables EarlyZ) (default)\n")
-	TEXT("1 to force depth writes in the base pass.  Useful for debugging when the prepass and base pass don't match what they render."));
 
 static TAutoConsoleVariable<int32> CVarParallelBasePass(
 	TEXT("r.ParallelBasePass"),
@@ -206,45 +169,6 @@ DECLARE_GPU_STAT(HZB);
 DECLARE_GPU_STAT_NAMED(AmbientOcclusionDenoiser, TEXT("Ambient Occlusion Denoiser"));
 DECLARE_GPU_STAT_NAMED(Unaccounted, TEXT("[unaccounted]"));
 
-bool ShouldForceFullDepthPass(EShaderPlatform ShaderPlatform)
-{
-	const bool bDBufferAllowed = IsUsingDBuffers(ShaderPlatform);
-
-	static const auto StencilLODDitherCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
-	const bool bStencilLODDither = StencilLODDitherCVar->GetValueOnAnyThread() != 0;
-
-	const bool bEarlyZMaterialMasking = CVarEarlyZPassOnlyMaterialMasking.GetValueOnAnyThread() != 0;
-
-	// Note: ShouldForceFullDepthPass affects which static draw lists meshes go into, so nothing it depends on can change at runtime, unless you do a FGlobalComponentRecreateRenderStateContext to propagate the cvar change
-	return bDBufferAllowed || bStencilLODDither || bEarlyZMaterialMasking || IsForwardShadingEnabled(ShaderPlatform) || UseSelectiveBasePassOutputs();
-}
-
-void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable)
-{
-	EarlyZPassMode = DDM_NonMaskedOnly;
-	bEarlyZPassMovable = false;
-
-	// developer override, good for profiling, can be useful as project setting
-	{
-		const int32 CVarValue = CVarEarlyZPass.GetValueOnAnyThread();
-
-		switch(CVarValue)
-		{
-			case 0: EarlyZPassMode = DDM_None; break;
-			case 1: EarlyZPassMode = DDM_NonMaskedOnly; break;
-			case 2: EarlyZPassMode = DDM_AllOccluders; break;
-			case 3: break;	// Note: 3 indicates "default behavior" and does not specify an override
-		}
-	}
-
-	if (ShouldForceFullDepthPass(ShaderPlatform))
-	{
-		// DBuffer decals and stencil LOD dithering force a full prepass
-		EarlyZPassMode = DDM_AllOpaque;
-		bEarlyZPassMovable = true;
-	}
-}
-
 const TCHAR* GetDepthPassReason(bool bDitheredLODTransitionsUseStencil, EShaderPlatform ShaderPlatform)
 {
 	if (IsForwardShadingEnabled(ShaderPlatform))
@@ -273,11 +197,11 @@ const TCHAR* GetDepthPassReason(bool bDitheredLODTransitionsUseStencil, EShaderP
 
 FDeferredShadingSceneRenderer::FDeferredShadingSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyConsumer* HitProxyConsumer)
 	: FSceneRenderer(InViewFamily, HitProxyConsumer)
+	, EarlyZPassMode(Scene ? Scene->EarlyZPassMode : DDM_None)
+	, bEarlyZPassMovable(Scene ? Scene->bEarlyZPassMovable : false)
 {
 	static const auto StencilLODDitherCVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.StencilForLODDither"));
 	bDitheredLODTransitionsUseStencil = StencilLODDitherCVar->GetValueOnAnyThread() != 0;
-
-	GetEarlyZPassMode(ShaderPlatform, EarlyZPassMode, bEarlyZPassMovable);
 
 	// Shader complexity requires depth only pass to display masked material cost correctly
 	if (ViewFamily.UseDebugViewPS() && ViewFamily.GetDebugViewShaderMode() != DVSM_OutputMaterialTextureScales)
@@ -925,7 +849,6 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	// Use readonly depth in the base pass if we have a full depth prepass
 	const bool bAllowReadonlyDepthBasePass = EarlyZPassMode == DDM_AllOpaque
-		&& CVarBasePassWriteDepthEvenWithFullPrepass.GetValueOnRenderThread() == 0
 		&& !ViewFamily.EngineShowFlags.ShaderComplexity
 		&& !ViewFamily.UseDebugViewPS()
 		&& !bIsWireframe

@@ -79,6 +79,7 @@ public:
 	bool bReverseCulling;
 	bool bRenderSceneTwoSided;
 	FExclusiveDepthStencil::Type BasePassDepthStencilAccess;
+	FExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess;
 
 	// Mesh pass processor.
 	FMeshPassProcessor* MeshPassProcessor;

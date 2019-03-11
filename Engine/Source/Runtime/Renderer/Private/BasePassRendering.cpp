@@ -352,18 +352,6 @@ void SetupBasePassState(FExclusiveDepthStencil::Type BasePassDepthStencilAccess,
 	}
 }
 
-FExclusiveDepthStencil::Type GetDefaultBasePassDepthStencilAccess(EShadingPath ShadingPath)
-{
-	if (ShadingPath == EShadingPath::Mobile)
-	{
-		return FExclusiveDepthStencil::DepthWrite_StencilWrite;
-	}
-	else // deferred
-	{
-		return FExclusiveDepthStencil::DepthRead_StencilWrite;
-	}
-}
-
 /**
  * Get shader templates allowing to redirect between compatible shaders.
  */
@@ -1521,20 +1509,15 @@ FBasePassMeshProcessor::FBasePassMeshProcessor(const FScene* Scene, ERHIFeatureL
 	, PassDrawRenderState(InDrawRenderState)
 	, TranslucencyPassType(InTranslucencyPassType)
 	, bTranslucentBasePass(InTranslucencyPassType != ETranslucencyPass::TPT_MAX)
+	, EarlyZPassMode(Scene ? Scene->EarlyZPassMode : DDM_None)
 {
-	extern void GetEarlyZPassMode(EShaderPlatform ShaderPlatform, EDepthDrawingMode& EarlyZPassMode, bool& bEarlyZPassMovable);
-
-	bool bEarlyZPassMovable;
-	GetEarlyZPassMode(GShaderPlatformForFeatureLevel[InFeatureLevel], EarlyZPassMode, bEarlyZPassMovable);
 }
 
 FMeshPassProcessor* CreateBasePassProcessor(const FScene* Scene, const FSceneView* InViewIfDynamicMeshCommand, FMeshPassDrawListContext* InDrawListContext)
 {
-	FExclusiveDepthStencil::Type DefaultBasePassDepthStencilAccess = GetDefaultBasePassDepthStencilAccess(EShadingPath::Deferred);
-
 	FMeshPassProcessorRenderState PassDrawRenderState(Scene->UniformBuffers.ViewUniformBuffer, Scene->UniformBuffers.OpaqueBasePassUniformBuffer);
 	PassDrawRenderState.SetInstancedViewUniformBuffer(Scene->UniformBuffers.InstancedViewUniformBuffer);
-	SetupBasePassState(DefaultBasePassDepthStencilAccess, false, PassDrawRenderState);
+	SetupBasePassState(Scene->DefaultBasePassDepthStencilAccess, false, PassDrawRenderState);
 
 	return new(FMemStack::Get()) FBasePassMeshProcessor(Scene, Scene->GetFeatureLevel(), InViewIfDynamicMeshCommand, PassDrawRenderState, InDrawListContext);
 }
