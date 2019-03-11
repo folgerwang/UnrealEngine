@@ -903,7 +903,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 					// Not worth batching and increase memory pressure if the denoiser do not support this ray tracing config.
 					// TODO: add suport for batch with multiple SPP.
-					if (DenoiserRequirements != IScreenSpaceDenoiser::EShadowRequirements::ClosestOccluder)
+					if (DenoiserRequirements != IScreenSpaceDenoiser::EShadowRequirements::PenumbraAndClosestOccluder)
 					{
 						continue;
 					}
