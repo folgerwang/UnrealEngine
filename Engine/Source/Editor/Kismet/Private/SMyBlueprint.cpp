@@ -827,6 +827,12 @@ TSharedRef<SWidget> SMyBlueprint::OnGetFunctionListMenu()
 	BuildOverridableFunctionsMenu(MenuBuilder);
 
 	TSharedRef<SWidget> MenuWidget = MenuBuilder.MakeWidget();
+	
+	// force user focus onto the menu widget:
+	if(FunctionSectionButton.IsValid())
+	{
+		FunctionSectionButton->SetMenuContentWidgetToFocus(MenuWidget);
+	}
 
 	return MenuWidget;
 }
