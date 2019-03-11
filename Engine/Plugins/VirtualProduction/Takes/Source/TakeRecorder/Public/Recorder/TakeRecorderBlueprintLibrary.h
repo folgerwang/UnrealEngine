@@ -80,6 +80,13 @@ public:
 	static UTakeRecorderPanel* OpenTakeRecorderPanel();
 
 
+	DECLARE_DYNAMIC_DELEGATE(FOnTakeRecorderPanelChanged);
+
+	/** Called when a Take Panel is constructed or destroyed. */
+	UFUNCTION(BlueprintCallable, Category="Take Recorder")
+	static void SetOnTakeRecorderPanelChanged(FOnTakeRecorderPanelChanged OnTakeRecorderPanelChanged);
+
+
 	/**
 	 * Internal function to assign a new take recorder panel singleton.
 	 * NOTE: Only to be called by STakeRecorderTabContent::Construct.

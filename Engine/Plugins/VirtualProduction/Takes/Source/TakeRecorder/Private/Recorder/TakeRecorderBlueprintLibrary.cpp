@@ -14,6 +14,7 @@
 namespace
 {
 	static UTakeRecorderPanel* CurrentTakeRecorderPanel;
+	static UTakeRecorderBlueprintLibrary::FOnTakeRecorderPanelChanged TakeRecorderPanelChanged;
 }
 
 
@@ -120,20 +121,30 @@ UTakeRecorderPanel* UTakeRecorderBlueprintLibrary::GetTakeRecorderPanel()
 	return CurrentTakeRecorderPanel && CurrentTakeRecorderPanel->IsPanelOpen() ? CurrentTakeRecorderPanel : nullptr;
 }
 
+void UTakeRecorderBlueprintLibrary::SetOnTakeRecorderPanelChanged(FOnTakeRecorderPanelChanged OnTakeRecorderPanelChanged)
+{
+	TakeRecorderPanelChanged = OnTakeRecorderPanelChanged;
+};
+
 void UTakeRecorderBlueprintLibrary::SetTakeRecorderPanel(UTakeRecorderPanel* InNewPanel)
 {
-	if (CurrentTakeRecorderPanel)
+	if (CurrentTakeRecorderPanel != InNewPanel)
 	{
-		// Old panel is no longer valid
-		CurrentTakeRecorderPanel->ClosePanel();
+		if (CurrentTakeRecorderPanel)
+		{
+			// Old panel is no longer valid
+			CurrentTakeRecorderPanel->ClosePanel();
 
-		CurrentTakeRecorderPanel->RemoveFromRoot();
-		CurrentTakeRecorderPanel = nullptr;
-	}
+			CurrentTakeRecorderPanel->RemoveFromRoot();
+			CurrentTakeRecorderPanel = nullptr;
+		}
 
-	if (InNewPanel && InNewPanel->IsPanelOpen())
-	{
-		InNewPanel->AddToRoot();
-		CurrentTakeRecorderPanel = InNewPanel;
+		if (InNewPanel && InNewPanel->IsPanelOpen())
+		{
+			InNewPanel->AddToRoot();
+			CurrentTakeRecorderPanel = InNewPanel;
+		}
+
+		TakeRecorderPanelChanged.ExecuteIfBound();
 	}
 }

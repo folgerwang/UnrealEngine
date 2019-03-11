@@ -393,7 +393,7 @@ void UMediaCapture::SetState(EMediaCaptureState InNewState)
 			AsyncTask(ENamedThreads::GameThread, [Self]
 			{
 				UMediaCapture* MediaCapture = Self.Get();
-				if (MediaCapture)
+				if (UObjectInitialized() && MediaCapture)
 				{
 					MediaCapture->BroadcastStateChanged();
 				}
