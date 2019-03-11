@@ -350,7 +350,7 @@ public:
 				// We need to mark the function entry as editable so that we can
 				// set metadata on it if it is a blutility:
 				K2Schema->MarkFunctionEntryAsEditable(Graph, true);
-				if( IsBlutility( Blueprint ))
+				if( IsEditorUtilityBlueprint( Blueprint ))
 				{
 					if( FKismetUserDeclaredFunctionMetadata* MetaData = GetGraphFunctionMetaData( Graph ))
 					{
@@ -524,7 +524,7 @@ public:
 	static bool IsBlueprintConst(const UBlueprint* Blueprint);
 
 	/** Returns whether or not the blueprint is a blutility */
-	static bool IsBlutility(const UBlueprint* Blueprint);
+	static bool IsEditorUtilityBlueprint(const UBlueprint* Blueprint);
 
 	/**
 	 * Whether or not this is an actor-based blueprint, and supports features like the uber-graph, components, etc

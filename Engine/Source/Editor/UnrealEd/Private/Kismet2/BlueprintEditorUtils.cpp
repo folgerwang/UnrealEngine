@@ -3137,13 +3137,13 @@ bool FBlueprintEditorUtils::IsBlueprintConst(const UBlueprint* Blueprint)
 	return Blueprint && Blueprint->BlueprintType == BPTYPE_Const;
 }
 
-bool FBlueprintEditorUtils::IsBlutility(const UBlueprint* Blueprint)
+bool FBlueprintEditorUtils::IsEditorUtilityBlueprint(const UBlueprint* Blueprint)
 {
 	IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
 
 	if (BlutilityModule)
 	{
-		return BlutilityModule->IsBlutility( Blueprint );
+		return BlutilityModule->IsEditorUtilityBlueprint( Blueprint );
 	}
 	return false;
 }

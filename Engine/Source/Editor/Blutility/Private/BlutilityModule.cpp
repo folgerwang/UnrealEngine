@@ -201,11 +201,13 @@ public:
 		FEditorSupportDelegates::PrepareToCleanseEditorObject.RemoveAll(this);
 	}
 
-	virtual bool IsBlutility( const UBlueprint* Blueprint ) const override
+	virtual bool IsEditorUtilityBlueprint( const UBlueprint* Blueprint ) const override
 	{
 		const UClass* BPClass = Blueprint ? Blueprint->GetClass() : nullptr;
 
-		if( BPClass && BPClass->IsChildOf( UEditorUtilityBlueprint::StaticClass() ))
+		if( BPClass && 
+			(BPClass->IsChildOf( UEditorUtilityBlueprint::StaticClass())
+			|| BPClass->IsChildOf(UEditorUtilityWidgetBlueprint::StaticClass())))
 		{
 			return true;
 		}

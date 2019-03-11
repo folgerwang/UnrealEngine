@@ -102,7 +102,7 @@ void FObjectDetails::AddCallInEditorMethods(IDetailLayoutBuilder& DetailBuilder)
 			{
 				if (UBlueprint* Blueprint = Cast<UBlueprint>(TestFunctionOwnerClass->ClassGeneratedBy))
 				{
-					if (FBlueprintEditorUtils::IsBlutility(Blueprint))
+					if (FBlueprintEditorUtils::IsEditorUtilityBlueprint(Blueprint))
 					{
 						// Skip Blutilities as these are handled by FEditorUtilityInstanceDetails
 						continue;
