@@ -617,6 +617,7 @@ void SMontageEditor::SortAndUpdateMontage()
 	AnimMontagePanel->Update();
 	AnimMontageSectionsPanel->Update();
 	AnimTimingPanel->Update();
+	AnimNotifyPanel->Update();
 
 	// Restart the preview instance of the montage
 	RestartPreview();
