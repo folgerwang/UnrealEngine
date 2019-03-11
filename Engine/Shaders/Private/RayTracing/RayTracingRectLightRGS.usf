@@ -290,7 +290,7 @@ void RectLightRGS()
 		TraceRay(
 			TLAS,      // AccelerationStructure
 			RayFlags,
-			RAY_TRACING_MASK_OPAQUE,          // InstanceInclusionMask
+			RAY_TRACING_MASK_SHADOW,          // InstanceInclusionMask
 			RAY_TRACING_SHADER_SLOT_MATERIAL, // RayContributionToHitGroupIndex
 			RAY_TRACING_NUM_SHADER_SLOTS,     // MultiplierForGeometryContributionToShaderIndex
 			0,         // MissShaderIndex
