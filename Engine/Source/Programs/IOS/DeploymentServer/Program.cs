@@ -398,6 +398,11 @@ namespace DeploymentServer
 								break;
 						}
 					}
+					
+					catch (IOException)
+					{
+						// we expect this to happen so we don't log it
+					}
 					catch (Exception e)
 					{
 						Console.SetOut(ConsoleOld);
@@ -1165,7 +1170,7 @@ namespace DeploymentServer
 					
 					Writer.WriteLine("[DSDIR]" + TestStartPath);
 					Writer.Flush();
-
+					
 					Byte[] Buffer = new Byte[2048];
 					string Unprocessed = "";
 					ClientInfo = new TcpClientInfo();
@@ -1272,6 +1277,10 @@ namespace DeploymentServer
 							break;
 						}
 					}
+				}
+				catch (IOException)
+				{
+					// we expect this to happen so we don't log it
 				}
 				catch (Exception e)
 				{
