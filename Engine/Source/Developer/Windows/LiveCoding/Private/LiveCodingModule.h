@@ -5,9 +5,11 @@
 #include "ILiveCodingModule.h"
 #include "Delegates/Delegate.h"
 #include "Modules/ModuleManager.h"
+#include "Templates/SharedPointer.h"
 
 struct IConsoleCommand;
 class IConsoleVariable;
+class ISettingsSection;
 class ULiveCodingSettings;
 
 class FLiveCodingModule final : public ILiveCodingModule
@@ -31,6 +33,7 @@ public:
 
 private:
 	ULiveCodingSettings* Settings;
+	TSharedPtr<ISettingsSection> SettingsSection;
 	bool bEnabledLastTick;
 	bool bStarted;
 	TSet<FString> EnabledModules;

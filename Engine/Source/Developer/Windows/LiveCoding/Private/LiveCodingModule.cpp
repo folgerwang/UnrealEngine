@@ -12,6 +12,7 @@
 #include "Misc/ConfigCacheIni.h"
 #include "LiveCodingSettings.h"
 #include "ISettingsModule.h"
+#include "ISettingsSection.h"
 #include "Windows/WindowsHWrapper.h"
 
 IMPLEMENT_MODULE(FLiveCodingModule, LiveCoding)
@@ -53,7 +54,7 @@ void FLiveCodingModule::StartupModule()
 	ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 	if (SettingsModule != nullptr)
 	{
-		SettingsModule->RegisterSettings("Editor", "General", "Live Coding",
+		SettingsSection = SettingsModule->RegisterSettings("Editor", "General", "Live Coding",
 			LOCTEXT("LiveCodingSettingsName", "Live Coding"),
 			LOCTEXT("LiveCodintSettingsDescription", "Settings for recompiling C++ code while the engine is running."),
 			GetMutableDefault<ULiveCodingSettings>()
@@ -99,7 +100,14 @@ void FLiveCodingModule::ShutdownModule()
 
 void FLiveCodingModule::EnableByDefault(bool bEnable)
 {
-	Settings->bEnabled = bEnable;
+	if(Settings->bEnabled != bEnable)
+	{
+		Settings->bEnabled = bEnable;
+		if(SettingsSection.IsValid())
+		{
+			SettingsSection->Save();
+		}
+	}
 	EnableForSession(bEnable);
 }
 
