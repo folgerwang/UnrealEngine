@@ -1624,7 +1624,8 @@ void FDeferredShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 				RenderRayTracingSkyLight(RHICmdList, SkyLightRT, HitDistanceRT);
 			}
 
-			if (ShouldRenderRayTracingGlobalIllumination())
+
+			if (ShouldRenderRayTracingGlobalIllumination(Views))
 			{
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{

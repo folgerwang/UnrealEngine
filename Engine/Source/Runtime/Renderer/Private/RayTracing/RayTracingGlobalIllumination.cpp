@@ -20,11 +20,13 @@
 #include "PostProcess/SceneFilterRendering.h"
 #include "Raytracing/RaytracingOptions.h"
 
-static int32 GRayTracingGlobalIllumination = 0;
+static int32 GRayTracingGlobalIllumination = -1;
 static FAutoConsoleVariableRef CVarRayTracingGlobalIllumination(
 	TEXT("r.RayTracing.GlobalIllumination"),
 	GRayTracingGlobalIllumination,
-	TEXT("Enabled ray tracing global illumination (default = 0)")
+	TEXT("-1: Value driven by postprocess volume (default) \n")
+	TEXT(" 0: ray tracing ray tracing global illumination off \n")
+	TEXT(" 1: ray tracing global illumination enabled")
 );
 
 static int32 GRayTracingGlobalIlluminationSamplesPerPixel = -1;
@@ -175,9 +177,26 @@ void SetupLightParameters(
 	}
 }
 
-bool ShouldRenderRayTracingGlobalIllumination()
+bool ShouldRenderRayTracingGlobalIllumination(const TArray<FViewInfo>& Views)
 {
-	return GRayTracingGlobalIllumination == 1;
+	if (GRayTracingGlobalIllumination >= 0)
+	{
+		return (GRayTracingGlobalIllumination > 0);
+	}
+	else
+	{
+		for (int32 ViewIndex = 0, Num = Views.Num(); ViewIndex < Num; ViewIndex++)
+		{
+			const FViewInfo& View = Views[ViewIndex];
+			//#dxr_todo: multiview case
+			if (View.FinalPostProcessSettings.RayTracingGI > 0)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
 }
 
 class FGlobalIlluminationRGS : public FGlobalShader
@@ -306,7 +325,11 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 	TRefCountPtr<IPooledRenderTarget>& AmbientOcclusionRT
 )
 {
-	if (!GRayTracingGlobalIllumination) return;
+	if (GRayTracingGlobalIllumination == 0 || (GRayTracingGlobalIllumination == -1 && View.FinalPostProcessSettings.RayTracingGI == 0)) 
+	{
+		return;
+	}
+
 	SCOPED_GPU_STAT(RHICmdList, RayTracingGlobalIllumination);
 
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);

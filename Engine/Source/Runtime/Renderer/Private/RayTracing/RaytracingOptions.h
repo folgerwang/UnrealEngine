@@ -13,7 +13,7 @@ extern bool ShouldRenderRayTracingSkyLight(const FSkyLightSceneProxy* SkyLightSc
 
 #if RHI_RAYTRACING
 extern bool ShouldRenderRayTracingAmbientOcclusion();
-extern bool ShouldRenderRayTracingGlobalIllumination();
+extern bool ShouldRenderRayTracingGlobalIllumination(const TArray<FViewInfo>& Views);
 extern bool ShouldRenderRayTracingStochasticRectLight(const FLightSceneInfo& LightSceneInfo);
 
 extern float GetRaytracingOcclusionMaxNormalBias();
@@ -25,7 +25,7 @@ FORCEINLINE bool ShouldRenderRayTracingAmbientOcclusion()
 	return false;
 }
 
-FORCEINLINE bool ShouldRenderRayTracingGlobalIllumination()
+FORCEINLINE bool ShouldRenderRayTracingGlobalIllumination(const TArray<FViewInfo>& Views)
 {
 	return false;
 }
