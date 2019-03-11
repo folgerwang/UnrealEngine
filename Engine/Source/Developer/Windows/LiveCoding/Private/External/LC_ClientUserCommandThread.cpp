@@ -336,6 +336,18 @@ namespace
 	static CriticalSection g_userCommandQueueCS;
 }
 
+// BEGIN EPIC MOD - Allow manually batching commands
+void BeginCommandBatch()
+{
+	g_userCommandQueueCS.Enter();
+}
+
+void EndCommandBatch()
+{
+	g_userCommandQueueCS.Leave();
+}
+// END EPIC MOD
+
 
 ClientUserCommandThread::ClientUserCommandThread(DuplexPipeClient* pipeClient, DuplexPipeClient* exceptionPipeClient)
 	: m_thread(INVALID_HANDLE_VALUE)
