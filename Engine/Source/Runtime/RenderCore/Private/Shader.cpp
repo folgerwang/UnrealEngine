@@ -391,21 +391,14 @@ void FShaderType::Uninitialize()
 TMap<FShaderResourceId, FShaderResource*> FShaderResource::ShaderResourceIdMap;
 
 #if RHI_RAYTRACING
-uint32 FShaderResource::GlobalMaxIndex = 0;
 TArray<uint32> FShaderResource::GlobalUnusedIndicies;
-TMap<uint32, FRHIRayTracingShader*> FShaderResource::GlobalRayTracingMaterialLibrary;
+TArray<FRHIRayTracingShader*> FShaderResource::GlobalRayTracingMaterialLibrary;
 FCriticalSection FShaderResource::GlobalRayTracingMaterialLibraryCS;
 
 void FShaderResource::GetRayTracingMaterialLibrary(TArray<FRayTracingShaderRHIParamRef>& RayTracingMaterials, FRayTracingShaderRHIParamRef DefaultShader)
 {
 	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
-	RayTracingMaterials.Reset();
-	RayTracingMaterials.AddUninitialized(GlobalMaxIndex);
-
-	for (const auto Entry : GlobalRayTracingMaterialLibrary)
-	{
-		RayTracingMaterials[Entry.Key] = Entry.Value;
-	}
+	RayTracingMaterials = GlobalRayTracingMaterialLibrary;
 
 	for (uint32 Index : GlobalUnusedIndicies)
 	{
@@ -420,16 +413,14 @@ uint32 FShaderResource::AddToRayTracingLibrary(FRayTracingShaderRHIParamRef Shad
 	if (GlobalUnusedIndicies.Num() != 0)
 	{
 		uint32 Index = GlobalUnusedIndicies.Pop(false);
-		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
-		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
+		checkSlow(GlobalRayTracingMaterialLibrary[Index] == nullptr);
+		GlobalRayTracingMaterialLibrary[Index] = Shader;
 		return Index;
 	}
 	else
 	{
-		uint32 Index = GlobalMaxIndex++;
-		checkSlow(GlobalRayTracingMaterialLibrary.Find(Index) == nullptr);
-		GlobalRayTracingMaterialLibrary.Add(Index, Shader);
-		return Index;
+		GlobalRayTracingMaterialLibrary.Add(Shader);
+		return GlobalRayTracingMaterialLibrary.Num() - 1;
 	}
 }
 
@@ -437,7 +428,7 @@ void FShaderResource::RemoveFromRayTracingLibrary(uint32 Index)
 {
 	FScopeLock Lock(&GlobalRayTracingMaterialLibraryCS);
 	GlobalUnusedIndicies.Push(Index);
-	GlobalRayTracingMaterialLibrary.Remove(Index);
+	GlobalRayTracingMaterialLibrary[Index] = nullptr;
 }
 #endif
 

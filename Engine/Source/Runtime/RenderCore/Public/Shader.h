@@ -383,9 +383,8 @@ private:
 	RENDERCORE_API static uint32 AddToRayTracingLibrary(FRayTracingShaderRHIParamRef Shader);
 	RENDERCORE_API static void RemoveFromRayTracingLibrary(uint32 Index);
 
-	static uint32 GlobalMaxIndex;
 	static TArray<uint32> GlobalUnusedIndicies;
-	static TMap<uint32, FRayTracingShaderRHIParamRef> GlobalRayTracingMaterialLibrary;
+	static TArray<FRHIRayTracingShader*> GlobalRayTracingMaterialLibrary;
 	static FCriticalSection GlobalRayTracingMaterialLibraryCS;
 
 public:
