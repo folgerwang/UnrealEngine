@@ -5860,10 +5860,12 @@ UWorld* FSeamlessTravelHandler::Tick()
 			{
 				for( FConstControllerIterator Iterator = CurrentWorld->GetControllerIterator(); Iterator; ++Iterator )
 				{
-					AController* Player = Iterator->Get();
-					if (Player->PlayerState || Cast<APlayerController>(Player) != nullptr)
+					if (AController* Player = Iterator->Get())
 					{
-						KeepAnnotation.Set(Player);
+						if (Player->PlayerState || Cast<APlayerController>(Player) != nullptr)
+						{
+							KeepAnnotation.Set(Player);
+						}
 					}
 				}
 			}
