@@ -1287,6 +1287,7 @@ static void DumpTableDifferences(
 #endif // !NO_LOGGING
 }
 
+extern int32 GAllowCookedDataInEditorBuilds;
 
 void FArchiveStackTrace::DumpPackageHeaderDiffs(const FPackageData& SourcePackage, const FPackageData& DestPackage, const FString& AssetFilename, const int32 MaxDiffsToLog)
 {
@@ -1297,6 +1298,7 @@ void FArchiveStackTrace::DumpPackageHeaderDiffs(const FPackageData& SourcePackag
 
 	TGuardValue<bool> GuardIsSavingPackage(GIsSavingPackage, false);
 	TGuardValue<bool> GuardAllowUnversionedContentInEditor(GAllowUnversionedContentInEditor, true);
+	TGuardValue<int32> GuardAllowCookedDataInEditorBuilds(GAllowCookedDataInEditorBuilds, 1);
 
 	FLinkerLoad* SourceLinker = nullptr;
 	FLinkerLoad* DestLinker = nullptr;

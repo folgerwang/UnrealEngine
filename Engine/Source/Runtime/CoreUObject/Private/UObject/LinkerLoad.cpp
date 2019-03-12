@@ -82,7 +82,7 @@ bool FLinkerLoad::ShouldCreateThrottledSlowTask() const
 #endif
 
 
-static int32 GAllowCookedDataInEditorBuilds = 0;
+int32 GAllowCookedDataInEditorBuilds = 0;
 static FAutoConsoleVariableRef CVarAllowCookedDataInEditorBuilds(
 	TEXT("cook.AllowCookedDataInEditorBuilds"),
 		GAllowCookedDataInEditorBuilds,
