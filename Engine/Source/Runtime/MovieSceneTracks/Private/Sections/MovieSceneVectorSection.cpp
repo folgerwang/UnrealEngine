@@ -279,6 +279,7 @@ TSharedPtr<FStructOnScope> UMovieSceneVectorSection::GetKeyStruct(TArrayView<con
 			Struct->KeyStructInterop.Add(FMovieSceneChannelValueHelper(ChannelProxy->MakeHandle<FMovieSceneFloatChannel>(Index), Struct->GetPropertyChannelByIndex(Index), KeyHandles));
 		}
 
+		Struct->KeyStructInterop.SetStartingValues();
 		Struct->Time = Struct->KeyStructInterop.GetUnifiedKeyTime().Get(0);
 	}
 
