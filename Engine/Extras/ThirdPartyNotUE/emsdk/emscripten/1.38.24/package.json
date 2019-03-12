@@ -1,6 +1,0 @@
-{
-  "private": true,
-  "devDependencies": {
-    "ws": "~0.4.28"
-  }
-}
