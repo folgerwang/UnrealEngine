@@ -362,7 +362,11 @@ void SkyLightRGS()
 	DiffuseExitantRadiance.g = Albedo.g > 0.0 ? DiffuseExitantRadiance.g / Albedo.g : DiffuseExitantRadiance.g;
 	DiffuseExitantRadiance.b = Albedo.b > 0.0 ? DiffuseExitantRadiance.b / Albedo.b : DiffuseExitantRadiance.b;
 
-	RWOcclusionMaskUAV[PixelCoord] = float4(ClampToMaxHalfFloat(DiffuseExitantRadiance.xyz), AmbientOcclusion);
+#if USE_PREEXPOSURE
+	DiffuseExitantRadiance.rgb *= View.PreExposure;
+#endif
+
+	RWOcclusionMaskUAV[PixelCoord] = float4(ClampToHalfFloatRange(DiffuseExitantRadiance.rgb), AmbientOcclusion);
 
 	float HitDistance = -1.0;
 	if (HitCount > 0.0)

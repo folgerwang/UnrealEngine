@@ -365,7 +365,12 @@ void GlobalIlluminationRGS()
 	}
 
 	AmbientOcclusion = saturate(AmbientOcclusion);
-	Irradiance = max(Irradiance, 0.0);
+
+#if USE_PREEXPOSURE
+	Irradiance *= View.PreExposure;
+#endif
+
+	Irradiance = ClampToHalfFloatRange(Irradiance);
 	RWGlobalIlluminationUAV[DispatchThreadId] = float4(Irradiance, AmbientOcclusion);
 	RWRayDistanceUAV[DispatchThreadId] = float2(HitDistance, SamplesPerPixel);
 	// For AO denoiser..

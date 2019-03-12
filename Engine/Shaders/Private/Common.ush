@@ -94,10 +94,10 @@ float ComputeRayConeLod(Texture2D Tex)
 }
 #endif
 
-float  ClampToMaxHalfFloat(float X)  { return min(MaxHalfFloat, X); }
-float2 ClampToMaxHalfFloat(float2 X) { return min(MaxHalfFloat.xx, X); }
-float3 ClampToMaxHalfFloat(float3 X) { return min(MaxHalfFloat.xxx, X); }
-float4 ClampToMaxHalfFloat(float4 X) { return min(MaxHalfFloat.xxxx, X); }
+float  ClampToHalfFloatRange(float  X) { return clamp(X, float(0), MaxHalfFloat); }
+float2 ClampToHalfFloatRange(float2 X) { return clamp(X, float(0).xx, MaxHalfFloat.xx); }
+float3 ClampToHalfFloatRange(float3 X) { return clamp(X, float(0).xxx, MaxHalfFloat.xxx); }
+float4 ClampToHalfFloatRange(float4 X) { return clamp(X, float(0).xxxx, MaxHalfFloat.xxxx); }
 
 // This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!

@@ -641,11 +641,11 @@ void OutputMultiplexedSignal(
 
 	// Output the raw encoded sample according to number of RT they requires.
 	if (BufferCount >= 1)
-		OutputSignalBuffer0[PixelPosition] = ClampToMaxHalfFloat(RawSample[0]);
+		OutputSignalBuffer0[PixelPosition] = min(RawSample[0], MaxHalfFloat);
 	if (BufferCount >= 2)
-		OutputSignalBuffer1[PixelPosition] = ClampToMaxHalfFloat(RawSample[1]);
+		OutputSignalBuffer1[PixelPosition] = min(RawSample[1], MaxHalfFloat);
 	if (BufferCount >= 3)
-		OutputSignalBuffer2[PixelPosition] = ClampToMaxHalfFloat(RawSample[2]);
+		OutputSignalBuffer2[PixelPosition] = min(RawSample[2], MaxHalfFloat);
 	if (BufferCount >= 4)
-		OutputSignalBuffer3[PixelPosition] = ClampToMaxHalfFloat(RawSample[3]);
+		OutputSignalBuffer3[PixelPosition] = min(RawSample[3], MaxHalfFloat);
 }

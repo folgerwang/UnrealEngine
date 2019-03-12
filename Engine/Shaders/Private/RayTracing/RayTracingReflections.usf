@@ -428,7 +428,11 @@ void RayTracingReflectionsRGS()
 			ReflectedColor *= DistanceFade * max(RoughnessFade, ClearCoatRoughnessFade) * rcp(ReflectedWeight);
 		}
 
-		ColorOutput[DispatchThreadId] = ReflectedColor;
+	#if USE_PREEXPOSURE
+		ReflectedColor *= View.PreExposure;
+	#endif
+
+		ColorOutput[DispatchThreadId] = ClampToHalfFloatRange(ReflectedColor);
 		RayHitDistanceOutput[DispatchThreadId] = HitDistance;
 	}
 }

@@ -276,6 +276,12 @@ void RayTracingTranslucencyRGS()
 		// Use the scene opaque radiance for pixel that has not intersected any transparent.
 		PathRadiance = Texture2DSampleLevel(SceneTexturesStruct.SceneColorTexture, SceneTexturesStruct.SceneColorTextureSampler, UV, 0).xyz;
 	}
+
+#if USE_PREEXPOSURE
+	PathRadiance.rgb *= View.PreExposure;
+#endif
+
+	PathRadiance = ClampToHalfFloatRange(PathRadiance);
 	ColorOutput[DispatchThreadId] = float4(PathRadiance, 0.0f);
 	RayHitDistanceOutput[DispatchThreadId] = HitDistance;
 }
