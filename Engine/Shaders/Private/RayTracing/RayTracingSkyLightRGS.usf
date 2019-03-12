@@ -362,7 +362,7 @@ void SkyLightRGS()
 	DiffuseExitantRadiance.g = Albedo.g > 0.0 ? DiffuseExitantRadiance.g / Albedo.g : DiffuseExitantRadiance.g;
 	DiffuseExitantRadiance.b = Albedo.b > 0.0 ? DiffuseExitantRadiance.b / Albedo.b : DiffuseExitantRadiance.b;
 
-	RWOcclusionMaskUAV[PixelCoord] = float4(DiffuseExitantRadiance, AmbientOcclusion);
+	RWOcclusionMaskUAV[PixelCoord] = float4(ClampToMaxHalfFloat(DiffuseExitantRadiance.xyz), AmbientOcclusion);
 
 	float HitDistance = -1.0;
 	if (HitCount > 0.0)

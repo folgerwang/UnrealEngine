@@ -51,7 +51,7 @@ void CopySceneColorToCubeFaceColorPS(
 	float3 SceneColor = Texture2DSample(InTexture, InTextureSampler, Input.UV).rgb;
 
 	// Convert INF's to valid values
-	SceneColor = min(SceneColor, 65503);
+	SceneColor = ClampToMaxHalfFloat(SceneColor);
 	float3 WorldPosition = Input.ScreenVector * SceneDepth + View.WorldCameraOrigin;
 
 	float Alpha = 1;

@@ -71,7 +71,7 @@
 #define USE_GLOBAL_CLIP_PLANE (PLATFORM_SUPPORTS_GLOBAL_CLIP_PLANE && PROJECT_ALLOW_GLOBAL_CLIP_PLANE && !MATERIAL_DOMAIN_POSTPROCESS && !MATERIAL_DOMAIN_UI)
 
 const static MaterialFloat PI = 3.1415926535897932f;
-
+const static float MaxHalfFloat = 65504.0f;
 #ifndef USE_RAYTRACED_TEXTURE_RAYCONE_LOD
 #define USE_RAYTRACED_TEXTURE_RAYCONE_LOD (RAYHITGROUPSHADER)
 #endif
@@ -93,6 +93,11 @@ float ComputeRayConeLod(Texture2D Tex)
 #endif
 }
 #endif
+
+float  ClampToMaxHalfFloat(float X)  { return min(MaxHalfFloat, X); }
+float2 ClampToMaxHalfFloat(float2 X) { return min(MaxHalfFloat.xx, X); }
+float3 ClampToMaxHalfFloat(float3 X) { return min(MaxHalfFloat.xxx, X); }
+float4 ClampToMaxHalfFloat(float4 X) { return min(MaxHalfFloat.xxxx, X); }
 
 // This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!
