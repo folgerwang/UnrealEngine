@@ -36,9 +36,14 @@ enum class EPropertyLocalizationGathererTextFlags : uint8
 	ForceEditorOnly = ForceEditorOnlyProperties | ForceEditorOnlyScriptData,
 
 	/**
+	 * Force all gathered text to be considered "default" (matching its archetype value).
+	 */
+	ForceIsDefaultValue = 1<<3,
+
+	/**
 	 * Don't process any sub-objects (either inner objects or object pointers).
 	 */
-	SkipSubObjects = 1<<3,
+	SkipSubObjects = 1<<4,
 };
 ENUM_CLASS_FLAGS(EPropertyLocalizationGathererTextFlags);
 
