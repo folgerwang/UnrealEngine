@@ -175,8 +175,6 @@ void RayTracingTranslucencyRGS()
 			break;
 		}
 		float3 HitPoint = Ray.Origin + Ray.Direction * GetHitT(Payload);
-		bHasScattered = true;
-
 
 		//
 		// Handle surface lighting
@@ -273,8 +271,8 @@ void RayTracingTranslucencyRGS()
 
 	if (!bHasScattered)
 	{
-		// Use the scene opaque radiance for pixel that has not intersected any transparent.
-		PathRadiance = Texture2DSampleLevel(SceneTexturesStruct.SceneColorTexture, SceneTexturesStruct.SceneColorTextureSampler, UV, 0).xyz;
+		// Use the scene radiance for ray that has not been scattered/refracted (no surface or IORin=IORout). Still apply the throughtput in case we have traversed surfaces with opacity>0.
+		PathRadiance += PathThroughput * Texture2DSampleLevel(SceneTexturesStruct.SceneColorTexture, SceneTexturesStruct.SceneColorTextureSampler, UV, 0).xyz;
 	}
 
 #if USE_PREEXPOSURE

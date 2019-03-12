@@ -1092,6 +1092,8 @@ struct FPostProcessSettings
 	uint32 bOverride_RayTracingTranslucencyShadows : 1;
 
 	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
+	uint32 bOverride_RayTracingTranslucencyRefraction : 1;
+
 	uint32 bOverride_RayTracingGI : 1;
 
 	UPROPERTY(BlueprintReadWrite, Category = Overrides, meta = (PinHiddenByDefault, InlineEditConditionToggle))
@@ -1777,6 +1779,10 @@ struct FPostProcessSettings
 	/** Sets the translucency shadows type. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (editcondition = "bOverride_RayTracingTranslucencyShadows", DisplayName = "Shadows"))
 	EReflectedAndRefractedRayTracedShadows RayTracingTranslucencyShadows;
+
+	/** Sets whether refraction should be enabled or not (if not rays will not scatter and only travel in the same direction as before the intersection event). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Rendering Features|Ray Tracing Translucency", meta = (editcondition = "bOverride_RayTracingTranslucencyRefraction", DisplayName = "Refraction"))
+	uint8 RayTracingTranslucencyRefraction : 1;
 
 
 	// Path Tracing

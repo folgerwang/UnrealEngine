@@ -87,7 +87,7 @@ static FAutoConsoleVariableRef CVarRayTracingTranslucencyHeightFog(
 	GRayTracingTranslucencyHeightFog,
 	TEXT("Enables height fog in ray traced Translucency (default = 1)"));
 
-static int32 GRayTracingTranslucencyRefraction = 1;
+static int32 GRayTracingTranslucencyRefraction = -1;
 static FAutoConsoleVariableRef CVarRayTracingTranslucencyRefraction(
 	TEXT("r.RayTracing.Translucency.Refraction"),
 	GRayTracingTranslucencyRefraction,
@@ -364,7 +364,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingTranslucencyView(
 	PassParameters->TranslucencyMinRayDistance = FMath::Min(GRayTracingTranslucencyMinRayDistance, GRayTracingTranslucencyMaxRayDistance);
 	PassParameters->TranslucencyMaxRayDistance = GRayTracingTranslucencyMaxRayDistance;
 	PassParameters->TranslucencyMaxRoughness = FMath::Clamp(GRayTracingTranslucencyMaxRoughness >= 0 ? GRayTracingTranslucencyMaxRoughness : View.FinalPostProcessSettings.RayTracingTranslucencyMaxRoughness, 0.01f, 1.0f);
-	PassParameters->TranslucencyRefraction = GRayTracingTranslucencyRefraction;
+	PassParameters->TranslucencyRefraction = GRayTracingTranslucencyRefraction >= 0 ? GRayTracingTranslucencyRefraction : View.FinalPostProcessSettings.RayTracingTranslucencyRefraction;
 	PassParameters->MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
 
 	PassParameters->TLAS = View.RayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
