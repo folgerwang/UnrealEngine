@@ -40,6 +40,10 @@ private:
 	bool bStarted;
 	TSet<FString> EnabledModules;
 
+	const FString FullEnginePluginsDir;
+	const FString FullProjectDir;
+	const FString FullProjectPluginsDir;
+
 	IConsoleCommand* EnableCommand;
 	IConsoleVariable* ConsolePathVariable;
 	FDelegateHandle EndFrameDelegateHandle;
@@ -47,14 +51,13 @@ private:
 
 	bool StartLiveCoding();
 
-	void OnEndFrame();
 	void OnModulesChanged(FName ModuleName, EModuleChangeReason Reason);
 
 	void UpdateModules();
 	void EnableModule(const FString& FullFilePath);
 	void DisableModule(const FString& FullFilePath);
 
-	void ConfigureModule(const FName& Name, bool bIsProjectModule, const FString& FullFilePath);
-	bool ShouldEnableModule(const FName& Name, bool bIsProjectModule, const FString& FilePath) const;
+	void ConfigureModule(const FName& Name, const FString& FullFilePath);
+	bool ShouldEnableModule(const FName& Name, const FString& FullFilePath) const;
 };
 

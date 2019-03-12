@@ -27,6 +27,9 @@ FLiveCodingModule::FLiveCodingModule()
 	: bEnabledLastTick(false)
 	, bEnabledForSession(false)
 	, bStarted(false)
+	, FullEnginePluginsDir(FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir()))
+	, FullProjectDir(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir()))
+	, FullProjectPluginsDir(FPaths::ConvertRelativePathToFull(FPaths::ProjectPluginsDir()))
 {
 }
 
@@ -249,7 +252,7 @@ void FLiveCodingModule::UpdateModules()
 		if (ModuleStatus.bIsLoaded)
 		{
 			FString FullFilePath = FPaths::ConvertRelativePathToFull(ModuleStatus.FilePath);
-			ConfigureModule(FName(*ModuleStatus.Name), ModuleStatus.bIsGameModule, FullFilePath);
+			ConfigureModule(FName(*ModuleStatus.Name), FullFilePath);
 		}
 	}
 
@@ -285,16 +288,16 @@ void FLiveCodingModule::OnModulesChanged(FName ModuleName, EModuleChangeReason R
 		if (FModuleManager::Get().QueryModule(ModuleName, Status))
 		{
 			FString FullFilePath = FPaths::ConvertRelativePathToFull(Status.FilePath);
-			ConfigureModule(ModuleName, Status.bIsGameModule, FullFilePath);
+			ConfigureModule(ModuleName, FullFilePath);
 		}
 	}
 #endif
 }
 
-void FLiveCodingModule::ConfigureModule(const FName& Name, bool bIsProjectModule, const FString& FullFilePath)
+void FLiveCodingModule::ConfigureModule(const FName& Name, const FString& FullFilePath)
 {
 #if !IS_MONOLITHIC
-	if (ShouldEnableModule(Name, bIsProjectModule, FullFilePath))
+	if (ShouldEnableModule(Name, FullFilePath))
 	{
 		EnableModule(FullFilePath);
 	}
@@ -305,7 +308,7 @@ void FLiveCodingModule::ConfigureModule(const FName& Name, bool bIsProjectModule
 #endif
 }
 
-bool FLiveCodingModule::ShouldEnableModule(const FName& Name, bool bIsProjectModule, const FString& FullFilePath) const
+bool FLiveCodingModule::ShouldEnableModule(const FName& Name, const FString& FullFilePath) const
 {
 	if (Settings->ExcludeSpecificModules.Contains(Name))
 	{
@@ -316,14 +319,13 @@ bool FLiveCodingModule::ShouldEnableModule(const FName& Name, bool bIsProjectMod
 		return true;
 	}
 
-	if (bIsProjectModule)
+	if (FullFilePath.StartsWith(FullProjectDir))
 	{
 		if (Settings->bIncludeProjectModules == Settings->bIncludeProjectPluginModules)
 		{
 			return Settings->bIncludeProjectModules;
 		}
 
-		FString FullProjectPluginsDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectPluginsDir());
 		if(FullFilePath.StartsWith(FullProjectPluginsDir))
 		{
 			return Settings->bIncludeProjectPluginModules;
@@ -345,7 +347,6 @@ bool FLiveCodingModule::ShouldEnableModule(const FName& Name, bool bIsProjectMod
 			return Settings->bIncludeEngineModules;
 		}
 
-		FString FullEnginePluginsDir = FPaths::ConvertRelativePathToFull(FPaths::EnginePluginsDir());
 		if(FullFilePath.StartsWith(FullEnginePluginsDir))
 		{
 			return Settings->bIncludeEnginePluginModules;
