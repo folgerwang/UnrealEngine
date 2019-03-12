@@ -169,6 +169,7 @@ public:
 	UPROPERTY()
 	TMap<FName, FString> StringMetaData;
 
+	UPROPERTY()
 	FQualifiedFrameTime SceneTime;
 };
 
