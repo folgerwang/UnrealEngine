@@ -1,6 +1,13 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 
 #pragma once
+
+#ifdef MIXEDREALITYINTEROP_EXPORTS
+#define MIXEDREALITYINTEROP_API __declspec(dllexport)
+#else
+#define MIXEDREALITYINTEROP_API __declspec(dllimport)
+#endif
+
 #pragma warning(disable:4668)
 #pragma warning(disable:4005)  
 #include <Windows.h>
@@ -13,7 +20,7 @@
 
 namespace WindowsMixedReality
 {
-	class MixedRealityInterop
+	class MIXEDREALITYINTEROP_API MixedRealityInterop
 	{
 	public:
 		enum class HMDEye
