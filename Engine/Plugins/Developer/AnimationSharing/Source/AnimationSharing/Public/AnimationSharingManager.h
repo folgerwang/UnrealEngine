@@ -275,7 +275,7 @@ public:
 	uint8 DetermineStateForActor(uint32 ActorIndex, bool& bShouldProcess);
 
 	/** Initial set up of all animation sharing data and states */
-	void Setup(UAnimationSharingManager* AnimationSharingManager, const FPerSkeletonAnimationSharingSetup& SkeletonSetup, const FAnimationSharingScalability* ScalabilitySettings, uint32 Index);
+	bool Setup(UAnimationSharingManager* AnimationSharingManager, const FPerSkeletonAnimationSharingSetup& SkeletonSetup, const FAnimationSharingScalability* ScalabilitySettings, uint32 Index);
 	/** Populates data for a state setup */
 	void SetupState(FPerStateData& StateData, const FAnimationStateEntry& StateEntry, USkeletalMesh* SkeletalMesh, const FPerSkeletonAnimationSharingSetup& SkeletonSetup, uint32 Index);
 
