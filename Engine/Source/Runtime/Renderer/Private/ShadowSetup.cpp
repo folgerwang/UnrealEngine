@@ -943,9 +943,8 @@ bool FProjectedShadowInfo::ShouldDrawStaticMeshes(FViewInfo& InCurrentView, bool
 						SubjectMeshCommandBuildRequests.Add(&StaticMesh);
 					}
 
-					if (StaticMeshRelevance.bRequiresPerElementVisibility && !VisibilePrimitiveLODMask->ContainsLOD(StaticMeshRelevance.LODIndex))
+					if (StaticMeshRelevance.bRequiresPerElementVisibility)
 					{
-						// StaticMeshBatchVisibility wasn't updated in main pass so update it now
 						InCurrentView.StaticMeshBatchVisibility[StaticMesh.BatchVisibilityId] = StaticMesh.VertexFactory->GetStaticBatchElementVisibility(InCurrentView, &StaticMesh);
 					}
 
