@@ -1789,7 +1789,6 @@ void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& I
 
 		float SubSectionMaxExtend = ComponentMaxExtend / 2.0f;
 		float SubSectionRadius = LandscapeComponent->Bounds.SphereRadius / 2.0f;
-		const FSceneView& View = GetLODView(InView);
 		float CombinedScreenRatio = 0.0f;
 		bool AllSubSectionHaveSameScreenSize = true;
 
@@ -1801,11 +1800,11 @@ void FLandscapeComponentSceneProxy::CalculateBatchElementLOD(const FSceneView& I
 				int32 SubSectionIndex = SubX + SubY * NumSubsections;
 				FViewCustomDataSubSectionLOD& SubSectionLODData = InOutLODData.SubSections[SubSectionIndex];
 
-				SubSectionLODData.ScreenSizeSquared = GetComponentScreenSize(&View, SubSectionScreenSizeTestingPosition[SubSectionIndex], SubSectionMaxExtend, SubSectionRadius);
+				SubSectionLODData.ScreenSizeSquared = GetComponentScreenSize(&InView, SubSectionScreenSizeTestingPosition[SubSectionIndex], SubSectionMaxExtend, SubSectionRadius);
 
 				check(SubSectionLODData.ScreenSizeSquared > 0.0f);
 
-				CalculateLODFromScreenSize(View, SubSectionLODData.ScreenSizeSquared, InViewLODScale, SubSectionIndex, InOutLODData);
+				CalculateLODFromScreenSize(InView, SubSectionLODData.ScreenSizeSquared, InViewLODScale, SubSectionIndex, InOutLODData);
 				check(SubSectionLODData.fBatchElementCurrentLOD != -1.0f);
 
 				InOutLODData.ShaderCurrentLOD.Component(SubSectionIndex) = SubSectionLODData.fBatchElementCurrentLOD;
@@ -1942,7 +1941,6 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 	// NOTE: we can't access other proxy here as this can be run in parallel we need to wait for the PostInitViewCustomData which is run in synchronous	
 
 	PrimitiveCustomDataIndex = GetPrimitiveSceneInfo()->GetIndex();
-	const FSceneView& View = GetLODView(InView);
 
 	FViewCustomDataLOD* LODData = (FViewCustomDataLOD*)new(InCustomDataMemStack) FViewCustomDataLOD();
 
@@ -1952,10 +1950,10 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 	// If a valid screen size was provided, we use it instead of recomputing it
 	if (InMeshScreenSizeSquared < 0.0f)
 	{
-		LODData->ComponentScreenSize = GetComponentScreenSize(&View, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
+		LODData->ComponentScreenSize = GetComponentScreenSize(&InView, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
 	}
 
-	CalculateBatchElementLOD(View, LODData->ComponentScreenSize, InViewLODScale, *LODData, false);
+	CalculateBatchElementLOD(InView, LODData->ComponentScreenSize, InViewLODScale, *LODData, false);
 
 	if (InIsStaticRelevant)
 	{
@@ -1983,7 +1981,7 @@ void* FLandscapeComponentSceneProxy::InitViewCustomData(const FSceneView& InView
 		LODData->LodBias = GetShaderLODBias();
 	}
 
-	ComputeTessellationFalloffShaderValues(*LODData, View.ViewMatrices.GetProjectionMatrix(), LODData->LodTessellationParams.X, LODData->LodTessellationParams.Y);
+	ComputeTessellationFalloffShaderValues(*LODData, InView.ViewMatrices.GetProjectionMatrix(), LODData->LodTessellationParams.X, LODData->LodTessellationParams.Y);
 
 	return LODData;
 }
@@ -2153,7 +2151,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 			FVector ComponentTopLeftCorner = LandscapeComponentOrigin - FVector(SubSectionMaxExtend, SubSectionMaxExtend, 0.0f);
 
 			FVector SubSectionOrigin = ComponentTopLeftCorner + FVector(LandscapeComponentMaxExtends * DesiredSubSectionX, LandscapeComponentMaxExtends * DesiredSubSectionY, 0.0f);
-			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&GetLODView(InView), SubSectionOrigin, SubSectionMaxExtend, LandscapeComponent->Bounds.SphereRadius / 2.0f);
+			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&InView, SubSectionOrigin, SubSectionMaxExtend, LandscapeComponent->Bounds.SphereRadius / 2.0f);
 
 			FViewCustomDataLOD NeighborLODData;
 			CalculateLODFromScreenSize(InView, MeshBatchScreenSizeSquared, InView.LODDistanceFactor, DesiredSubSectionIndex, NeighborLODData);
@@ -2167,7 +2165,7 @@ float FLandscapeComponentSceneProxy::GetNeighborLOD(const FSceneView& InView, fl
 		}
 		else
 		{
-			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&GetLODView(InView), LandscapeComponentOrigin, LandscapeComponentMaxExtends, LandscapeComponent->Bounds.SphereRadius);
+			float MeshBatchScreenSizeSquared = GetComponentScreenSize(&InView, LandscapeComponentOrigin, LandscapeComponentMaxExtends, LandscapeComponent->Bounds.SphereRadius);
 
 			FViewCustomDataLOD NeighborLODData;
 			CalculateLODFromScreenSize(InView, MeshBatchScreenSizeSquared, InView.LODDistanceFactor, 0, NeighborLODData);
@@ -2266,11 +2264,10 @@ bool FLandscapeComponentSceneProxy::CanUseMeshBatchForShadowCascade(int8 InLODIn
 	return MeshBatch->TessellationDisablingShadowMapMeshSize >= WorldUnitsForOneTexel * (GShadowMapWorldUnitsToTexelFactor != -1.0f ? GShadowMapWorldUnitsToTexelFactor : 1.0f);
 }
 
-FLODMask FLandscapeComponentSceneProxy::GetCustomLOD(const FSceneView& View, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenSizeSquared) const
+FLODMask FLandscapeComponentSceneProxy::GetCustomLOD(const FSceneView& InView, float InViewLODScale, int32 InForcedLODLevel, float& OutScreenSizeSquared) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_LandscapeComputeCustomMeshBatchLOD);
 	FLODMask LODToRender;
-	const FSceneView& LODView = GetLODView(View);
 	OutScreenSizeSquared = 0.0f;
 
 	// Handle forced LOD level first
@@ -2282,10 +2279,10 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomLOD(const FSceneView& View, flo
 
 		LODToRender.SetLOD(FMath::Clamp<int8>(InForcedLODLevel, MinMeshLOD, MaxMeshLOD));
 	}
-	else if (LODView.Family->EngineShowFlags.LOD)
+	else if (InView.Family->EngineShowFlags.LOD)
 	{
 		int8 PotentialLOD = INDEX_NONE;
-		OutScreenSizeSquared = GetComponentScreenSize(&LODView, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
+		OutScreenSizeSquared = GetComponentScreenSize(&InView, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
 
 		if (NumSubsections > 1)
 		{
@@ -2293,7 +2290,7 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomLOD(const FSceneView& View, flo
 			float SubSectionRadius = LandscapeComponent->Bounds.SphereRadius / 2.0f;
 
 			// Compute screen size of each sub section to determine if we should use the combined logic or the individual logic
-			float ScreenSizeSquared = GetComponentScreenSize(&View, SubSectionScreenSizeTestingPosition[0], SubSectionMaxExtend, SubSectionRadius);
+			float ScreenSizeSquared = GetComponentScreenSize(&InView, SubSectionScreenSizeTestingPosition[0], SubSectionMaxExtend, SubSectionRadius);
 			PotentialLOD = GetLODFromScreenSize(ScreenSizeSquared, InViewLODScale);
 		}
 		else
@@ -2301,7 +2298,7 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomLOD(const FSceneView& View, flo
 			PotentialLOD = GetLODFromScreenSize(OutScreenSizeSquared, InViewLODScale);
 		}
 
-		const auto FeatureLevel = View.GetFeatureLevel();
+		const auto FeatureLevel = InView.GetFeatureLevel();
 		bool HasTessellationEnabled = false;
 
 		if (FeatureLevel >= ERHIFeatureLevel::SM4)
@@ -2362,14 +2359,13 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomWholeSceneShadowLOD(const FScen
 	}
 	else
 	{
-		const FSceneView& LODView = GetLODView(InView);
-		const FViewCustomDataLOD* PrimitiveCustomData = (const FViewCustomDataLOD*)LODView.GetCustomData(GetPrimitiveSceneInfo()->GetIndex());
+		const FViewCustomDataLOD* PrimitiveCustomData = (const FViewCustomDataLOD*)InView.GetCustomData(GetPrimitiveSceneInfo()->GetIndex());
 		int8 PotentialLOD = INDEX_NONE;
 		float ScreenSizeSquared = 0.0f;
 
 		if (PrimitiveCustomData == nullptr)
 		{
-			ScreenSizeSquared = GetComponentScreenSize(&LODView, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
+			ScreenSizeSquared = GetComponentScreenSize(&InView, LandscapeComponent->Bounds.Origin, ComponentMaxExtend, LandscapeComponent->Bounds.SphereRadius);
 
 			if (NumSubsections > 1)
 			{
@@ -2377,7 +2373,7 @@ FLODMask FLandscapeComponentSceneProxy::GetCustomWholeSceneShadowLOD(const FScen
 				float SubSectionRadius = LandscapeComponent->Bounds.SphereRadius / 2.0f;
 
 				// Compute screen size of each sub section to determine if we should use the combined logic or the individual logic
-				float SubSectionScreenSizeSquared = GetComponentScreenSize(&LODView, SubSectionScreenSizeTestingPosition[0], SubSectionMaxExtend, SubSectionRadius);
+				float SubSectionScreenSizeSquared = GetComponentScreenSize(&InView, SubSectionScreenSizeTestingPosition[0], SubSectionMaxExtend, SubSectionRadius);
 				PotentialLOD = GetLODFromScreenSize(SubSectionScreenSizeSquared, InViewLODScale);
 			}
 			else
@@ -3420,11 +3416,10 @@ public:
 			ShaderBindings.Add(LodValuesParameter, SceneProxy->GetShaderLODValues(BatchElementParams->CurrentLOD));
 		}
 
-		const FSceneView& View = GetLODView(*InView);
 		int32 SubSectionIndex = BatchElementParams->SubX + BatchElementParams->SubY * SceneProxy->NumSubsections;
 
 		// If we have no custom data for this primitive we will compute of the fly the proper values, this will happen if the shader is not used for normal landscape rendering(i.e grass rendering)
-		FLandscapeComponentSceneProxy::FViewCustomDataLOD* LODData = (FLandscapeComponentSceneProxy::FViewCustomDataLOD*)View.GetCustomData(SceneProxy->GetPrimitiveSceneInfo()->GetIndex());
+		FLandscapeComponentSceneProxy::FViewCustomDataLOD* LODData = (FLandscapeComponentSceneProxy::FViewCustomDataLOD*)InView->GetCustomData(SceneProxy->GetPrimitiveSceneInfo()->GetIndex());
 
 		if (LODData != nullptr)
 		{
@@ -3485,10 +3480,10 @@ public:
 		}
 		else
 		{
-			float ComponentScreenSize = SceneProxy->GetComponentScreenSize(&View, SceneProxy->LandscapeComponent->Bounds.Origin, SceneProxy->ComponentMaxExtend, SceneProxy->LandscapeComponent->Bounds.SphereRadius);
+			float ComponentScreenSize = SceneProxy->GetComponentScreenSize(InView, SceneProxy->LandscapeComponent->Bounds.Origin, SceneProxy->ComponentMaxExtend, SceneProxy->LandscapeComponent->Bounds.SphereRadius);
 			
 			FLandscapeComponentSceneProxy::FViewCustomDataLOD CurrentLODData;
-			SceneProxy->CalculateBatchElementLOD(*InView, ComponentScreenSize, View.LODDistanceFactor, CurrentLODData, true);
+			SceneProxy->CalculateBatchElementLOD(*InView, ComponentScreenSize, InView->LODDistanceFactor, CurrentLODData, true);
 			check(CurrentLODData.UseCombinedMeshBatch);
 
 			if (LodBiasParameter.IsBound())
@@ -3499,7 +3494,7 @@ public:
 			if (LodTessellationParameter.IsBound())
 			{
 				FVector4 LodTessellationParams(ForceInitToZero);
-				SceneProxy->ComputeTessellationFalloffShaderValues(CurrentLODData, View.ViewMatrices.GetProjectionMatrix(), LodTessellationParams.X, LodTessellationParams.Y);
+				SceneProxy->ComputeTessellationFalloffShaderValues(CurrentLODData, InView->ViewMatrices.GetProjectionMatrix(), LodTessellationParams.X, LodTessellationParams.Y);
 
 				ShaderBindings.Add(LodTessellationParameter, LodTessellationParams);
 			}
@@ -3518,7 +3513,7 @@ public:
 					for (int32 SubX = 0; SubX < SceneProxy->NumSubsections; SubX++)
 					{
 						int32 NeighborSubSectionIndex = SubX + SubY * SceneProxy->NumSubsections;
-						SceneProxy->GetShaderCurrentNeighborLOD(View, CurrentLODData.SubSections[NeighborSubSectionIndex].fBatchElementCurrentLOD, SceneProxy->NumSubsections > 1 ? SubX : INDEX_NONE, SceneProxy->NumSubsections > 1 ? SubY : INDEX_NONE, NeighborSubSectionIndex, CurrentNeighborLOD[NeighborSubSectionIndex]);
+						SceneProxy->GetShaderCurrentNeighborLOD(*InView, CurrentLODData.SubSections[NeighborSubSectionIndex].fBatchElementCurrentLOD, SceneProxy->NumSubsections > 1 ? SubX : INDEX_NONE, SceneProxy->NumSubsections > 1 ? SubY : INDEX_NONE, NeighborSubSectionIndex, CurrentNeighborLOD[NeighborSubSectionIndex]);
 						check(CurrentNeighborLOD[NeighborSubSectionIndex].X != -1.0f); // they should all match so only check the 1st one for simplicity
 					}
 				}
