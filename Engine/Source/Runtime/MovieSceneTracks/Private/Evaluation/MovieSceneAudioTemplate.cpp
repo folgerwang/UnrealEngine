@@ -411,5 +411,3 @@ void FMovieSceneAudioSectionTemplate::TearDown(FPersistentEvaluationData& Persis
 		TrackData.StopSoundsOnRow(AudioData.RowIndex);
 	}
 }
-
-PRAGMA_ENABLE_OPTIMIZATION
