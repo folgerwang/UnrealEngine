@@ -850,6 +850,48 @@ namespace UnrealBuildTool
 			{
 				yield return FileReference.Combine(ProjectDir, "Config", "User" + BaseIniName + ".ini");
 			}
+
+			// Get the generated config file too. EditorSettings overrides this from 
+			if(Type == ConfigHierarchyType.EditorSettings)
+			{
+				yield return FileReference.Combine(GetGameAgnosticSavedDir(), "Config", PlatformName, BaseIniName + ".ini");
+			}
+			else
+			{
+				yield return FileReference.Combine(GetGeneratedConfigDir(ProjectDir), PlatformName, BaseIniName + ".ini");
+			}
+		}
+
+		/// <summary>
+		/// Determines the path to the generated config directory (same as FPaths::GeneratedConfigDir())
+		/// </summary>
+		/// <returns></returns>
+		public static DirectoryReference GetGeneratedConfigDir(DirectoryReference ProjectDir)
+		{
+			if(ProjectDir == null)
+			{
+				return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Saved", "Config");
+			}
+			else
+			{
+				return DirectoryReference.Combine(ProjectDir, "Saved", "Config");
+			}
+		}
+
+		/// <summary>
+		/// Determes the path to the game-agnostic saved directory (same as FPaths::GameAgnosticSavedDir())
+		/// </summary>
+		/// <returns></returns>
+		public static DirectoryReference GetGameAgnosticSavedDir()
+		{
+			if(UnrealBuildTool.IsEngineInstalled())
+			{
+				return DirectoryReference.Combine(Utils.GetUserSettingDirectory(), "UnrealEngine", String.Format("{0}.{1}", ReadOnlyBuildVersion.Current.MajorVersion, ReadOnlyBuildVersion.Current.MinorVersion), "Saved");
+			}
+			else
+			{
+				return DirectoryReference.Combine(UnrealBuildTool.EngineDirectory, "Saved");
+			}
 		}
 
 		/// <summary>

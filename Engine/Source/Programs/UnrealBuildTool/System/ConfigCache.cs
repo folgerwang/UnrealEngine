@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
 
 using System;
 using System.Collections.Generic;
@@ -156,9 +156,8 @@ namespace UnrealBuildTool
 		/// <param name="Type">The type of hierarchy to read</param>
 		/// <param name="ProjectDir">The project directory to read the hierarchy for</param>
 		/// <param name="Platform">Which platform to read platform-specific config files for</param>
-		/// <param name="GeneratedConfigDir">Base directory for generated configs</param>
 		/// <returns>The requested config hierarchy</returns>
-		public static ConfigHierarchy ReadHierarchy(ConfigHierarchyType Type, DirectoryReference ProjectDir, UnrealTargetPlatform Platform, DirectoryReference GeneratedConfigDir = null)
+		public static ConfigHierarchy ReadHierarchy(ConfigHierarchyType Type, DirectoryReference ProjectDir, UnrealTargetPlatform Platform)
 		{
 			// Get the key to use for the cache. It cannot be null, so we use the engine directory if a project directory is not given.
 			ConfigHierarchyKey Key = new ConfigHierarchyKey(Type, ProjectDir, Platform);
@@ -169,32 +168,12 @@ namespace UnrealBuildTool
 			{
 				if (!HierarchyKeyToHierarchy.TryGetValue(Key, out Hierarchy))
 				{
+					// Find all the input files
 					List<ConfigFile> Files = new List<ConfigFile>();
 					foreach (FileReference IniFileName in ConfigHierarchy.EnumerateConfigFileLocations(Type, ProjectDir, Platform))
 					{
 						ConfigFile File;
 						if (TryReadFile(IniFileName, out File))
-						{
-							Files.Add(File);
-						}
-					}
-
-					// If we haven't been given a generated project dir, but we do have a project then the generated configs
-					// should go into ProjectDir/Saved
-					if (GeneratedConfigDir == null && ProjectDir != null)
-					{
-						GeneratedConfigDir = DirectoryReference.Combine(ProjectDir, "Saved");
-					}
-
-					if (GeneratedConfigDir != null)
-					{
-						// We know where the generated version of this config file lives, so we can read it back in
-						// and include any user settings from there in our hierarchy
-						string BaseIniName = Enum.GetName(typeof(ConfigHierarchyType), Type);
-						string PlatformName = ConfigHierarchy.GetIniPlatformName(Platform);
-						FileReference DestinationIniFilename = FileReference.Combine(GeneratedConfigDir, "Config", PlatformName, BaseIniName + ".ini");
-						ConfigFile File;
-						if (TryReadFile(DestinationIniFilename, out File))
 						{
 							Files.Add(File);
 						}
@@ -212,6 +191,7 @@ namespace UnrealBuildTool
 						}
 					}
 
+					// Create the hierarchy
 					Hierarchy = new ConfigHierarchy(Files);
 					HierarchyKeyToHierarchy.Add(Key, Hierarchy);
 				}
