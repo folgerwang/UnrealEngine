@@ -159,6 +159,15 @@ FPackedMaterialClosestHitPayload PackRayTracingPayload(FMaterialClosestHitPayloa
 	return Output;
 }
 
+float3 UnpackRayTracingNormal(FPackedMaterialClosestHitPayload Input)
+{
+	float3 OutWorldNormal;
+	OutWorldNormal.x = f16tof32(Input.RadianceAndNormal[1] >> 16);
+	OutWorldNormal.y = f16tof32(Input.RadianceAndNormal[2]);
+	OutWorldNormal.z = f16tof32(Input.RadianceAndNormal[2] >> 16);
+	return OutWorldNormal;
+}
+
 FMaterialClosestHitPayload UnpackRayTracingPayload(FPackedMaterialClosestHitPayload Input, RayDesc Ray)
 {
 	FMaterialClosestHitPayload Output = (FMaterialClosestHitPayload)0;

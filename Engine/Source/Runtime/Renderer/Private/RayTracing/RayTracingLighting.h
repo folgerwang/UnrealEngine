@@ -12,25 +12,15 @@
 
 const static uint32 GRaytracingLightCountMaximum = 64;
 
-BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightData, )
+BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightDataPacked, )
 	SHADER_PARAMETER(uint32, Count)
-	SHADER_PARAMETER_ARRAY(uint32, Type, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector, LightPosition, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, LightInvRadius, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector, LightColor, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, LightFalloffExponent, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector, Direction, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector, Tangent, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector2D, SpotAngles, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, SpecularScale, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, SourceRadius, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, SourceLength, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, SoftSourceRadius, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(uint32, LightProfileIndex, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(FVector2D, DistanceFadeMAD, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(uint32, RectLightTextureIndex, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, RectLightBarnCosAngle, [GRaytracingLightCountMaximum])
-	SHADER_PARAMETER_ARRAY(float, RectLightBarnLength, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FIntVector, Type_LightProfileIndex_RectLightTextureIndex, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, LightPosition_InvRadius, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, LightColor_SpecularScale, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, Direction_FalloffExponent, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, Tangent_SourceRadius, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, SpotAngles_SourceLength_SoftSourceRadius, [GRaytracingLightCountMaximum])
+	SHADER_PARAMETER_ARRAY(FVector4, DistanceFadeMAD_RectLightBarnCosAngle_RectLightBarnLength, [GRaytracingLightCountMaximum])
 	SHADER_PARAMETER_TEXTURE(Texture2D, LTCMatTexture)
 	SHADER_PARAMETER_SAMPLER(SamplerState, LTCMatSampler)
 	SHADER_PARAMETER_TEXTURE(Texture2D, LTCAmpTexture)
@@ -45,11 +35,11 @@ BEGIN_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightData, )
 	SHADER_PARAMETER_TEXTURE(Texture2D, RectLightTexture7)
 END_GLOBAL_SHADER_PARAMETER_STRUCT()
 
-void SetupRaytracingLightData(
+void SetupRaytracingLightDataPacked(
 	const TSparseArray<FLightSceneInfoCompact>& Lights,
 	const FViewInfo& View,
-	FRaytracingLightData* LightData);
+	FRaytracingLightDataPacked* LightData);
 
-TUniformBufferRef<FRaytracingLightData> CreateLightDataUniformBuffer(const TSparseArray<FLightSceneInfoCompact>& Lights, const class FViewInfo& View, EUniformBufferUsage Usage);
+TUniformBufferRef<FRaytracingLightDataPacked> CreateLightDataPackedUniformBuffer(const TSparseArray<FLightSceneInfoCompact>& Lights, const class FViewInfo& View, EUniformBufferUsage Usage);
 
 #endif

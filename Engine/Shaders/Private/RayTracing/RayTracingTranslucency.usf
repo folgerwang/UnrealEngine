@@ -15,10 +15,10 @@ float2 SobolIndexToUniformUnitSquare(uint2 SobolRand)
 #define USE_SOURCE_TEXTURE			1
 #define USE_SOURCE_TEXTURE_ARRAY	1
 
-#define LTCMatTexture				RaytracingLightsData.LTCMatTexture
-#define LTCMatSampler				RaytracingLightsData.LTCMatSampler
-#define LTCAmpTexture				RaytracingLightsData.LTCAmpTexture
-#define LTCAmpSampler				RaytracingLightsData.LTCAmpSampler
+#define LTCMatTexture				RaytracingLightsDataPacked.LTCMatTexture
+#define LTCMatSampler				RaytracingLightsDataPacked.LTCMatSampler
+#define LTCAmpTexture				RaytracingLightsDataPacked.LTCAmpTexture
+#define LTCAmpSampler				RaytracingLightsDataPacked.LTCAmpSampler
 #define PreIntegratedGF				ReflectionStruct.PreIntegratedGF			
 #define PreIntegratedGFSampler		ReflectionStruct.PreIntegratedGFSampler	
 
@@ -266,7 +266,6 @@ void RayTracingTranslucencyRGS()
 		Ray.Direction = RefractedDirection;
 		float SurfaceCurvature = 0.0f; /* #todo_dxr assume no curvature */
 		RayCone = PropagateRayCone(RayCone, SurfaceCurvature, Depth);
-		const float ReflectionMaxNormalBias = 1.0;
 	}
 
 	if (!bHasScattered)

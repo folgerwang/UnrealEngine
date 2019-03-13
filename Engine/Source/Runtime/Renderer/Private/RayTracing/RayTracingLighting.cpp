@@ -6,12 +6,12 @@
 
 #if RHI_RAYTRACING
 
-IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightData, "RaytracingLightsData");
+IMPLEMENT_GLOBAL_SHADER_PARAMETER_STRUCT(FRaytracingLightDataPacked, "RaytracingLightsDataPacked");
 
-void SetupRaytracingLightData(
+void SetupRaytracingLightDataPacked(
 	const TSparseArray<FLightSceneInfoCompact>& Lights,
 	const FViewInfo& View,
-	FRaytracingLightData* LightData)
+	FRaytracingLightDataPacked* LightData)
 {
 	TMap<UTextureLightProfile*, int32> IESLightProfilesMap;
 	TMap<FTextureRHIParamRef, uint32> RectTextureMap;
@@ -66,25 +66,31 @@ void SetupRaytracingLightData(
 			}
 		}
 
-		LightData->Type[LightData->Count] = Light.LightType;
-		LightData->LightPosition[LightData->Count] = LightParameters.Position;
-		LightData->LightInvRadius[LightData->Count] = LightParameters.InvRadius;
-		LightData->LightColor[LightData->Count] = LightParameters.Color;
-		LightData->LightFalloffExponent[LightData->Count] = LightParameters.FalloffExponent;
-		LightData->Direction[LightData->Count] = LightParameters.Direction;
-		LightData->Tangent[LightData->Count] = LightParameters.Tangent;
-		LightData->SpotAngles[LightData->Count] = LightParameters.SpotAngles;
-		LightData->SpecularScale[LightData->Count] = LightParameters.SpecularScale;
-		LightData->SourceRadius[LightData->Count] = LightParameters.SourceRadius;
-		LightData->SourceLength[LightData->Count] = LightParameters.SourceLength;
-		LightData->SoftSourceRadius[LightData->Count] = LightParameters.SoftSourceRadius;
-		LightData->LightProfileIndex[LightData->Count] = IESLightProfileIndex;
-		LightData->RectLightTextureIndex[LightData->Count] = InvalidTextureIndex;
-		LightData->RectLightBarnCosAngle[LightData->Count] = LightParameters.RectLightBarnCosAngle;
-		LightData->RectLightBarnLength[LightData->Count] = LightParameters.RectLightBarnLength;
+		LightData->Type_LightProfileIndex_RectLightTextureIndex[LightData->Count].X = Light.LightType;
+		LightData->Type_LightProfileIndex_RectLightTextureIndex[LightData->Count].Y = IESLightProfileIndex;
+		LightData->Type_LightProfileIndex_RectLightTextureIndex[LightData->Count].Z = InvalidTextureIndex;
+
+		LightData->LightPosition_InvRadius[LightData->Count] = LightParameters.Position;
+		LightData->LightPosition_InvRadius[LightData->Count].W = LightParameters.InvRadius;
+
+		LightData->LightColor_SpecularScale[LightData->Count] = LightParameters.Color;
+		LightData->LightColor_SpecularScale[LightData->Count].W = LightParameters.SpecularScale;
+
+		LightData->Direction_FalloffExponent[LightData->Count] = LightParameters.Direction;
+		LightData->Direction_FalloffExponent[LightData->Count].W = LightParameters.FalloffExponent;
+
+		LightData->Tangent_SourceRadius[LightData->Count] = LightParameters.Tangent;
+		LightData->Tangent_SourceRadius[LightData->Count].W = LightParameters.SourceRadius;
+
+		FVector4 SpotAngles_SourceLength_SoftSourceRadius = FVector4(LightParameters.SpotAngles, FVector2D(LightParameters.SourceLength, LightParameters.SoftSourceRadius));
+		LightData->SpotAngles_SourceLength_SoftSourceRadius[LightData->Count] = SpotAngles_SourceLength_SoftSourceRadius;
+		
+		const FVector2D FadeParams = Light.LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), Light.LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
+
+		FVector4 DistanceFadeMAD_RectLightBarnCosAngle_RectLightBarnLength = FVector4(FadeParams.Y, -FadeParams.X * FadeParams.Y, LightParameters.RectLightBarnCosAngle, LightParameters.RectLightBarnLength);
+		LightData->DistanceFadeMAD_RectLightBarnCosAngle_RectLightBarnLength[LightData->Count] = DistanceFadeMAD_RectLightBarnCosAngle_RectLightBarnLength;
 
 		const bool bRequireTexture = Light.LightType == ELightComponentType::LightType_Rect && LightParameters.SourceTexture;
-
 		uint32 RectLightTextureIndex = InvalidTextureIndex;
 		if (bRequireTexture)
 		{
@@ -105,7 +111,7 @@ void SetupRaytracingLightData(
 
 		if (RectLightTextureIndex != InvalidTextureIndex)
 		{
-			LightData->RectLightTextureIndex[LightData->Count] = RectLightTextureIndex;
+			LightData->Type_LightProfileIndex_RectLightTextureIndex[LightData->Count].Z = RectLightTextureIndex;
 			switch (RectLightTextureIndex)
 			{
 			case 0: LightData->RectLightTexture0 = LightParameters.SourceTexture; break;
@@ -118,9 +124,6 @@ void SetupRaytracingLightData(
 			case 7: LightData->RectLightTexture7 = LightParameters.SourceTexture; break;
 			}
 		}
-
-		const FVector2D FadeParams = Light.LightSceneInfo->Proxy->GetDirectionalLightDistanceFadeParameters(View.GetFeatureLevel(), Light.LightSceneInfo->IsPrecomputedLightingValid(), View.MaxShadowCascades);
-		LightData->DistanceFadeMAD[LightData->Count] = FVector2D(FadeParams.Y, -FadeParams.X * FadeParams.Y);
 
 		LightData->Count++;
 
@@ -142,10 +145,10 @@ void SetupRaytracingLightData(
 	}
 }
 
-TUniformBufferRef<FRaytracingLightData> CreateLightDataUniformBuffer(const TSparseArray<FLightSceneInfoCompact>& Lights, const class FViewInfo& View, EUniformBufferUsage Usage)
+TUniformBufferRef<FRaytracingLightDataPacked> CreateLightDataPackedUniformBuffer(const TSparseArray<FLightSceneInfoCompact>& Lights, const class FViewInfo& View, EUniformBufferUsage Usage)
 {
-	FRaytracingLightData LightData;
-	SetupRaytracingLightData(Lights, View, &LightData);
+	FRaytracingLightDataPacked LightData;
+	SetupRaytracingLightDataPacked(Lights, View, &LightData);
 	return CreateUniformBufferImmediate(LightData, Usage);
 }
 
