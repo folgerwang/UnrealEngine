@@ -3080,24 +3080,35 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 			// determine if we are initializing or we should reset the persistent state
 			const float DeltaTime = View.Family->CurrentRealTime - ViewState->LastRenderTime;
 			const bool bFirstFrameOrTimeWasReset = DeltaTime < -0.0001f || ViewState->LastRenderTime < 0.0001f;
-
-			bool bIsLargeCameraMovement = IsLargeCameraMovement(
+			const bool bIsLargeCameraMovement = IsLargeCameraMovement(
 				View,
 				ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(),
 				ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(),
 				45.0f, 10000.0f);
-
-			bool bResetCamera = (
-				bFirstFrameOrTimeWasReset ||
-				View.bCameraCut ||
-				IsLargeCameraMovement(View,
-					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(),
-					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(),
-					45.0f, 10000.0f) ||
+			const bool bResetCamera = (bFirstFrameOrTimeWasReset || View.bCameraCut || bIsLargeCameraMovement);
+			
 #if RHI_RAYTRACING
-				(View.RayTracingRenderMode == ERayTracingRenderMode::PathTracing && (Scene->bPathTracingNeedsInvalidation || IsLargeCameraMovement(View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 0.1f, 0.1f))) ||
+			const bool bInvalidatePathTracer = View.RayTracingRenderMode == ERayTracingRenderMode::PathTracing &&
+			(
+				bResetCamera ||
+				Scene->bPathTracingNeedsInvalidation ||
+				View.ViewRect != ViewState->PathTracingRect ||
+				IsLargeCameraMovement(
+					View, ViewState->PrevFrameViewInfo.ViewMatrices.GetViewMatrix(), 
+					ViewState->PrevFrameViewInfo.ViewMatrices.GetViewOrigin(), 
+					0.1f, 0.1f)
+			);
+
+			if (bInvalidatePathTracer)
+			{
+				ViewState->PathTracingIrradianceRT.SafeRelease();
+				ViewState->PathTracingSampleCountRT.SafeRelease();
+				ViewState->VarianceMipTreeDimensions = FIntVector(0);
+				ViewState->PathTracingRect = View.ViewRect;
+				ViewState->TotalRayCount = 0;
+				Scene->bPathTracingNeedsInvalidation = false;
+			}
 #endif // RHI_RAYTRACING
-				0);
 
 			if (bResetCamera)
 			{
@@ -3109,14 +3120,6 @@ void FSceneRenderer::PreVisibilityFrameSetup(FRHICommandListImmediate& RHICmdLis
 				//     the uber-postprocessing effect as the last effect in the chain.
 
 				View.bPrevTransformsReset = true;
-
-#if RHI_RAYTRACING
-				ViewState->PathTracingIrradianceRT.SafeRelease();
-				ViewState->PathTracingSampleCountRT.SafeRelease();
-				ViewState->VarianceMipTreeDimensions = FIntVector(0);
-				ViewState->TotalRayCount = 0;
-				Scene->bPathTracingNeedsInvalidation = false;
-#endif // RHI_RAYTRACING
 			}
 			else
 			{

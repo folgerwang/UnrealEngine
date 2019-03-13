@@ -199,7 +199,7 @@ FSceneViewState::FSceneViewState()
 #if RHI_RAYTRACING
 	VarianceMipTreeDimensions = FIntVector(0);
 	VarianceMipTree = new FRWBuffer;
-
+	PathTracingRect = FIntRect(0, 0, 0, 0);
 	TotalRayCount = 0;
 	TotalRayCountBuffer = new FRWBuffer;
 	if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
