@@ -81,12 +81,6 @@ namespace XGEShaderCompilerVariables
 				XGEShaderCompilerVariables::Enabled = 0;
 			}
 
-			//something going wrong with XGE shader compile on the build farm at the moment. Temporarily disable.
-			if (GIsBuildMachine)
-			{
-				XGEShaderCompilerVariables::Enabled = 0;
-			}
-
 			bInitialized = true;
 		}
 	}
