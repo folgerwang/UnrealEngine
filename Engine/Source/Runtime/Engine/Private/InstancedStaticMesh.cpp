@@ -2148,16 +2148,24 @@ static bool ComponentRequestsCPUAccess(UInstancedStaticMeshComponent* InComponen
 
 void UInstancedStaticMeshComponent::GetInstancesMinMaxScale(FVector& MinScale, FVector& MaxScale) const
 {
-	MinScale = FVector(MAX_flt);
-	MaxScale = FVector(-MAX_flt);
-
-	for (int32 i = 0; i < PerInstanceSMData.Num(); ++i)
+	if (PerInstanceSMData.Num() > 0)
 	{
-		const FInstancedStaticMeshInstanceData& InstanceData = PerInstanceSMData[i];
-		FVector ScaleVector = InstanceData.Transform.GetScaleVector();
+		MinScale = FVector(MAX_flt);
+		MaxScale = FVector(-MAX_flt);
 
-		MinScale = MinScale.ComponentMin(ScaleVector);
-		MaxScale = MaxScale.ComponentMax(ScaleVector);
+		for (int32 i = 0; i < PerInstanceSMData.Num(); ++i)
+		{
+			const FInstancedStaticMeshInstanceData& InstanceData = PerInstanceSMData[i];
+			FVector ScaleVector = InstanceData.Transform.GetScaleVector();
+
+			MinScale = MinScale.ComponentMin(ScaleVector);
+			MaxScale = MaxScale.ComponentMax(ScaleVector);
+		}
+	}
+	else
+	{
+		MinScale = FVector(0);
+		MaxScale = FVector(0);
 	}
 }
 
