@@ -11,6 +11,8 @@
 #include "Templates/UniquePtr.h"
 #include "Math/BigInt.h"
 #include "Misc/AES.h"
+#include "Misc/RSA.h"
+#include "Misc/SecureHash.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
 
 class FChunkCacheWorker;
@@ -21,14 +23,18 @@ DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Total pak file read time"), STAT_Pak
 
 DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Num open pak file handles"), STAT_PakFile_NumOpenHandles, STATGROUP_PakFile, PAKFILE_API);
 
-#define PAKHASH_USE_CRC	1
 #define PAK_TRACKER 0
 
+// Define the type of a chunk hash. Currently selectable between SHA1 and CRC32.
+#define PAKHASH_USE_CRC	0
 #if PAKHASH_USE_CRC
 typedef uint32 TPakChunkHash;
 #else
 typedef FSHAHash TPakChunkHash;
 #endif
+
+// Define the key size that we use for pak signing purposes. Must match with the key size created in the cryptokeys editor plugin
+typedef FRSAKey<2048> TPakRSAKey;
 
 PAKFILE_API TPakChunkHash ComputePakChunkHash(const void* InData, int64 InDataSizeInBytes);
 
@@ -1508,7 +1514,7 @@ public:
 	/**
 	* Helper function for accessing pak signing keys
 	*/
-	static void GetPakSigningKeys(FEncryptionKey& OutKey);
+	static void GetPakSigningKeys(TPakRSAKey& OutKey);
 
 	/**
 	 * Constructor.
@@ -2320,3 +2326,105 @@ public:
 #endif
 };
 
+/**
+ * Structure which describes the content of the pak .sig files
+ */
+struct FPakSignatureFile
+{
+	// Magic number that tells us we're dealing with the new format sig files
+	static const uint32 Magic = 0x73832DAA;
+
+	enum class EVersion
+	{
+		Legacy,
+		First,
+
+		Last,
+		Latest = Last - 1
+	};
+
+	// Sig file version. Set to Legacy if the sig file is of an old version
+	EVersion Version = EVersion::Latest;
+
+	// RSA encrypted hash
+	TArray<uint8> EncryptedHash;
+
+	// SHA1 hash of the chunk CRC data. Only valid after calling DecryptSignatureAndValidate
+	FSHAHash DecryptedHash;
+
+	// CRCs of each contiguous 64kb block of the pak file
+	TArray<TPakChunkHash> ChunkHashes;
+	
+	/**
+	 * Initialize and hash the CRC list then use the provided private key to encrypt the hash
+	 */
+	void Initialize(const TArray<TPakChunkHash>& InChunkHashes, const TPakRSAKey& InPrivateKey)
+	{
+		ChunkHashes = InChunkHashes;
+		DecryptedHash = ComputeCurrentMasterHash();
+		TPakRSAKey::Encrypt(DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), EncryptedHash, InPrivateKey);
+	}
+
+	/**
+	 * Serialize/deserialize this object to/from an FArchive
+	 */
+	void Serialize(FArchive& Ar)
+	{
+		int64 StartPos = Ar.Tell();
+		uint32 FileMagic = Magic;
+		Ar << FileMagic;
+
+		if (Ar.IsLoading() && FileMagic != Magic)
+		{
+			// Old format with no versioning! Go back to where we were and mark our version as legacy
+			Ar.Seek(StartPos);
+			Version = EVersion::Legacy;
+			TEncryptionInt LegacyEncryptedCRC;
+			Ar << LegacyEncryptedCRC;
+			Ar << ChunkHashes;
+			// Note that we don't do any actual signature checking here because this is old data that won't have been
+			// encrypted with the new larger keys.
+			return;
+		}
+
+		Ar << Version;
+		Ar << EncryptedHash;
+		Ar << ChunkHashes;
+	}
+
+	/**
+	 * Decrypt the chunk CRCs hash and validate that it matches the current one
+	 */
+	bool DecryptSignatureAndValidate(const FString& InFilename)
+	{
+		TPakRSAKey PublicKey;
+		FPakPlatformFile::GetPakSigningKeys(PublicKey);
+		return DecryptSignatureAndValidate(PublicKey, InFilename);
+	}
+
+	/**
+	 * Decrypt the chunk CRCs hash and validate that it matches the current one
+	 */
+	bool DecryptSignatureAndValidate(TPakRSAKey& InPublicKey, const FString& InFilename)
+	{
+		TPakRSAKey::Decrypt(EncryptedHash, DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), InPublicKey);
+
+		if (DecryptedHash != ComputeCurrentMasterHash())
+		{
+			FPakPlatformFile::GetPakMasterSignatureTableCheckFailureHandler().Broadcast(InFilename);
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Helper function for computing the SHA1 hash of the current chunk CRC array
+	 */
+	FSHAHash ComputeCurrentMasterHash() const
+	{
+		FSHAHash CurrentHash;
+		FSHA1::HashBuffer(ChunkHashes.GetData(), ChunkHashes.Num() * sizeof(TPakChunkHash), CurrentHash.Hash);
+		return CurrentHash;
+	}
+};

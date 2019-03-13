@@ -764,16 +764,21 @@ class FDefaultGameModuleImpl
 	{ \
 		FSigningKeyRegistration() \
 		{ \
-			extern void RegisterSigningKeyCallback(void (*)(unsigned char OutExponent[64], unsigned char OutModulus[64])); \
+			extern void RegisterSigningKeyCallback(void (*)(TArray<uint8>&, TArray<uint8>&)); \
 			RegisterSigningKeyCallback(&Callback); \
 		} \
-		static void Callback(unsigned char OutExponent[64], unsigned char OutModulus[64]) \
+		static void Callback(TArray<uint8>& OutExponent, TArray<uint8>& OutModulus) \
 		{ \
-			const unsigned char Exponent[64] = { ExponentValue }; \
-			const unsigned char Modulus[64] = { ModulusValue }; \
-			for(int ByteIdx = 0; ByteIdx < 64; ByteIdx++) \
+			const uint8 Exponent[] = { ExponentValue }; \
+			const uint8 Modulus[] = { ModulusValue }; \
+			OutExponent.SetNum(ARRAY_COUNT(Exponent)); \
+			OutModulus.SetNum(ARRAY_COUNT(Modulus)); \
+			for(int ByteIdx = 0; ByteIdx < ARRAY_COUNT(Exponent); ByteIdx++) \
 			{ \
 				OutExponent[ByteIdx] = Exponent[ByteIdx]; \
+			} \
+			for(int ByteIdx = 0; ByteIdx < ARRAY_COUNT(Modulus); ByteIdx++) \
+			{ \
 				OutModulus[ByteIdx] = Modulus[ByteIdx]; \
 			} \
 		} \

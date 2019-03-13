@@ -105,7 +105,7 @@ class FChunkCacheWorker : public FRunnable
 	};
 
 	/** Reference hashes */
-	TArray<TPakChunkHash> ChunkHashes;
+	FPakSignatureFile Signatures;
 	/** Hash of the sig file data. Used to check that nothing was corrupted when a signature check fails */
 	TPakChunkHash OriginalSignatureFileHash;
 	/** Thread to run the worker FRunnable on */
@@ -130,8 +130,6 @@ class FChunkCacheWorker : public FRunnable
 	FThreadSafeCounter StopTaskCounter;
 	/** Available chunk requests */
 	TLockFreePointerListUnordered<FChunkRequest, PLATFORM_CACHE_LINE_SIZE> FreeChunkRequests;
-	/** Public decryption key */
-	FEncryptionKey DecryptionKey;
 
 	/** 
 	 * Process requested chunks 

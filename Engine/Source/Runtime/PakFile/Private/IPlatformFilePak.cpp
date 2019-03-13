@@ -143,7 +143,7 @@ TPakChunkHash ComputePakChunkHash(const void* InData, int64 InDataSizeInBytes)
 	return FCrc::MemCrc32(InData, InDataSizeInBytes);
 #else
 	FSHAHash Hash;
-	FSHA1::HashBuffer(InData, InDataSizeInBytes, Hash);
+	FSHA1::HashBuffer(InData, InDataSizeInBytes, Hash.Hash);
 	return Hash;
 #endif
 }
@@ -204,16 +204,15 @@ void FPakPlatformFile::GetPakEncryptionKey(FAES::FAESKey& OutKey, const FGuid& I
 	}
 }
 
-void FPakPlatformFile::GetPakSigningKeys(FEncryptionKey& OutKey)
+void FPakPlatformFile::GetPakSigningKeys(TPakRSAKey& OutKey)
 {
 	FCoreDelegates::FPakSigningKeysDelegate& Delegate = FCoreDelegates::GetPakSigningKeysDelegate();
 	if (Delegate.IsBound())
 	{
-		uint8 Exponent[sizeof(TEncryptionInt)];
-		uint8 Modulus[sizeof(TEncryptionInt)];
+		TArray<uint8> Exponent;
+		TArray<uint8> Modulus;
 		Delegate.Execute(Exponent, Modulus);
-		OutKey.Exponent = TEncryptionInt((uint32*)Exponent);
-		OutKey.Modulus = TEncryptionInt((uint32*)Modulus);
+		OutKey = TPakRSAKey(Exponent, Modulus);
 	}
 }
 
@@ -1029,8 +1028,7 @@ class FPakPrecacher
 		TIntervalTreeIndex InRequests[AIOP_NUM][(int32)EInRequestStatus::Num];
 		TIntervalTreeIndex CacheBlocks[(int32)EBlockStatus::Num];
 
-		TArray<TPakChunkHash> ChunkHashes;
-		TPakChunkHash OriginalSignatureFileHash;
+		FPakSignatureFile Signatures;
 
 		FPakData(IAsyncReadFileHandle* InHandle, FName InName, int64 InTotalSize)
 			: Handle(InHandle)
@@ -1039,7 +1037,6 @@ class FPakPrecacher
 			, MaxShift(0)
 			, BytesToBitsShift(0)
 			, Name(InName)
-			, OriginalSignatureFileHash(0)
 		{
 			check(Handle && TotalSize > 0 && Name != NAME_None);
 			for (int32 Index = 0; Index < AIOP_NUM; Index++)
@@ -1120,13 +1117,13 @@ class FPakPrecacher
 	uint32 Loads;
 	uint32 Frees;
 	uint64 LoadSize;
-	FEncryptionKey EncryptionKey;
+	TPakRSAKey PublicKey;
 	bool bSigned;
 	EAsyncIOPriorityAndFlags AsyncMinPriority;
 	FCriticalSection SetAsyncMinimumPriorityScopeLock;
 public:
 
-	static void Init(IPlatformFile* InLowerLevel, const FEncryptionKey& InEncryptionKey)
+	static void Init(IPlatformFile* InLowerLevel, const TPakRSAKey& InEncryptionKey)
 	{
 		if (!PakPrecacherSingleton)
 		{
@@ -1166,7 +1163,7 @@ public:
 		return *PakPrecacherSingleton;
 	}
 
-	FPakPrecacher(IPlatformFile* InLowerLevel, const FEncryptionKey& InEncryptionKey)
+	FPakPrecacher(IPlatformFile* InLowerLevel, const TPakRSAKey& InPublicKey)
 		: LowerLevel(InLowerLevel)
 		, LastReadRequest(0)
 		, NextUniqueID(1)
@@ -1176,8 +1173,8 @@ public:
 		, Loads(0)
 		, Frees(0)
 		, LoadSize(0)
-		, EncryptionKey(InEncryptionKey)
-		, bSigned(!InEncryptionKey.Exponent.IsZero() && !InEncryptionKey.Modulus.IsZero())
+		, PublicKey(InPublicKey)
+		, bSigned(!InPublicKey.Exponent.IsZero() && !InPublicKey.Modulus.IsZero())
 		, AsyncMinPriority(AIOP_MIN)
 	{
 		check(LowerLevel && FPlatformProcess::SupportsMultithreading());
@@ -1204,42 +1201,33 @@ public:
 		uint16* PakIndexPtr = CachedPaks.Find(File);
 		if (!PakIndexPtr)
 		{
+			FString PakFilename = File.ToString();
 			check(CachedPakData.Num() < MAX_uint16);
-			IAsyncReadFileHandle* Handle = LowerLevel->OpenAsyncRead(*File.ToString());
+			IAsyncReadFileHandle* Handle = LowerLevel->OpenAsyncRead(*PakFilename);
 			if (!Handle)
 			{
 				return nullptr;
 			}
 			CachedPakData.Add(FPakData(Handle, File, PakFileSize));
 			PakIndexPtr = &CachedPaks.Add(File, CachedPakData.Num() - 1);
-			UE_LOG(LogPakFile, Log, TEXT("New pak file %s added to pak precacher."), *File.ToString());
+			UE_LOG(LogPakFile, Log, TEXT("New pak file %s added to pak precacher."), *PakFilename);
 
 			FPakData& Pak = CachedPakData[*PakIndexPtr];
 
 			if (bSigned)
 			{
 				// Load signature data
-				FString SignaturesFilename = FPaths::ChangeExtension(File.ToString(), TEXT("sig"));
+				FString SignaturesFilename = FPaths::ChangeExtension(*PakFilename, TEXT("sig"));
 				IFileHandle* SignaturesFile = LowerLevel->OpenRead(*SignaturesFilename);
 				ensure(SignaturesFile);
-
 				FArchiveFileReaderGeneric* Reader = new FArchiveFileReaderGeneric(SignaturesFile, *SignaturesFilename, SignaturesFile->Size());
-				FEncryptedSignature MasterSignature;
-				*Reader << MasterSignature;
-				*Reader << Pak.ChunkHashes;
+				Pak.Signatures.Serialize(*Reader);
 				delete Reader;
+				Pak.Signatures.DecryptSignatureAndValidate(PublicKey, PakFilename);
 
 				// Check that we have the correct match between signature and pre-cache granularity
 				int64 NumPakChunks = Align(PakFileSize, FPakInfo::MaxChunkDataSize) / FPakInfo::MaxChunkDataSize;
-				ensure(NumPakChunks == Pak.ChunkHashes.Num());
-
-				// Decrypt signature hash
-				FDecryptedSignature DecryptedSignature;
-				FEncryption::DecryptSignature(MasterSignature, DecryptedSignature, EncryptionKey);
-
-				// Check the signatures are still as we expected them
-				Pak.OriginalSignatureFileHash = ComputePakChunkHash(&Pak.ChunkHashes[0], Pak.ChunkHashes.Num() * sizeof(TPakChunkHash));
-				ensure(Pak.OriginalSignatureFileHash == DecryptedSignature.Data);
+				ensure(NumPakChunks == Pak.Signatures.ChunkHashes.Num());
 			}
 		}
 		return PakIndexPtr;
@@ -1252,10 +1240,9 @@ public:
 
 		for (FPakData& PakData : CachedPakData)
 		{
-			for (TPakChunkHash& Hash : PakData.ChunkHashes)
+			for (TPakChunkHash& Hash : PakData.Signatures.ChunkHashes)
 			{
-				Hash |= (uint32)FMath::Rand();
-				Hash &= (uint32)FMath::Rand();
+				*((uint8*)&Hash) |= 0x1;
 			}
 		}
 	}
@@ -3108,9 +3095,9 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 	int64 RequestSize = 0;
 	int64 RequestOffset = 0;
 	uint16 PakIndex;
-	TPakChunkHash MasterSignatureHash = 0;
+	FSHAHash MasterSignatureHash;
 	static const int64 MaxHashesToCache = 16;
-	TPakChunkHash HashCache[MaxHashesToCache] = { 0 };
+	TPakChunkHash HashCache[MaxHashesToCache];
 
 	{
 		// Try and keep lock for as short a time as possible. Find our request and copy out the data we need
@@ -3131,11 +3118,11 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 		SignatureIndex = RequestOffset / FPakInfo::MaxChunkDataSize;
 
 		FPakData& PakData = CachedPakData[PakIndex];
-		MasterSignatureHash = PakData.OriginalSignatureFileHash;
+		MasterSignatureHash = PakData.Signatures.DecryptedHash;
 
 		for (int32 CacheIndex = 0; CacheIndex < FMath::Min(NumSignaturesToCheck, MaxHashesToCache); ++CacheIndex)
 		{
-			HashCache[CacheIndex] = PakData.ChunkHashes[SignatureIndex + CacheIndex];
+			HashCache[CacheIndex] = PakData.Signatures.ChunkHashes[SignatureIndex + CacheIndex];
 		}
 	}
 
@@ -3155,7 +3142,7 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 			FPakData& PakData = CachedPakData[PakIndex];
 			for (int32 CacheIndex = 0; (CacheIndex < MaxHashesToCache) && ((SignedChunkIndex + CacheIndex) < NumSignaturesToCheck); ++CacheIndex)
 			{
-				HashCache[CacheIndex] = PakData.ChunkHashes[SignatureIndex + CacheIndex];
+				HashCache[CacheIndex] = PakData.Signatures.ChunkHashes[SignatureIndex + CacheIndex];
 			}
 		}
 
@@ -3170,11 +3157,10 @@ void FPakPrecacher::DoSignatureCheck(bool bWasCanceled, IAsyncReadRequest* Reque
 				FScopeLock Lock(&CachedFilesScopeLock);
 				FPakData* PakData = &CachedPakData[PakIndex];
 
-				UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch on chunk [%i/%i]! Expected 0x%8X, Received 0x%8X"), SignatureIndex, PakData->ChunkHashes.Num(), PakData->OriginalSignatureFileHash, ThisHash);
+				UE_LOG(LogPakFile, Warning, TEXT("Pak chunk signing mismatch on chunk [%i/%i]! Expected 0x%8X, Received 0x%8X"), SignatureIndex, PakData->Signatures.ChunkHashes.Num(), *LexToString(PakData->Signatures.ChunkHashes[SignatureIndex]), *LexToString(ThisHash));
 
 				// Check the signatures are still as we expected them
-				TPakChunkHash CurrentSignatureHash = ComputePakChunkHash(&PakData->ChunkHashes[0], PakData->ChunkHashes.Num() * sizeof(TPakChunkHash));
-				if (PakData->OriginalSignatureFileHash != CurrentSignatureHash)
+				if (PakData->Signatures.DecryptedHash != PakData->Signatures.ComputeCurrentMasterHash())
 				{
 					UE_LOG(LogPakFile, Warning, TEXT("Master signature table has changed since initialization!"));
 				}
@@ -5337,7 +5323,7 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 	GameUserSettingsIniFilename = TEXT("GameUserSettings.ini");
 #endif
 
-	FEncryptionKey DecryptionKey;
+	TPakRSAKey DecryptionKey;
 	GetPakSigningKeys(DecryptionKey);
 
 	// signed if we have keys, and are not running with fileopenlog (currently results in a deadlock).
@@ -5398,7 +5384,7 @@ void FPakPlatformFile::InitializeNewAsyncIO()
 #if !WITH_EDITOR
 	if (FPlatformProcess::SupportsMultithreading() && !FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog")))
 	{
-		FEncryptionKey DecryptionKey;
+		TPakRSAKey DecryptionKey;
 		GetPakSigningKeys(DecryptionKey);
 
 		FPakPrecacher::Init(LowerLevel, DecryptionKey);

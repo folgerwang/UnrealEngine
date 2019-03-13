@@ -5,7 +5,7 @@
 #include "Misc/SecureHash.h"
 #include "HAL/FileManager.h"
 
-FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey)
+FSignedArchiveWriter::FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const TPakRSAKey& InPublicKey, const TPakRSAKey& InPrivateKey)
 : BufferArchive(Buffer)
 	, PakWriter(InPak)
 	, PakSignaturesFilename(FPaths::ChangeExtension(InPakFilename, TEXT("sig")))
@@ -44,15 +44,20 @@ bool FSignedArchiveWriter::Close()
 		SerializeBufferAndSign();
 	}
 
-	FEncryptedSignature EncryptedMasterHash;
-	FDecryptedSignature DecryptedMasterHash;
-	DecryptedMasterHash.Data = ComputePakChunkHash((const uint8*)&ChunkHashes[0], ChunkHashes.Num() * sizeof(TPakChunkHash));
-	FEncryption::EncryptSignature(DecryptedMasterHash, EncryptedMasterHash, PrivateKey);
-
 	FArchive* SignatureWriter = IFileManager::Get().CreateFileWriter(*PakSignaturesFilename);
-	*SignatureWriter << EncryptedMasterHash;
-	*SignatureWriter << ChunkHashes;
+	FPakSignatureFile SignatureFile;
+	SignatureFile.Initialize(ChunkHashes, PrivateKey);
+	SignatureFile.Serialize(*SignatureWriter);
 	delete SignatureWriter;
+
+	// Test reading back in
+	{
+		FArchive* SignatureReader = IFileManager::Get().CreateFileReader(*PakSignaturesFilename);
+		FPakSignatureFile SigFileTest;
+		SigFileTest.Serialize(*SignatureReader);
+		UE_CLOG(!SigFileTest.DecryptSignatureAndValidate(PublicKey, FString()), LogPakFile, Fatal, TEXT("Failed to validate RSA encrypted pak hash"));
+		delete SignatureReader;
+	}
 
 	return FArchive::Close();
 }

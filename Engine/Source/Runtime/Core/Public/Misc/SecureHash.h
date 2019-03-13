@@ -223,6 +223,9 @@ public:
 	friend CORE_API FArchive& operator<<( FArchive& Ar, FSHAHash& G );
 	
 	friend CORE_API uint32 GetTypeHash(FSHAHash const& InKey);
+
+	friend CORE_API FString LexToString(const FSHAHash&);
+	friend CORE_API void LexFromString(FSHAHash& Hash, const TCHAR*);
 };
 
 class CORE_API FSHA1
