@@ -116,7 +116,7 @@ void AConcertClientPresenceActor::Tick(float DeltaSeconds)
 	}
 }
 
-void AConcertClientPresenceActor::InitPresence(const UConcertAssetContainer& InAssetContainer)
+void AConcertClientPresenceActor::InitPresence(const UConcertAssetContainer& InAssetContainer, FName /* DeviceType */)
 {
 	UStaticMesh* PresenceMesh = InAssetContainer.GenericDesktopMesh;
 

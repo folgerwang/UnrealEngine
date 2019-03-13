@@ -49,7 +49,7 @@ public:
 
 	virtual void HandleEvent(const FStructOnScope& InEvent);
 
-	virtual void InitPresence(const class UConcertAssetContainer& InAssetContainer);
+	virtual void InitPresence(const class UConcertAssetContainer& InAssetContainer, FName DeviceType);
 
 	virtual bool ShouldTickIfViewportsOnly() const override;
 

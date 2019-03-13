@@ -54,9 +54,9 @@ void AConcertClientDesktopPresenceActor::SetPresenceColor(const FLinearColor& In
 	TextMID->SetVectorParameterValue(ColorParamName, InColor);
 }
 
-void AConcertClientDesktopPresenceActor::InitPresence(const class UConcertAssetContainer& InAssetContainer)
+void AConcertClientDesktopPresenceActor::InitPresence(const class UConcertAssetContainer& InAssetContainer, FName DeviceType)
 {
-	Super::InitPresence(InAssetContainer);
+	Super::InitPresence(InAssetContainer, DeviceType);
 
 	UMaterialInterface* PresenceMaterial = InAssetContainer.PresenceFadeMaterial;
 

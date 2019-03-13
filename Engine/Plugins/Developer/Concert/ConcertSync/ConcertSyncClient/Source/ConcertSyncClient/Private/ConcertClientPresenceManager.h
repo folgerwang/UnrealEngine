@@ -38,9 +38,10 @@ struct FConcertClientPresenceState
 {
 	FConcertClientPresenceState()
 		: bIsConnected(true)
+		, bVisible(true)
 		, bInPIE(false)
-		, bInVR(false)
-		, bVisible(true) {}
+		, VRDevice(NAME_None)
+	{}
 
 	/** State map */
 	TMap<UScriptStruct*, FConcertClientPresenceStateEntry> EventStateMap;
@@ -51,14 +52,14 @@ struct FConcertClientPresenceState
 	/** Whether client is connected */
 	bool bIsConnected;
 
+	/** Whether client is visible */
+	bool bVisible;
+
 	/** Whether client is in PIE */
 	bool bInPIE;
 
-	/** Whether client is in VR editing mode */
-	bool bInVR;
-
-	/** Whether client is visible */
-	bool bVisible;
+	/** Whether client is using a VRDevice */
+	FName VRDevice;
 
 	/** Presence actor */
 	TWeakObjectPtr<AConcertClientPresenceActor> PresenceActor;
@@ -162,10 +163,10 @@ private:
 	bool ShouldProcessPresenceEvent(const FConcertSessionContext& InSessionContext, const UStruct* InEventType, const FConcertClientPresenceEventBase& InEvent) const;
 
 	/** Create a new presence actor */
-	AConcertClientPresenceActor* CreatePresenceActor(const FConcertClientInfo& InClientInfo, bool bClientInVR);
+	AConcertClientPresenceActor* CreatePresenceActor(const FConcertClientInfo& InClientInfo, FName VRDevice);
 
 	/** Spawn a presence actor */
-	AConcertClientPresenceActor* SpawnPresenceActor(const FConcertClientInfo& InClientInfo, bool bClientInVR);
+	AConcertClientPresenceActor* SpawnPresenceActor(const FConcertClientInfo& InClientInfo, FName VRDevice);
 
 	/** Clear presence */
 	void ClearPresenceActor(const FGuid& InEndpointId);
@@ -198,7 +199,7 @@ private:
 	void HandleConcertClientPresenceInVREvent(const FConcertSessionContext& InSessionContext, const FConcertClientPresenceInVREvent& InEvent);
 
 	/** Updates presence avatar for remote client by invalidating current presence actor */
-	void UpdatePresenceAvatar(const FGuid& InEndpointId, bool bIsInVR);
+	void UpdatePresenceAvatar(const FGuid& InEndpointId, FName VRDevice);
 
 	/** Set presence PIE state */
 	void SetPresenceInPIE(const FGuid& InEndpointId, bool bInPIE);
@@ -263,8 +264,8 @@ private:
 	/** True if presence is currently enabled and should be shown (unless hidden by other settings) */
 	bool bIsPresenceEnabled;
 
-	/** True if in VR */
-	bool bInVR;
+	/** NAME_None if not in VR */
+	FName VRDeviceType;
 
 	/** Avatar actor class */
 	UClass* CurrentAvatarActorClass;

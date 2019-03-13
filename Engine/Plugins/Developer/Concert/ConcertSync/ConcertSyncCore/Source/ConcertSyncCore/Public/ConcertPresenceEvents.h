@@ -32,7 +32,7 @@ struct FConcertClientPresenceInVREvent
 	GENERATED_BODY()
 
 	UPROPERTY()
-	bool bInVR;
+	FName VRDevice;
 };
 
 USTRUCT()

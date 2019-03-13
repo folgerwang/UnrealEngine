@@ -19,7 +19,7 @@ class AConcertClientVRPresenceActor : public AConcertClientPresenceActor
 public:
 	virtual void HandleEvent(const FStructOnScope& InEvent) override;
 
-	virtual void InitPresence(const class UConcertAssetContainer& InAssetContainer) override;
+	virtual void InitPresence(const class UConcertAssetContainer& InAssetContainer, FName DeviceType) override;
 
 	virtual void SetPresenceColor(const FLinearColor& InColor) override;
 

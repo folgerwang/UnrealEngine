@@ -150,6 +150,7 @@ void AConcertClientVRPresenceActor::Tick(float DeltaSeconds)
 
 		const FTransform RightControllerTransform(RightControllerOrientation, RightControllerPosition);
 		RightControllerMeshComponent->SetWorldTransform(RightControllerTransform);
+		RightControllerMeshComponent->SetRelativeScale3D(FVector(1.0f, -1.0f, 1.0f));
 	}
 
 	// Calculate laser
@@ -168,12 +169,12 @@ void AConcertClientVRPresenceActor::Tick(float DeltaSeconds)
 	}
 }
 
-void AConcertClientVRPresenceActor::InitPresence(const class UConcertAssetContainer& InAssetContainer)
+void AConcertClientVRPresenceActor::InitPresence(const class UConcertAssetContainer& InAssetContainer, FName DeviceType)
 {
-	Super::InitPresence(InAssetContainer);
+	Super::InitPresence(InAssetContainer, DeviceType);
 
 	// To do, send data about these through the event.
-	UStaticMesh* ControllerMesh = InAssetContainer.VivePreControllerMesh;
+	UStaticMesh* ControllerMesh = DeviceType == FName(TEXT("OculusHMD")) ? InAssetContainer.OculusControllerMesh : InAssetContainer.VivePreControllerMesh;
 
 	LeftControllerMeshComponent->SetStaticMesh(ControllerMesh);
 	LeftControllerMeshComponent->SetMobility(EComponentMobility::Movable);

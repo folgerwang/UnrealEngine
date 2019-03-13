@@ -34,6 +34,7 @@
 #include "SLevelViewport.h"
 #include "ConcertAssetContainer.h"
 #include "IVREditorModule.h"
+#include "VREditorMode.h"
 #include "Framework/Application/SlateApplication.h"
 #endif
 
@@ -69,7 +70,7 @@ FConcertClientPresenceManager::FConcertClientPresenceManager(TSharedRef<IConcert
 	, CurrentAvatarMode(nullptr)
 	, AssetContainer(nullptr)
 	, bIsPresenceEnabled(true)
-	, bInVR(false)
+	, VRDeviceType(NAME_None)
 	, CurrentAvatarActorClass(nullptr)
 	, DesktopAvatarActorClass(nullptr)
 	, VRAvatarActorClass(nullptr)
@@ -305,7 +306,7 @@ void FConcertClientPresenceManager::SynchronizePresenceState()
 			Session->FindSessionClient(RemoteEndpointId, ClientSessionInfo);
 			if (!PresenceState.PresenceActor.IsValid())
 			{
-				PresenceState.PresenceActor = CreatePresenceActor(ClientSessionInfo.ClientInfo, PresenceState.bInVR);
+				PresenceState.PresenceActor = CreatePresenceActor(ClientSessionInfo.ClientInfo, PresenceState.VRDevice);
 			}
 
 			if (PresenceState.PresenceActor.IsValid())
@@ -364,9 +365,9 @@ bool FConcertClientPresenceManager::ShouldProcessPresenceEvent(const FConcertSes
 	return true;
 }
 
-AConcertClientPresenceActor* FConcertClientPresenceManager::CreatePresenceActor(const FConcertClientInfo& InClientInfo, bool bClientInVR)
+AConcertClientPresenceActor* FConcertClientPresenceManager::CreatePresenceActor(const FConcertClientInfo& InClientInfo, FName VRDevice)
 {
-	AConcertClientPresenceActor* PresenceActor = SpawnPresenceActor(InClientInfo, bClientInVR);
+	AConcertClientPresenceActor* PresenceActor = SpawnPresenceActor(InClientInfo, VRDevice);
 
 	if (PresenceActor)
 	{
@@ -377,7 +378,7 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::CreatePresenceActor(
 	return PresenceActor;
 }
 
-AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(const FConcertClientInfo& InClientInfo, bool bClientInVR)
+AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(const FConcertClientInfo& InClientInfo, FName VRDevice)
 {
 	check(AssetContainer);
 
@@ -390,7 +391,7 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(c
 
 	// @todo this is potentially slow and hitchy as clients connect.  It might be better to preload all the presence actor types
 	UClass* PresenceActorClass = nullptr;	
-	if (bClientInVR)
+	if (!VRDevice.IsNone())
 	{
 		PresenceActorClass = LoadObject<UClass>(nullptr, *InClientInfo.VRAvatarActorClass);
 	}
@@ -401,7 +402,7 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(c
 
 	if (!PresenceActorClass)
 	{
-		UE_LOG(LogConcert, Warning, TEXT("Failed to load presence actor class '%s'. Presence will not be displayed"), bClientInVR ? *InClientInfo.VRAvatarActorClass : *InClientInfo.DesktopAvatarActorClass);
+		UE_LOG(LogConcert, Warning, TEXT("Failed to load presence actor class '%s'. Presence will not be displayed"), !VRDevice.IsNone() ? *InClientInfo.VRAvatarActorClass : *InClientInfo.DesktopAvatarActorClass);
 		return nullptr;
 	}
 
@@ -425,12 +426,12 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(c
 
 	if (!PresenceActor)
 	{
-		UE_LOG(LogConcert, Warning, TEXT("Failed to spawn presence actor of class '%s'. Presence will not be displayed"), bClientInVR ? *InClientInfo.VRAvatarActorClass : *InClientInfo.DesktopAvatarActorClass);
+		UE_LOG(LogConcert, Warning, TEXT("Failed to spawn presence actor of class '%s'. Presence will not be displayed"), !VRDevice.IsNone() ? *InClientInfo.VRAvatarActorClass : *InClientInfo.DesktopAvatarActorClass);
 		return nullptr;
 	}
 
 	// Setup the asset container.
-	PresenceActor->InitPresence(*AssetContainer);
+	PresenceActor->InitPresence(*AssetContainer, VRDevice);
 
 	return PresenceActor;
 }
@@ -514,24 +515,25 @@ void FConcertClientPresenceManager::OnSessionClientChanged(IConcertClientSession
 
 void FConcertClientPresenceManager::OnVREditingModeEnter()
 {
-	bInVR = true;
+	UVREditorMode* VRMode = IVREditorModule::Get().GetVRMode();
+	VRDeviceType = VRMode ? VRMode->GetHMDDeviceType() : FName();
 	UpdatePresenceMode();
 }
 
 void FConcertClientPresenceManager::OnVREditingModeExit()
 {
-	bInVR = false;
+	VRDeviceType = FName();
 	UpdatePresenceMode();
 }
 
 void FConcertClientPresenceManager::UpdatePresenceMode()
 {
-	if ((bInVR && CurrentAvatarActorClass != VRAvatarActorClass) ||
-		(!bInVR && CurrentAvatarActorClass != DesktopAvatarActorClass))
+	if ((!VRDeviceType.IsNone() && CurrentAvatarActorClass != VRAvatarActorClass) ||
+		(VRDeviceType.IsNone() && CurrentAvatarActorClass != DesktopAvatarActorClass))
 	{
 		// Mode will get recreated on next call to OnEndFrame
 		CurrentAvatarMode.Reset();
-		CurrentAvatarActorClass = bInVR ? VRAvatarActorClass : DesktopAvatarActorClass;
+		CurrentAvatarActorClass = !VRDeviceType.IsNone() ? VRAvatarActorClass : DesktopAvatarActorClass;
 		SendPresenceInVREvent();
 	}
 }
@@ -539,7 +541,7 @@ void FConcertClientPresenceManager::UpdatePresenceMode()
 void FConcertClientPresenceManager::SendPresenceInVREvent(const FGuid* InEndpointId)
 {
 	FConcertClientPresenceInVREvent Event;
-	Event.bInVR = bInVR;
+	Event.VRDevice = VRDeviceType;
 
 	if (InEndpointId)
 	{
@@ -553,13 +555,13 @@ void FConcertClientPresenceManager::SendPresenceInVREvent(const FGuid* InEndpoin
 
 void FConcertClientPresenceManager::HandleConcertClientPresenceInVREvent(const FConcertSessionContext& InSessionContext, const FConcertClientPresenceInVREvent& InEvent)
 {
-	UpdatePresenceAvatar(InSessionContext.SourceEndpointId, InEvent.bInVR);
+	UpdatePresenceAvatar(InSessionContext.SourceEndpointId, InEvent.VRDevice);
 }
 
-void FConcertClientPresenceManager::UpdatePresenceAvatar(const FGuid& InEndpointId, bool bIsInVR)
+void FConcertClientPresenceManager::UpdatePresenceAvatar(const FGuid& InEndpointId, FName VRDevice)
 {
 	FConcertClientPresenceState& PresenceState = EnsurePresenceState(InEndpointId);
-	PresenceState.bInVR = bIsInVR;
+	PresenceState.VRDevice = VRDevice;
 
 	if (PresenceState.PresenceActor.IsValid())
 	{
@@ -725,7 +727,7 @@ FReply FConcertClientPresenceManager::OnJumpToPresenceClicked(FGuid InEndpointId
 		FRotator OtherClientRotation(OtherClientState->Orientation.Rotator());
 
 		// Disregard pitch and roll when teleporting to a VR presence.
-		if (bInVR)
+		if (!VRDeviceType.IsNone())
 		{
 			OtherClientRotation.Pitch = 0.0f;
 			OtherClientRotation.Roll = 0.0f;
