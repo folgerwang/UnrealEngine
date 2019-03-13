@@ -834,6 +834,8 @@ namespace VulkanRHI
 		void DumpMemory();
 #endif
 
+		void* Hotfix;
+
 	protected:
 		FDeviceMemoryManager* DeviceMemoryManager;
 		TArray<FOldResourceHeap*> ResourceTypeHeaps;
@@ -906,10 +908,7 @@ namespace VulkanRHI
 
 		TArray<FBufferAllocation*> UsedBufferAllocations[(int32)EPoolSizes::SizesCount + 1];
 		TArray<FBufferAllocation*> FreeBufferAllocations[(int32)EPoolSizes::SizesCount + 1];
-#if 0
-		TArray<FImageAllocation*> UsedImageAllocations;
-		TArray<FImageAllocation*> FreeImageAllocations;
-#endif
+
 		void ReleaseFreedResources(bool bImmediately);
 		void DestroyResourceAllocations();
 	};
@@ -933,11 +932,6 @@ namespace VulkanRHI
 		inline void* GetMappedPointer()
 		{
 			return ResourceAllocation->GetMappedPointer();
-		}
-
-		inline uint32 GetAllocationOffset() const
-		{
-			return ResourceAllocation->GetOffset();
 		}
 
 		inline uint32 GetSize() const
@@ -1023,7 +1017,7 @@ namespace VulkanRHI
 		TArray<FPendingItemsPerCmdBuffer> PendingFreeStagingBuffers;
 		struct FFreeEntry
 		{
-			FStagingBuffer* Buffer;
+			FStagingBuffer* StagingBuffer;
 			uint32 FrameNumber;
 		};
 		TArray<FFreeEntry> FreeStagingBuffers;
@@ -1587,7 +1581,6 @@ namespace VulkanRHI
 		FVulkanDevice& Device;
 		VkSemaphore SemaphoreHandle;
 	};
-
 }
 
 

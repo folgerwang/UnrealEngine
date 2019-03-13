@@ -998,10 +998,10 @@ void FVulkanDevice::Destroy()
 #endif
 	}
 
-	ResourceHeapManager.Deinit();
-
 	FRHIResource::FlushPendingDeletes();
 	DeferredDeletionQueue.Clear();
+
+	ResourceHeapManager.Deinit();
 
 	delete TransferQueue;
 	delete ComputeQueue;

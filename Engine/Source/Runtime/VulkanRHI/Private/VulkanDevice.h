@@ -173,6 +173,11 @@ public:
 		return MemoryManager;
 	}
 
+	inline const VkPhysicalDeviceMemoryProperties& GetDeviceMemoryProperties() const
+	{
+		return MemoryManager.GetMemoryProperties();
+	}
+
 	inline VulkanRHI::FResourceHeapManager& GetResourceHeapManager()
 	{
 		return ResourceHeapManager;
@@ -298,6 +303,8 @@ public:
 #if VULKAN_SUPPORTS_COLOR_CONVERSIONS
 	VkSamplerYcbcrConversion CreateSamplerColorConversion(const VkSamplerYcbcrConversionCreateInfo& CreateInfo);
 #endif
+
+	void*	Hotfix;
 
 private:
 	void MapFormatSupport(EPixelFormat UEFormat, VkFormat VulkanFormat);

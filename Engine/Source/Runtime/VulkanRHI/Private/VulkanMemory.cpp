@@ -234,7 +234,7 @@ namespace VulkanRHI
 		{
 			if (bCanFail)
 			{
-				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Device Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Device Memory, Requested=%.2fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 				return nullptr;
 			}
 			auto Callback = [=]()
@@ -243,7 +243,7 @@ namespace VulkanRHI
 				DumpMemory();
 				GLog->PanicFlushThreadedLogs();
 #endif
-				return FString::Printf(TEXT("Out of Device Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+				return FString::Printf(TEXT("Out of Device Memory, Requested=%.2fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 			};
 			UE_LOG(LogVulkanRHI, Fatal, TEXT("%s"), *(Callback()));
 		}
@@ -251,7 +251,7 @@ namespace VulkanRHI
 		{
 			if (bCanFail)
 			{
-				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Host Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+				UE_LOG(LogVulkanRHI, Warning, TEXT("Failed to allocate Host Memory, Requested=%.2fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 				return nullptr;
 			}
 			auto Callback = [=]()
@@ -260,7 +260,7 @@ namespace VulkanRHI
 				DumpMemory();
 				GLog->PanicFlushThreadedLogs();
 #endif
-				return FString::Printf(TEXT("Out of Host Memory, Requested=%fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
+				return FString::Printf(TEXT("Out of Host Memory, Requested=%.2fKb MemTypeIndex=%d"), (float)Info.allocationSize / 1024.0f, Info.memoryTypeIndex);
 			};
 			UE_LOG(LogVulkanRHI, Error, TEXT("%s"), *(Callback()));
 		}
@@ -1530,9 +1530,9 @@ namespace VulkanRHI
 			for (int32 Index = 0; Index < FreeStagingBuffers.Num(); ++Index)
 			{
 				FFreeEntry& FreeBuffer = FreeStagingBuffers[Index];
-				if (FreeBuffer.Buffer->GetSize() == Size && FreeBuffer.Buffer->bCPURead == bCPURead)
+				if (FreeBuffer.StagingBuffer->GetSize() == Size && FreeBuffer.StagingBuffer->bCPURead == bCPURead)
 				{
-					FStagingBuffer* Buffer = FreeBuffer.Buffer;
+					FStagingBuffer* Buffer = FreeBuffer.StagingBuffer;
 					FreeStagingBuffers.RemoveAtSwap(Index, 1, false);
 					UsedStagingBuffers.Add(Buffer);
 					return Buffer;
@@ -1620,6 +1620,7 @@ namespace VulkanRHI
 		{
 			FPendingItemsPerCmdBuffer* ItemsForCmdBuffer = FindOrAdd(CmdBuffer);
 			FPendingItemsPerCmdBuffer::FPendingItems* ItemsForFence = ItemsForCmdBuffer->FindOrAddItemsForFence(CmdBuffer->GetFenceSignaledCounterA());
+			check(StagingBuffer);
 			ItemsForFence->Resources.Add(StagingBuffer);
 		}
 		else
@@ -1661,7 +1662,7 @@ namespace VulkanRHI
 		for (int32 Index = 0; Index < FreeStagingBuffers.Num(); ++Index)
 		{
 			FFreeEntry& Entry = FreeStagingBuffers[Index];
-			UE_LOG(LogVulkanRHI, Display, TEXT("%6d %p %p"), Index, (void*)Entry.Buffer->GetHandle(), (void*)Entry.Buffer->ResourceAllocation->GetHandle());
+			UE_LOG(LogVulkanRHI, Display, TEXT("%6d %p %p"), Index, (void*)Entry.StagingBuffer->GetHandle(), (void*)Entry.StagingBuffer->ResourceAllocation->GetHandle());
 		}
 	}
 #endif
@@ -1679,6 +1680,7 @@ namespace VulkanRHI
 				{
 					for (int32 ResourceIndex = 0; ResourceIndex < PendingItems.Resources.Num(); ++ResourceIndex)
 					{
+						check(PendingItems.Resources[ResourceIndex]);
 						FreeStagingBuffers.Add({PendingItems.Resources[ResourceIndex], GFrameNumberRenderThread});
 					}
 
@@ -1700,9 +1702,9 @@ namespace VulkanRHI
 				FFreeEntry& Entry = FreeStagingBuffers[Index];
 				if (bImmediately || Entry.FrameNumber + NUM_FRAMES_TO_WAIT_BEFORE_RELEASING_TO_OS < GFrameNumberRenderThread)
 				{
-					UsedMemory -= Entry.Buffer->GetSize();
-					Entry.Buffer->Destroy(Device);
-					delete Entry.Buffer;
+					UsedMemory -= Entry.StagingBuffer->GetSize();
+					Entry.StagingBuffer->Destroy(Device);
+					delete Entry.StagingBuffer;
 					FreeStagingBuffers.RemoveAtSwap(Index, 1, false);
 				}
 			}
@@ -1910,7 +1912,7 @@ namespace VulkanRHI
 				{ 
 					return InEntry.Handle == Entry.Handle; 
 				});
-			checkf(ExistingEntry == nullptr, TEXT("Attempt to double-delete resource, Type: %d, Handle: %llu"), (int32)Type, Handle);
+			checkf(ExistingEntry == nullptr, TEXT("Attempt to double-delete resource, FDeferredDeletionQueue::EType: %d, Handle: %llu"), (int32)Type, Handle);
 #endif
 
 			Entries.Add(Entry);

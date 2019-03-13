@@ -63,6 +63,11 @@ public:
 		return State == EState::Submitted;
 	}
 
+	inline bool IsAllocated() const
+	{
+		return State != EState::NotAllocated;
+	}
+
 	inline VkCommandBuffer GetHandle()
 	{
 		return CommandBufferHandle;

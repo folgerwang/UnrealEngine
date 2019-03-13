@@ -969,12 +969,11 @@ public:
 		bool bChanged = false;
 		if (UseVulkanDescriptorCache())
 		{
-			
-			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			FVulkanHashableDescriptorInfo& HashableInfo = HashableDescriptorInfos[DescriptorIndex];
 			check(Sampler.SamplerId > 0);
-			if (HeshableInfo.Image.SamplerId != Sampler.SamplerId)
+			if (HashableInfo.Image.SamplerId != Sampler.SamplerId)
 			{
-				HeshableInfo.Image.SamplerId = Sampler.SamplerId;
+				HashableInfo.Image.SamplerId = Sampler.SamplerId;
 				ImageInfo->sampler = Sampler.Sampler;
 				bChanged = true;
 			}
@@ -1050,23 +1049,23 @@ protected:
 		bool bChanged = false;
 		if (UseVulkanDescriptorCache())
 		{
-			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			FVulkanHashableDescriptorInfo& HashableInfo = HashableDescriptorInfos[DescriptorIndex];
 			check(BufferAllocation.GetHandleId() > 0);
-			if (HeshableInfo.Buffer.Id != BufferAllocation.GetHandleId())
+			if (HashableInfo.Buffer.Id != BufferAllocation.GetHandleId())
 			{
-				HeshableInfo.Buffer.Id = BufferAllocation.GetHandleId();
+				HashableInfo.Buffer.Id = BufferAllocation.GetHandleId();
 				BufferInfo->buffer = BufferAllocation.GetHandle();
 				bChanged = true;
 			}
-			if (HeshableInfo.Buffer.Offset != static_cast<uint32>(Offset))
+			if (HashableInfo.Buffer.Offset != static_cast<uint32>(Offset))
 			{
-				HeshableInfo.Buffer.Offset = static_cast<uint32>(Offset);
+				HashableInfo.Buffer.Offset = static_cast<uint32>(Offset);
 				BufferInfo->offset = Offset;
 				bChanged = true;
 			}
-			if (HeshableInfo.Buffer.Range != static_cast<uint32>(Range))
+			if (HashableInfo.Buffer.Range != static_cast<uint32>(Range))
 			{
-				HeshableInfo.Buffer.Range = static_cast<uint32>(Range);
+				HashableInfo.Buffer.Range = static_cast<uint32>(Range);
 				BufferInfo->range = Range;
 				bChanged = true;
 			}
@@ -1105,17 +1104,17 @@ protected:
 		bool bChanged = false;
 		if (UseVulkanDescriptorCache())
 		{
-			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			FVulkanHashableDescriptorInfo& HashableInfo = HashableDescriptorInfos[DescriptorIndex];
 			check(TextureView.ViewId > 0);
-			if (HeshableInfo.Image.ImageViewId != TextureView.ViewId)
+			if (HashableInfo.Image.ImageViewId != TextureView.ViewId)
 			{
-				HeshableInfo.Image.ImageViewId = TextureView.ViewId;
+				HashableInfo.Image.ImageViewId = TextureView.ViewId;
 				ImageInfo->imageView = TextureView.View;
 				bChanged = true;
 			}
-			if (HeshableInfo.Image.ImageLayout != static_cast<uint32>(Layout))
+			if (HashableInfo.Image.ImageLayout != static_cast<uint32>(Layout))
 			{
-				HeshableInfo.Image.ImageLayout = static_cast<uint32>(Layout);
+				HashableInfo.Image.ImageLayout = static_cast<uint32>(Layout);
 				ImageInfo->imageLayout = Layout;
 				bChanged = true;
 			}
@@ -1141,11 +1140,11 @@ protected:
 		if (UseVulkanDescriptorCache())
 		{
 			bool bChanged = false;
-			FVulkanHashableDescriptorInfo& HeshableInfo = HashableDescriptorInfos[DescriptorIndex];
+			FVulkanHashableDescriptorInfo& HashableInfo = HashableDescriptorInfos[DescriptorIndex];
 			check(View->ViewId > 0);
-			if (HeshableInfo.BufferView.Id != View->ViewId)
+			if (HashableInfo.BufferView.Id != View->ViewId)
 			{
-				HeshableInfo.BufferView.Id = View->ViewId;
+				HashableInfo.BufferView.Id = View->ViewId;
 				bChanged = true;
 			}
 			bIsKeyDirty |= bChanged;
