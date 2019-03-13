@@ -390,7 +390,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingGlobalIllumination(
 		FGlobalIlluminationRGS::FParameters* PassParameters = GraphBuilder.AllocParameters<FGlobalIlluminationRGS::FParameters>();
 		PassParameters->SamplesPerPixel = RayTracingGISamplesPerPixel;
 		PassParameters->MaxBounces = GRayTracingGlobalIlluminationMaxBounces > -1? GRayTracingGlobalIlluminationMaxBounces : View.FinalPostProcessSettings.RayTracingGIMaxBounces;
-		PassParameters->MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
+		PassParameters->MaxNormalBias = GetRaytracingMaxNormalBias();
 		float MaxRayDistanceForGI = GRayTracingGlobalIlluminationMaxRayDistance;
 		if (MaxRayDistanceForGI == -1.0)
 		{

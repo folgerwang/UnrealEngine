@@ -239,7 +239,7 @@ public:
 		// Adaptive sampling
 		{
 			FPathTracingAdaptiveSamplingData AdaptiveSamplingData;
-			AdaptiveSamplingData.MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
+			AdaptiveSamplingData.MaxNormalBias = GetRaytracingMaxNormalBias();
 			AdaptiveSamplingData.UseAdaptiveSampling = CVarPathTracingAdaptiveSampling.GetValueOnRenderThread();
 			AdaptiveSamplingData.RandomSequence = CVarPathTracingRandomSequence.GetValueOnRenderThread();
 			if (VarianceMipTree.NumBytes > 0)

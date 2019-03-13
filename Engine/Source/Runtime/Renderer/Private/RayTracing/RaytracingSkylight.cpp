@@ -87,7 +87,7 @@ void SetupSkyLightParameters(
 	SkyLightData->SamplesPerPixel = -1;
 	SkyLightData->SamplingStopLevel = 0;
 	SkyLightData->MaxRayDistance = 1.0e27;
-	SkyLightData->MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
+	SkyLightData->MaxNormalBias = GetRaytracingMaxNormalBias();
 
 	if (Scene.SkyLight && Scene.SkyLight->ProcessedTexture)
 	{

@@ -16,7 +16,7 @@ extern bool ShouldRenderRayTracingAmbientOcclusion();
 extern bool ShouldRenderRayTracingGlobalIllumination(const TArray<FViewInfo>& Views);
 extern bool ShouldRenderRayTracingStochasticRectLight(const FLightSceneInfo& LightSceneInfo);
 
-extern float GetRaytracingOcclusionMaxNormalBias();
+extern float GetRaytracingMaxNormalBias();
 
 #else
 

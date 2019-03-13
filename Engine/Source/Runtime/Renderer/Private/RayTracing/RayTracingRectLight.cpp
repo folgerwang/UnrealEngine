@@ -361,7 +361,7 @@ void RenderRayTracingRectLightInternal(
 	RectLightData.TextureSampler = RHICreateSamplerState(FSamplerStateInitializerRHI(SF_Bilinear, AM_Border, AM_Border, AM_Border));
 	RectLightData.MipTree = RectLightSceneProxy->RectLightMipTree.SRV;
 	RectLightData.MipTreeDimensions = RectLightSceneProxy->RectLightMipTreeDimensions;
-	RectLightData.MaxNormalBias = GetRaytracingOcclusionMaxNormalBias();
+	RectLightData.MaxNormalBias = GetRaytracingMaxNormalBias();
 	RectLightData.BarnCosAngle = FMath::Cos(FMath::DegreesToRadians(RectLightSceneProxy->BarnDoorAngle));
 	RectLightData.BarnLength = RectLightSceneProxy->BarnDoorLength;
 	FUniformBufferRHIRef RectLightUniformBuffer = RHICreateUniformBuffer(&RectLightData, FRectLightData::StaticStructMetadata.GetLayout(), EUniformBufferUsage::UniformBuffer_SingleDraw);

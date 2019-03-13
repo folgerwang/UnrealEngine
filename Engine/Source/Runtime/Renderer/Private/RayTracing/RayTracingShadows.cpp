@@ -20,11 +20,11 @@
 #include "Containers/DynamicRHIResourceArray.h"
 #include "SceneViewFamilyBlackboard.h"
 
-static float GRayTracingOcclusionNormalBias = 0.1f;
-static FAutoConsoleVariableRef CVarRayTracingOcclusionNormalBias(
-	TEXT("r.Shadow.RayTracing.NormalBias"),
-	GRayTracingOcclusionNormalBias,
-	TEXT("Sets the max. normal bias used for offseting the ray start position along the normal for light occlusion (default = 0.1)")
+static float GRayTracingMaxNormalBias = 0.1f;
+static FAutoConsoleVariableRef CVarRayTracingNormalBias(
+	TEXT("r.RayTracing.NormalBias"),
+	GRayTracingMaxNormalBias,
+	TEXT("Sets the max. normal bias used for offseting the ray start position along the normal (default = 0.1, i.e., 1mm)")
 );
 
 static int32 GRayTracingShadowsEnableMaterials = 1;
@@ -75,9 +75,9 @@ class FOcclusionRGS : public FGlobalShader
 
 IMPLEMENT_GLOBAL_SHADER(FOcclusionRGS, "/Engine/Private/RayTracing/RayTracingOcclusionRGS.usf", "OcclusionRGS", SF_RayGen);
 
-float GetRaytracingOcclusionMaxNormalBias()
+float GetRaytracingMaxNormalBias()
 {
-	return FMath::Max(0.01f, GRayTracingOcclusionNormalBias);
+	return FMath::Max(0.01f, GRayTracingMaxNormalBias);
 }
 
 void FDeferredShadingSceneRenderer::PrepareRayTracingShadows(const FViewInfo& View, TArray<FRayTracingShaderRHIParamRef>& OutRayGenShaders)
@@ -166,7 +166,7 @@ void FDeferredShadingSceneRenderer::RenderRayTracingShadows(
 		PassParameters->RWOcclusionMaskUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(ScreenShadowMaskTexture));
 		PassParameters->RWRayDistanceUAV = GraphBuilder.CreateUAV(FRDGTextureUAVDesc(RayDistanceTexture));
 		PassParameters->SamplesPerPixel = RayTracingConfig.RayCountPerPixel;
-		PassParameters->NormalBias = GetRaytracingOcclusionMaxNormalBias();
+		PassParameters->NormalBias = GetRaytracingMaxNormalBias();
 		PassParameters->LightingChannelMask = LightSceneProxy->GetLightingChannelMask();
 		LightSceneProxy->GetLightShaderParameters(PassParameters->Light);
 		PassParameters->TLAS = View.RayTracingScene.RayTracingSceneRHI->GetShaderResourceView();
