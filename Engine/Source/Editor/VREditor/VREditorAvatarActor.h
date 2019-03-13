@@ -34,6 +34,12 @@ public:
 		return true;
 	}
 
+	virtual bool HasLocalNetOwner() const override
+	{
+		// TODO: When using Multi-User with two VRMode editors, we might have to do something else here for when this is called by MotionControllerComponent::PollControllerState()
+		return true;
+	}
+
 private:
 
 	/** Our avatar's head mesh */
