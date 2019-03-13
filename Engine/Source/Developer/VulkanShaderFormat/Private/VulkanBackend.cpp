@@ -2344,7 +2344,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 
 			ir_instruction *const inst = (ir_instruction *)iter.get();
 			ir_assignment *assignment = inst->as_assignment();
-			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant))
+			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant || assignment->rhs->ir_type == ir_type_swizzle))
 			{
 				dest_deref = assignment->lhs->as_dereference_variable();
 				true_value = assignment->rhs;
@@ -2367,7 +2367,7 @@ class FGenerateVulkanVisitor : public ir_visitor
 
 			ir_instruction *const inst = (ir_instruction *)iter.get();
 			ir_assignment *assignment = inst->as_assignment();
-			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant))
+			if (assignment && (assignment->rhs->ir_type == ir_type_dereference_variable || assignment->rhs->ir_type == ir_type_constant || assignment->rhs->ir_type == ir_type_swizzle))
 			{
 				ir_dereference_variable *tmp_deref = assignment->lhs->as_dereference_variable();
 				if (tmp_deref
