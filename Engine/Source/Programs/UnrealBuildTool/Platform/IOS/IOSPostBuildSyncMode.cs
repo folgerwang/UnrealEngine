@@ -28,6 +28,7 @@ namespace UnrealBuildTool
 		public string ImportCertificate;
 		public string ImportCertificatePassword;
 		public Dictionary<string, DirectoryReference> FrameworkNameToSourceDir;
+		public bool bForDistribution = false;
 
 		public IOSPostBuildSyncTarget(ReadOnlyTargetRules Target, FileReference OutputPath, DirectoryReference ProjectIntermediateDirectory, List<string> UPLScripts, VersionNumber SdkVersion, Dictionary<string, DirectoryReference> FrameworkNameToSourceDir)
 		{
@@ -47,6 +48,7 @@ namespace UnrealBuildTool
 			this.ImportCertificate = Target.IOSPlatform.ImportCertificate;
 			this.ImportCertificatePassword = Target.IOSPlatform.ImportCertificatePassword;
 			this.FrameworkNameToSourceDir = FrameworkNameToSourceDir;
+			this.bForDistribution = Target.IOSPlatform.bForDistribution;
 		}
 	}
 

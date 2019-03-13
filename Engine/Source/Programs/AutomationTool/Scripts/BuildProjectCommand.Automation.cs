@@ -137,6 +137,11 @@ public partial class Project : CommandUtils
 			AdditionalArgs += " -skipdeploy"; // skip deploy step in UBT if we going to do it later anyway
 		}
 
+		if (Params.Distribution)
+		{
+			AdditionalArgs += " -distribution";
+		}
+
 		// Config overrides (-ini)
 		foreach (string ConfigOverrideParam in Params.ConfigOverrideParams)
 		{

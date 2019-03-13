@@ -22,6 +22,13 @@ namespace UnrealBuildTool
 		protected UnrealPluginLanguage UPL = null;
 		protected delegate bool FilenameFilter(string InFilename);
 
+		public bool ForDistribution
+		{
+			get { return bForDistribution; }
+			set { bForDistribution = value; }
+		}
+		bool bForDistribution = false;
+
 		protected class VersionUtilities
 		{
 			public static string BuildDirectory
@@ -29,22 +36,24 @@ namespace UnrealBuildTool
 				get;
 			set;
 			}
-				public static string GameName
+			public static string GameName
 			{
 				get;
-			set;
+				set;
 			}
 
-				static string RunningVersionFilename
+			
+
+			static string RunningVersionFilename
 			{
 				get { return Path.Combine(BuildDirectory, GameName + ".PackageVersionCounter"); }
 			}
 
-				/// <summary>
-				/// Reads the GameName.PackageVersionCounter from disk and bumps the minor version number in it
-				/// </summary>
-				/// <returns></returns>
-				public static string ReadRunningVersion()
+			/// <summary>
+			/// Reads the GameName.PackageVersionCounter from disk and bumps the minor version number in it
+			/// </summary>
+			/// <returns></returns>
+			public static string ReadRunningVersion()
 			{
 				string CurrentVersion = "0.0";
 				if (File.Exists(RunningVersionFilename))
@@ -1154,7 +1163,7 @@ namespace UnrealBuildTool
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac && Environment.GetEnvironmentVariable("UBT_NO_POST_DEPLOY") != "true")
 			{
-				return PrepForUATPackageOrDeploy(Configuration, ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", false, "", false, bCreateStubIPA, UPLScripts, SdkVersion);
+				return PrepForUATPackageOrDeploy(Configuration, ProjectFile, GameName, ProjectDirectory, BuildPath + "/" + DecoratedGameName, "../../Engine", bForDistribution, "", false, bCreateStubIPA, UPLScripts, SdkVersion);
 			}
 			else
 			{

@@ -84,16 +84,23 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InitFilePath">The path to the project file on disk</param>
 		/// <param name="InOnlyGameProject"></param>
-		public XcodeProjectFile(FileReference InitFilePath, FileReference InOnlyGameProject)
+		/// <param name="IsForDistribution">True for distribution builds</param>
+		public XcodeProjectFile(FileReference InitFilePath, FileReference InOnlyGameProject, bool IsForDistribution)
 			: base(InitFilePath)
 		{
 			OnlyGameProject = InOnlyGameProject;
+			bForDistribution = IsForDistribution;
 		}
 
 		public override string ToString()
 		{
 			return ProjectFilePath.GetFileNameWithoutExtension();
 		}
+
+		/// <summary>
+		///  Used to mark the project for distribution (some platforms require this)
+		/// </summary>
+		bool bForDistribution = false;
 
 		/// <summary>
 		/// Gets Xcode file category based on its extension
@@ -509,7 +516,7 @@ namespace UnrealBuildTool
 			{
 				TVOSPlatform TVOSPlatform = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS));
 				TVOSProjectSettings ProjectSettings = TVOSPlatform.ReadProjectSettings(ProjectFile);
-				TVOSProvisioningData ProvisioningData = TVOSPlatform.ReadProvisioningData(ProjectSettings);
+				TVOSProvisioningData ProvisioningData = TVOSPlatform.ReadProvisioningData(ProjectSettings, bForDistribution);
 				bAutomaticSigning = ProjectSettings.bAutomaticSigning;
 			}
 
@@ -662,7 +669,7 @@ namespace UnrealBuildTool
                 {
 					IOSPlatform IOSPlatform = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS));
 					IOSProjectSettings ProjectSettings = IOSPlatform.ReadProjectSettings(ProjectFile);
-					IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(ProjectSettings);
+					IOSProvisioningData ProvisioningData = IOSPlatform.ReadProvisioningData(ProjectSettings, bForDistribution);
 					IOSRunTimeVersion = ProjectSettings.RuntimeVersion;
 					IOSRunTimeDevices = ProjectSettings.RuntimeDevices;
 					ValidArchs += " arm64 armv7 armv7s";
@@ -680,7 +687,7 @@ namespace UnrealBuildTool
 				{
 					TVOSPlatform TVOSPlatform = ((TVOSPlatform)UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.TVOS));
 					TVOSProjectSettings ProjectSettings = TVOSPlatform.ReadProjectSettings(ProjectFile);
-					TVOSProvisioningData ProvisioningData = TVOSPlatform.ReadProvisioningData(ProjectSettings);
+					TVOSProvisioningData ProvisioningData = TVOSPlatform.ReadProvisioningData(ProjectSettings, bForDistribution);
 					TVOSRunTimeVersion = ProjectSettings.RuntimeVersion;
 					TVOSRunTimeDevices = ProjectSettings.RuntimeDevices;
 					if (ValidArchs == "x86_64")

@@ -400,7 +400,7 @@ namespace UnrealBuildTool
 			RulesAssembly RulesAssembly = RulesCompiler.CreateTargetRulesAssembly(TargetDesc.ProjectFile, TargetDesc.Name, false, false, TargetDesc.ForeignPlugin);
 
 			// Create the target rules
-			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, null);
+			TargetRules Rules = RulesAssembly.CreateTargetRules(TargetDesc.Name, TargetDesc.Platform, TargetDesc.Configuration, TargetDesc.Architecture, TargetDesc.ProjectFile, TargetDesc.AdditionalArguments);
 
 			// Check if we need to enable a nativized plugin, and compile the assembly for that if we do
 			FileReference NativizedPluginFile = Rules.GetNativizedPlugin();
@@ -430,7 +430,7 @@ namespace UnrealBuildTool
 				RemoteArguments.Add("-NoUBTMakefiles");
 
 				// Get the provisioning data for this project
-				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile);
+				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile, TargetDesc.AdditionalArguments.HasOption("-distribution"));
 				if(ProvisioningData == null || ProvisioningData.MobileProvisionFile == null)
 				{
 					throw new BuildException("Unable to find mobile provision for {0}. See log for more information.", TargetDesc.Name);
@@ -585,7 +585,7 @@ namespace UnrealBuildTool
 				RemoteArguments.Add(String.Format("-Project={0}", GetRemotePath(TargetDesc.ProjectFile)));
 			}
 
-			foreach(string LocalArgument in TargetDesc.AdditionalArguments)
+			foreach (string LocalArgument in TargetDesc.AdditionalArguments)
 			{
 				int EqualsIdx = LocalArgument.IndexOf('=');
 				if(EqualsIdx == -1)
