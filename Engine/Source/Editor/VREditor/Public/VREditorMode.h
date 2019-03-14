@@ -68,9 +68,6 @@ public:
 	/** When the user actually enters the VR Editor mode */
 	void Enter();
 
-	/** When Blueprints are reinstanced so we can re-connect our interactors. */
-	void OnBlueprintReinstanced();
-
 	/** When the user leaves the VR Editor mode */
 	void Exit( const bool bShouldDisableStereo );
 
