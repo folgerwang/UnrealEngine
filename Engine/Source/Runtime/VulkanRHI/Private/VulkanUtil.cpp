@@ -14,34 +14,6 @@
 
 extern CORE_API bool GIsGPUCrashed;
 
-//#todo-rco: Horrible work-around to avoid breaking binary compatibility; move to header!
-struct FVulkanTimingQueryPool : public FVulkanQueryPool
-{
-	FVulkanTimingQueryPool(FVulkanDevice* InDevice, uint32 InBufferSize)
-		: FVulkanQueryPool(InDevice, InBufferSize * 2, VK_QUERY_TYPE_TIMESTAMP)
-		, BufferSize(InBufferSize)
-	{
-		TimestampListHandles.AddZeroed(InBufferSize * 2);
-	}
-
-	uint32 CurrentTimestamp = 0;
-	uint32 NumIssuedTimestamps = 0;
-	const uint32 BufferSize;
-
-	struct FCmdBufferFence
-	{
-		FVulkanCmdBuffer* CmdBuffer;
-		uint64 FenceCounter;
-	};
-	TArray<FCmdBufferFence> TimestampListHandles;
-
-	VulkanRHI::FStagingBuffer* ResultsBuffer = nullptr;
-};
-
-
-//#todo-rco: Horrible work-around to avoid breaking binary compatibility
-static TMap<FVulkanGPUTiming*, FVulkanTimingQueryPool*> GTimingQueryPools;
-
 
 static FString		EventDeepString(TEXT("EventTooDeep"));
 static const uint32	EventDeepCRC = FCrc::StrCrc32<TCHAR>(*EventDeepString);
@@ -157,6 +129,11 @@ void FVulkanDynamicRHI::RHIUnlockStagingBuffer(FStagingBufferRHIParamRef Staging
 	StagingBuffer->Unlock();
 }
 
+FVulkanGPUTiming::~FVulkanGPUTiming()
+{
+	check(!Pool);
+}
+
 /**
  * Initializes all Vulkan resources and if necessary, the static variables.
  */
@@ -168,9 +145,9 @@ void FVulkanGPUTiming::Initialize()
 
 	if (FVulkanPlatform::SupportsTimestampRenderQueries() && GIsSupported)
 	{
-		FVulkanTimingQueryPool* Pool = new FVulkanTimingQueryPool(Device, 8);
+		check(!Pool);
+		Pool = new FVulkanTimingQueryPool(Device, 8);
 		Pool->ResultsBuffer = Device->GetStagingManager().AcquireBuffer(8 * sizeof(uint64), VK_BUFFER_USAGE_TRANSFER_DST_BIT, true);
-		GTimingQueryPools.Add(this, Pool);
 	}
 }
 
@@ -181,12 +158,10 @@ void FVulkanGPUTiming::Release()
 {
 	if (FVulkanPlatform::SupportsTimestampRenderQueries())
 	{
-		FVulkanTimingQueryPool* FoundPool = nullptr;
-		if (GTimingQueryPools.RemoveAndCopyValue(this, FoundPool) && FoundPool)
-		{
-			Device->GetStagingManager().ReleaseBuffer(nullptr, FoundPool->ResultsBuffer);
-			delete FoundPool;
-		}
+		check(Pool);
+		Device->GetStagingManager().ReleaseBuffer(nullptr, Pool->ResultsBuffer);
+		delete Pool;
+		Pool = nullptr;
 	}
 }
 
@@ -202,7 +177,6 @@ void FVulkanGPUTiming::StartTiming(FVulkanCmdBuffer* CmdBuffer)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		Pool->CurrentTimestamp = (Pool->CurrentTimestamp + 1) % Pool->BufferSize;
 		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
 		VulkanRHI::vkCmdWriteTimestamp(CmdBuffer->GetHandle(), VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, Pool->GetHandle(), QueryStartIndex);
@@ -225,7 +199,6 @@ void FVulkanGPUTiming::EndTiming(FVulkanCmdBuffer* CmdBuffer)
 		{
 			CmdBuffer = CmdContext->GetCommandBufferManager()->GetActiveCmdBuffer();
 		}
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		check(Pool->CurrentTimestamp < Pool->BufferSize);
 		const uint32 QueryStartIndex = Pool->CurrentTimestamp * 2;
 		const uint32 QueryEndIndex = Pool->CurrentTimestamp * 2 + 1;
@@ -253,7 +226,6 @@ uint64 FVulkanGPUTiming::GetTiming(bool bGetCurrentResultsAndBlock)
 {
 	if (GIsSupported)
 	{
-		FVulkanTimingQueryPool* Pool = GTimingQueryPools.FindChecked(this);
 		check(Pool->CurrentTimestamp < Pool->BufferSize);
 		uint64 StartTime, EndTime;
 		int32 TimestampIndex = Pool->CurrentTimestamp;

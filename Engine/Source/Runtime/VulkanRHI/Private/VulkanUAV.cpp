@@ -363,20 +363,6 @@ void FVulkanGPUFence::Clear()
 	CmdBuffer = nullptr;
 	FenceSignaledCounter = MAX_uint64;
 }
-/*
-FRenderQueryPoolRHIRef FVulkanDynamicRHI::RHICreateRenderQueryPool(ERenderQueryType QueryType, uint32 NumQueries)
-{
-	if (QueryType == RQT_AbsoluteTime)
-	{
-		return new FVulkanTimestampQueryPool(Device, NumQueries);
-	}
-	else
-	{
-		return new FDefaultRHIRenderQueryPool(QueryType, this, NumQueries);
-	}
-}
-*/
-
 
 bool FVulkanGPUFence::Poll() const
 {

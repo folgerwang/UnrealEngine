@@ -11,8 +11,8 @@
 #include "Serialization/MemoryWriter.h"
 
 class FVulkanCmdBuffer;
-class FVulkanTimingQuery;
 class FVulkanCommandListContext;
+class FVulkanTimingQueryPool;
 
 class FVulkanGPUTiming : public FGPUTiming
 {
@@ -24,6 +24,8 @@ public:
 		, CmdContext(InCmd)
 	{
 	}
+
+	~FVulkanGPUTiming();
 
 	/**
 	 * Start a GPU timing measurement.
@@ -76,6 +78,7 @@ private:
 	bool bEndTimestampIssued;
 
 	FVulkanCommandListContext* CmdContext;
+	FVulkanTimingQueryPool* Pool = nullptr;
 };
 
 /** A single perf event node, which tracks information about a appBeginDrawEvent/appEndDrawEvent range. */
