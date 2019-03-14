@@ -2346,14 +2346,7 @@ void UEditorEngine::CloseEditedWorldAssets(UWorld* InWorld)
 
 		if (AssetWorld && ClosingWorlds.Contains(AssetWorld))
 		{
-			const TArray<IAssetEditorInstance*> AssetEditors = EditorManager.FindEditorsForAsset(Asset);
-			for (IAssetEditorInstance* EditorInstance : AssetEditors )
-			{
-				if (EditorInstance != NULL)
-				{
-					EditorInstance->CloseWindow();
-				}
-			}
+			EditorManager.CloseAllEditorsForAsset(Asset);
 		}
 	}
 }

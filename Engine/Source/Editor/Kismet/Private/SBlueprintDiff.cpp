@@ -836,7 +836,7 @@ void SBlueprintDiff::OnCloseAssetEditor(UObject* Asset, EAssetEditorCloseReason 
 
 		if (WeakParentWindow.IsValid())
 		{
-			WeakParentWindow.Pin()->RequestDestroyWindow();
+			WeakParentWindow.Pin()->DestroyWindowImmediately();
 		}
 	}
 }
