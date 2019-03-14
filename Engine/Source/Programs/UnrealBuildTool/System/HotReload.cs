@@ -141,7 +141,7 @@ namespace UnrealBuildTool
 			// Check if we're using LiveCode instead
 			ConfigHierarchy EditorPerProjectHierarchy = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorPerProjectUserSettings, DirectoryReference.FromFile(TargetDesc.ProjectFile), TargetDesc.Platform);
 			bool bEnableLiveCode;
-			if(EditorPerProjectHierarchy.GetBool("LiveCode", "Enabled", out bEnableLiveCode) && bEnableLiveCode)
+			if(EditorPerProjectHierarchy.GetBool("/Script/LiveCoding.LiveCodingSettings", "bEnabled", out bEnableLiveCode) && bEnableLiveCode)
 			{
 				return false;
 			}

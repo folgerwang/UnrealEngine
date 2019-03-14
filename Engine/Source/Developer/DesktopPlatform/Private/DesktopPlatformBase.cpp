@@ -637,40 +637,6 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 	return bRes;
 }
 
-bool FDesktopPlatformBase::InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
-{
-	// Composes the platform, and config (eg, "Win64 Development")
-	FString Arguments = FString::Printf(TEXT("%s %s"), FPlatformMisc::GetUBTPlatform(), FModuleManager::GetUBTConfiguration());
-
-	// -TargetType=Editor tells UBT to work out the editor target name from the project we provided
-	Arguments += TEXT(" -TargetType=Editor");
-
-	// Add the project path
-	if ( !ProjectFileName.IsEmpty() )
-	{
-		Arguments += FString::Printf(TEXT(" -Project=\"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
-	}
-	
-	// -invalidatemakefilesonly tells UBT to invalidate its UBT makefiles without building
-	Arguments += TEXT(" -invalidatemakefilesonly");
-
-	// Compile UnrealBuildTool if it doesn't exist. This can happen if we're just copying source from somewhere.
-	bool bRes = true;
-	Warn->BeginSlowTask(LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."), true, true);
-	if(!FPaths::FileExists(GetUnrealBuildToolExecutableFilename(RootDir)))
-	{
-		Warn->StatusUpdate(0, 1, LOCTEXT("BuildingUBT", "Building UnrealBuildTool..."));
-		bRes = BuildUnrealBuildTool(RootDir, *Warn);
-	}
-	if(bRes)
-	{
-		Warn->StatusUpdate(0, 1, LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."));
-		bRes = RunUnrealBuildTool(LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."), RootDir, Arguments, Warn);
-	}
-	Warn->EndSlowTask();
-	return bRes;
-}
-
 bool FDesktopPlatformBase::IsUnrealBuildToolAvailable()
 {
 	// If using installed build and the unreal build tool executable exists, then UBT is available. Otherwise check it can be built.

@@ -349,16 +349,6 @@ public:
 	virtual bool GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn, FString LogFilePath = FString()) = 0;
 
 	/**
-	* Invalidate makefiles for project (to UBT regenerate them at startup).
-	*
-	* @param RootDir			Engine root directory for the project to use.
-	* @param ProjectFileName	Filename of the project to update
-	* @param Warn				Feedback context to use for progress updates
-	* @return true if project files were generated successfully.
-	*/
-	virtual bool InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) = 0;
-
-	/**
 	* Determines whether UnrealBuildTool is available
 	*
 	* @return true if UnrealBuildTool is available

@@ -137,14 +137,26 @@ void FLiveCodingModule::EnableForSession(bool bEnable)
 			UE_LOG(LogLiveCoding, Display, TEXT("Console will be hidden but remain running in the background. Restart to disable completely."));
 			LppSetActive(false);
 			LppSetVisible(false);
+			bEnabledForSession = false;
 		}
 	}
-	bEnabledForSession = bEnable;
 }
 
 bool FLiveCodingModule::IsEnabledForSession() const
 {
 	return bEnabledForSession;
+}
+
+bool FLiveCodingModule::CanEnableForSession() const
+{
+#if !IS_MONOLITHIC
+	FModuleManager& ModuleManager = FModuleManager::Get();
+	if(ModuleManager.HasAnyOverridenModuleFilename())
+	{
+		return false;
+	}
+#endif
+	return true;
 }
 
 bool FLiveCodingModule::HasStarted() const
@@ -193,6 +205,13 @@ bool FLiveCodingModule::StartLiveCoding()
 {
 	if(!bStarted)
 	{
+		// Make sure there aren't any hot reload modules already active
+		if (!CanEnableForSession())
+		{
+			UE_LOG(LogLiveCoding, Error, TEXT("Unable to start live coding session. Some modules have already been hot reloaded."));
+			return false;
+		}
+
 		// Setup the console path
 		GLiveCodingConsolePath = ConsolePathVariable->GetString();
 		if (!FPaths::FileExists(GLiveCodingConsolePath))

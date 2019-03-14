@@ -59,5 +59,10 @@ public class GameProjectGeneration : ModuleRules
                 "MainFrame",
             }
 		);
+
+		if(Target.bWithLiveCoding)
+		{
+			PrivateIncludePathModuleNames.Add("LiveCoding");
+		}
 	}
 }

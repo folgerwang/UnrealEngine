@@ -415,6 +415,9 @@ public:
 
 	/** Sets the filename for a module. The module is not reloaded immediately, but the new name will be used for subsequent unload/load events. */
 	void SetModuleFilename(FName ModuleName, const FString& Filename);
+
+	/** Determines if any non-default module instances are loaded (eg. hot reloaded modules) */
+	bool HasAnyOverridenModuleFilename() const;
 #endif
 
 public:

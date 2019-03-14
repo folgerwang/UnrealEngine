@@ -20,7 +20,7 @@ class ULiveCodingSettings : public UObject
     GENERATED_BODY()
 
 public:
-    UPROPERTY(config, EditAnywhere, Category=General, Meta=(DisplayName="Enable Live Coding"))
+    UPROPERTY(config, EditAnywhere, Category=General, Meta=(ConfigRestartRequired=true, DisplayName="Enable Live Coding"))
     bool bEnabled;
 
     UPROPERTY(config, EditAnywhere, Category=General, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))

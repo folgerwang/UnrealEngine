@@ -1035,7 +1035,15 @@ void FLevelEditorActionCallbacks::RecompileGameCode_Clicked()
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
 	if (LiveCoding != nullptr && LiveCoding->IsEnabledByDefault())
 	{
-		LiveCoding->Compile();
+		LiveCoding->EnableForSession(true);
+		if (LiveCoding->IsEnabledForSession())
+		{
+			LiveCoding->Compile();
+		}
+		else
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoLiveCodingCompileAfterHotReload", "Live Coding cannot be enabled after hot-reload has been used. Please restart the editor."));
+		}
 		return;
 	}
 #endif
@@ -1078,6 +1086,11 @@ void FLevelEditorActionCallbacks::LiveCoding_ToggleEnabled()
 	if (LiveCoding != nullptr)
 	{
 		LiveCoding->EnableByDefault(!LiveCoding->IsEnabledByDefault());
+
+		if (LiveCoding->IsEnabledByDefault() && !LiveCoding->IsEnabledForSession())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoEnableLiveCodingAfterHotReload", "Live Coding cannot be enabled after hot-reload has been used. Please restart the editor."));
+		}
 	}
 }
 
@@ -1090,9 +1103,14 @@ bool FLevelEditorActionCallbacks::LiveCoding_IsEnabled( )
 void FLevelEditorActionCallbacks::LiveCoding_StartSession_Clicked()
 {
 	ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(LIVE_CODING_MODULE_NAME);
-	if (LiveCoding!= nullptr)
+	if (LiveCoding != nullptr)
 	{
 		LiveCoding->EnableForSession(true);
+
+		if (!LiveCoding->IsEnabledForSession())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NoStartedLiveCodingAfterHotReload", "Live Coding cannot be started after hot-reload has been used. Please restart the editor."));
+		}
 	}
 }
 

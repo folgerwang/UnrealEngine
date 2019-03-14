@@ -935,6 +935,20 @@ void FModuleManager::SetModuleFilename(FName ModuleName, const FString& Filename
 		Module->OriginalFilename = Filename;
 	}
 }
+
+bool FModuleManager::HasAnyOverridenModuleFilename() const
+{
+	FScopeLock Lock(&ModulesCriticalSection);
+	for (const TPair<FName, ModuleInfoRef>& ModuleIt : Modules)
+	{
+		const FModuleInfo& CurModule = *ModuleIt.Value;
+		if(CurModule.Filename != CurModule.OriginalFilename)
+		{
+			return true;
+		}
+	}
+	return false;
+}
 #endif
 
 void FModuleManager::ResetModulePathsCache()
