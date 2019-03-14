@@ -9,6 +9,7 @@
 #include "CoreMinimal.h"
 #include "HAL/ThreadSingleton.h"
 #include "HAL/ThreadSafeCounter.h"
+#include "Templates/RefCounting.h"
 
 class FObjectInitializer;
 struct FUObjectSerializeContext;
@@ -21,6 +22,7 @@ class COREUOBJECT_API FUObjectThreadContext : public TThreadSingleton<FUObjectTh
 	friend TThreadSingleton<FUObjectThreadContext>;
 
 	FUObjectThreadContext();
+	virtual ~FUObjectThreadContext();
 
 	/** Stack of currently used FObjectInitializers for this thread */
 	TArray<FObjectInitializer*> InitializerStack;
@@ -76,8 +78,6 @@ public:
 	UObject* ConstructedObject;
 	/** Async Package currently processing objects */
 	struct FAsyncPackage* AsyncPackage;
-	/** Current serialization context (only valid for non-async loads) */
-	FUObjectSerializeContext* SerializeContext;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	/** Stack to ensure that PostInitProperties is routed through Super:: calls. **/
@@ -89,12 +89,30 @@ public:
 	/** Maps a package name to all packages marked as editor-only due to the fact it was marked as editor-only */
 	TMap<FName, TSet<FName>> PackagesMarkedEditorOnlyByOtherPackage;
 #endif
+
+	/** Gets the current serialization context */
+	FUObjectSerializeContext* GetSerializeContext()
+	{
+		return SerializeContext;
+	}
+
+private:
+	/** Current serialization context */
+	TRefCountPtr<FUObjectSerializeContext> SerializeContext;
 };
 
 /** Structure that holds the current serialization state of UObjects */
 struct COREUOBJECT_API FUObjectSerializeContext
 {
+	friend class FUObjectThreadContext;
+
 private:
+
+	/** Constructor */
+	FUObjectSerializeContext();
+
+	/** Destructor */
+	~FUObjectSerializeContext();
 
 	/** Reference count of this context */
 	int32 RefCount;
@@ -127,19 +145,8 @@ public:
 	/** Points to the most recently used Linker for serialization by CreateExport() */
 	FLinkerLoad* SerializedExportLinker;
 
-	/** Constructor */
-	FUObjectSerializeContext();
-
-	/** Destructor */
-	~FUObjectSerializeContext();
-
 	/** Adds a new loaded object */
-	void AddLoadedObject(UObject* InObject)
-	{
-		check(AttachedLinkers.Num() || GEventDrivenLoaderEnabled);
-		ObjectsLoaded.Add(InObject);
-	}
-
+	void AddLoadedObject(UObject* InObject);
 	void AddUniqueLoadedObjects(const TArray<UObject*>& InObjects);
 
 	/** Checks if object loading has started */
@@ -226,10 +233,7 @@ public:
 	void AttachLinker(FLinkerLoad* InLinker);
 	
 	/** Detaches a linker from this context */
-	void DetachLinker(FLinkerLoad* InLinker)
-	{
-		AttachedLinkers.Remove(InLinker);
-	}
+	void DetachLinker(FLinkerLoad* InLinker);
 
 	/** Detaches all linkers from this context */
 	void DetachFromLinkers();

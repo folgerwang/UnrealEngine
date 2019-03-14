@@ -3553,7 +3553,7 @@ FSavePackageResultStruct UPackage::Save(UPackage* InOuter, UObject* Base, EObjec
 
 	if (FPlatformProperties::HasEditorOnlyData())
 	{
-		TRefCountPtr<FUObjectSerializeContext> SaveContext(new FUObjectSerializeContext());
+		TRefCountPtr<FUObjectSerializeContext> SaveContext(FUObjectThreadContext::Get().GetSerializeContext());
 
 #if WITH_EDITOR
 		struct FDiffSettings

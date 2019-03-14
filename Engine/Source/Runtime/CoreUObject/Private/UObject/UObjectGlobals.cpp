@@ -1155,30 +1155,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageNameO
 	}
 	
 	// Set up a load context
-	TRefCountPtr<FUObjectSerializeContext> LoadContext;
-	if (InLoadContext)
-	{
-		// Use the privided context
-		LoadContext = InLoadContext;
-	}
-	else
-	{
-		// Try to get the context from the callstack
-		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		if (ThreadContext.SerializeContext)
-		{
-			LoadContext = ThreadContext.SerializeContext;
-		}
-		else
-		{
-			// Create a new context
-			LoadContext = new FUObjectSerializeContext();
-			if (!IsInAsyncLoadingThread())
-			{
-				ThreadContext.SerializeContext = LoadContext;
-			}
-		}
-	}
+	TRefCountPtr<FUObjectSerializeContext> LoadContext = FUObjectThreadContext::Get().GetSerializeContext();
 
 	// Try to load.
 	BeginLoad(LoadContext, InLongPackageNameOrFilename);
@@ -1759,14 +1736,8 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 			LoadContext->DetachFromLinkers();
 		}
 
-		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
-		if (ThreadContext.SerializeContext == LoadContext)
 		{
-			ThreadContext.SerializeContext = nullptr;
-		}
-		else
-		{
-			check(!ThreadContext.SerializeContext);
+			LoadContext->DetachFromLinkers();
 		}
 	}
 }
@@ -2073,7 +2044,7 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 		SerializedObjects.Add(Object);
 	};
 
-	TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(FUObjectThreadContext::Get().GetSerializeContext());
 	FDuplicateDataReader Reader(DuplicatedObjectAnnotation, ObjectData, Parameters.PortFlags, Parameters.DestOuter);
 	Reader.SetSerializeContext(LoadContext);
 	for(int32 ObjectIndex = 0;ObjectIndex < SerializedObjects.Num();ObjectIndex++)

@@ -1553,7 +1553,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 		if (!bDumpProperties)
 		{
 			TGuardValue<bool> GuardAllowUnversionedContentInEditor(GAllowUnversionedContentInEditor, true);
-			TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+			TRefCountPtr<FUObjectSerializeContext> LoadContext(FUObjectThreadContext::Get().GetSerializeContext());
 			BeginLoad(LoadContext);
 			Linker = CreateLinkerForFilename(LoadContext, Filename);
 			EndLoad(Linker->GetSerializeContext());

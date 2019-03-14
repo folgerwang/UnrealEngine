@@ -720,7 +720,7 @@ FLinkerLoad* GetPackageLinker
 
 		// we will already have found the filename above
 		check(NewFilename.Len() > 0);
-		TRefCountPtr<FUObjectSerializeContext> LoadContext(InExistingContext ? InExistingContext : new FUObjectSerializeContext());
+		TRefCountPtr<FUObjectSerializeContext> LoadContext(FUObjectThreadContext::Get().GetSerializeContext());
 		Result = FLinkerLoad::CreateLinker(LoadContext, InOuter, *NewFilename, LoadFlags, InReaderOverride);
 	}
 	else if (InExistingContext)
@@ -772,7 +772,7 @@ FLinkerLoad* GetPackageLinker
 FLinkerLoad* LoadPackageLinker(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, UPackageMap* Sandbox, FGuid* CompatibleGuid, FArchive* InReaderOverride, TFunctionRef<void(FLinkerLoad* LoadedLinker)> LinkerLoadedCallback)
 {
 	FLinkerLoad* Linker = nullptr;
-	TRefCountPtr<FUObjectSerializeContext> LoadContext(new FUObjectSerializeContext());
+	TRefCountPtr<FUObjectSerializeContext> LoadContext(FUObjectThreadContext::Get().GetSerializeContext());
 	BeginLoad(LoadContext);
 	{
 		FUObjectSerializeContext* InOutLoadContext = LoadContext;

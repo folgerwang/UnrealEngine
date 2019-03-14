@@ -17,9 +17,12 @@ FUObjectThreadContext::FUObjectThreadContext()
 , IsInConstructor(0)
 , ConstructedObject(nullptr)
 , AsyncPackage(nullptr)
-, SerializeContext(nullptr)
+, SerializeContext(new FUObjectSerializeContext())
 {}
 
+FUObjectThreadContext::~FUObjectThreadContext()
+{
+}
 
 FUObjectSerializeContext::FUObjectSerializeContext()
 	: RefCount(0)
@@ -59,6 +62,11 @@ void FUObjectSerializeContext::AddUniqueLoadedObjects(const TArray<UObject*>& In
 	
 }
 
+void FUObjectSerializeContext::AddLoadedObject(UObject* InObject)
+{
+	ObjectsLoaded.Add(InObject);
+}
+
 bool FUObjectSerializeContext::PRIVATE_PatchNewObjectIntoExport(UObject* OldObject, UObject* NewObject)
 {
 	const int32 ObjLoadedIdx = ObjectsLoaded.Find(OldObject);
@@ -76,6 +84,11 @@ void FUObjectSerializeContext::AttachLinker(FLinkerLoad* InLinker)
 {
 	check(!GEventDrivenLoaderEnabled);
 	AttachedLinkers.Add(InLinker);
+}
+
+void FUObjectSerializeContext::DetachLinker(FLinkerLoad* InLinker)
+{
+	AttachedLinkers.Remove(InLinker);
 }
 
 void FUObjectSerializeContext::DetachFromLinkers()

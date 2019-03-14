@@ -1185,11 +1185,6 @@ private:
 	// FLinkerLoad creation helpers END
 	//
 
-private:
-
-	/** Current UObject serialization context */
-	TRefCountPtr<FUObjectSerializeContext> CurrentLoadContext;
-
 public:
 
 	//~ FArchive interface

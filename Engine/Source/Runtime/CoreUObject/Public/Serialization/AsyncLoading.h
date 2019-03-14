@@ -945,7 +945,7 @@ private:
 public:
 
 	/** Serialization context for this package */
-	TRefCountPtr<FUObjectSerializeContext> LoadContext;
+	FUObjectSerializeContext* GetSerializeContext();
 };
 
 struct FScopedAsyncPackageEvent
