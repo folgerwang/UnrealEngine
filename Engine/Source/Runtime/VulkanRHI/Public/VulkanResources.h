@@ -939,6 +939,15 @@ public:
 	EState State = EState::Undefined;
 };
 
+class FVulkanTimingQuery : public FVulkanRenderQuery
+{
+public:
+	FVulkanTimingQuery(FVulkanDevice* InDevice);
+	virtual ~FVulkanTimingQuery();
+
+	FVulkanTimingQueryPool Pool;
+};
+
 struct FVulkanBufferView : public FRHIResource, public VulkanRHI::FDeviceChild
 {
 	FVulkanBufferView(FVulkanDevice* InDevice)

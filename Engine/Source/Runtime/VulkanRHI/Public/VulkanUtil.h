@@ -59,7 +59,6 @@ public:
 	bool IsComplete() const
 	{
 		check(bEndTimestampIssued);
-		//return *((uint64*)EndTimestamp.GetPointer()) != 0;
 		return true;
 	}
 
