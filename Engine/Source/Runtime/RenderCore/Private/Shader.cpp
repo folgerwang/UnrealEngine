@@ -969,7 +969,7 @@ void FShaderResource::ReleaseRHI()
 	DEC_DWORD_STAT_BY(STAT_Shaders_NumShadersUsedForRendering, 1);
 
 #if RHI_RAYTRACING
-	if (IsInitialized() && Target.Frequency == SF_RayHitGroup)
+	if (IsInitialized() && RayTracingMaterialLibraryIndex != UINT_MAX)
 	{
 		RemoveFromRayTracingLibrary(RayTracingMaterialLibraryIndex);
 		RayTracingMaterialLibraryIndex = UINT_MAX;
