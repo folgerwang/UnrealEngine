@@ -227,7 +227,7 @@ void UAnimationSharingManager::SetupPerSkeletonData(const FPerSkeletonAnimationS
 	{
 		UAnimSharingInstance* Data = NewObject<UAnimSharingInstance>(this);
 		// Try and setup up instance using provided setup data
-		if (Data->Setup(this, SkeletonSetup, &ScalabilitySettings, Skeletons.Num() - 1))
+		if (Data->Setup(this, SkeletonSetup, &ScalabilitySettings, Skeletons.Num()))
 		{
 			PerSkeletonData.Add(Data);
 			Skeletons.Add(Skeleton);
