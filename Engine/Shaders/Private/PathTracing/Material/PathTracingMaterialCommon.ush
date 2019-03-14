@@ -42,7 +42,7 @@ bool IsPureSpecular(FMaterialClosestHitPayload HitInfo)
 
 bool IsPureSpecularReflection(FMaterialClosestHitPayload HitInfo)
 {
-	return IsPureSpecular(HitInfo) && HitInfo.BlendingMode == 0;
+	return IsPureSpecular(HitInfo) && HitInfo.BlendingMode == 0 && HitInfo.Metallic == 1;
 }
 
 bool IsPureSpecularTransmission(FMaterialClosestHitPayload HitInfo)
