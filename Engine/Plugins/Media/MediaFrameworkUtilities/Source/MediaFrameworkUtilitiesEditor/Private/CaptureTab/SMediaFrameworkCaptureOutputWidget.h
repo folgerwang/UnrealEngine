@@ -153,7 +153,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
-	virtual ~SMediaFrameworkCaptureCurrentViewportWidget();
+	virtual void StopOutput() override;
 
 	void StartOutput();
 

@@ -5,7 +5,9 @@
 #include "MediaCapture.h"
 #include "MediaIOCoreModule.h"
 
-/* IMediaOptions interface
+const FIntPoint UMediaOutput::RequestCaptureSourceSize = FIntPoint::ZeroValue;
+
+/* UMediaOutput
  *****************************************************************************/
 
 UMediaOutput::UMediaOutput(const FObjectInitializer& ObjectInitializer)

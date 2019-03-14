@@ -562,11 +562,6 @@ void SMediaFrameworkCaptureCurrentViewportWidget::Construct(const FArguments& In
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-SMediaFrameworkCaptureCurrentViewportWidget::~SMediaFrameworkCaptureCurrentViewportWidget()
-{
-	ShutdownViewport();
-}
-
 void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
 {
 	ShutdownViewport();
@@ -627,8 +622,6 @@ void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
 			{
 				GEditor->OnLevelViewportClientListChanged().AddSP(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged);
 				EditorSceneViewport = SceneViewport;
-				FIntPoint TargetSize = MediaOutputPtr->GetRequestedSize();
-				SceneViewport->SetFixedViewportSize(TargetSize.X, TargetSize.Y);
 				MediaCapture->OnStateChangedNative.AddSP(this, &SMediaFrameworkCaptureCurrentViewportWidget::OnMediaCaptureStateChanged);
 
 				if (!MediaCapture->CaptureSceneViewport(SceneViewport, CaptureOptions))
@@ -638,6 +631,15 @@ void SMediaFrameworkCaptureCurrentViewportWidget::StartOutput()
 			}
 		}
 	}
+}
+
+void SMediaFrameworkCaptureCurrentViewportWidget::StopOutput()
+{
+	if (MediaCapture.IsValid())
+	{
+		MediaCapture->StopCapture(false);
+	}
+	ShutdownViewport();
 }
 
 void SMediaFrameworkCaptureCurrentViewportWidget::OnLevelViewportClientListChanged()
@@ -676,32 +678,19 @@ void SMediaFrameworkCaptureCurrentViewportWidget::OnMediaCaptureStateChanged()
 
 void SMediaFrameworkCaptureCurrentViewportWidget::OnPrePIE()
 {
-	if (MediaCapture.IsValid())
-	{
-		MediaCapture->StopCapture(false);
-	}
-	ShutdownViewport();
+	StopOutput();
 }
 
 void SMediaFrameworkCaptureCurrentViewportWidget::OnPrePIEEnded()
 {
-	if (MediaCapture.IsValid())
-	{
-		MediaCapture->StopCapture(false);
-	}
-	ShutdownViewport();
+	StopOutput();
 }
 
 void SMediaFrameworkCaptureCurrentViewportWidget::ShutdownViewport()
 {
-	TSharedPtr<FSceneViewport> EditorSceneViewportPin = EditorSceneViewport.Pin();
-	if (EditorSceneViewportPin.IsValid() && EditorSceneViewportPin->GetViewportWidget().IsValid())
-	{
-		EditorSceneViewportPin->SetFixedViewportSize(0, 0);
-	}
-
 	GEditor->OnLevelViewportClientListChanged().RemoveAll(this);
 
+	TSharedPtr<FSceneViewport> EditorSceneViewportPin = EditorSceneViewport.Pin();
 	TSharedPtr<ILevelViewport> LevelViewportPin = LevelViewport.Pin();
 	if (LevelViewportPin.IsValid() && LevelViewportPin->GetSharedActiveViewport() == EditorSceneViewportPin)
 	{

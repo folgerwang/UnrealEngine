@@ -82,8 +82,17 @@ public:
 	 * Crop the captured SceneViewport or TextureRenderTarget2D to the desired size.
 	 * @note Only valid when Crop is set to Custom.
 	 */
-	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "MediaCapture")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="MediaCapture")
 	FIntPoint CustomCapturePoint;
+
+	/**
+	 * When the capture start, resize the source buffer to the desired size.
+	 * @note Only valid when a size is specified by the MediaOutput.
+	 * @note For viewport, the window size will not change. Only the viewport will be resized.
+	 * @note For RenderTarget, the asset will be modified and resized to the desired size.
+	 */
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="MediaCapture")
+	bool bResizeSourceBuffer;
 };
 
 
@@ -212,8 +221,29 @@ protected:
 		FFrameRate SourceFrameTimecodeFramerate;
 		uint32 SourceFrameNumberRenderThread;
 	};
+
+	/**
+	 * Capture the data that will pass along to the callback.
+	 * @note The capture is done on the Render Thread but triggered from the Game Thread.
+	 */
 	virtual TSharedPtr<FMediaCaptureUserData> GetCaptureFrameUserData_GameThread() { return TSharedPtr<FMediaCaptureUserData>(); }
+
+	/** Should we call OnFrameCaptured_RenderingThread() with a RHI Texture -or- copy the memory to CPU ram and call OnFrameCaptured_RenderingThread(). */
+	virtual bool ShouldCaptureRHITexture() const { return false; }
+
+	/**
+	 * Callback when the buffer was successfully copied to CPU ram.
+	 * The callback in called from a critical point. If you intend to process the buffer, do so in another thread.
+	 * The buffer is only valid for the duration of the callback.
+	 */
 	virtual void OnFrameCaptured_RenderingThread(const FCaptureBaseData& InBaseData, TSharedPtr<FMediaCaptureUserData> InUserData, void* InBuffer, int32 Width, int32 Height) { }
+
+	/**
+	 * Callback when the buffer was successfully copied on the GPU ram.
+	 * The callback in called from a critical point. If you intend to process the texture, do so in another thread.
+	 * The texture is valid for the duration of the callback.
+	 */
+	virtual void OnRHITextureCaptured_RenderingThread(const FCaptureBaseData& InBaseData, TSharedPtr<FMediaCaptureUserData> InUserData, FTextureRHIRef InTexture) { }
 
 protected:
 	UTextureRenderTarget2D* GetTextureRenderTarget() { return CapturingRenderTarget; }
@@ -229,9 +259,12 @@ private:
 	void InitializeResolveTarget(int32 InNumberOfBuffers);
 	void OnEndFrame_GameThread();
 	void CacheMediaOutput(EMediaCaptureSourceType InSourceType);
+	void CacheOutputOptions();
 	FIntPoint GetOutputSize(const FIntPoint & InSize, const EMediaCaptureConversionOperation & InConversionOperation) const;
 	EPixelFormat GetOutputPixelFormat(const EPixelFormat & InPixelFormat, const EMediaCaptureConversionOperation & InConversionOperation) const;
 	void BroadcastStateChanged();
+	void SetFixedViewportSize(TSharedPtr<FSceneViewport> InSceneViewport);
+	void ResetFixedViewportSize(TSharedPtr<FSceneViewport> InViewport, bool bInFlushRenderingCommands);
 
 private:
 	struct FCaptureFrame
@@ -261,7 +294,10 @@ private:
 	FMediaCaptureOptions DesiredCaptureOptions;
 	EMediaCaptureConversionOperation ConversionOperation;
 	FString MediaOutputName;
+	bool bUseRequestedTargetSize;
 
 	bool bResolvedTargetInitialized;
+	bool bShouldCaptureRHITexture;
+	bool bViewportHasFixedViewportSize;
 	TAtomic<int32> WaitingForResolveCommandExecutionCounter;
 };

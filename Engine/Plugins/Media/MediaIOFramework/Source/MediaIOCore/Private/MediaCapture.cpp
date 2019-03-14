@@ -95,7 +95,10 @@ UMediaCapture::UMediaCapture(const FObjectInitializer& ObjectInitializer)
 	, DesiredOutputPixelFormat(EPixelFormat::PF_A2B10G10R10)
 	, ConversionOperation(EMediaCaptureConversionOperation::NONE)
 	, MediaOutputName(TEXT("[undefined]"))
+	, bUseRequestedTargetSize(false)
 	, bResolvedTargetInitialized(false)
+	, bShouldCaptureRHITexture(false)
+	, bViewportHasFixedViewportSize(false)
 	, WaitingForResolveCommandExecutionCounter(0)
 {
 }
@@ -151,9 +154,21 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 	DesiredCaptureOptions = InCaptureOptions;
 	CacheMediaOutput(EMediaCaptureSourceType::SCENE_VIEWPORT);
 
+	if (bUseRequestedTargetSize)
+	{
+		DesiredSize = InSceneViewport->GetSize();
+	}
+	else if (DesiredCaptureOptions.bResizeSourceBuffer)
+	{
+		SetFixedViewportSize(InSceneViewport);
+	}
+
+	CacheOutputOptions();
+
 	const bool bCurrentlyCapturing = false;
 	if (!MediaCaptureDetails::ValidateSceneViewport(InSceneViewport, DesiredCaptureOptions, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
 	{
+		ResetFixedViewportSize(InSceneViewport, false);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
 	}
@@ -161,12 +176,13 @@ bool UMediaCapture::CaptureSceneViewport(TSharedPtr<FSceneViewport>& InSceneView
 	SetState(EMediaCaptureState::Preparing);
 	if (!CaptureSceneViewportImpl(InSceneViewport))
 	{
+		ResetFixedViewportSize(InSceneViewport, false);
 		SetState(EMediaCaptureState::Stopped);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
 	}
 
-	//no lock required the command on the render thread is not active
+	//no lock required, the command on the render thread is not active
 	CapturingSceneViewport = InSceneViewport;
 
 	InitializeResolveTarget(MediaOutput->NumberOfTextureBuffers);
@@ -190,6 +206,17 @@ bool UMediaCapture::CaptureTextureRenderTarget2D(UTextureRenderTarget2D* InRende
 
 	DesiredCaptureOptions = CaptureOptions;
 	CacheMediaOutput(EMediaCaptureSourceType::RENDER_TARGET);
+
+	if (bUseRequestedTargetSize)
+	{
+		DesiredSize = FIntPoint(InRenderTarget2D->SizeX, InRenderTarget2D->SizeY);
+	}
+	else if (DesiredCaptureOptions.bResizeSourceBuffer)
+	{
+		InRenderTarget2D->ResizeTarget(DesiredSize.X, DesiredSize.Y);
+	}
+
+	CacheOutputOptions();
 
 	const bool bCurrentlyCapturing = false;
 	if (!MediaCaptureDetails::ValidateTextureRenderTarget2D(InRenderTarget2D, DesiredCaptureOptions, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
@@ -222,9 +249,14 @@ void UMediaCapture::CacheMediaOutput(EMediaCaptureSourceType InSourceType)
 	DesiredSize = MediaOutput->GetRequestedSize();
 	DesiredPixelFormat = MediaOutput->GetRequestedPixelFormat();
 	ConversionOperation = MediaOutput->GetConversionOperation(InSourceType);
+}
+
+void UMediaCapture::CacheOutputOptions()
+{
 	DesiredOutputSize = GetOutputSize(DesiredSize, ConversionOperation);
 	DesiredOutputPixelFormat = GetOutputPixelFormat(DesiredPixelFormat, ConversionOperation);
 	MediaOutputName = *MediaOutput->GetName();
+	bShouldCaptureRHITexture = ShouldCaptureRHITexture();
 }
 
 FIntPoint UMediaCapture::GetOutputSize(const FIntPoint & InSize, const EMediaCaptureConversionOperation & InConversionOperation) const
@@ -266,10 +298,15 @@ bool UMediaCapture::UpdateSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewp
 
 	check(IsInGameThread());
 
-	const bool bCurrentlyCapturing = true;
+	if (!bUseRequestedTargetSize && DesiredCaptureOptions.bResizeSourceBuffer)
+	{
+		SetFixedViewportSize(InSceneViewport);
+	}
 
+	const bool bCurrentlyCapturing = true;
 	if (!MediaCaptureDetails::ValidateSceneViewport(InSceneViewport, DesiredCaptureOptions, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
 	{
+		ResetFixedViewportSize(InSceneViewport, false);
 		StopCapture(false);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
@@ -277,6 +314,7 @@ bool UMediaCapture::UpdateSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewp
 
 	if (!UpdateSceneViewportImpl(InSceneViewport))
 	{
+		ResetFixedViewportSize(InSceneViewport, false);
 		StopCapture(false);
 		MediaCaptureDetails::ShowSlateNotification();
 		return false;
@@ -284,6 +322,7 @@ bool UMediaCapture::UpdateSceneViewport(TSharedPtr<FSceneViewport>& InSceneViewp
 
 	{
 		FScopeLock Lock(&AccessingCapturingSource);
+		ResetFixedViewportSize(CapturingSceneViewport.Pin(), true);
 		CapturingSceneViewport = InSceneViewport;
 		CapturingRenderTarget = nullptr;
 	}
@@ -302,6 +341,11 @@ bool UMediaCapture::UpdateTextureRenderTarget2D(UTextureRenderTarget2D * InRende
 
 	check(IsInGameThread());
 
+	if (!bUseRequestedTargetSize && DesiredCaptureOptions.bResizeSourceBuffer)
+	{
+		InRenderTarget2D->ResizeTarget(DesiredSize.X, DesiredSize.Y);
+	}
+
 	const bool bCurrentlyCapturing = true;
 	if (!MediaCaptureDetails::ValidateTextureRenderTarget2D(InRenderTarget2D, DesiredCaptureOptions, DesiredSize, DesiredPixelFormat, bCurrentlyCapturing))
 	{
@@ -319,6 +363,7 @@ bool UMediaCapture::UpdateTextureRenderTarget2D(UTextureRenderTarget2D * InRende
 
 	{
 		FScopeLock Lock(&AccessingCapturingSource);
+		ResetFixedViewportSize(CapturingSceneViewport.Pin(), true);
 		CapturingRenderTarget = InRenderTarget2D;
 		CapturingSceneViewport.Reset();
 	}
@@ -355,6 +400,7 @@ void UMediaCapture::StopCapture(bool bAllowPendingFrameToBeProcess)
 				FlushRenderingCommands();
 			}
 			StopCaptureImpl(bAllowPendingFrameToBeProcess);
+			ResetFixedViewportSize(CapturingSceneViewport.Pin(), false);
 
 			CapturingRenderTarget = nullptr;
 			CapturingSceneViewport.Reset();
@@ -408,6 +454,25 @@ void UMediaCapture::BroadcastStateChanged()
 	OnStateChangedNative.Broadcast();
 }
 
+void UMediaCapture::SetFixedViewportSize(TSharedPtr<FSceneViewport> InSceneViewport)
+{
+	InSceneViewport->SetFixedViewportSize(DesiredSize.X, DesiredSize.Y);
+	bViewportHasFixedViewportSize = true;
+}
+
+void UMediaCapture::ResetFixedViewportSize(TSharedPtr<FSceneViewport> InViewport, bool bInFlushRenderingCommands)
+{
+	if (bViewportHasFixedViewportSize && InViewport.IsValid())
+	{
+		if (bInFlushRenderingCommands && WaitingForResolveCommandExecutionCounter > 0)
+		{
+			FlushRenderingCommands();
+		}
+		InViewport->SetFixedViewportSize(0, 0);
+		bViewportHasFixedViewportSize = false;
+	}
+}
+
 bool UMediaCapture::HasFinishedProcessing() const
 {
 	return WaitingForResolveCommandExecutionCounter == 0
@@ -417,29 +482,39 @@ bool UMediaCapture::HasFinishedProcessing() const
 
 void UMediaCapture::InitializeResolveTarget(int32 InNumberOfBuffers)
 {
+	if (bShouldCaptureRHITexture)
+	{
+		// No buffer is needed if the callback is with the RHI Texture
+		InNumberOfBuffers = 1;
+	}
+
 	NumberOfCaptureFrame = InNumberOfBuffers;
 	check(CaptureFrames.Num() == 0);
 	CaptureFrames.AddDefaulted(InNumberOfBuffers);
 
-	UMediaCapture* This = this;
-	ENQUEUE_RENDER_COMMAND(MediaOutputCaptureFrameCreateTexture)(
-		[This](FRHICommandListImmediate& RHICmdList)
-		{
-			FRHIResourceCreateInfo CreateInfo;
-			for (int32 Index = 0; Index < This->NumberOfCaptureFrame; ++Index)
+	// Only create CPU readback texture when we are using the CPU callback
+	if (!bShouldCaptureRHITexture)
+	{
+		UMediaCapture* This = this;
+		ENQUEUE_RENDER_COMMAND(MediaOutputCaptureFrameCreateTexture)(
+			[This](FRHICommandListImmediate& RHICmdList)
 			{
-				This->CaptureFrames[Index].ReadbackTexture = RHICreateTexture2D(
-					This->DesiredOutputSize.X,
-					This->DesiredOutputSize.Y,
-					This->DesiredOutputPixelFormat,
-					1,
-					1,
-					TexCreate_CPUReadback,
-					CreateInfo
-				);
-			}
-			This->bResolvedTargetInitialized = true;
-		});
+				FRHIResourceCreateInfo CreateInfo;
+				for (int32 Index = 0; Index < This->NumberOfCaptureFrame; ++Index)
+				{
+					This->CaptureFrames[Index].ReadbackTexture = RHICreateTexture2D(
+						This->DesiredOutputSize.X,
+						This->DesiredOutputSize.Y,
+						This->DesiredOutputPixelFormat,
+						1,
+						1,
+						TexCreate_CPUReadback,
+						CreateInfo
+					);
+				}
+				This->bResolvedTargetInitialized = true;
+			});
+	}
 }
 
 bool UMediaCapture::ValidateMediaOutput() const
@@ -735,13 +810,21 @@ void UMediaCapture::OnEndFrame_GameThread()
 				}
 			}
 
-			// Asynchronously copy duplicate target from GPU to System Memory
-			RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, CapturingFrame->ReadbackTexture, FResolveParams());
-
-			CapturingFrame->bResolvedTargetRequested = true;
+			if (InMediaCapture->bShouldCaptureRHITexture)
+			{
+				SCOPE_CYCLE_COUNTER(STAT_MediaCapture_RenderThread_Callback);
+				InMediaCapture->OnRHITextureCaptured_RenderingThread(CapturingFrame->CaptureBaseData, CapturingFrame->UserData, DestRenderTarget.TargetableTexture);
+				CapturingFrame->bResolvedTargetRequested = false;
+			}
+			else
+			{
+				// Asynchronously copy duplicate target from GPU to System Memory
+				RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, CapturingFrame->ReadbackTexture, FResolveParams());
+				CapturingFrame->bResolvedTargetRequested = true;
+			}
 		}
 
-		if (ReadyFrame && InMediaCapture->GetState() != EMediaCaptureState::Error)
+		if (!InMediaCapture->bShouldCaptureRHITexture && ReadyFrame && InMediaCapture->GetState() != EMediaCaptureState::Error)
 		{
 			check(ReadyFrame->ReadbackTexture.IsValid());
 

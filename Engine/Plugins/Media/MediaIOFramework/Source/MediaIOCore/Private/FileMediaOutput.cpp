@@ -51,7 +51,7 @@ FIntPoint UFileMediaOutput::GetRequestedSize() const
 		return DesiredSize;
 	}
 
-	return FIntPoint(GSystemResolution.ResX, GSystemResolution.ResY);
+	return UMediaOutput::RequestCaptureSourceSize;
 }
 
 

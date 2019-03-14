@@ -25,6 +25,12 @@ FMediaFrameworkCaptureRenderTargetCameraOutputInfo::FMediaFrameworkCaptureRender
 }
 
 
+UMediaFrameworkWorldSettingsAssetUserData::UMediaFrameworkWorldSettingsAssetUserData()
+{
+	CurrentViewportMediaOutput.CaptureOptions.bResizeSourceBuffer = true;
+}
+
+
 PRAGMA_DISABLE_DEPRECATION_WARNINGS
 void UMediaFrameworkWorldSettingsAssetUserData::Serialize(FArchive& Ar)
 {
