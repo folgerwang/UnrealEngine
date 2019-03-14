@@ -110,4 +110,12 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	/** Whether to show the in-game HUD whilst capturing */
 	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Cinematic, AdvancedDisplay, meta=(EditCondition="bCinematicMode"))
 	bool bShowHUD;
+
+	/** Whether to use the path tracer (if supported) to render the scene */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Cinematic, AdvancedDisplay)
+	bool bUsePathTracer;
+
+	/** Number of sampler per pixel to be used when rendering the scene with the path tracer (if supported) */
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Cinematic, AdvancedDisplay, meta = (EditCondition = "bUsePathTracer", ClampMin = 1, UIMin = 1, UIMax = 4096))
+	int32 PathTracerSamplePerPixel;
 };

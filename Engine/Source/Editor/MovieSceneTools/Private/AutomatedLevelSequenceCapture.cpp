@@ -88,6 +88,7 @@ UAutomatedLevelSequenceCapture::UAutomatedLevelSequenceCapture(const FObjectInit
 	WarmUpFrameCount = 0;
 	DelayBeforeWarmUp = 0.0f;
 	DelayBeforeShotWarmUp = 0.0f;
+	DelayEveryFrame = 0.0f;
 	bWriteEditDecisionList = true;
 	bWriteFinalCutProXML = true;
 
@@ -158,6 +159,17 @@ void UAutomatedLevelSequenceCapture::Initialize(TSharedPtr<FSceneViewport> InVie
 		{
 			DelayBeforeShotWarmUp = DelayBeforeShotWarmUpOverride;
 		}
+
+		float DelayEveryFrameOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("-MovieDelayEveryFrame="), DelayEveryFrameOverride))
+		{
+			DelayEveryFrame = DelayEveryFrameOverride;
+		}
+	}
+
+	if (Settings.bUsePathTracer)
+	{
+		DelayEveryFrame = float(Settings.FrameRate.AsSeconds(Settings.PathTracerSamplePerPixel));
 	}
 
 	ALevelSequenceActor* Actor = LevelSequenceActor.Get();
@@ -542,11 +554,11 @@ void UAutomatedLevelSequenceCapture::OnTick(float DeltaSeconds)
 
 		StartWarmup();
 
-		if (DelayBeforeWarmUp + DelayBeforeShotWarmUp > 0)
+		if (DelayBeforeWarmUp + DelayBeforeShotWarmUp + DelayEveryFrame > 0)
 		{
 			CaptureState = ELevelSequenceCaptureState::DelayBeforeWarmUp;
 
-			Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::DelayBeforeWarmupFinished), DelayBeforeWarmUp + DelayBeforeShotWarmUp, false);
+			Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::DelayBeforeWarmupFinished), DelayBeforeWarmUp + DelayBeforeShotWarmUp + DelayEveryFrame, false);
 		}
 		else
 		{
@@ -677,10 +689,14 @@ void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePl
 		if (Actor && Actor->SequencePlayer)
 		{
 			// If this is a new shot, set the state to shot warm up and pause on this frame until warmed up			
-			bool bHasMultipleShots = PreviousState.CurrentShotName != PreviousState.MasterName;
-			bool bNewShot = bHasMultipleShots && PreviousState.ShotID != CachedState.ShotID;
-			
-			if (bNewShot && Actor->SequencePlayer->IsPlaying() && DelayBeforeShotWarmUp > 0)
+			const bool bHasMultipleShots = PreviousState.CurrentShotName != PreviousState.MasterName;
+			const bool bNewShot = bHasMultipleShots && PreviousState.ShotID != CachedState.ShotID;
+			const bool bNewFrame = PreviousTime != CurrentTime;
+
+			const bool bDelayingBeforeShotWarmUp = (bNewShot && DelayBeforeShotWarmUp > 0);
+			const bool bDelayingEveryFrame = (bNewFrame && DelayEveryFrame > 0);
+
+			if (Actor->SequencePlayer->IsPlaying() && ( bDelayingBeforeShotWarmUp || bDelayingEveryFrame ))
 			{
 				if (bIsAudioCapturePass)
 				{
@@ -701,7 +717,7 @@ void UAutomatedLevelSequenceCapture::SequenceUpdated(const UMovieSceneSequencePl
 				
 				CaptureState = ELevelSequenceCaptureState::Paused;
 
-				Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::PauseFinished), DelayBeforeShotWarmUp, false);
+				Actor->GetWorld()->GetTimerManager().SetTimer(DelayTimer, FTimerDelegate::CreateUObject(this, &UAutomatedLevelSequenceCapture::PauseFinished), DelayBeforeShotWarmUp + DelayEveryFrame, false);
 				CachedPlayRate = Actor->SequencePlayer->GetPlayRate();
 				Actor->SequencePlayer->SetPlayRate(0.f);
 			}

@@ -130,6 +130,8 @@ private:
 	int32 BackedUpUseFixedPoolSize;
 	TArray<uint8> BackedUpPlaySettings;
 
+	bool CachedPathTracingMode = false;
+	FEngineShowFlags* CachedEngineShowFlags = nullptr;
 	TSubclassOf<AGameModeBase> CachedGameMode;
 };
 

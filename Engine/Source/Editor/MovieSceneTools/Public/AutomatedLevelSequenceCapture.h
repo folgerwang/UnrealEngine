@@ -56,7 +56,7 @@ public:
 	float DelayBeforeWarmUp;
 
 	/** The number of seconds to wait (in real-time) at shot boundaries.  Useful for allowing post processing effects to settle down before capturing the animation. */
-	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	UPROPERTY(config, EditAnywhere, BlueprintReadWrite, Category = Animation, AdvancedDisplay, meta = (Units = Seconds, ClampMin = 0))
 	float DelayBeforeShotWarmUp;
 
 	UPROPERTY(Transient, EditAnywhere, BlueprintReadWrite, Category=CaptureSettings, AdvancedDisplay, meta=(EditInline))
@@ -166,6 +166,9 @@ private:
 
 	/** The current shot movie that is rendering */
 	int32 ShotIndex;
+
+	/** The number of seconds to wait (in real-time) at every frame.  Useful for allowing post processing effects to settle down before capturing the animation. */
+	float DelayEveryFrame;
 
 	FLevelSequencePlayerSnapshot CachedState;
 
