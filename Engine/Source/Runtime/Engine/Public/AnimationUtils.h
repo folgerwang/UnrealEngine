@@ -276,10 +276,10 @@ public:
 	 */
 	ENGINE_API static UAnimCompress* GetDefaultAnimationCompressionAlgorithm();
 
-#if WITH_EDITOR
 	/** Returns the default animation curve compression settings, can never by null. */
 	ENGINE_API static UAnimCurveCompressionSettings* GetDefaultAnimationCurveCompressionSettings();
 
+#if WITH_EDITOR
 	/**
 	 * Compresses the animation curves within a sequence with the chosen settings.
 	 * Note: This modifies the sequence.

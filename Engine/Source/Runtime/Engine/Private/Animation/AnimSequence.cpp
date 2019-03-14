@@ -252,8 +252,9 @@ UAnimSequence::UAnimSequence(const FObjectInitializer& ObjectInitializer)
 	ImportResampleFramerate = 0;
 	bAllowFrameStripping = true;
 
-	InitCurveCompressionScheme();
 #endif
+
+	InitCurveCompressionScheme();
 }
 
 void UAnimSequence::PostInitProperties()
@@ -351,12 +352,16 @@ static void LoadOldCompressedTrack(FArchive& Ar, FCompressedTrack& Dst, int32 By
 	Ar << Dst.Ranges[0] << Dst.Ranges[1] << Dst.Ranges[2];
 }
 
-#if WITH_EDITORONLY_DATA
 void UAnimSequence::InitCurveCompressionScheme()
 {
 	// Do this is serialize as if the default animation curve compression asset isn't loaded it will
 // fire a warning if we try and load it in post load
-	if ((CurveCompressionSettings == nullptr || !CurveCompressionSettings->AreSettingsValid())
+
+	bool bCurveCompressionSettingsValid = CurveCompressionSettings != nullptr;
+#if WITH_EDITOR
+	bCurveCompressionSettingsValid = bCurveCompressionSettingsValid && CurveCompressionSettings->AreSettingsValid();
+#endif
+	if (!bCurveCompressionSettingsValid
 #if WITH_HOT_RELOAD
 		&& (GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) || !HasAnyFlags(RF_ClassDefaultObject) || !GIsHotReload) // Don't do this to native CDOs during Hot-Reload
 #endif
@@ -365,7 +370,6 @@ void UAnimSequence::InitCurveCompressionScheme()
 		CurveCompressionSettings = FAnimationUtils::GetDefaultAnimationCurveCompressionSettings();
 	}
 }
-#endif
 
 void UAnimSequence::Serialize(FArchive& Ar)
 {
@@ -2633,23 +2637,10 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 		check(RotationCodec != NULL);
 		((AnimEncoding*)RotationCodec)->ByteSwapIn(*this, MemoryReader);
 
-#if WITH_EDITOR
-		if (bDDCData)
-		{
-			FString CurveCodecPath;
-			Ar << CurveCodecPath;
+		FString CurveCodecPath;
+		Ar << CurveCodecPath;
 
-			CurveCompressionCodec = CurveCompressionSettings->GetCodec(CurveCodecPath);
-		}
-		else
-#else
-		check(!bDDCData);
-#endif
-		{
-			UAnimCurveCompressionCodec* CurveCodec = nullptr;
-			Ar << CurveCodec;
-			CurveCompressionCodec = CurveCodec;
-		}
+		CurveCompressionCodec = CurveCompressionSettings->GetCodec(CurveCodecPath);
 
 		int32 NumCurveBytes;
 		Ar << NumCurveBytes;
@@ -2684,19 +2675,10 @@ void UAnimSequence::SerializeCompressedData(FArchive& Ar, bool bDDCData)
 		// Count compressed data.
 		Ar.CountBytes(SerializedData.Num(), SerializedData.Num());
 
-#if WITH_EDITOR
-		if (bDDCData)
-		{
-			FString CurveCodecPath = CurveCompressionCodec->GetPathName();
-			Ar << CurveCodecPath;
-		}
-		else
-#else
-		check(!bDDCData);
-#endif
-		{
-			Ar << CurveCompressionCodec;
-		}
+
+		FString CurveCodecPath = CurveCompressionCodec->GetPathName();
+		Ar << CurveCodecPath;
+
 
 		int32 NumCurveBytes = CompressedCurveByteStream.Num();
 		Ar << NumCurveBytes;
