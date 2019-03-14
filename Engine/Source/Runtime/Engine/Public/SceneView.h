@@ -564,6 +564,7 @@ enum ETranslucencyVolumeCascade
 #define VIEW_UNIFORM_BUFFER_MEMBER_TABLE \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToClip) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, WorldToClip) \
+	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, ClipToWorld)  \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToView) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, ViewToTranslatedWorld) \
 	VIEW_UNIFORM_BUFFER_MEMBER(FMatrix, TranslatedWorldToCameraView) \

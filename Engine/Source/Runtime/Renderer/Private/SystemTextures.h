@@ -96,4 +96,4 @@ protected:
 };
 
 /** The global system textures used for scene rendering. */
-extern TGlobalResource<FSystemTextures> GSystemTextures;
+RENDERER_API extern TGlobalResource<FSystemTextures> GSystemTextures;

@@ -114,6 +114,7 @@ public:
 	BEGIN_SHADER_PARAMETER_STRUCT(FReflectionsInputs, )
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, Color)
 		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RayHitDistance)
+		SHADER_PARAMETER_RDG_TEXTURE(Texture2D, RayImaginaryDepth)
 	END_SHADER_PARAMETER_STRUCT()
 
 	/** All the outputs of the reflection denoiser may generate. */

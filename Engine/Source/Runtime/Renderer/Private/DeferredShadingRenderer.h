@@ -445,6 +445,7 @@ private:
 		const FViewInfo& View,
 		FRDGTextureRef* OutColorTexture,
 		FRDGTextureRef* OutRayHitDistanceTexture,
+		FRDGTextureRef* OutRayImaginaryDepthTexture,
 		int32 SamplePerPixel,
 		int32 HeightFog,
 		float ResolutionFraction);

@@ -791,7 +791,7 @@ void FDeferredShadingSceneRenderer::RenderDeferredReflectionsAndSkyLighting(FRHI
 			IScreenSpaceDenoiser::FReflectionsInputs DenoiserInputs;
 			RenderRayTracingReflections(
 				GraphBuilder,
-				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance,
+				View, &DenoiserInputs.Color, &DenoiserInputs.RayHitDistance, &DenoiserInputs.RayImaginaryDepth,
 				RayTracingReflectionsSPP, GRayTracingReflectionsHeightFog, RayTracingConfig.ResolutionFraction);
 
 

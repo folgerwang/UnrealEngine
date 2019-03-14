@@ -641,6 +641,7 @@ struct FPreviousViewInfo
 	TRefCountPtr<IPooledRenderTarget> DepthBuffer;
 	TRefCountPtr<IPooledRenderTarget> GBufferA;
 	TRefCountPtr<IPooledRenderTarget> GBufferB;
+	TRefCountPtr<IPooledRenderTarget> GBufferC;
 
 	// Temporal AA result of last frame
 	FTemporalAAHistory TemporalAAHistory;
@@ -675,6 +676,7 @@ struct FPreviousViewInfo
 		DepthBuffer.SafeRelease();
 		GBufferA.SafeRelease();
 		GBufferB.SafeRelease();
+		GBufferC.SafeRelease();
 		TemporalAAHistory.SafeRelease();
 		DOFPreGatherHistory.SafeRelease();
 		DOFPostGatherForegroundHistory.SafeRelease();

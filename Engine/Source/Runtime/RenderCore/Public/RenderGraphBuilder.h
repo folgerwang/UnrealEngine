@@ -353,7 +353,7 @@ public:
 		return OutParameterPtr;
 	}
 
-	/** Adds a lambda pass to the graph.
+	/** Adds a hard coded lambda pass to the graph.
 	 *
 	 * The Name of the pass should be generated with enough information to identify it's purpose and GPU cost, to be clear
 	 * for GPU profiling tools.
@@ -393,6 +393,31 @@ public:
 			{ ParameterStruct, &ParameterStructType::FTypeInfo::GetStructMetadata()->GetLayout() },
 			Flags,
 			static_cast<ExecuteLambdaType&&>(ExecuteLambda) );
+		Passes.Emplace(NewPass);
+
+		#if RENDER_GRAPH_DEBUGGING || SUPPORTS_VISUALIZE_TEXTURE
+		{
+			DebugPass(NewPass);
+		}
+		#endif
+	}
+
+	/** Adds a procedurally created pass to the render graph.
+	 *
+	 * Note: You want to use this only when the layout of the pass might be procedurally generated from data driven, as opose to AddPass() that have,
+	 * constant hard coded pass layout.
+	 *
+	 * Caution: You are on your own to have correct memory lifetime of the FRenderGraphPass.
+	 */
+	void AddProcedurallyCreatedPass(FRenderGraphPass* NewPass)
+	{
+		#if RENDER_GRAPH_DEBUGGING
+		{
+			checkf(!bHasExecuted, TEXT("Render graph pass %s needs to be added before the builder execution."), NewPass->GetName());
+		}
+		#endif
+
+		// TODO(RDG): perhaps the CurrentScope could be set here instead of GetCurrentScope(), to not allow user code to start adding pass to random scopes. 
 		Passes.Emplace(NewPass);
 
 		#if RENDER_GRAPH_DEBUGGING || SUPPORTS_VISUALIZE_TEXTURE
@@ -451,6 +476,11 @@ public:
 	 */
 	void Execute();
 
+	/** Returns the draw event scope, where passes are currently being added in. */
+	const FRDGEventScope* GetCurrentScope() const
+	{
+		return CurrentScope;
+	}
 
 public:
 	/** The RHI command list used for the render graph. */

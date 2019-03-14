@@ -67,6 +67,7 @@ RaytracingAccelerationStructure TLAS;
 
 RWTexture2D<float4> ColorOutput;
 RWTexture2D<float> RayHitDistanceOutput;
+RWTexture2D<float> RayImaginaryDepthOutput;
 
 
 // Material buffer and tile size are used for sorted materials.
@@ -434,6 +435,18 @@ void RayTracingReflectionsRGS()
 
 		ColorOutput[DispatchThreadId] = ClampToHalfFloatRange(ReflectedColor);
 		RayHitDistanceOutput[DispatchThreadId] = HitDistance;
+
+		// Imaginary depth computation for Nvidia's denoiser.
+		// TODO: shader permutation?
+		{
+			float3 OriginalWorldPos = ReconstructWorldPositionFromDepth(UV, Depth);
+			float3 CameraToPixel = normalize(OriginalWorldPos - View.WorldCameraOrigin.xyz);
+
+			float4 ImaginaryWorldPos = float4(OriginalWorldPos + CameraToPixel * HitDistance, 1.0f);
+			float4 ImaginaryClipPos = mul(ImaginaryWorldPos, View.WorldToClip);
+			float ImaginarySVDepth = saturate(ImaginaryClipPos.z / ImaginaryClipPos.w);
+			RayImaginaryDepthOutput[DispatchThreadId] = ImaginarySVDepth;
+		}
 	}
 }
 

@@ -66,6 +66,9 @@ public:
 	FRDGResource(const FRDGResource&) = delete;
 	void operator = (const FRDGResource&) = delete;
 
+	/** Boolean to track at runtime whether a ressource is actually used by the lambda of a pass or not, to detect unnecessary resource dependencies on passes. */
+	mutable bool bIsActuallyUsedByPass = false;
+
 private:
 	/** Number of references in passes and deferred queries. */
 	mutable int32 ReferenceCount = 0;
@@ -73,9 +76,6 @@ private:
 	// Used for tracking resource state during execution
 	mutable bool bWritable = false;
 	mutable bool bCompute = false;
-
-	/** Boolean to track at runtime whether a ressource is actually used by the lambda of a pass or not, to detect unnecessary resource dependencies on passes. */
-	mutable bool bIsActuallyUsedByPass = false;
 
 #if RENDER_GRAPH_DEBUGGING
 	/** Boolean to track at wiring time if a resource has ever been produced by a pass, to error out early if accessing a resource that has not been produced. */
@@ -122,11 +122,18 @@ public:
 	/** Descriptor of the graph tracked texture. */
 	const FPooledRenderTargetDesc Desc;
 
-	/** Returns the allocated pooled render target. */
+	/** Returns the allocated pooled render target. Must only be called within a pass's lambda. */
 	inline IPooledRenderTarget* GetPooledRenderTarget() const
 	{
 		check(PooledRenderTarget);
 		return PooledRenderTarget;
+	}
+
+	/** Returns the allocated RHI texture. Must only be called within a pass's lambda. */
+	inline FTextureRHIParamRef GetRHITexture() const
+	{
+		check(PooledRenderTarget);
+		return PooledRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
 	}
 
 private:
@@ -139,13 +146,6 @@ private:
 		: FRDGResource(DebugName)
 		, Desc(InDesc)
 	{ }
-
-	/** Returns the allocated RHI texture. */
-	inline FTextureRHIParamRef GetRHITexture() const
-	{
-		check(PooledRenderTarget);
-		return PooledRenderTarget->GetRenderTargetItem().ShaderResourceTexture;
-	}
 
 	friend class FRDGBuilder;
 
