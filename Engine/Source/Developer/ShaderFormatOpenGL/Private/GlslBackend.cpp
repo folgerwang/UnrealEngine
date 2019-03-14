@@ -1659,15 +1659,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 		{
 			if (bIsStructured)
 			{
-				if (src)
-				{
-					src->accept(this);
-					ralloc_asprintf_append(buffer, " = ");
-				}
 				deref->image->accept(this);
 				ralloc_asprintf_append(buffer, "[");
 				deref->image_index->accept(this);
 				ralloc_asprintf_append(buffer, "]");
+				if (src)
+				{
+					ralloc_asprintf_append(buffer, " = ");
+					src->accept(this);
+				}
 			}
 			else
 			{
