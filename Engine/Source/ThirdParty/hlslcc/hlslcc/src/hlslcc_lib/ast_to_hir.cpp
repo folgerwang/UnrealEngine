@@ -1581,18 +1581,17 @@ ir_rvalue* ast_expression::hir(exec_list *instructions, struct _mesa_glsl_parse_
 			for (int i = 0; i < dim; ++i)
 			{
 				ir_constant* const array_index = new (ctx) ir_constant(i);
-				ir_dereference_array* array_bool = new(ctx)ir_dereference_array(op[0], array_index);
+				ir_dereference_array* array_bool = new(ctx)ir_dereference_array(op[0]->clone(ctx, nullptr), array_index);
 				ir_dereference_array* array_out = new(ctx)ir_dereference_array(tmp, array_index);
-				ir_dereference_array* array_1 = new(ctx)ir_dereference_array(op[1], array_index);
-				ir_dereference_array* array_2 = new(ctx)ir_dereference_array(op[2], array_index);
+				ir_dereference_array* array_1 = new(ctx)ir_dereference_array(op[1]->clone(ctx, nullptr), array_index);
+				ir_dereference_array* array_2 = new(ctx)ir_dereference_array(op[2]->clone(ctx, nullptr), array_index);
 
 				ir_if *const stmt = new(ctx)ir_if(array_bool);
-				stmt->then_instructions.push_tail(new(ctx)ir_assignment(array_out, array_1));
-				stmt->else_instructions.push_tail(new(ctx)ir_assignment(array_out, array_2));
+				stmt->then_instructions.push_tail(new(ctx)ir_assignment(new(ctx)ir_dereference_array(tmp, array_index), array_1));
+				stmt->else_instructions.push_tail(new(ctx)ir_assignment(new(ctx)ir_dereference_array(tmp, array_index), array_2));
 				instructions->push_tail(stmt);
 			}
 			result = new(ctx)ir_dereference_variable(tmp);
-
 		}
 		else if (apply_type_conversion(type, op[0], instructions, state, false, &loc))
 		{
