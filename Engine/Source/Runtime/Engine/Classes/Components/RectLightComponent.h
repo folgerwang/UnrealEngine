@@ -48,8 +48,11 @@ class ENGINE_API URectLightComponent : public ULocalLightComponent
 	float BarnDoorLength;
 
 	/** Texture mapped to the light source rectangle */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Light)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light)
 	class UTexture* SourceTexture;
+
+	UFUNCTION(BlueprintCallable, Category = "Rendering|Lighting")
+	void SetSourceTexture(UTexture* bNewValue);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetSourceWidth(float bNewValue);
@@ -75,9 +78,15 @@ public:
 	virtual float GetUniformPenumbraSize() const override;
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 
+	virtual void BeginDestroy() override;
 	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	//~ End UObject Interface
+
+private:
+	void UpdateRayTracingData();
+	friend class FRectLightSceneProxy;
+	struct FRectLightRayTracingData* RayTracingData;
 };
