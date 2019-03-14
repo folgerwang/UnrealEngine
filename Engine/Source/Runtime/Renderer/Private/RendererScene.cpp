@@ -3156,16 +3156,36 @@ void FScene::ApplyWorldOffset(FVector InOffset)
 		});
 }
 
-void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
+void FScene::ApplyWorldOffset_RenderThread(const FVector& InOffset)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_SceneApplyWorldOffset);
 	
+	GPUScene.bUpdateAllPrimitives = true;
+
 	// Primitives
-	for (auto It = Primitives.CreateIterator(); It; ++It)
+	for (int32 Idx = 0; Idx < Primitives.Num(); ++Idx)
 	{
-		(*It)->ApplyWorldOffset(InOffset);
+		Primitives[Idx]->ApplyWorldOffset(InOffset);
+	}
+	
+	// Primitive transforms
+	for (int32 Idx = 0; Idx < PrimitiveTransforms.Num(); ++Idx)
+	{
+		PrimitiveTransforms[Idx].SetOrigin(PrimitiveTransforms[Idx].GetOrigin() + InOffset);
 	}
 
+	// Primitive bounds
+	for (int32 Idx = 0; Idx < PrimitiveBounds.Num(); ++Idx)
+	{
+		PrimitiveBounds[Idx].BoxSphereBounds.Origin+= InOffset;
+	}
+
+	// Primitive occlusion bounds
+	for (int32 Idx = 0; Idx < PrimitiveOcclusionBounds.Num(); ++Idx)
+	{
+		PrimitiveOcclusionBounds[Idx].Origin+= InOffset;
+	}
+	
 	// Precomputed light volumes
 	for (const FPrecomputedLightVolume* It : PrecomputedLightVolumes)
 	{
@@ -3183,18 +3203,6 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 
 	// Primitives octree
 	PrimitiveOctree.ApplyOffset(InOffset, /*bGlobalOctee*/ true);
-
-	// Primitive bounds
-	for (auto It = PrimitiveBounds.CreateIterator(); It; ++It)
-	{
-		(*It).BoxSphereBounds.Origin+= InOffset;
-	}
-
-	// Primitive occlusion bounds
-	for (auto It = PrimitiveOcclusionBounds.CreateIterator(); It; ++It)
-	{
-		(*It).Origin+= InOffset;
-	}
 
 	// Lights
 	VectorRegister OffsetReg = VectorLoadFloat3_W0(&InOffset);
