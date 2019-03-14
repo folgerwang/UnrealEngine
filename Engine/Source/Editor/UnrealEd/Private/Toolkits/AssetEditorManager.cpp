@@ -186,7 +186,7 @@ void FAssetEditorManager::RemoveAssetFromAllEditors(UObject* Asset)
 
 	for (IAssetEditorInstance* EditorIter : EditorInstances)
 	{
-		if (EditorInstance)
+		if (EditorIter)
 		{
 			EditorIter->RemoveEditingAsset(Asset);
 		}
