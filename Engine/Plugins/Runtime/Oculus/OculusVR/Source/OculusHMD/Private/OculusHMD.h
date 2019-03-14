@@ -328,6 +328,7 @@ public:
 	void StartRHIFrame_RenderThread(); // Called from PreRenderViewFamily_RenderThread
 	void FinishRHIFrame_RHIThread(); // Called from FinishRendering_RHIThread
 
+	void SetCPUAndGPULevel(int CPULevel, int GPULevel);
 	void SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel);
 	void SetColorScaleAndOffset(FLinearColor ColorScale, FLinearColor ColorOffset, bool bApplyToAllLayers);
 

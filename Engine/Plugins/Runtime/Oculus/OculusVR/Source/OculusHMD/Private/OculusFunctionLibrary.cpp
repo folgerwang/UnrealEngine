@@ -134,8 +134,7 @@ void UOculusFunctionLibrary::SetCPUAndGPULevels(int CPULevel, int GPULevel)
 	OculusHMD::FOculusHMD* OculusHMD = GetOculusHMD();
 	if (OculusHMD != nullptr && OculusHMD->IsHMDActive())
 	{
-		ovrp_SetSystemCpuLevel2(CPULevel);
-		ovrp_SetSystemGpuLevel2(GPULevel);
+		OculusHMD->SetCPUAndGPULevel(CPULevel, GPULevel);
 	}
 #endif // OCULUS_HMD_SUPPORTED_PLATFORMS
 }

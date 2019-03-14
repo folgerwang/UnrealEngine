@@ -2760,6 +2760,15 @@ namespace OculusHMD
 		return PerformanceStats;
 	}
 
+	void FOculusHMD::SetCPUAndGPULevel(int CPULevel, int GPULevel)
+	{
+		CheckInGameThread();
+		Settings->CPULevel = CPULevel;
+		Settings->GPULevel = GPULevel;
+		ovrp_SetSystemCpuLevel2(Settings->CPULevel);
+		ovrp_SetSystemGpuLevel2(Settings->GPULevel);
+	}
+
 
 	void FOculusHMD::SetTiledMultiResLevel(ETiledMultiResLevel multiresLevel)
 	{
