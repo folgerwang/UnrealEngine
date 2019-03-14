@@ -313,6 +313,10 @@
 		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.tps
 		Engine/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/lib/Win64/*.lib
 		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.tps
+		
+		<!-- Windows Mixed Reality delay-load .dll related files -->
+		Engine/Plugins/Runtime/WindowsMixedReality/Binaries/ThirdParty/MixedRealityInteropLibrary/Win64/*.dll
+		Engine/Plugins/Runtime/WindowsMixedReality/Binaries/ThirdParty/MixedRealityInteropLibrary/Win64/*.pdb
 	</Property>
 	<Property Name="CopyWin64Exceptions">
 	</Property>
@@ -331,6 +335,10 @@
 		Engine/Source/ThirdParty/Oculus/LibOVRPlatform/*.tps
 		Engine/Source/ThirdParty/Oculus/OVRPlugin/OVRPlugin/lib/Win32/*.lib
 		Engine/Source/ThirdParty/Oculus/OVRPlugin/*.tps
+
+		<!-- Windows Mixed Reality delay-load .dll related files -->
+		Engine/Plugins/Runtime/WindowsMixedReality/Binaries/ThirdParty/MixedRealityInteropLibrary/Win32/*.dll
+		Engine/Plugins/Runtime/WindowsMixedReality/Binaries/ThirdParty/MixedRealityInteropLibrary/Win32/*.pdb
 	</Property>
 	<Property Name="CopyWin32Exceptions">
 	</Property>
