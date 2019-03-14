@@ -414,6 +414,7 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(c
 		ActorSpawnParameters.Name = MakeUniqueObjectName(World, PresenceActorClass, PresenceActorClass->GetFName()); // @todo how should spawned actors be named?
 		ActorSpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		ActorSpawnParameters.ObjectFlags = EObjectFlags::RF_DuplicateTransient;
+		ActorSpawnParameters.bDeferConstruction = true;
 
 		PresenceActor = World->SpawnActor<AConcertClientPresenceActor>(PresenceActorClass, ActorSpawnParameters);
 
@@ -432,6 +433,10 @@ AConcertClientPresenceActor* FConcertClientPresenceManager::SpawnPresenceActor(c
 
 	// Setup the asset container.
 	PresenceActor->InitPresence(*AssetContainer, VRDevice);
+	{
+		FEditorScriptExecutionGuard UCSGuard;
+		PresenceActor->FinishSpawning(FTransform(), true);
+	}
 
 	return PresenceActor;
 }

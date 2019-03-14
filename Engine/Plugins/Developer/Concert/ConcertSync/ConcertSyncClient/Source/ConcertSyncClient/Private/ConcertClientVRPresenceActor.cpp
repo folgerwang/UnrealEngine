@@ -174,7 +174,7 @@ void AConcertClientVRPresenceActor::InitPresence(const class UConcertAssetContai
 	Super::InitPresence(InAssetContainer, DeviceType);
 
 	// To do, send data about these through the event.
-	UStaticMesh* ControllerMesh = DeviceType == FName(TEXT("OculusHMD")) ? InAssetContainer.OculusControllerMesh : InAssetContainer.VivePreControllerMesh;
+	UStaticMesh* ControllerMesh = PresenceDeviceType == FName(TEXT("OculusHMD")) ? InAssetContainer.OculusControllerMesh : InAssetContainer.VivePreControllerMesh;
 
 	LeftControllerMeshComponent->SetStaticMesh(ControllerMesh);
 	LeftControllerMeshComponent->SetMobility(EComponentMobility::Movable);

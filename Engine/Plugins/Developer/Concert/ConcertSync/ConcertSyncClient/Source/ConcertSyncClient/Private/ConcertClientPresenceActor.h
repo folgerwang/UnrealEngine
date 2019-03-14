@@ -56,6 +56,10 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 
 protected:
+	/* The device type that this presence represent (i.e Oculus, Vive, Desktop) */
+	UPROPERTY(BlueprintReadOnly, Category = "Rendering", meta = (AllowPrivateAccess = "true"))
+	FName PresenceDeviceType;
+
 	/** The camera mesh component to show visually where the camera is placed */
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Rendering", meta = (AllowPrivateAccess = "true"))
 	class UStaticMeshComponent* PresenceMeshComponent;
