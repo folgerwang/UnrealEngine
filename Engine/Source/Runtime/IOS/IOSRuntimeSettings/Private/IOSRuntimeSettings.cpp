@@ -32,7 +32,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bShipForArmV7 = false;
 	bShipForArm64 = true;
 	bShipForArmV7S = false;
-	bShipForBitcode = false;
+	bShipForBitcode = true;
 	bUseRSync = true;
 	AdditionalPlistData = TEXT("");
 	AdditionalLinkerFlags = TEXT("");
