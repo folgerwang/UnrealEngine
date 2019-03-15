@@ -76,6 +76,7 @@ UMediaCapture::FCaptureFrame::FCaptureFrame()
 FMediaCaptureOptions::FMediaCaptureOptions()
 	: Crop(EMediaCaptureCroppingType::None)
 	, CustomCapturePoint(FIntPoint::ZeroValue)
+	, bResizeSourceBuffer(false)
 {
 
 }
