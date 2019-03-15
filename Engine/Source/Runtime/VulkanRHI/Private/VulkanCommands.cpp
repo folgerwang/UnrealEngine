@@ -631,7 +631,8 @@ inline void FVulkanCommandListContext::SetShaderUniformBuffer(ShaderStage::EStag
 		}
 		else
 		{
-			PendingGfxState->SetUniformBufferConstantData(Stage, BufferIndex, UniformBuffer->ConstantData);
+			const FVulkanEmulatedUniformBuffer* EmulatedUniformBuffer = static_cast<const FVulkanEmulatedUniformBuffer*>(UniformBuffer);
+			PendingGfxState->SetUniformBufferConstantData(Stage, BufferIndex, EmulatedUniformBuffer->ConstantData);
 		}
 	}
 
@@ -734,7 +735,8 @@ void FVulkanCommandListContext::RHISetShaderUniformBuffer(FComputeShaderRHIParam
 		}
 		else
 		{
-			State.SetUniformBufferConstantData(BufferIndex, UniformBuffer->ConstantData);
+			const FVulkanEmulatedUniformBuffer* EmulatedUniformBuffer = static_cast<const FVulkanEmulatedUniformBuffer*>(UniformBuffer);
+			State.SetUniformBufferConstantData(BufferIndex, EmulatedUniformBuffer->ConstantData);
 		}
 	}
 

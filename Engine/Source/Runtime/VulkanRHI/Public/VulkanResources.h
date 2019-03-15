@@ -1202,28 +1202,33 @@ public:
 class FVulkanUniformBuffer : public FRHIUniformBuffer
 {
 public:
-	FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage InUsage, EUniformBufferValidation Validation, bool bCopyIntoConstantData);
-
-	TArray<uint8> ConstantData;
+	FVulkanUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage InUsage, EUniformBufferValidation Validation);
 
 	const TArray<TRefCountPtr<FRHIResource>>& GetResourceTable() const { return ResourceTable; }
 
 	void UpdateResourceTable(const FRHIUniformBufferLayout& InLayout, const void* Contents, int32 ResourceNum);
 	void UpdateResourceTable(FRHIResource** Resources, int32 ResourceNum);
 
-	virtual void Update(const void* Contents, int32 ContentsSize);
-
-
-private:
+protected:
 	TArray<TRefCountPtr<FRHIResource>> ResourceTable;
+};
+
+class FVulkanEmulatedUniformBuffer : public FVulkanUniformBuffer
+{
+public:
+	FVulkanEmulatedUniformBuffer(const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage InUsage, EUniformBufferValidation Validation);
+
+	TArray<uint8> ConstantData;
+
+	void UpdateConstantData(const void* Contents, int32 ContentsSize);
 };
 
 class FVulkanRealUniformBuffer : public FVulkanUniformBuffer, public FVulkanResourceMultiBuffer
 {
 public:
-	FVulkanRealUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage, EUniformBufferValidation Validation);
+	FVulkanRealUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage InUsage, EUniformBufferValidation Validation);
 
-	virtual void Update(const void* Contents, int32 ContentsSize);
+	void Update(const void* Contents, int32 ContentsSize);
 
 private:
 	TArray<TRefCountPtr<FRHIResource>> ResourceTable;
