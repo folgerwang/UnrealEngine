@@ -1735,10 +1735,6 @@ void EndLoad(FUObjectSerializeContext* LoadContext)
 		{
 			LoadContext->DetachFromLinkers();
 		}
-
-		{
-			LoadContext->DetachFromLinkers();
-		}
 	}
 }
 
