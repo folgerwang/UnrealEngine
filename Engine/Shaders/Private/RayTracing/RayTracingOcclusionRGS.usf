@@ -209,6 +209,7 @@ void OcclusionRGS()
 		}
 		else if (dot(WorldNormal, Ray.Direction) <= 0.0)
 		{
+			ClosestRayDistance = 0.001;
 			continue;
 		}
 
