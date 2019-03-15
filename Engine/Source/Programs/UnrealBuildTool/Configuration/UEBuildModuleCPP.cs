@@ -723,7 +723,18 @@ namespace UnrealBuildTool
 			List<FileItem> NormalFiles = new List<FileItem>();
 			List<FileItem> AdaptiveFiles = new List<FileItem>();
 
-			bool bAdaptiveUnityDisablesPCH = (Target.bAdaptiveUnityDisablesPCH && Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs);
+			bool bAdaptiveUnityDisablesPCH = false;
+			if(Rules.PCHUsage == ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs)
+			{
+				if(Rules.bTreatAsEngineModule || Rules.PrivatePCHHeaderFile == null)
+				{
+					bAdaptiveUnityDisablesPCH = Target.bAdaptiveUnityDisablesPCH;
+				}
+				else
+				{
+					bAdaptiveUnityDisablesPCH = Target.bAdaptiveUnityDisablesPCHForProject;
+				}
+			}
 
 			if ((Target.bAdaptiveUnityDisablesOptimizations || bAdaptiveUnityDisablesPCH || Target.bAdaptiveUnityCreatesDedicatedPCH) && !Target.bStressTestUnity)
 			{
