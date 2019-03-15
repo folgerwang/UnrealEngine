@@ -131,7 +131,7 @@ private:
 	TArray<uint8> BackedUpPlaySettings;
 
 	bool CachedPathTracingMode = false;
-	FEngineShowFlags* CachedEngineShowFlags = nullptr;
+	struct FEngineShowFlags* CachedEngineShowFlags = nullptr;
 	TSubclassOf<AGameModeBase> CachedGameMode;
 };
 
