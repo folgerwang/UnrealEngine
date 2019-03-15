@@ -109,16 +109,21 @@ namespace WindowsMixedReality
 			// Get the base directory of this plugin
 			FString BaseDir = IPluginManager::Get().FindPlugin("WindowsMixedReality")->GetBaseDir();
 
-			// Add on the relative location of the third party dll and load it
-			FString LibraryPath;
+			FString EngineDir = FPaths::EngineDir();
+			FString BinariesSubDir = FPlatformProcess::GetBinariesSubdirectory();
 
-#if PLATFORM_64BITS
-			LibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/MixedRealityInteropLibrary/Win64/MixedRealityInterop.dll"));
-#else 
-			LibraryPath = FPaths::Combine(*BaseDir, TEXT("Binaries/ThirdParty/MixedRealityInteropLibrary/Win32/MixedRealityInterop.dll"));
-#endif // PLATFORM_64BITS
+			FString PerceptionSimulationDLLPath = EngineDir / "Binaries" / BinariesSubDir / "Microsoft.Perception.Simulation.dll";
+			FString HolographicStreamerDesktopDLLPath = EngineDir / "Binaries" / BinariesSubDir / "HolographicStreamerDesktop.dll";
+			FString VCCorLib140DLLPath = EngineDir / "Binaries/ThirdParty/AppLocalDependencies" / BinariesSubDir / "Microsoft.VC140.CRT/vccorlib140.dll";
+			FString MRInteropLibraryPath = BaseDir / "Binaries/ThirdParty/MixedRealityInteropLibrary" / BinariesSubDir / "MixedRealityInterop.dll";
 
-			void* MixedRealityInteropLibraryHandle = !LibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*LibraryPath) : nullptr;
+			// Load these dependencies first or MixedRealityInteropLibraryHandle fails to load since it doesn't look in the correct path for its dependencies automatically
+			void* PerceptionSimulationDLLHandle = FPlatformProcess::GetDllHandle(*PerceptionSimulationDLLPath);
+			void* HolographicStreamerDesktopDLLHandle = FPlatformProcess::GetDllHandle(*HolographicStreamerDesktopDLLPath);
+			void* VCCorLib140DLLHandle = FPlatformProcess::GetDllHandle(*VCCorLib140DLLPath);
+
+			// Then finally try to load the WMR Interop Library
+			void* MixedRealityInteropLibraryHandle = !MRInteropLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*MRInteropLibraryPath) : nullptr;
 
 			FString OSVersionLabel;
 			FString OSSubVersionLabel;

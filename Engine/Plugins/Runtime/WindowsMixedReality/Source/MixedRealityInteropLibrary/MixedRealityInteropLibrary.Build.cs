@@ -23,5 +23,6 @@ public class MixedRealityInteropLibrary : ModuleRules
 		PublicAdditionalLibraries.Add("MixedRealityInterop.lib");
 		// Delay-load the DLL, so we can load it from the right place first
 		PublicDelayLoadDLLs.Add("MixedRealityInterop.dll");
-	}
+        RuntimeDependencies.Add(PluginDirectory + "/Binaries/ThirdParty/MixedRealityInteropLibrary/" + Target.Platform.ToString() + "/MixedRealityInterop.dll");
+    }
 }
