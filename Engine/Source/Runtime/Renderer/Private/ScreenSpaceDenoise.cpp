@@ -24,8 +24,13 @@ static TAutoConsoleVariable<int32> CVarShadowUse1SPPCodePath(
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarShadowReconstructionSampleCount(
-	TEXT("r.Shadow.Denoiser.ReconstructionSamples"), 16,
+	TEXT("r.Shadow.Denoiser.ReconstructionSamples"), 8,
 	TEXT("Maximum number of samples for the reconstruction pass (default = 16)."),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarShadowPreConvolutionCount(
+	TEXT("r.Shadow.Denoiser.PreConvolution"), 1,
+	TEXT("Number of pre-convolution passes (default = 1)."),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarShadowTemporalAccumulation(
@@ -150,6 +155,12 @@ static bool SignalUsesInjestion(ESignalProcessing SignalProcessing)
 	return SignalProcessing == ESignalProcessing::MonochromaticPenumbra;
 }
 
+/** Returns whether a signal processing uses an additional pre convolution pass. */
+static bool SignalUsesPreConvolution(ESignalProcessing SignalProcessing)
+{
+	return SignalProcessing == ESignalProcessing::MonochromaticPenumbra;
+}
+
 /** Returns whether a signal processing uses a history rejection pre convolution pass. */
 static bool SignalUsesRejectionPreConvolution(ESignalProcessing SignalProcessing)
 {
@@ -251,6 +262,32 @@ const TCHAR* const kReconstructionResourceNames[] = {
 	TEXT("GIReconstruction1"),
 	TEXT("GIReconstruction2"),
 	TEXT("GIReconstruction3"),
+};
+
+const TCHAR* const kPreConvolutionResourceNames[] = {
+	// Penumbra
+	TEXT("ShadowPreConvolution0"),
+	TEXT("ShadowPreConvolution1"),
+	TEXT("ShadowPreConvolution2"),
+	TEXT("ShadowPreConvolution3"),
+
+	// Reflections
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// AmbientOcclusion
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
+
+	// GlobalIllumination
+	nullptr,
+	nullptr,
+	nullptr,
+	nullptr,
 };
 
 const TCHAR* const kRejectionPreConvolutionResourceNames[] = {
@@ -489,6 +526,9 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 		// Spatial kernel used to process raw input for the temporal accumulation.
 		ReConstruction,
 
+		// Spatial kernel to pre filter.
+		PreConvolution,
+
 		// Spatial kernel used to pre convolve history rejection.
 		RejectionPreConvolution,
 
@@ -526,6 +566,13 @@ class FSSDSpatialAccumulationCS : public FScreenSpaceDenoisingShader
 		// Only reconstruction have upscale capability for now.
 		if (PermutationVector.Get<FUpscaleDim>() && 
 			PermutationVector.Get<FStageDim>() != EStage::ReConstruction)
+		{
+			return false;
+		}
+
+		// Only compile pre convolution for signal that uses it.
+		if (!SignalUsesPreConvolution(SignalProcessing) &&
+			PermutationVector.Get<FStageDim>() == EStage::PreConvolution)
 		{
 			return false;
 		}
@@ -638,6 +685,7 @@ struct FSSDConstantPixelDensitySettings
 	int32 MaxInputSPP = 1;
 	float InputResolutionFraction = 1.0f;
 	int32 ReconstructionSamples = 1;
+	int32 PreConvolutionCount = 0;
 	bool bUseTemporalAccumulation = false;
 	int32 HistoryConvolutionSampleCount = 1;
 	float HistoryConvolutionKernelSpreadFactor = 1.0f;
@@ -868,6 +916,41 @@ static void DenoiseSignalAtConstantPixelDensity(
 				PassParameters->MaxSampleCount,
 				int32(PermutationVector.Get<FSSDSpatialAccumulationCS::FUpscaleDim>()),
 				int32(PermutationVector.Get<FMultiSPPDim>())),
+			*ComputeShader,
+			PassParameters,
+			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
+
+		SignalHistory = NewSignalOutput;
+	}
+
+	// Spatial pre convolutions
+	for (int32 PreConvolutionId = 0; PreConvolutionId < Settings.PreConvolutionCount; PreConvolutionId++)
+	{
+		check(SignalUsesPreConvolution(Settings.SignalProcessing));
+
+		FSSDSignalTextures NewSignalOutput = CreateMultiplexedTextures(
+			GraphBuilder,
+			ReconstructionTextureCount, ReconstructionDescs,
+			GetResourceNames(kPreConvolutionResourceNames));
+
+		FSSDSpatialAccumulationCS::FParameters* PassParameters = GraphBuilder.AllocParameters<FSSDSpatialAccumulationCS::FParameters>();
+		PassParameters->CommonParameters = CommonParameters;
+		PassParameters->ConvolutionMetaData = ConvolutionMetaData;
+		PassParameters->SignalInput = SignalHistory;
+		PassParameters->SignalOutput = CreateMultiplexedUAVs(GraphBuilder, NewSignalOutput);
+
+		PassParameters->DebugOutput = GraphBuilder.CreateUAV(GraphBuilder.CreateTexture(DebugDesc, TEXT("DebugDenoiserPreConvolution")));
+
+		FSSDSpatialAccumulationCS::FPermutationDomain PermutationVector;
+		PermutationVector.Set<FSignalProcessingDim>(Settings.SignalProcessing);
+		PermutationVector.Set<FSignalBatchSizeDim>(Settings.SignalBatchSize);
+		PermutationVector.Set<FSSDSpatialAccumulationCS::FStageDim>(FSSDSpatialAccumulationCS::EStage::PreConvolution);
+		PermutationVector.Set<FMultiSPPDim>(true);
+
+		TShaderMapRef<FSSDSpatialAccumulationCS> ComputeShader(View.ShaderMap, PermutationVector);
+		FComputeShaderUtils::AddPass(
+			GraphBuilder,
+			RDG_EVENT_NAME("SSD PreConvolution(MaxSamples=7)"),
 			*ComputeShader,
 			PassParameters,
 			FComputeShaderUtils::GetGroupCount(DenoiseResolution, FSSDSpatialAccumulationCS::kGroupSize));
@@ -1177,6 +1260,7 @@ public:
 		Settings.SignalProcessing = ESignalProcessing::MonochromaticPenumbra;
 		Settings.InputResolutionFraction = 1.0f;
 		Settings.ReconstructionSamples = CVarShadowReconstructionSampleCount.GetValueOnRenderThread();
+		Settings.PreConvolutionCount = CVarShadowPreConvolutionCount.GetValueOnRenderThread();
 		Settings.bUseTemporalAccumulation = CVarShadowTemporalAccumulation.GetValueOnRenderThread() != 0;
 		Settings.HistoryConvolutionSampleCount = CVarShadowHistoryConvolutionSampleCount.GetValueOnRenderThread();
 		Settings.SignalBatchSize = InputParameterCount;

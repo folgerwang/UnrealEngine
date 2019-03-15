@@ -612,7 +612,7 @@ void TemporallyAccumulate(
 				float NeightborMinBluringRadius = SignalAccumulators.Array[BatchedSignalId].MinInvFrequency;
 				CurrentFrameSample.WorldBluringRadius = min(CurrentFrameSample.WorldBluringRadius, NeightborMinBluringRadius * CurrentFrameSample.AccumulatedSampleCount); 
 			
-				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA && 1
+				#if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA && 0
 					DebugOutput[DispatchThreadId] = float4(
 						NeightborMinBluringRadius,
 						NeightborMinBluringRadius == WORLD_RADIUS_MISS,

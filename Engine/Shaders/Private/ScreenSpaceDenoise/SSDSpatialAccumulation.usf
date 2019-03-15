@@ -7,9 +7,10 @@
 
 /** Different possible stage for spatial accumulation. Matches  */
 	#define STAGE_RECONSTRUCTION 0
-	#define STAGE_REJECTION_PRE_CONVOLUTION 1
-	#define STAGE_POST_FILTERING 2
-	#define STAGE_FINAL_OUTPUT 3
+	#define STAGE_PRE_CONVOLUTION 1
+	#define STAGE_REJECTION_PRE_CONVOLUTION 2
+	#define STAGE_POST_FILTERING 3
+	#define STAGE_FINAL_OUTPUT 4
 
 /** Policy to use to change the size of kernel. */
 	#define SAMPLE_COUNT_POLICY_DISABLED 0
@@ -40,7 +41,7 @@
 // Configures all the pass for each individual signals.
 #if CONFIG_SIGNAL_PROCESSING == SIGNAL_PROCESSING_MONOCHROMATIC_PENUMBRA
 	//#define CONFIG_VIEW_POSITION_BASED_BILATERAL 2
-	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 3
+	#define CONFIG_VIEW_POSITION_BASED_BILATERAL 4
 	#define CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN 1
 
 	#if DIM_STAGE == STAGE_RECONSTRUCTION
@@ -53,6 +54,15 @@
 		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION
 
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
+		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
+		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
+
+	#elif DIM_STAGE == STAGE_PRE_CONVOLUTION
+		// Input and output layout.
+		#define CONFIG_SIGNAL_INPUT_LAYOUT  SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION
+		#define CONFIG_SIGNAL_OUTPUT_LAYOUT SIGNAL_BUFFER_LAYOUT_PENUMBRA_RECONSTRUCTION
+
+		#define CONFIG_SAMPLE_SET           SAMPLE_SET_HEXAWEB
 		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
 		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
 
@@ -407,7 +417,7 @@ void MainCS(
 		KernelConfig.BufferLayout = CONFIG_SIGNAL_INPUT_LAYOUT;
 		KernelConfig.MultiplexedSignalsPerSignalDomain = CONFIG_MULTIPLEXED_SIGNALS_PER_SIGNAL_DOMAIN;
 		KernelConfig.bUnroll = CONFIG_SAMPLE_SET != SAMPLE_SET_STACKOWIAK_4_SETS;
-		KernelConfig.bDescOrder = CONFIG_OUTPUT_MODE == OUTPUT_MODE_DRB && CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS;
+		KernelConfig.bDescOrder = CONFIG_OUTPUT_MODE == OUTPUT_MODE_DRB;
 		KernelConfig.BilateralDistanceComputation = CONFIG_BILATERAL_DISTANCE_COMPUTATION;
 		KernelConfig.bNormalizeSample = CONFIG_NORMALIZE_INPUT != 0;
 		
@@ -456,6 +466,16 @@ void MainCS(
 					SampleInfos);
 			}
 		}
+
+		#if DIM_STAGE == STAGE_PRE_CONVOLUTION
+		{
+			KernelConfig.RingCount = 1;
+			KernelConfig.KernelSpreadFactor = 8;
+
+			// TODO: could be improved.
+			KernelConfig.bMinSamplePairInvFrequency = true;
+		}
+		#endif
 
 		// When doing history rejection preconvolution may have invalid ref sample, in witch case need to force take neighborhood to have a clamping box.
 		#if DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION && CONFIG_UPSCALE
@@ -607,7 +627,7 @@ void MainCS(
 				}
 			}
 
-			if (0)
+			if (0 && DIM_STAGE == STAGE_PRE_CONVOLUTION)
 			{
 				DebugOutput[DispatchThreadId] = float4(
 					SignalAccumulators.Array[0].Previous.AccumulatedSampleCount,

@@ -507,7 +507,7 @@ float ComputeBilateralWeight(
 
 		PositionBilateralWeight = saturate(1 - DistFromRefPlane * rcp(MaxWorldBluringDistance));
 	}
-	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 3 && 1
+	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 3
 	{
 		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
 
@@ -516,7 +516,7 @@ float ComputeBilateralWeight(
 			PositionBilateralWeight = 0;
 		}
 	}
-	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 3
+	#elif CONFIG_VIEW_POSITION_BASED_BILATERAL == 4
 	{
 		float3 V = RefSceneMetadata.TranslatedWorldPosition - NeighborSceneMetadata.TranslatedWorldPosition;
 
