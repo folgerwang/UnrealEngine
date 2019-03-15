@@ -347,6 +347,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 					Buffer,
 					TEXT("HTTP/1.0 200 OK\x0d\x0a")
 					TEXT("Server: Unreal File Server\x0d\x0a")
+					TEXT("Access-Control-Allow-Origin: *\x0d\x0a")
 					TEXT("Connection: close\x0d\x0a")
 					TEXT("Content-Type: text/html; charset=utf-8\x0d\x0a")
 					TEXT("Content-Length: %u\x0d\x0a\x0d\x0a%s"),
@@ -421,6 +422,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 					Length = FCString::Sprintf(Header,
 						TEXT("HTTP/1.1 200 OK\x0d\x0a")
 						TEXT("Server: Unreal File Server\x0d\x0a")
+						TEXT("Access-Control-Allow-Origin: *\x0d\x0a")
 						TEXT("Connection: close\x0d\x0a")
 						TEXT("Content-Type: %s \x0d\x0a")
 						TEXT("Content-Encoding: gzip\x0d\x0a")
@@ -432,6 +434,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 					Length = FCString::Sprintf(Header,
 						TEXT("HTTP/1.1 200 OK\x0d\x0a")
 						TEXT("Server: Unreal File Server\x0d\x0a")
+						TEXT("Access-Control-Allow-Origin: *\x0d\x0a")
 						TEXT("Connection: close\x0d\x0a")
 						TEXT("Content-Type: %s \x0d\x0a")
 						TEXT("Content-Length: %u\x0d\x0a\x0d\x0a"),
@@ -477,6 +480,7 @@ int FNetworkFileServerHttp::CallBack_HTTP(
 				(ANSICHAR*)Header,
 				"HTTP/1.1 200 OK\x0d\x0a"
 				"Server: Unreal File Server\x0d\x0a"
+				"Access-Control-Allow-Origin: *\x0d\x0a"
 				"Connection: close\x0d\x0a"
 				"Content-Type: application/octet-stream \x0d\x0a"
 				"Content-Length: %u\x0d\x0a\x0d\x0a",

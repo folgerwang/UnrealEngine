@@ -587,19 +587,20 @@ public class HTML5Platform : Platform
 		string WorkingDirectory = Path.GetDirectoryName(ClientApp);
 		string url = Path.GetFileName(ClientApp) +".html";
 
-		// WARNING: splitting the following situation
-		// if cookonthefly is used: tell the browser to use the PROXY at DEFAULT_HTTP_FILE_SERVING_PORT
-		// leave the normal HTML5LaunchHelper port (ServerPort) alone -- otherwise it will collide with the PROXY port
+// UE-64628: seems proxy port is no longer used anymore -- leaving details here for future reference...
+//		// WARNING: splitting the following situation
+//		// if cookonthefly is used: tell the browser to use the PROXY at DEFAULT_HTTP_FILE_SERVING_PORT
+//		// leave the normal HTML5LaunchHelper port (ServerPort) alone -- otherwise it will collide with the PROXY port
 		if (ClientCmdLine.Contains("filehostip"))
 		{
 			url += "?cookonthefly=true";
-			Int32 ProxyPort = 41898; // DEFAULT_HTTP_FILE_SERVING_PORT
-			url = String.Format("http://localhost:{0}/{1}", ProxyPort, url);
+//			Int32 ProxyPort = 41898; // DEFAULT_HTTP_FILE_SERVING_PORT
+//			url = String.Format("http://localhost:{0}/{1}", ProxyPort, url);
 		}
-		else
-		{
+//		else
+//		{
 			url = String.Format("http://localhost:{0}/{1}", ServerPort, url);
-		}
+//		}
 
 		// Check HTML5LaunchHelper source for command line args
 
