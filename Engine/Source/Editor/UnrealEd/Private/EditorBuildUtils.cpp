@@ -1103,14 +1103,14 @@ bool FEditorBuildUtils::EditorBuildTextureStreaming(UWorld* InWorld, EViewModeIn
 	if (bNeedsMaterialData)
 	{
 		TSet<UMaterialInterface*> Materials;
-		if (!GetUsedMaterialsInWorld(InWorld, Materials, BuildTextureStreamingTask))
+		if (!GetUsedMaterialsInWorld(InWorld, Materials, &BuildTextureStreamingTask))
 		{
 			return false;
 		}
 
 		if (Materials.Num())
 		{
-			if (!CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, SelectedViewMode == VMI_Unknown, true, Materials, BuildTextureStreamingTask))
+			if (!CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, SelectedViewMode == VMI_Unknown, true, Materials, &BuildTextureStreamingTask))
 			{
 				return false;
 			}
@@ -1228,7 +1228,7 @@ bool FEditorBuildUtils::EditorBuildMaterialTextureStreamingData(UPackage* Packag
 	const float OneOverNumMaterials = 1.f / FMath::Max(1.f, (float)Materials.Num());
 
 	bool bAnyPackagesDirtied = false;
-	if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, true, Materials, SlowTask))
+	if (CompileDebugViewModeShaders(DVSM_OutputMaterialTextureScales, QualityLevel, FeatureLevel, true, true, Materials, &SlowTask))
 	{
 		FMaterialUtilities::FExportErrorManager ExportErrors(FeatureLevel);
 		for (UMaterialInterface* MaterialInterface : Materials)
@@ -1304,7 +1304,7 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 
 	TSet<UMaterialInterface*> Materials;
-	if (!GetUsedMaterialsInWorld(InWorld, Materials, CompileShaderTask))
+	if (!GetUsedMaterialsInWorld(InWorld, Materials, &CompileShaderTask))
 	{
 		return false;
 	}
@@ -1321,7 +1321,7 @@ bool FEditorBuildUtils::CompileViewModeShaders(UWorld* InWorld, EViewModeIndex S
 		}
 		else if (SelectedViewMode == VMI_RequiredTextureResolution)*/
 		{
-			if (!CompileDebugViewModeShaders(DebugViewMode, QualityLevel, FeatureLevel, false, true, Materials, CompileShaderTask))
+			if (!CompileDebugViewModeShaders(DebugViewMode, QualityLevel, FeatureLevel, false, true, Materials, &CompileShaderTask))
 			{
 				return false;
 			}
@@ -1360,7 +1360,7 @@ bool FEditorBuildUtils::CompileShadersComplexityViewMode(EMaterialQualityLevel::
 	check(Materials.Num());
 
 	// Finish compiling pending shaders first.
-	if (!WaitForShaderCompilation(LOCTEXT("CompileShaders_Complexity_FinishPendingShadersCompilation", "Waiting For Pending Shaders Compilation"), ProgressTask))
+	if (!WaitForShaderCompilation(LOCTEXT("CompileShaders_Complexity_FinishPendingShadersCompilation", "Waiting For Pending Shaders Compilation"), &ProgressTask))
 	{
 		return false;
 	}
@@ -1391,7 +1391,7 @@ bool FEditorBuildUtils::CompileShadersComplexityViewMode(EMaterialQualityLevel::
 	}
 
 	// wait for compilation to be done and copy the number of instruction from the compiled shaders to the emulated shader set
-	if (WaitForShaderCompilation(LOCTEXT("OfflineShaderCompilation", "Offline Shader Compilation"), ProgressTask))
+	if (WaitForShaderCompilation(LOCTEXT("OfflineShaderCompilation", "Offline Shader Compilation"), &ProgressTask))
 	{
 		FSuspendRenderingThread SuspendObject(false);
 

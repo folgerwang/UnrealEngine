@@ -83,7 +83,7 @@ int32 GetNumActorsInWorld(UWorld* InWorld)
 	return ActorCount;
 }
 
-bool WaitForShaderCompilation(const FText& Message, FSlowTask& ProgressTask)
+bool WaitForShaderCompilation(const FText& Message, FSlowTask* ProgressTask)
 {
 	FlushRenderingCommands();
 
@@ -104,19 +104,22 @@ bool WaitForShaderCompilation(const FText& Message, FSlowTask& ProgressTask)
 				const int32 NumberOfShadersCompiledThisFrame = RemainingShaders - RemainingShadersThisFrame;
 
 				const float FrameProgress = (float)NumberOfShadersCompiledThisFrame / (float)NumShadersToBeCompiled;
-				ProgressTask.EnterProgressFrame(FrameProgress);
-				SlowTask.EnterProgressFrame(FrameProgress);
-				if (GWarn->ReceivedUserCancel())
+				if (ProgressTask)
 				{
-					return false;
+					ProgressTask->EnterProgressFrame(FrameProgress);
+					SlowTask.EnterProgressFrame(FrameProgress);
+					if (GWarn->ReceivedUserCancel())
+					{
+						return false;
+					}
 				}
 			}
 			RemainingShaders = RemainingShadersThisFrame;
 		}
 	}
-	else
+	else if (ProgressTask)
 	{
-		ProgressTask.EnterProgressFrame();
+		ProgressTask->EnterProgressFrame();
 		if (GWarn->ReceivedUserCancel())
 		{
 			return false;
@@ -134,7 +137,7 @@ bool WaitForShaderCompilation(const FText& Message, FSlowTask& ProgressTask)
  *
  * @return true if the operation is a success, false if it was canceled.
  */
-bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& OutMaterials, FSlowTask& ProgressTask)
+bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& OutMaterials, FSlowTask* ProgressTask)
 {
 #if WITH_EDITORONLY_DATA
 	if (!InWorld)
@@ -145,7 +148,10 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
 	const int32 NumActorsInWorld = GetNumActorsInWorld(InWorld);
 	if (!NumActorsInWorld)
 	{
-		ProgressTask.EnterProgressFrame();
+		if (ProgressTask)
+		{
+			ProgressTask->EnterProgressFrame();
+		}
 		return true;
 	}
 
@@ -163,11 +169,14 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
 
 		for (AActor* Actor : Level->Actors)
 		{
-			ProgressTask.EnterProgressFrame(OneOverNumActorsInWorld);
-			SlowTask.EnterProgressFrame(OneOverNumActorsInWorld);
-			if (GWarn->ReceivedUserCancel())
+			if (ProgressTask)
 			{
-				return false;
+				ProgressTask->EnterProgressFrame(OneOverNumActorsInWorld);
+				SlowTask.EnterProgressFrame(OneOverNumActorsInWorld);
+				if (GWarn->ReceivedUserCancel())
+				{
+					return false;
+				}
 			}
 
 			// Check the actor after incrementing the progress.
@@ -215,7 +224,7 @@ bool GetUsedMaterialsInWorld(UWorld* InWorld, OUT TSet<UMaterialInterface*>& Out
  * @param Materials			The materials to update, the one that failed compilation will be removed (IN OUT).
  * @return true if the operation is a success, false if it was canceled.
  */
-bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, bool bFullRebuild, bool bWaitForPreviousShaders, TSet<UMaterialInterface*>& Materials, FSlowTask& ProgressTask)
+bool CompileDebugViewModeShaders(EDebugViewShaderMode ShaderMode, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel, bool bFullRebuild, bool bWaitForPreviousShaders, TSet<UMaterialInterface*>& Materials, FSlowTask* ProgressTask)
 {
 #if WITH_EDITORONLY_DATA
 	if (!GShaderCompilingManager || !Materials.Num())
