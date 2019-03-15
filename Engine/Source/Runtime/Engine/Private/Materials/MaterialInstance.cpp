@@ -311,7 +311,7 @@ void FMaterialInstanceResource::GameThread_SetParent(UMaterialInterface* ParentM
 			[Resource, ParentMaterialInterface](FRHICommandListImmediate& RHICmdList)
 			{
 				Resource->Parent = ParentMaterialInterface;
-				Resource->InvalidateUniformExpressionCache(false);
+				Resource->InvalidateUniformExpressionCache(true);
 			});
 
 		if (OldParent)
