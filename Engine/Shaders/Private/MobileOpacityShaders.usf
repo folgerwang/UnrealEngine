@@ -5,9 +5,12 @@ MobileOpacityShaders.usf: Renders opacity to alpha channel. Mobile only.
 =============================================================================*/
 
 #include "Common.ush"
+
+// Reroute MobileSceneTextures uniform buffer references to the base pass uniform buffer
+#define MobileSceneTextures MobileBasePass.SceneTextures
+
 #include "/Engine/Generated/Material.ush"
 #include "/Engine/Generated/VertexFactory.ush"
-
 
 #define VertexFactoryGetInterpolants VertexFactoryGetInterpolantsVSToPS
 
