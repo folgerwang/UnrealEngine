@@ -49,7 +49,6 @@ private:
 	/** Texture and viewport data for displaying to Slate */
 	TSharedPtr<FMovieViewport> MovieViewport;
 
-    TSharedPtr<FSlateTextureData, ESPMode::ThreadSafe> TextureData;
     TSharedPtr<FSlateTexture2DRHIRef, ESPMode::ThreadSafe> Texture;
 
     // The list of pending movies
@@ -94,5 +93,5 @@ private:
 
 	void ReleaseMovie();
 
-	bool LoadMovie(FString MovieName);
+	bool LoadMovieAsync(FString MovieName);
 };

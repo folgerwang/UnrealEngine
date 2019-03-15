@@ -75,7 +75,7 @@ void FSlateLoadingSynchronizationMechanism::DestroySlateThread()
 		{
 			FPlatformApplicationMisc::PumpMessages(false);
 
-			FPlatformProcess::Sleep(0.016f);
+			FPlatformProcess::Sleep(0.f);
 		}
 
 		delete SlateLoadingThread;
@@ -151,7 +151,7 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 	
 	while (IsSlateDrawPassEnqueued())
 	{
-		FPlatformProcess::Sleep(0.1f);
+		FPlatformProcess::Sleep(1.f / 60.f);
 	}
 	
 	bMainLoopRunning = false;
