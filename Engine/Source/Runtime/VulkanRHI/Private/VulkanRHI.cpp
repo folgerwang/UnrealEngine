@@ -570,7 +570,7 @@ void FVulkanDynamicRHI::SelectAndInitDevice()
 	GRHIVendorId = Props.vendorID;
 	GRHIAdapterName = ANSI_TO_TCHAR(Props.deviceName);
 
-	FVulkanPlatform::CheckDeviceDriver(DeviceIndex);
+	FVulkanPlatform::CheckDeviceDriver(DeviceIndex, Props);
 
 	Device->InitGPU(DeviceIndex);
 

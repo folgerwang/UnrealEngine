@@ -49,7 +49,7 @@
 class FVulkanWindowsPlatform : public FVulkanGenericPlatform
 {
 public:
-	static void CheckDeviceDriver(uint32 DeviceIndex);
+	static void CheckDeviceDriver(uint32 DeviceIndex, const VkPhysicalDeviceProperties& Props);
 
 	static bool LoadVulkanLibrary();
 	static bool LoadVulkanInstanceFunctions(VkInstance inInstance);

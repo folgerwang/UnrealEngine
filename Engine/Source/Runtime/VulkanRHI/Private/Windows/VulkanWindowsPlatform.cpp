@@ -185,7 +185,7 @@ void FVulkanWindowsPlatform::WriteCrashMarker(const FOptionalVulkanDeviceExtensi
 	}
 }
 
-void FVulkanWindowsPlatform::CheckDeviceDriver(uint32 DeviceIndex)
+void FVulkanWindowsPlatform::CheckDeviceDriver(uint32 DeviceIndex, const VkPhysicalDeviceProperties& Props)
 {
 	const bool bAllowVendorDevice = !FParse::Param(FCommandLine::Get(), TEXT("novendordevice"));
 	if (IsRHIDeviceAMD() && bAllowVendorDevice)
@@ -277,6 +277,18 @@ void FVulkanWindowsPlatform::CheckDeviceDriver(uint32 DeviceIndex)
 			}
 
 			agsDeInit(AmdAgsContext);
+		}
+	}
+	else if (IsRHIDeviceNVIDIA())
+	{
+		// Workaround a crash on 20xx family
+		UE_LOG(LogVulkanRHI, Warning, TEXT("Nvidia 20xx family of GPUs have a known crash. Compatibility mode (slow!) will now be enabled"));
+		if (GRHIAdapterName.Contains(TEXT("RTX 20")))
+		{
+			extern TAutoConsoleVariable<int32> GRHIThreadCvar;
+			GRHIThreadCvar->SetWithCurrentPriority(0);
+			IConsoleVariable* BypassVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.RHICmdBypass"));
+			BypassVar->SetWithCurrentPriority(1);
 		}
 	}
 }
