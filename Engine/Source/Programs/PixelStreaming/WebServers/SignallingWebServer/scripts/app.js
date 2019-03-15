@@ -14,6 +14,7 @@ var matchViewportResolution;
 var lastTimeResized = new Date().getTime();
 var resizeTimeout;
 
+var onDataChannelConnected;
 var responseEventListeners = new Map();
 
 var t0 = Date.now();
@@ -276,6 +277,9 @@ function setupWebRtcPlayer(htmlElement, clientConfig){
 
     webRtcPlayerObj.onDataChannelConnected = function(){
     	showTextOverlay('WebRTC connected, waiting for video');
+		if (onDataChannelConnected) {
+			onDataChannelConnected();
+		}
     }
 
 	webRtcPlayerObj.onDataChannelMessage = function (data) {
