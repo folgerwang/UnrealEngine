@@ -3927,6 +3927,8 @@ FText FMaterialEditor::GetOriginalObjectName() const
 
 void FMaterialEditor::UpdateMaterialAfterGraphChange()
 {
+	FlushRenderingCommands();
+	
 	Material->MaterialGraph->LinkMaterialExpressionsFromGraph();
 
 	// Update the current preview material.
@@ -3951,6 +3953,8 @@ FMaterialRenderProxy* FMaterialEditor::GetExpressionPreview(UMaterialExpression*
 
 void FMaterialEditor::UndoGraphAction()
 {
+	FlushRenderingCommands();
+	
 	int32 NumExpressions = Material->Expressions.Num();
 	GEditor->UndoTransaction();
 
@@ -3962,6 +3966,8 @@ void FMaterialEditor::UndoGraphAction()
 
 void FMaterialEditor::RedoGraphAction()
 {
+	FlushRenderingCommands();
+	
 	// Clear selection, to avoid holding refs to nodes that go away
 	GraphEditor->ClearSelectionSet();
 
