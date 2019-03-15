@@ -88,6 +88,9 @@ struct FSSDKernelConfig
 	// [ Jimenez 2014, "Next Generation Post Processing in Call of Duty: Advanced Warfare" ]
 	bool bMinSamplePairInvFrequency;
 
+	// Whether the bilateral distance should be maxed with reference bilateral distance.
+	bool bMaxWithRefBilateralDistance;
+
 	// The color space that has been encoded in the buffer.
 	uint BufferColorSpace[MAX_SIGNAL_MULTIPLEXING];
 	
@@ -130,6 +133,9 @@ struct FSSDKernelConfig
 
 	// Runtime selection of a track of sample.
 	uint SampleTrackId;
+
+	// Reference meta data.
+	float RefBilateralDistance[MAX_SIGNAL_MULTIPLEXING];
 };
 
 FSSDKernelConfig CreateKernelConfig()
@@ -147,19 +153,24 @@ FSSDKernelConfig CreateKernelConfig()
 	KernelConfig.bDescOrder = false;
 	KernelConfig.bNormalizeSample = false;
 	KernelConfig.bMinSamplePairInvFrequency = false;
+	KernelConfig.bMaxWithRefBilateralDistance = false;
 	
-	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-	for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 	{
-		KernelConfig.BufferColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
-		KernelConfig.AccumulatorColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			KernelConfig.BufferColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
+			KernelConfig.AccumulatorColorSpace[MultiplexId] = STANDARD_BUFFER_COLOR_SPACE;
+		}
 	}
 	
+	// SGPRs.
 	KernelConfig.BufferSizeAndInvSize = float4(0, 0, 0, 0);
 	KernelConfig.BufferBilinearUVMinMax = float4(0, 0, 0, 0);
 	KernelConfig.BufferMipLevel = 0.0;
 	KernelConfig.KernelSpreadFactor = 1;
 	
+	// VGPRs.
 	KernelConfig.BoxKernelRadius = 1;
 	KernelConfig.SampleCount = 1;
 	KernelConfig.BufferUV = 0.0;
@@ -167,6 +178,15 @@ FSSDKernelConfig CreateKernelConfig()
 	KernelConfig.bForceKernelCenterAccumulation = false;
 	KernelConfig.bForceAllAccumulation = false;
 	KernelConfig.SampleTrackId = 0;
+
+	{	
+		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+		{
+			KernelConfig.RefBilateralDistance[MultiplexId] = 0.0;
+		}
+	}
+
 	return KernelConfig;
 }
 
@@ -309,6 +329,11 @@ void AccumulateSampledMultiplexedSignals(
 			FinalWorldBluringDistance = SignalConvolutionBluringRadius;
 		}
 		
+		if (KernelConfig.bMaxWithRefBilateralDistance)
+		{
+			FinalWorldBluringDistance = min(FinalWorldBluringDistance, KernelConfig.RefBilateralDistance[SignalMultiplexId]);
+		}
+	
 		float BilateralWeight = ComputeBilateralWeight(
 			FinalWorldBluringDistance,
 			KernelConfig.RefSceneMetadata,
@@ -450,7 +475,7 @@ void SampleAndAccumulateMultiplexedSignalsPair(
 void StartAccumulatingCluster(
 	FSSDKernelConfig KernelConfig,
 	inout FSSDSignalAccumulatorArray Accumulators,
-	uint RingId)
+	FSSDSampleClusterInfo ClusterInfo)
 {
 	FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
 	for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
@@ -458,7 +483,7 @@ void StartAccumulatingCluster(
 		StartAccumulatingCluster(
 			KernelConfig.RefSceneMetadata,
 			/* inout */ Accumulators.Array[SignalMultiplexId],
-			RingId);
+			ClusterInfo);
 	}
 }
 
@@ -473,7 +498,7 @@ void DijestAccumulatedClusterSamples(inout FSSDSignalAccumulatorArray Accumulato
 	}
 }
 
-void SampleAndAccumulateCenterSampleAsItsOwnRing(
+void SampleAndAccumulateCenterSampleAsItsOwnCluster(
 	FSSDKernelConfig KernelConfig,
 	Texture2D SignalBuffer0,
 	Texture2D SignalBuffer1,
@@ -483,7 +508,10 @@ void SampleAndAccumulateCenterSampleAsItsOwnRing(
 {
 	const uint RingId = 0;
 
-	StartAccumulatingCluster(KernelConfig, Accumulators, RingId);
+	FSSDSampleClusterInfo ClusterInfo;
+	ClusterInfo.OutterBoundaryRadius = (RingId + 1) * KernelConfig.KernelSpreadFactor;
+
+	StartAccumulatingCluster(KernelConfig, Accumulators, ClusterInfo);
 
 	SampleAndAccumulateMultiplexedSignals(
 		KernelConfig,
@@ -810,7 +838,10 @@ void ConvolveStackowiakKernel(
 			// TODO
 		}
 		
-		StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, CurrentRingId);
+		FSSDSampleClusterInfo ClusterInfo;
+		ClusterInfo.OutterBoundaryRadius = (CurrentRingId + 1) * KernelConfig.KernelSpreadFactor;
+
+		StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, ClusterInfo);
 		
 		// Processes the samples in batches so that the compiler can do lattency hidding.
 		LOOP
@@ -863,8 +894,11 @@ void ConvolveStackowiakKernel(
 					CurrentRingId -= 1;
 					NextClusterBoundary -= CurrentRingId * StocasticSamplesPerCluster;
 				
+					FSSDSampleClusterInfo ClusterInfo;
+					ClusterInfo.OutterBoundaryRadius = (CurrentRingId + 1) * KernelConfig.KernelSpreadFactor;
+
 					// Prepare the accumulators for new cluster.
-					StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, CurrentRingId);
+					StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, ClusterInfo);
 				}
 			} // for (uint SampleBatchId = 0; SampleBatchId < kSamplingBatchSize; SampleBatchId++)
 		} // for (uint BatchId = 0; BatchId < BatchCountCount; BatchId++)
@@ -1080,7 +1114,7 @@ void ConvolveDiskKernel(
 	// Accumulate the center of the kernel.
 	if (KernelConfig.bSampleKernelCenter && !KernelConfig.bDescOrder)
 	{
-		SampleAndAccumulateCenterSampleAsItsOwnRing(
+		SampleAndAccumulateCenterSampleAsItsOwnCluster(
 			KernelConfig,
 			SignalBuffer0,
 			SignalBuffer1,
@@ -1095,11 +1129,17 @@ void ConvolveDiskKernel(
 	#else
 		UNROLL
 	#endif
-	for (uint RingId = 1; RingId <= KernelConfig.RingCount; RingId++)
+	for (
+		uint RingId = (KernelConfig.bDescOrder ? KernelConfig.RingCount : 1);
+		(KernelConfig.bDescOrder ? RingId > 0 : RingId <= KernelConfig.RingCount);
+		RingId += (KernelConfig.bDescOrder ? ~0u : 1))
 	{
 		const uint RingSamplePairCount = GetRingSamplingPairCount(KernelConfig.SampleSet, RingId);
+		
+		FSSDSampleClusterInfo ClusterInfo;
+		ClusterInfo.OutterBoundaryRadius = (RingId + 1) * KernelConfig.KernelSpreadFactor;
 
-		StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, RingId);
+		StartAccumulatingCluster(KernelConfig, /* inout */ Accumulators, ClusterInfo);
 		
 		GatherRingSamples(
 			KernelConfig,
@@ -1116,7 +1156,7 @@ void ConvolveDiskKernel(
 	// Accumulate the center of the kernel.
 	if (KernelConfig.bSampleKernelCenter && KernelConfig.bDescOrder)
 	{
-		SampleAndAccumulateCenterSampleAsItsOwnRing(
+		SampleAndAccumulateCenterSampleAsItsOwnCluster(
 			KernelConfig,
 			SignalBuffer0,
 			SignalBuffer1,
@@ -1141,7 +1181,7 @@ void AccumulateKernel(
 	{
 		if (KernelConfig.bSampleKernelCenter)
 		{
-			SampleAndAccumulateCenterSampleAsItsOwnRing(
+			SampleAndAccumulateCenterSampleAsItsOwnCluster(
 				KernelConfig,
 				SignalBuffer0,
 				SignalBuffer1,

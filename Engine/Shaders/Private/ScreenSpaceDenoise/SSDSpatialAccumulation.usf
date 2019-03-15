@@ -55,6 +55,7 @@
 
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_STACKOWIAK_4_SETS
 		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
+		#define CONFIG_MAX_WITH_REF_DISTANCE 1
 		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
 
 	#elif DIM_STAGE == STAGE_PRE_CONVOLUTION
@@ -64,6 +65,7 @@
 
 		#define CONFIG_SAMPLE_SET           SAMPLE_SET_HEXAWEB
 		#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS
+		#define CONFIG_MAX_WITH_REF_DISTANCE 1
 		#define CONFIG_OUTPUT_MODE          OUTPUT_MODE_DRB
 
 	#elif DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION
@@ -274,6 +276,11 @@
 	#define CONFIG_BILATERAL_DISTANCE_COMPUTATION SIGNAL_WORLD_FREQUENCY_MIN_METADATA
 #endif
 
+/** Whether neighbor bilateral distance should be maxed with reference one. */
+#ifndef CONFIG_MAX_WITH_REF_DISTANCE
+	#define CONFIG_MAX_WITH_REF_DISTANCE 0
+#endif
+
 
 //------------------------------------------------------- INCLUDES
 
@@ -412,6 +419,8 @@ void MainCS(
 	FSSDSignalAccumulatorArray SignalAccumulators = CreateSignalAccumulatorArray();
 	{
 		FSSDKernelConfig KernelConfig = CreateKernelConfig();
+
+		// Compile time.
 		KernelConfig.SampleSet = CONFIG_SAMPLE_SET;
 		KernelConfig.SampleSubSetId = CONFIG_SAMPLE_SUBSET;
 		KernelConfig.BufferLayout = CONFIG_SIGNAL_INPUT_LAYOUT;
@@ -420,25 +429,75 @@ void MainCS(
 		KernelConfig.bDescOrder = CONFIG_OUTPUT_MODE == OUTPUT_MODE_DRB;
 		KernelConfig.BilateralDistanceComputation = CONFIG_BILATERAL_DISTANCE_COMPUTATION;
 		KernelConfig.bNormalizeSample = CONFIG_NORMALIZE_INPUT != 0;
+		KernelConfig.bSampleKernelCenter = CONFIG_UPSCALE;
+		KernelConfig.bForceKernelCenterAccumulation = true;
 		
-		FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
-		for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
 		{
-			KernelConfig.BufferColorSpace[MultiplexId] = CONFIG_INPUT_COLOR_SPACE;
-			KernelConfig.AccumulatorColorSpace[MultiplexId] = CONFIG_ACCUMULATION_COLOR_SPACE;
+			FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+			for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+			{
+				KernelConfig.BufferColorSpace[MultiplexId] = CONFIG_INPUT_COLOR_SPACE;
+				KernelConfig.AccumulatorColorSpace[MultiplexId] = CONFIG_ACCUMULATION_COLOR_SPACE;
+			}
 		}
 
+		// SGPRs
 		KernelConfig.BufferSizeAndInvSize = View.BufferSizeAndInvSize;
 		KernelConfig.BufferBilinearUVMinMax = View.BufferBilinearUVMinMax;
 		KernelConfig.KernelSpreadFactor = KernelSpreadFactor;
-
-		KernelConfig.bSampleKernelCenter = CONFIG_UPSCALE || KernelConfig.bDescOrder;
-		KernelConfig.bForceKernelCenterAccumulation = true;
 		KernelConfig.BufferUV = SceneBufferUV;
 		KernelConfig.RefSceneMetadata = RefSceneMetadata;
+		
+		// Set up reference distance for all signals.
+		#if CONFIG_MAX_WITH_REF_DISTANCE
+		{
+			KernelConfig.bMaxWithRefBilateralDistance = true;
+
+			FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
+			for (uint MultiplexId = 0; MultiplexId < MAX_SIGNAL_MULTIPLEXING; MultiplexId++)
+			{
+				if (KernelConfig.BilateralDistanceComputation == SIGNAL_WORLD_FREQUENCY_PRECOMPUTED_BLURING_RADIUS)
+				{
+					KernelConfig.RefBilateralDistance[MultiplexId] = RefSamples.Array[MultiplexId].WorldBluringRadius;
+				}
+				else
+				{
+					const uint BatchedSignalId = ComputeSignalBatchIdFromSignalMultiplexId(KernelConfig, MultiplexId);
+
+					KernelConfig.RefBilateralDistance[MultiplexId] = GetSignalWorldBluringRadius(RefSamples.Array[MultiplexId], RefSceneMetadata, BatchedSignalId);
+				}
+			}
+		}
+		#endif
+
+		// When doing history rejection preconvolution may have invalid ref sample, in witch case need to force take neighborhood to have a clamping box.
+		#if DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION && CONFIG_UPSCALE
+		{
+			KernelConfig.bForceAllAccumulation = RefSamples.Array[0].AccumulatedSampleCount == 0;
+			KernelConfig.SampleSet = SAMPLE_SET_3X3_PLUS;
+		}
+		#endif
+
+		#if CONFIG_SAMPLE_SET == SAMPLE_SET_HEXAWEB
+		{
+			KernelConfig.RingCount = 1;
+			KernelConfig.KernelSpreadFactor = 8;
+
+			// TODO: could be improved.
+			//KernelConfig.bMinSamplePairInvFrequency = true;
+
+			float2 E = float2(
+				InterleavedGradientNoise(DispatchThreadId, 0),
+				InterleavedGradientNoise(DispatchThreadId, 1));
+
+			// Add a bit of jittering to hide low sample.
+			KernelConfig.bSampleKernelCenter = false;
+			KernelConfig.BufferUV += View.ViewSizeAndInvSize.zw * (E - 0.5) * (KernelConfig.KernelSpreadFactor * (0.5 * rcp(2)));
+		}
+		#endif
 
 		// When not upscaling, manually force accumulate the sample of the kernel.
-		if (!KernelConfig.bSampleKernelCenter)
+		if (!KernelConfig.bSampleKernelCenter && !KernelConfig.bDescOrder)
 		{
 			FIX_UNROLL(MAX_SIGNAL_MULTIPLEXING)
 			for (uint SignalMultiplexId = 0; SignalMultiplexId < MAX_SIGNAL_MULTIPLEXING; SignalMultiplexId++)
@@ -466,24 +525,6 @@ void MainCS(
 					SampleInfos);
 			}
 		}
-
-		#if DIM_STAGE == STAGE_PRE_CONVOLUTION
-		{
-			KernelConfig.RingCount = 1;
-			KernelConfig.KernelSpreadFactor = 8;
-
-			// TODO: could be improved.
-			KernelConfig.bMinSamplePairInvFrequency = true;
-		}
-		#endif
-
-		// When doing history rejection preconvolution may have invalid ref sample, in witch case need to force take neighborhood to have a clamping box.
-		#if DIM_STAGE == STAGE_REJECTION_PRE_CONVOLUTION && CONFIG_UPSCALE
-		{
-			KernelConfig.bForceAllAccumulation = RefSamples.Array[0].AccumulatedSampleCount == 0;
-			KernelConfig.SampleSet = SAMPLE_SET_3X3_PLUS;
-		}
-		#endif
 
 		if (CONFIG_SAMPLE_SET == SAMPLE_SET_STACKOWIAK_4_SETS)
 		{
@@ -551,6 +592,21 @@ void MainCS(
 				SignalInput_Textures_3,
 				/* inout */ SignalAccumulators);
 		}
+		
+		// Manually sample the center of the kernel after any accumulation when accumulating in descending order.
+		if (!KernelConfig.bSampleKernelCenter && KernelConfig.bDescOrder)
+		{
+			// Remove any jitter the kernel may have. Won't have ant VGPR cost when no jittering, because KernelConfig.BufferUV == SceneBufferUV.
+			KernelConfig.BufferUV = SceneBufferUV;
+
+			SampleAndAccumulateCenterSampleAsItsOwnCluster(
+				KernelConfig,
+				SignalInput_Textures_0,
+				SignalInput_Textures_1,
+				SignalInput_Textures_2,
+				SignalInput_Textures_3,
+				/* inout */ SignalAccumulators);
+		}
 	}
 
 	// Color processing of the signal to reduce highlight flickering.
@@ -593,6 +649,11 @@ void MainCS(
 			for (uint MultiplexId = 0; MultiplexId < CONFIG_SIGNAL_BATCH_SIZE; MultiplexId++)
 			{
 				OutputSamples.Array[MultiplexId] = SignalAccumulators.Array[MultiplexId].Moment1;
+				
+				// Output the minimal inverse frequency as new world bluring radius for subsequent passes.
+				// TODO: store this in its own signal to avoid *= N; *= rcp(N);
+				OutputSamples.Array[MultiplexId].WorldBluringRadius = 
+					OutputSamples.Array[MultiplexId].AccumulatedSampleCount * SignalAccumulators.Array[MultiplexId].MinInvFrequency;
 			}
 		}
 		#elif CONFIG_OUTPUT_MODE == OUTPUT_MODE_2MOMMENT_SUM
@@ -625,15 +686,6 @@ void MainCS(
 				{
 					OutputSamples.Array[MultiplexId].WorldBluringRadius = 0;
 				}
-			}
-
-			if (0 && DIM_STAGE == STAGE_PRE_CONVOLUTION)
-			{
-				DebugOutput[DispatchThreadId] = float4(
-					SignalAccumulators.Array[0].Previous.AccumulatedSampleCount,
-					SignalAccumulators.Array[0].CurrentTranslucency,
-					SignalAccumulators.Array[0].Previous.LeavingRayCount * SafeRcp(SignalAccumulators.Array[0].Previous.AccumulatedSampleCount),
-					SignalAccumulators.Array[0].Current.LeavingRayCount * SafeRcp(SignalAccumulators.Array[0].Current.AccumulatedSampleCount));
 			}
 		}
 		#else
