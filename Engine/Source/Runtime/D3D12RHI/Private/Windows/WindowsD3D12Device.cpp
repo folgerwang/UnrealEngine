@@ -15,6 +15,8 @@
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 #include "GenericPlatform/GenericPlatformDriver.h"			// FGPUDriverInfo
 
+#include "ShaderCompiler.h"
+
 #pragma comment(lib, "d3d12.lib")
 
 IMPLEMENT_MODULE(FD3D12DynamicRHIModule, D3D12RHI);
@@ -700,6 +702,17 @@ void FD3D12DynamicRHI::Init()
 
 void FD3D12DynamicRHI::PostInit()
 {
+	if (GRHISupportsRayTracing || GRHISupportsRHIThread)
+	{
+		// Make sure all global shaders are complete at this point
+		extern RENDERCORE_API const int32 GlobalShaderMapId;
+
+		TArray<int32> ShaderMapIds;
+		ShaderMapIds.Add(GlobalShaderMapId);
+
+		GShaderCompilingManager->FinishCompilation(TEXT("Global"), ShaderMapIds);
+	}
+
 	if (GRHISupportsRayTracing)
 	{
 		for (FD3D12Adapter*& Adapter : ChosenAdapters)

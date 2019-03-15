@@ -3907,9 +3907,6 @@ void VerifyGlobalShaders(EShaderPlatform Platform, bool bLoadedFromCacheFile)
 			// Metal also needs this when using RHI thread because it uses TOneColorVS very early in RHIPostInit()
 			!IsOpenGLPlatform(GMaxRHIShaderPlatform) && !IsVulkanPlatform(GMaxRHIShaderPlatform) &&
 			!IsMetalPlatform(GMaxRHIShaderPlatform) && !IsSwitchPlatform(GMaxRHIShaderPlatform) &&
-#if RHI_RAYTRACING
-			!GRHISupportsRayTracing && //This is here because DXR is caching its BuiltIn Shaders in PostInit (see FD3D12Device::InitRayTracing)
-#endif // RHI_RAYTRACING
 			GShaderCompilingManager->AllowAsynchronousShaderCompiling();
 
 		if (!bAllowAsynchronousGlobalShaderCompiling)
