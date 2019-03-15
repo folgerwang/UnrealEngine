@@ -462,7 +462,7 @@ namespace Audio
 	* +------------+---------+---------+---------+---------+
 	* | Gain       | g0      | g1      | g0      | g1      |
 	* |            | *       | *       | *       | *       |
-	* | Input      | i0      | i0      | i0      | i0      |
+	* | Input      | i0      | i0      | i1      | i1      |
 	* |            | =       | =       | =       | =       |
 	* | Output     | o0      | o1      | o2      | o3      |
 	* +------------+---------+---------+---------+---------+
@@ -476,7 +476,7 @@ namespace Audio
 		const VectorRegister GainDeltasVector = VectorDivide(VectorSubtract(DestinationVector, GainVector), NumFramesVector);
 
 		// To help with stair stepping, we initialize the second frame in GainVector to be half a GainDeltas vector higher than the first frame.
-		const VectorRegister VectorOfHalf = VectorSet(0.0f, 0.0f, 0.5f, 0.5f);
+		const VectorRegister VectorOfHalf = VectorSet(0.5f, 0.5f, 1.0f, 1.0f);
 		const VectorRegister HalfOfDeltaVector = VectorMultiply(GainDeltasVector, VectorOfHalf);
 		GainVector = VectorAdd(GainVector, HalfOfDeltaVector);
 
@@ -562,7 +562,7 @@ namespace Audio
 		const VectorRegister GainDeltasVector1 = VectorDivide(VectorSubtract(DestinationVector1, GainVector1), NumFramesVector);
 
 		// To help with stair stepping, we initialize the second frame in GainVector to be half a GainDeltas vector higher than the first frame.
-		const VectorRegister VectorOfHalf = VectorSet(0.0f, 0.0f, 0.5f, 0.5f);
+		const VectorRegister VectorOfHalf = VectorSet(0.5f, 0.5f, 1.0f, 1.0f);
 
 		const VectorRegister HalfOfDeltaVector1 = VectorMultiply(GainDeltasVector1, VectorOfHalf);
 		GainVector1 = VectorAdd(GainVector1, HalfOfDeltaVector1);
@@ -1410,7 +1410,7 @@ namespace Audio
 		{
 			for (int32 InputChannelIndex = 0; InputChannelIndex < NumSourceChannels; InputChannelIndex++)
 			{
-				const int32 GainMatrixIndex = OutputChannelIndex * NumDestinationChannels + InputChannelIndex;
+				const int32 GainMatrixIndex = InputChannelIndex * NumDestinationChannels + OutputChannelIndex;
 				GainDeltas[GainMatrixIndex] = (EndGains[GainMatrixIndex] - StartGains[GainMatrixIndex]) / NumFrames;
 			}
 		}
