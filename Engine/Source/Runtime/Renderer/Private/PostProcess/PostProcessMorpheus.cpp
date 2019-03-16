@@ -189,9 +189,8 @@ public:
 	}
 };
 
-// This .usf file is in the morpheus plugin, MORPHEUS_ENGINE_DISTORTION, under which all this code is ifdef-ed can only be true when the plugin exists. 
-IMPLEMENT_SHADER_TYPE(, FPostProcessMorpheusVS, TEXT("/Plugin/Morpheus/Private/PostProcessHMDMorpheus.usf"), TEXT("MainVS"), SF_Vertex);
-IMPLEMENT_SHADER_TYPE(, FPostProcessMorpheusPS, TEXT("/Plugin/Morpheus/Private/PostProcessHMDMorpheus.usf"), TEXT("MainPS"), SF_Pixel);
+IMPLEMENT_SHADER_TYPE(, FPostProcessMorpheusVS, TEXT("/Engine/Private/PostProcessHMDMorpheus.usf"), TEXT("MainVS"), SF_Vertex);
+IMPLEMENT_SHADER_TYPE(, FPostProcessMorpheusPS, TEXT("/Engine/Private/PostProcessHMDMorpheus.usf"), TEXT("MainPS"), SF_Pixel);
 
 void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context)
 {

@@ -1254,19 +1254,6 @@ int32 FEngineLoop::PreInit(const TCHAR* CmdLine)
 	// Add the default engine shader dir
 	AddShaderSourceDirectoryMapping(TEXT("/Engine"), FGenericPlatformProcess::ShaderDir());
 
-// This shader file is in the plugin, but it is compiled even if the plugin is disabled so we can't have the plugin add this mapping.
-// This is a temporary workaround.
-#if defined(MORPHEUS_ENGINE_DISTORTION) && MORPHEUS_ENGINE_DISTORTION 
-	{
-		TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(TEXT("Morpheus"));
-		if (Plugin.IsValid())
-		{
-			FString PluginShaderDir = FPaths::Combine(Plugin->GetBaseDir(), TEXT("Shaders"));
-			AddShaderSourceDirectoryMapping(TEXT("/Plugin/Morpheus"), PluginShaderDir);
-		}
-	}
-#endif
-
 	TArray<FString> Tokens;
 	TArray<FString> Switches;
 	UCommandlet::ParseCommandLine(CommandLineCopy, Tokens, Switches);
