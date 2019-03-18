@@ -136,6 +136,20 @@ private:
 	};
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Adding support for lazy-loading modules
+	struct EnableLazyLoadedModuleAction
+	{
+		typedef commands::EnableLazyLoadedModule CommandType;
+		static bool Execute(CommandType* command, const DuplexPipe* pipe, void* context);
+	};
+
+	struct FinishedLazyLoadingModulesAction
+	{
+		typedef commands::FinishedLazyLoadingModules CommandType;
+		static bool Execute(CommandType* command, const DuplexPipe* pipe, void* context);
+	};
+	// END EPIC MOD
+
 	struct RegisterProcessAction
 	{
 		typedef commands::RegisterProcess CommandType;

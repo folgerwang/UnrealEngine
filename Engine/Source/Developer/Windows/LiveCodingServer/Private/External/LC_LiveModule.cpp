@@ -1334,7 +1334,7 @@ LiveModule::ErrorType::Enum LiveModule::Update(FileAttributeCache* fileCache, Di
 			LC_LOG_USER("File %S was modified or is new", modifiedOrNewObjFiles[i].c_str());
 		}
 
-		LC_LOG_USER("Building patch from %zu file(s) for Live++ module %S", modifiedOrNewObjFiles.size(), m_moduleName.c_str());
+		LC_LOG_USER("Building patch from %zu file(s) for Live Coding module %S", modifiedOrNewObjFiles.size(), m_moduleName.c_str());
 	}
 
 	// let the user know that we're about to compile

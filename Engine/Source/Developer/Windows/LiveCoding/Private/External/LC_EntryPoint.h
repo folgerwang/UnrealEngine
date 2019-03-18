@@ -18,3 +18,7 @@ void __cdecl LppSetBuildArguments(const wchar_t* const arguments);
 void __cdecl LppApplySettingBool(const char* const settingName, int value);
 void __cdecl LppApplySettingInt(const char* const settingName, int value);
 void __cdecl LppApplySettingString(const char* const settingName, const wchar_t* const value);
+
+// BEGIN EPIC MOD - Support for lazy-loading modules
+void __cdecl LppEnableLazyLoadedModule(const wchar_t* const nameOfExeOrDll);
+// END EPIC MODS

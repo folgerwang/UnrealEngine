@@ -70,3 +70,41 @@ bool LiveProcess::TriedToLoadImage(const executable::Header& imageHeader) const
 {
 	return (m_imagesTriedToLoad.find(imageHeader) != m_imagesTriedToLoad.end());
 }
+
+// BEGIN EPIC MOD - Allow lazy-loading modules
+void LiveProcess::AddLazyLoadedModule(const std::wstring moduleName, Windows::HMODULE moduleBase)
+{
+	LazyLoadedModule module;
+	module.m_moduleBase = moduleBase;
+	module.m_loaded = false;
+	m_lazyLoadedModules.insert(std::make_pair(moduleName, module));
+}
+
+void LiveProcess::SetLazyLoadedModuleAsLoaded(const std::wstring moduleName)
+{
+	std::unordered_map<std::wstring, LazyLoadedModule>::iterator it = m_lazyLoadedModules.find(moduleName);
+	if (it != m_lazyLoadedModules.end())
+	{
+		it->second.m_loaded = true;
+	}
+}
+
+bool LiveProcess::IsPendingLazyLoadedModule(const std::wstring& moduleName) const
+{
+	std::unordered_map<std::wstring, LazyLoadedModule>::const_iterator iter = m_lazyLoadedModules.find(moduleName);
+	return iter != m_lazyLoadedModules.end() && !iter->second.m_loaded;
+}
+
+Windows::HMODULE LiveProcess::GetLazyLoadedModuleBase(const std::wstring& moduleName) const
+{
+	std::unordered_map<std::wstring, LazyLoadedModule>::const_iterator iter = m_lazyLoadedModules.find(moduleName);
+	if (iter == m_lazyLoadedModules.end())
+	{
+		return nullptr;
+	}
+	else
+	{
+		return iter->second.m_moduleBase;
+	}
+}
+// END EPIC MOD

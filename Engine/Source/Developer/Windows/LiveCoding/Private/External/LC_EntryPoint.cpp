@@ -175,6 +175,13 @@ LPP_DLL_API void __cdecl LppSetBuildArguments(const wchar_t* arguments)
 }
 // END EPIC MOD
 
+// BEGIN EPIC MOD - Support for lazy-loading modules
+LPP_DLL_API void __cdecl LppEnableLazyLoadedModule(const wchar_t* const nameOfExeOrDll)
+{
+	HMODULE baseAddress = GetModuleHandle(nameOfExeOrDll);
+	g_startupThread->EnableLazyLoadedModule(nameOfExeOrDll, baseAddress);
+}
+// END EPIC MOD
 
 LPP_DLL_API void __cdecl LppApplySettingBool(const char* const settingName, int value)
 {

@@ -22,6 +22,7 @@
 #include "LC_PrimitiveNames.h"
 #include "LC_AppSettings.h"
 #include "LC_Allocators.h"
+#include "LC_DuplexPipeClient.h"
 #include <mmsystem.h>
 
 // unreachable code
@@ -584,6 +585,96 @@ BOOL CALLBACK FocusApplicationWindows(HWND WindowHandle, LPARAM Lparam)
 }
 // END EPIC MOD
 
+// BEGIN EPIC MOD - Support for lazy-loading modules
+bool ServerCommandThread::FinishedLazyLoadingModulesAction::Execute(CommandType* command, const DuplexPipe* pipe, void* context)
+{ 
+	pipe->SendAck(); 
+	return false; 
+}
+
+struct ClientProxyThread
+{
+	struct ProxyGetModuleAction
+	{
+		typedef commands::GetModule CommandType;
+
+		static bool Execute(CommandType* command, const DuplexPipe* pipe, void* context)
+		{
+			pipe->SendAck();
+
+			LiveProcess* process = static_cast<LiveProcess*>(context);
+
+			commands::GetModuleInfo cmd;
+			cmd.moduleBase = process->GetLazyLoadedModuleBase(command->path);
+			cmd.processId = process->GetProcessId();
+			cmd.loadImports = command->loadImports;
+			cmd.taskContext = command->taskContext;
+			wcscpy_s(cmd.path, command->path);
+			pipe->SendCommandAndWaitForAck(cmd);
+
+			return true;
+		}
+	};
+
+	struct ProxyEnableModuleFinishedAction
+	{
+		typedef commands::EnableModuleFinished CommandType;
+
+		static bool Execute(CommandType* command, const DuplexPipe* pipe, void* context)
+		{
+			pipe->SendAck();
+			return false;
+		}
+	};
+
+	LiveProcess* m_process;
+	DuplexPipeClient* m_pipe;
+	std::vector<std::wstring> m_enableModules;
+	thread::Handle m_threadHandle;
+
+	ClientProxyThread(LiveProcess* process, DuplexPipeClient* pipe, const std::vector<std::wstring> enableModules)
+		: m_process(process)
+		, m_pipe(pipe)
+		, m_enableModules(enableModules)
+	{
+		m_threadHandle = thread::Create(64u * 1024u, &StaticEntryPoint, this);
+		thread::SetName("Live coding client proxy");
+	}
+
+	~ClientProxyThread()
+	{
+		thread::Join(m_threadHandle);
+		thread::Close(m_threadHandle);
+	}
+
+	static unsigned int __stdcall StaticEntryPoint(void* context)
+	{
+		static_cast<ClientProxyThread*>(context)->EntryPoint();
+		return 0;
+	}
+
+	void EntryPoint()
+	{
+		m_pipe->SendCommandAndWaitForAck(commands::EnableModuleBatchBegin());
+		for(const std::wstring& enableModule : m_enableModules)
+		{
+			commands::EnableModule enableModuleCommand;
+			enableModuleCommand.processId = m_process->GetProcessId();
+			wcscpy_s(enableModuleCommand.path, enableModule.c_str());
+			enableModuleCommand.token = nullptr;
+			m_pipe->SendCommandAndWaitForAck(enableModuleCommand);
+
+			CommandMap commandMap;
+			commandMap.RegisterAction<ProxyGetModuleAction>();
+			commandMap.RegisterAction<ProxyEnableModuleFinishedAction>();
+			commandMap.HandleCommands(m_pipe, m_process);
+		}
+		m_pipe->SendCommandAndWaitForAck(commands::EnableModuleBatchEnd());
+		m_pipe->SendCommandAndWaitForAck(commands::FinishedLazyLoadingModules());
+	}
+};
+// END EPIC MOD
+
 void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 {
 	// recompile files, if any
@@ -602,6 +693,7 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 	const ILiveCodingServer::FCompileDelegate& CompileDelegate = GLiveCodingServer->GetCompileDelegate();
 	if (CompileDelegate.IsBound())
 	{
+		// Get the list of arguments for building each target, and use the delegate to pass them to UBT
 		TArray<FString> Targets;
 		for (LiveProcess* liveProcess : m_liveProcesses)
 		{
@@ -617,6 +709,45 @@ void ServerCommandThread::CompileChanges(bool didAllProcessesMakeProgress)
 			return;
 		}
 
+		// Enable any lazy-loaded modules that we need
+		for (LiveProcess* liveProcess : m_liveProcesses)
+		{
+			types::vector<std::wstring> LoadModuleFileNames;
+			for(const TPair<FString, TArray<FString>>& Pair : ModuleToObjectFiles)
+			{
+				std::wstring ModuleFileName = file::NormalizePath(*Pair.Key);
+				if (liveProcess->IsPendingLazyLoadedModule(ModuleFileName))
+				{
+					LoadModuleFileNames.push_back(ModuleFileName);
+				}
+			}
+			if (LoadModuleFileNames.size() > 0)
+			{
+				const std::wstring PipeName = primitiveNames::Pipe(m_processGroupName + L"_ClientProxy");
+
+				DuplexPipeServer ServerPipe;
+				ServerPipe.Create(PipeName.c_str());
+
+				DuplexPipeClient ClientPipe;
+				ClientPipe.Connect(PipeName.c_str());
+
+				ClientProxyThread ClientThread(liveProcess, &ClientPipe, LoadModuleFileNames);
+
+				CommandMap commandMap;
+				commandMap.RegisterAction<EnableModuleBatchBeginAction>();
+				commandMap.RegisterAction<EnableModuleBatchEndAction>();
+				commandMap.RegisterAction<EnableModuleAction>();
+				commandMap.RegisterAction<FinishedLazyLoadingModulesAction>();
+				commandMap.HandleCommands(&ServerPipe, this);
+
+				for (const std::wstring& loadModuleFileName : LoadModuleFileNames)
+				{
+					liveProcess->SetLazyLoadedModuleAsLoaded(loadModuleFileName);
+				}
+			}
+		}
+
+		// Build up a list of all the modified object files in each module
 		types::unordered_set<std::wstring> ValidModuleFileNames;
 		for (const LiveModule* liveModule : m_liveModules)
 		{
@@ -1046,6 +1177,9 @@ unsigned int ServerCommandThread::CommandThread(DuplexPipeServer* pipe, Event* r
 	// BEGIN EPIC MOD - Adding SetBuildArguments command
 	commandMap.RegisterAction<SetBuildArgumentsAction>();
 	// END EPIC MOD
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	commandMap.RegisterAction<EnableLazyLoadedModuleAction>();
+	// END EPIC MOD
 	commandMap.RegisterAction<RegisterProcessAction>();
 	commandMap.RegisterAction<EnableModuleBatchBeginAction>();
 	commandMap.RegisterAction<EnableModuleBatchEndAction>();
@@ -1356,6 +1490,30 @@ bool ServerCommandThread::SetBuildArgumentsAction::Execute(CommandType* command,
 }
 // END EPIC MOD
 
+// BEGIN EPIC MOD - Support for lazy-loading modules
+bool ServerCommandThread::EnableLazyLoadedModuleAction::Execute(CommandType* command, const DuplexPipe* pipe, void* context)
+{
+	ServerCommandThread* commandThread = static_cast<ServerCommandThread*>(context);
+
+	// protect against accepting this command while compilation is already in progress
+	CriticalSection::ScopedLock lock(&commandThread->m_actionCS);
+
+	for (LiveProcess* process : commandThread->m_liveProcesses)
+	{
+		if (process->GetProcessId() == command->processId)
+		{
+			const std::wstring modulePath = file::NormalizePath(command->fileName);
+			process->AddLazyLoadedModule(modulePath, command->moduleBase);
+			LC_LOG_DEV("Registered module %S for lazy-loading", modulePath.c_str());
+		}
+	}
+
+	pipe->SendAck();
+
+	return true;
+}
+// END EPIC MOD
+
 bool ServerCommandThread::RegisterProcessAction::Execute(CommandType* command, const DuplexPipe* pipe, void* context)
 {
 	pipe->SendAck();
@@ -1453,6 +1611,9 @@ bool ServerCommandThread::EnableModuleBatchEndAction::Execute(CommandType*, cons
 	// EPIC REMOVED: g_theApp.GetMainFrame()->ResetStatusBarText();
 
 	// tell user we are ready
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	if (thread::GetId() != thread::GetId(commandThread->m_compileThread))
+	// END EPIC MOD
 	{
 		const int shortcut = appSettings::g_compileShortcut->GetValue();
 		const std::wstring& shortcutText = shortcut::ConvertShortcutToText(shortcut);

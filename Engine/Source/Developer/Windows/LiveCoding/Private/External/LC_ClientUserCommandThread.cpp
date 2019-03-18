@@ -233,6 +233,30 @@ namespace userCommands
 	};
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	struct EnableLazyLoadedModuleCommand : public BaseCommand
+	{
+		EnableLazyLoadedModuleCommand(void)
+			: BaseCommand(Scope::NONE)
+		{
+		}
+
+		virtual ~EnableLazyLoadedModuleCommand(void) {}
+
+		virtual void Execute(DuplexPipe* pipe) override
+		{
+			commands::EnableLazyLoadedModule serverCommand;
+			serverCommand.processId = process::GetId();
+			wcscpy_s(serverCommand.fileName, fileName.c_str());
+			serverCommand.moduleBase = moduleBase;
+			pipe->SendCommandAndWaitForAck(serverCommand);
+		}
+
+		std::wstring fileName;
+		Windows::HMODULE moduleBase;
+	};
+	// END EPIC MOD
+
 
 	struct BuildPatchCommand : public BaseCommand
 	{
@@ -603,6 +627,23 @@ void ClientUserCommandThread::SetBuildArguments(const wchar_t* arguments)
 	m_itemInQueueEvent->Signal();
 }
 // END EPIC MOD
+
+// BEGIN EPIC MOD - Adding support for lazy-loading modules
+void ClientUserCommandThread::EnableLazyLoadedModule(const wchar_t* fileName, Windows::HMODULE moduleBase)
+{
+	userCommands::EnableLazyLoadedModuleCommand* command = new userCommands::EnableLazyLoadedModuleCommand;
+	command->fileName = fileName;
+	command->moduleBase = moduleBase;
+	{
+		CriticalSection::ScopedLock lock(&g_userCommandQueueCS);
+		g_userCommandQueue.push_front(command);
+	}
+
+	// signal to the thread that a new item is in the queue
+	m_itemInQueueEvent->Signal();
+}
+// END EPIC MOD
+
 
 void ClientUserCommandThread::ApplySettingBool(const char* const settingName, int value)
 {

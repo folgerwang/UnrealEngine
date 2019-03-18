@@ -5,10 +5,10 @@
 
 ULiveCodingSettings::ULiveCodingSettings(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	UProperty* EngineModulesProperty = StaticClass()->FindPropertyByName("bIncludeEngineModules");
+	UProperty* EngineModulesProperty = StaticClass()->FindPropertyByName("bPreloadEngineModules");
 	check(EngineModulesProperty != nullptr);
 
-	UProperty* EnginePluginModulesProperty = StaticClass()->FindPropertyByName("bIncludeEnginePluginModules");
+	UProperty* EnginePluginModulesProperty = StaticClass()->FindPropertyByName("bPreloadEnginePluginModules");
 	check(EnginePluginModulesProperty != nullptr);
 
 	if (FApp::IsEngineInstalled())
@@ -17,6 +17,6 @@ ULiveCodingSettings::ULiveCodingSettings(const FObjectInitializer& ObjectInitial
 		EnginePluginModulesProperty->ClearPropertyFlags(CPF_Edit);
 	}
 
-	bIncludeProjectModules = true;
-	bIncludeProjectPluginModules = true;
+	bPreloadProjectModules = true;
+	bPreloadProjectPluginModules = true;
 }

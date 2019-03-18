@@ -64,6 +64,13 @@ public:
 	}
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Allow lazy-loading modules
+	void AddLazyLoadedModule(const std::wstring moduleName, Windows::HMODULE moduleBase);
+	void SetLazyLoadedModuleAsLoaded(const std::wstring moduleName);
+	bool IsPendingLazyLoadedModule(const std::wstring& moduleName) const;
+	Windows::HMODULE GetLazyLoadedModuleBase(const std::wstring& moduleName) const;
+	// END EPIC MOD
+
 private:
 	process::Handle m_processHandle;
 	unsigned int m_processId;
@@ -72,6 +79,16 @@ private:
 
 	// BEGIN EPIC MOD - Add build arguments
 	std::wstring m_buildArguments;
+	// END EPIC MOD
+
+	// BEGIN EPIC MOD - Allow lazy-loading modules
+	struct LazyLoadedModule
+	{
+		Windows::HMODULE m_moduleBase;
+		bool m_loaded;
+	};
+
+	types::unordered_map<std::wstring, LazyLoadedModule> m_lazyLoadedModules;
 	// END EPIC MOD
 
 	// loaded modules are not identified by their full path, but by their executable image header.

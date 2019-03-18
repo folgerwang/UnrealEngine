@@ -258,7 +258,7 @@ void FLiveCodingModule::UpdateModules()
 #if IS_MONOLITHIC
 	wchar_t FullFilePath[WINDOWS_MAX_PATH];
 	verify(GetModuleFileName(hInstance, FullFilePath, ARRAY_COUNT(FullFilePath)));
-	EnableModule(FullFilePath);
+	LppEnableModule(FullFilePath);
 #else
 	TArray<FModuleStatus> ModuleStatuses;
 	FModuleManager::Get().QueryModules(ModuleStatuses);
@@ -280,24 +280,6 @@ void FLiveCodingModule::UpdateModules()
 #endif
 }
 
-void FLiveCodingModule::EnableModule(const FString& FullFilePath)
-{
-	if (!EnabledModules.Contains(FullFilePath))
-	{
-		LppEnableModule(*FullFilePath);
-		EnabledModules.Add(FullFilePath);
-	}
-}
-
-void FLiveCodingModule::DisableModule(const FString& FullFilePath)
-{
-	if(EnabledModules.Contains(FullFilePath))
-	{
-		LppDisableModule(*FullFilePath);
-		EnabledModules.Remove(FullFilePath);
-	}
-}
-
 void FLiveCodingModule::OnModulesChanged(FName ModuleName, EModuleChangeReason Reason)
 {
 #if !IS_MONOLITHIC
@@ -316,42 +298,42 @@ void FLiveCodingModule::OnModulesChanged(FName ModuleName, EModuleChangeReason R
 void FLiveCodingModule::ConfigureModule(const FName& Name, const FString& FullFilePath)
 {
 #if !IS_MONOLITHIC
-	if (ShouldEnableModule(Name, FullFilePath))
+	if (!ConfiguredModules.Contains(Name))
 	{
-		EnableModule(FullFilePath);
-	}
-	else
-	{
-		DisableModule(FullFilePath);
+		if (ShouldPreloadModule(Name, FullFilePath))
+		{
+			LppEnableModule(*FullFilePath);
+		}
+		else
+		{
+			LppEnableLazyLoadedModule(*FullFilePath);
+		}
+		ConfiguredModules.Add(Name);
 	}
 #endif
 }
 
-bool FLiveCodingModule::ShouldEnableModule(const FName& Name, const FString& FullFilePath) const
+bool FLiveCodingModule::ShouldPreloadModule(const FName& Name, const FString& FullFilePath) const
 {
-	if (Settings->ExcludeSpecificModules.Contains(Name))
-	{
-		return false;
-	}
-	if (Settings->IncludeSpecificModules.Contains(Name))
+	if (Settings->PreloadNamedModules.Contains(Name))
 	{
 		return true;
 	}
 
 	if (FullFilePath.StartsWith(FullProjectDir))
 	{
-		if (Settings->bIncludeProjectModules == Settings->bIncludeProjectPluginModules)
+		if (Settings->bPreloadProjectModules == Settings->bPreloadProjectPluginModules)
 		{
-			return Settings->bIncludeProjectModules;
+			return Settings->bPreloadProjectModules;
 		}
 
 		if(FullFilePath.StartsWith(FullProjectPluginsDir))
 		{
-			return Settings->bIncludeProjectPluginModules;
+			return Settings->bPreloadProjectPluginModules;
 		}
 		else
 		{
-			return Settings->bIncludeProjectModules;
+			return Settings->bPreloadProjectModules;
 		}
 	}
 	else
@@ -361,18 +343,18 @@ bool FLiveCodingModule::ShouldEnableModule(const FName& Name, const FString& Ful
 			return false;
 		}
 
-		if (Settings->bIncludeEngineModules == Settings->bIncludeEnginePluginModules)
+		if (Settings->bPreloadEngineModules == Settings->bPreloadEnginePluginModules)
 		{
-			return Settings->bIncludeEngineModules;
+			return Settings->bPreloadEngineModules;
 		}
 
 		if(FullFilePath.StartsWith(FullEnginePluginsDir))
 		{
-			return Settings->bIncludeEnginePluginModules;
+			return Settings->bPreloadEnginePluginModules;
 		}
 		else
 		{
-			return Settings->bIncludeEngineModules;
+			return Settings->bPreloadEngineModules;
 		}
 	}
 }

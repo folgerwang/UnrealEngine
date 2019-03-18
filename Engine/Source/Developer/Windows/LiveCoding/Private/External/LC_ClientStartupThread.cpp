@@ -255,6 +255,18 @@ void ClientStartupThread::SetBuildArguments(const wchar_t* arguments)
 }
 // END EPIC MOD
 
+// BEGIN EPIC MOD - Support for lazy-loading modules
+void ClientStartupThread::EnableLazyLoadedModule(const wchar_t* fileName, Windows::HMODULE moduleBase)
+{
+	// we cannot wait for commands in the user command thread as long as startup hasn't finished
+	Join();
+
+	if (m_userCommandThread)
+	{
+		m_userCommandThread->EnableLazyLoadedModule(fileName, moduleBase);
+	}
+}
+// END EPIC MOD
 
 void ClientStartupThread::ApplySettingBool(const char* const settingName, int value)
 {

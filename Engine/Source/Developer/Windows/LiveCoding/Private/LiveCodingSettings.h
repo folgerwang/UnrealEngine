@@ -27,22 +27,19 @@ public:
     ELiveCodingStartupMode Startup;
 
 	UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    bool bIncludeEngineModules;
+    bool bPreloadEngineModules;
 
     UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    bool bIncludeEnginePluginModules;
+    bool bPreloadEnginePluginModules;
 
     UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    bool bIncludeProjectModules;
+    bool bPreloadProjectModules;
 
     UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    bool bIncludeProjectPluginModules;
+    bool bPreloadProjectPluginModules;
 
     UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    TArray<FName> IncludeSpecificModules;
-
-    UPROPERTY(config, EditAnywhere, Category=Modules, Meta=(ConfigRestartRequired=true, EditCondition="bEnabled"))
-    TArray<FName> ExcludeSpecificModules;
+    TArray<FName> PreloadNamedModules;
 
 	ULiveCodingSettings(const FObjectInitializer& Initializer);
 };

@@ -63,6 +63,10 @@ public:
 	void SetBuildArguments(const wchar_t* arguments);
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	void EnableLazyLoadedModule(const wchar_t* fileName, Windows::HMODULE moduleBase);
+	// END EPIC MOD
+
 	void ApplySettingBool(const char* const settingName, int value);
 	void ApplySettingInt(const char* const settingName, int value);
 	void ApplySettingString(const char* const settingName, const wchar_t* const value);

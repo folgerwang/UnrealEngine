@@ -59,6 +59,10 @@ public:
 	void SetBuildArguments(const wchar_t* arguments);
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	void EnableLazyLoadedModule(const wchar_t* fileName, Windows::HMODULE moduleBase);
+	// END EPIC MOD
+
 private:
 	struct ThreadContext
 	{

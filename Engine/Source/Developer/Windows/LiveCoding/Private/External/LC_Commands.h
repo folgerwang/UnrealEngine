@@ -316,11 +316,27 @@ namespace commands
 	};
 	// END EPIC MOD
 
+	// BEGIN EPIC MOD - Support for lazy-loading modules
+	struct EnableLazyLoadedModule
+	{
+		static const uint32_t ID = SetBuildArguments::ID + 1u;
+
+		unsigned int processId;
+		wchar_t fileName[260];
+		Windows::HMODULE moduleBase;
+	};
+
+	struct FinishedLazyLoadingModules
+	{
+		static const uint32_t ID = EnableLazyLoadedModule::ID + 1u;
+	};
+	// END EPIC MOD
+
 	// tell the EXE that a bool setting needs to be changed
 	struct ApplySettingBool
 	{
-		// BEGIN EPIC MOD - Adding SetBuildArguments command
-		static const uint32_t ID = SetBuildArguments::ID + 1u;
+		// BEGIN EPIC MOD - Support for lazy-loading modules
+		static const uint32_t ID = FinishedLazyLoadingModules::ID + 1u;
 		// END EPIC MOD
 
 		char settingName[256];
