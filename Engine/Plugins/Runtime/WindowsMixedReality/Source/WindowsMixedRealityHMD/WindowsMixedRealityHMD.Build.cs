@@ -32,14 +32,12 @@ namespace UnrealBuildTool.Rules
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win32/HolographicStreamerDesktop.dll");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win32/Microsoft.Perception.Simulation.dll");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win32/PerceptionSimulationManager.dll");
-				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies/Win32/Microsoft.VC140.CRT/vccorlib140.dll");
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Win64)
 			{
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/HolographicStreamerDesktop.dll");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/Microsoft.Perception.Simulation.dll");
 				RuntimeDependencies.Add("$(EngineDir)/Binaries/Win64/PerceptionSimulationManager.dll");
-				RuntimeDependencies.Add("$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies/Win64/Microsoft.VC140.CRT/vccorlib140.dll");
 			}
 
 			PublicLibraryPaths.Add(LibrariesPath);

@@ -114,13 +114,11 @@ namespace WindowsMixedReality
 
 			FString PerceptionSimulationDLLPath = EngineDir / "Binaries" / BinariesSubDir / "Microsoft.Perception.Simulation.dll";
 			FString HolographicStreamerDesktopDLLPath = EngineDir / "Binaries" / BinariesSubDir / "HolographicStreamerDesktop.dll";
-			FString VCCorLib140DLLPath = EngineDir / "Binaries/ThirdParty/AppLocalDependencies" / BinariesSubDir / "Microsoft.VC140.CRT/vccorlib140.dll";
 			FString MRInteropLibraryPath = BaseDir / "Binaries/ThirdParty/MixedRealityInteropLibrary" / BinariesSubDir / "MixedRealityInterop.dll";
 
 			// Load these dependencies first or MixedRealityInteropLibraryHandle fails to load since it doesn't look in the correct path for its dependencies automatically
 			void* PerceptionSimulationDLLHandle = FPlatformProcess::GetDllHandle(*PerceptionSimulationDLLPath);
 			void* HolographicStreamerDesktopDLLHandle = FPlatformProcess::GetDllHandle(*HolographicStreamerDesktopDLLPath);
-			void* VCCorLib140DLLHandle = FPlatformProcess::GetDllHandle(*VCCorLib140DLLPath);
 
 			// Then finally try to load the WMR Interop Library
 			void* MixedRealityInteropLibraryHandle = !MRInteropLibraryPath.IsEmpty() ? FPlatformProcess::GetDllHandle(*MRInteropLibraryPath) : nullptr;
