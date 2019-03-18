@@ -12,6 +12,7 @@ public:
 
 	// ~Begin IVoiceChat Interface
 	virtual bool Initialize() override;
+	virtual bool Uninitialize() override;
 	virtual FDelegateHandle StartRecording(const FOnVoiceChatRecordSamplesAvailableDelegate::FDelegate& Delegate) override;
 	virtual void StopRecording(FDelegateHandle Handle) override;
 	// ~End IVoiceChat Interface

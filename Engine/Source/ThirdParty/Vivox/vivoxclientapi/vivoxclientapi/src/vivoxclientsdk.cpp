@@ -110,6 +110,9 @@ static std::string UTF8ToCodePage(const char *uBuf, size_t uBufLen)
 #define CHECK_BREAK(x) if(!(x)) { m_app->onAssert(__FUNCTION__, __LINE__, #x); break; }
 #define ALWAYS_ASSERT(x) m_app->onAssert(__FUNCTION__, __LINE__, #x)
 
+#define CHECK_STATUS_RET(x) if((x) != 0) { m_app->onAssert(__FUNCTION__, __LINE__, #x); return; }
+#define CHECK_STATUS_RETVAL(x) { int RetVal = (x); if(RetVal != 0) { m_app->onAssert(__FUNCTION__, __LINE__, #x); return VCSStatus(RetVal); }}
+
 namespace VivoxClientApi {
 
 	const char * g_domain_with_at = "@vd2.vivox.com";   //Change this value to the domain name of the server you are developing against.
@@ -235,8 +238,8 @@ namespace VivoxClientApi {
         void NextState(const std::string &sessionHandle, const Uri &channelUri) {
             (void)channelUri;
             if (!m_volumeRequestInProgress && m_currentVolume != m_desiredVolume) {
-                vx_req_session_set_participant_volume_for_me_t *req;
-                vx_req_session_set_participant_volume_for_me_create(&req);
+                vx_req_session_set_participant_volume_for_me_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_session_set_participant_volume_for_me_create(&req));
                 req->session_handle = vx_strdup(sessionHandle.c_str());
                 req->participant_uri = vx_strdup(m_uri.ToString());
                 req->volume = m_desiredVolume;
@@ -244,8 +247,8 @@ namespace VivoxClientApi {
                 m_volumeRequestInProgress = true;
             }
             if (!m_mutedForMeRequestInProgress && m_currentMutedForMe != m_desiredMutedForMe) {
-                vx_req_session_set_participant_mute_for_me_t *req;
-                vx_req_session_set_participant_mute_for_me_create(&req);
+                vx_req_session_set_participant_mute_for_me_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_session_set_participant_mute_for_me_create(&req));
                 req->session_handle = vx_strdup(sessionHandle.c_str());
                 req->participant_uri = vx_strdup(m_uri.ToString());
                 req->mute = m_desiredMutedForMe ? 1 : 0;
@@ -348,8 +351,8 @@ namespace VivoxClientApi {
             if(m_currentState == ChannelStateDisconnected && m_desiredState == ChannelStateConnected) {
                 CHECK_RET(m_channelUri.IsValid());
                 {
-                    vx_req_sessiongroup_add_session *req;
-                    vx_req_sessiongroup_add_session_create(&req);
+                    vx_req_sessiongroup_add_session_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_sessiongroup_add_session_create(&req));
                     req->connect_audio = 1;
                     req->connect_text = 0;
                     req->uri = vx_strdup(m_channelUri.ToString());
@@ -365,8 +368,8 @@ namespace VivoxClientApi {
                     issueRequest(&req->base);
                 }
             } else if((m_currentState == ChannelStateConnecting || m_currentState == ChannelStateConnected) && m_desiredState == ChannelStateDisconnected) {
-                vx_req_sessiongroup_remove_session *req;
-                vx_req_sessiongroup_remove_session_create(&req);
+                vx_req_sessiongroup_remove_session_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_sessiongroup_remove_session_create(&req));
                 req->session_handle = vx_strdup(m_sessionHandle.c_str());
                 req->sessiongroup_handle = vx_strdup(sessionGroupHandle.c_str());
                 m_currentState = ChannelStateDisconnecting;
@@ -374,8 +377,8 @@ namespace VivoxClientApi {
 			}
 			else if (m_currentState == ChannelStateConnected) {
 				if (!m_volumeRequestInProgress && m_currentVolume != m_desiredVolume && !m_sessionMuted) {
-                    vx_req_session_set_local_speaker_volume_t *req;
-                    vx_req_session_set_local_speaker_volume_create(&req);
+                    vx_req_session_set_local_speaker_volume_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_session_set_local_speaker_volume_create(&req));
                     req->session_handle = vx_strdup(m_sessionHandle.c_str());
                     req->volume = m_desiredVolume;
                     issueRequest(&req->base);
@@ -453,16 +456,16 @@ namespace VivoxClientApi {
         }
 
         VCSStatus SetTransmissionToThisChannel(){
-            vx_req_sessiongroup_set_tx_session_t *req;
-            vx_req_sessiongroup_set_tx_session_create(&req);
+            vx_req_sessiongroup_set_tx_session_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_sessiongroup_set_tx_session_create(&req));
             req->session_handle = vx_strdup(m_sessionHandle.c_str());
             return issueRequest(&req->base);
         }
 
 		VCSStatus Set3DPosition(const Vector &speakerPosition, const Vector &listenerPosition, const Vector &listenerForward, const Vector &listenerUp)
 		{
-			vx_req_session_set_3d_position_t *req;
-			vx_req_session_set_3d_position_create(&req);
+			vx_req_session_set_3d_position_t *req = nullptr;
+			CHECK_STATUS_RETVAL(vx_req_session_set_3d_position_create(&req));
 			req->req_disposition_type = req_disposition_no_reply_required;
 			req->session_handle = vx_strdup(m_sessionHandle.c_str());
 
@@ -706,8 +709,8 @@ namespace VivoxClientApi {
             fclose(fp);
 
             if(HasConnectedChannel()) {
-                vx_req_sessiongroup_control_audio_injection_t *req;
-                vx_req_sessiongroup_control_audio_injection_create(&req);
+                vx_req_sessiongroup_control_audio_injection_t *req = nullptr;
+                CHECK_STATUS_RETVAL(vx_req_sessiongroup_control_audio_injection_create(&req));
                 req->audio_injection_control_type = VX_SESSIONGROUP_AUDIO_INJECTION_CONTROL_RESTART;
                 req->sessiongroup_handle = vx_strdup(m_sessionGroupHandle.c_str());
                 req->filename = vx_strdup(filename);
@@ -718,8 +721,8 @@ namespace VivoxClientApi {
 
         void StopPlayFileIntoChannels()
         {
-            vx_req_sessiongroup_control_audio_injection_t *req;
-            vx_req_sessiongroup_control_audio_injection_create(&req);
+            vx_req_sessiongroup_control_audio_injection_t *req = nullptr;
+            CHECK_STATUS_RET(vx_req_sessiongroup_control_audio_injection_create(&req));
             req->audio_injection_control_type = VX_SESSIONGROUP_AUDIO_INJECTION_CONTROL_STOP;
             req->sessiongroup_handle = vx_strdup(m_sessionGroupHandle.c_str());
             issueRequest(&req->base);
@@ -766,8 +769,8 @@ namespace VivoxClientApi {
 			if (volume == 100) { s->SetSessionMuted(false); volume=s->GetDesiredVolume(); }
 
 			// issue the request,  there is no state information to worry about if it fails.
-			vx_req_session_set_local_speaker_volume_t *req;
-			vx_req_session_set_local_speaker_volume_create(&req);
+			vx_req_session_set_local_speaker_volume_t *req = nullptr;
+			CHECK_STATUS_RETVAL(vx_req_session_set_local_speaker_volume_create(&req));
 			req->session_handle = vx_strdup(s->GetSessionHandle().c_str());
 			req->volume = volume;
 			
@@ -801,9 +804,8 @@ namespace VivoxClientApi {
             Channel *s = FindChannel(channel);
             if (s == NULL)
                 return VCSStatus(VX_E_NO_EXIST);
-            vx_req_channel_mute_user_t *req;
-
-            vx_req_channel_mute_user_create(&req);
+            vx_req_channel_mute_user_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_channel_mute_user_create(&req));
             req->account_handle = vx_strdup(m_accountHandle.c_str());
             req->channel_uri = vx_strdup(channel.ToString());
             req->participant_uri = vx_strdup(target.ToString());
@@ -934,18 +936,22 @@ namespace VivoxClientApi {
                         }
                         break;
                     case ChannelTransmissionPolicy::vx_channel_transmission_policy_all:
-						m_channelTransmissionPolicyRequestInProgress = true;
-                        vx_req_sessiongroup_set_tx_all_sessions_t *req_all;
-                        vx_req_sessiongroup_set_tx_all_sessions_create(&req_all);
+                    {
+                        m_channelTransmissionPolicyRequestInProgress = true;
+                        vx_req_sessiongroup_set_tx_all_sessions_t *req_all = nullptr;
+                        CHECK_STATUS_RET(vx_req_sessiongroup_set_tx_all_sessions_create(&req_all));
                         req_all->sessiongroup_handle = vx_strdup(m_sessionGroupHandle.c_str());
                         issueRequest(&req_all->base);
+                    }
                         break;
                     case ChannelTransmissionPolicy::vx_channel_transmission_policy_none:
-						m_channelTransmissionPolicyRequestInProgress = true;
-                        vx_req_sessiongroup_set_tx_no_session_t *req_none;
-                        vx_req_sessiongroup_set_tx_no_session_create(&req_none);
+                    {
+                        m_channelTransmissionPolicyRequestInProgress = true;
+                        vx_req_sessiongroup_set_tx_no_session_t *req_none = nullptr;
+                        CHECK_STATUS_RET(vx_req_sessiongroup_set_tx_no_session_create(&req_none));
                         req_none->sessiongroup_handle = vx_strdup(m_sessionGroupHandle.c_str());
                         issueRequest(&req_none->base);
+                    }
                         break;
                     default:
                         break;
@@ -1159,8 +1165,8 @@ namespace VivoxClientApi {
 
         VCSStatus IssueGetStats(bool reset)
         {
-            vx_req_sessiongroup_get_stats *req;
-            vx_req_sessiongroup_get_stats_create(&req);
+            vx_req_sessiongroup_get_stats_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_sessiongroup_get_stats_create(&req));
             req->sessiongroup_handle = vx_strdup(GetSessionGroupHandle().c_str());
             req->reset_stats = reset ? 1 : 0;
             return issueRequest(&req->base);
@@ -1211,8 +1217,8 @@ namespace VivoxClientApi {
                 CHECK(!m_accountName.IsValid() || m_accountName == accountName);
                 m_accountHandle = accountHandle;
                 m_accountName = accountName;
-                vx_req_sessiongroup_create *req;
-                vx_req_sessiongroup_create_create(&req);
+                vx_req_sessiongroup_create_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_sessiongroup_create_create(&req));
                 req->account_handle = vx_strdup(accountHandle.c_str());
                 req->base.cookie = GetNextRequestId(NULL, "G");
                 req->sessiongroup_handle = vx_strdup(req->base.cookie);
@@ -1325,8 +1331,8 @@ namespace VivoxClientApi {
         {
 			
             if(m_currentLoginState == LoginStateLoggedOut && m_desiredLoginState == LoginStateLoggedIn) {
-                vx_req_account_anonymous_login_t *req;
-                vx_req_account_anonymous_login_create(&req);
+                vx_req_account_anonymous_login_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_account_anonymous_login_create(&req));
                 req->connector_handle = vx_strdup(m_connectorHandle.c_str());
                 req->base.cookie = GetNextRequestId(NULL, "A");
                 req->account_handle = vx_strdup(req->base.cookie);
@@ -1349,8 +1355,8 @@ namespace VivoxClientApi {
                 //m_currentPassword = m_desiredPassword;
                 issueRequest(&req->base);
             } else if((m_currentLoginState == LoginStateLoggedIn || m_currentLoginState == LoginStateLoggingIn) && m_desiredLoginState == LoginStateLoggedOut) {
-                vx_req_account_logout_t *req;
-                vx_req_account_logout_create(&req);
+                vx_req_account_logout_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_account_logout_create(&req));
                 req->account_handle = vx_strdup(m_accountHandle.c_str());
                 m_currentLoginState = LoginStateLoggingOut;
                 issueRequest(&req->base);
@@ -1373,8 +1379,8 @@ namespace VivoxClientApi {
                 std::string blockedStr = blocked.str();
                 std::string unblockedStr = unblocked.str();
                 if(!blockedStr.empty()) {
-                    vx_req_account_control_communications_t *req;
-                    vx_req_account_control_communications_create(&req);
+                    vx_req_account_control_communications_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_account_control_communications_create(&req));
                     req->account_handle = vx_strdup(m_accountHandle.c_str());
                     req->user_uris = vx_strdup(blockedStr.c_str());
                     req->operation = vx_control_communications_operation_block;
@@ -1382,8 +1388,8 @@ namespace VivoxClientApi {
                 }
 
                 if(!unblockedStr.empty()) {
-                    vx_req_account_control_communications_t *req;
-                    vx_req_account_control_communications_create(&req);
+                    vx_req_account_control_communications_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_account_control_communications_create(&req));
                     req->account_handle = vx_strdup(m_accountHandle.c_str());
                     req->user_uris = vx_strdup(unblockedStr.c_str());
                     req->operation = vx_control_communications_operation_unblock;
@@ -1466,7 +1472,7 @@ namespace VivoxClientApi {
         VCSStatus KickUser(const Uri &channel, const Uri &userUri)
         {
             vx_req_channel_kick_user_t *req;
-            vx_req_channel_kick_user_create(&req);
+            CHECK_STATUS_RETVAL(vx_req_channel_kick_user_create(&req));
             req->account_handle = vx_strdup(m_accountHandle.c_str());
             req->channel_uri = vx_strdup(channel.ToString());
             req->participant_uri = vx_strdup(userUri.ToString());
@@ -1855,8 +1861,8 @@ namespace VivoxClientApi {
             CHECK_RET1(fp, VCSStatus(VX_E_FILE_OPEN_FAILED));
 #endif
             fclose(fp);
-            vx_req_aux_render_audio_start_t *req;
-            vx_req_aux_render_audio_start_create(&req);
+            vx_req_aux_render_audio_start_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_aux_render_audio_start_create(&req));
             req->sound_file_path = vx_strdup(filename);
             req->loop = 1;
             issueRequest(&req->base);
@@ -1867,8 +1873,8 @@ namespace VivoxClientApi {
         void StopAudioOutputDeviceTest()
         {
             if (m_audioOutputDeviceTestIsRunning) {
-                vx_req_aux_render_audio_stop_t *req;
-                vx_req_aux_render_audio_stop_create(&req);
+                vx_req_aux_render_audio_stop_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_aux_render_audio_stop_create(&req));
                 issueRequest(&req->base);
                 m_audioOutputDeviceTestIsRunning = false;
             }
@@ -1884,8 +1890,8 @@ namespace VivoxClientApi {
             CHECK_RET1(m_audioOutputDeviceTestIsRunning == false, VCSStatus(VX_E_FAILED));
             CHECK_RET1(m_audioInputDeviceTestIsPlayingBack == false, VCSStatus(VX_E_FAILED));
             CHECK_RET1(m_audioInputDeviceTestIsRecording == false, VCSStatus(VX_E_FAILED));
-            vx_req_aux_start_buffer_capture *req;
-            vx_req_aux_start_buffer_capture_create(&req);
+            vx_req_aux_start_buffer_capture_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_aux_start_buffer_capture_create(&req));
             issueRequest(&req->base);
             m_audioInputDeviceTestIsRecording = true;
             return VCSStatus(0);
@@ -1894,8 +1900,8 @@ namespace VivoxClientApi {
         void StopAudioInputDeviceTestRecord()
         {
             if (m_audioInputDeviceTestIsRecording) {
-                vx_req_aux_capture_audio_stop_t *req;
-                vx_req_aux_capture_audio_stop_create(&req);
+                vx_req_aux_capture_audio_stop_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_aux_capture_audio_stop_create(&req));
                 issueRequest(&req->base);
                 m_audioInputDeviceTestIsRecording = false;
                 m_audioInputDeviceTestHasAudioToPlayback = true;
@@ -1907,8 +1913,8 @@ namespace VivoxClientApi {
             CHECK_RET1(m_audioOutputDeviceTestIsRunning == false, VCSStatus(VX_E_FAILED));
             CHECK_RET1(m_audioInputDeviceTestIsPlayingBack == false, VCSStatus(VX_E_FAILED));
             CHECK_RET1(m_audioInputDeviceTestIsRecording == false, VCSStatus(VX_E_FAILED));
-            vx_req_aux_play_audio_buffer_t *req;
-            vx_req_aux_play_audio_buffer_create(&req);
+            vx_req_aux_play_audio_buffer_t *req = nullptr;
+            CHECK_STATUS_RETVAL(vx_req_aux_play_audio_buffer_create(&req));
             issueRequest(&req->base);
             m_audioInputDeviceTestIsPlayingBack = true;
             return VCSStatus(0);
@@ -1917,8 +1923,8 @@ namespace VivoxClientApi {
         void StopAudioInputDeviceTestPlayback()
         {
             if (m_audioInputDeviceTestIsPlayingBack) {
-                vx_req_aux_render_audio_stop_t *req;
-                vx_req_aux_render_audio_stop_create(&req);
+                vx_req_aux_render_audio_stop_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_aux_render_audio_stop_create(&req));
                 issueRequest(&req->base);
                 m_audioInputDeviceTestIsPlayingBack = false;
             }
@@ -2076,15 +2082,15 @@ namespace VivoxClientApi {
 
         void RequestAudioInputDevices()
         {
-            vx_req_aux_get_capture_devices_t *capture_req;
-            vx_req_aux_get_capture_devices_create(&capture_req);
+            vx_req_aux_get_capture_devices_t *capture_req = nullptr;
+            CHECK_STATUS_RET(vx_req_aux_get_capture_devices_create(&capture_req));
             issueRequest(&capture_req->base);
         }
 
         void RequestAudioOutputDevices()
         {
-            vx_req_aux_get_render_devices_t *render_req;
-            vx_req_aux_get_render_devices_create(&render_req);
+            vx_req_aux_get_render_devices_t *render_req = nullptr;
+            CHECK_STATUS_RET(vx_req_aux_get_render_devices_create(&render_req));
             issueRequest(&render_req->base);
         }
 
@@ -2405,8 +2411,8 @@ namespace VivoxClientApi {
                     if(m_currentState == ConnectorStateUninitialized) {
                         CHECK_RET(m_connectorHandle.empty());
                         CHECK_RET(!m_currentServer.IsValid());
-                        vx_req_connector_create_t *req;
-                        vx_req_connector_create_create(&req);
+                        vx_req_connector_create_t *req = nullptr;
+                        CHECK_STATUS_RET(vx_req_connector_create_create(&req));
                         req->acct_mgmt_server = vx_strdup(m_desiredServer.ToString());
                         req->application = vx_strdup(m_application.c_str());
                         req->base.cookie = GetNextRequestId(NULL, "C");
@@ -2422,8 +2428,8 @@ namespace VivoxClientApi {
                     if(m_currentState == ConnectorStateInitialized) {
                         CHECK_RET(m_currentServer.IsValid());
                         CHECK_RET(!m_connectorHandle.empty());
-                        vx_req_connector_initiate_shutdown *req;
-                        vx_req_connector_initiate_shutdown_create(&req);
+                        vx_req_connector_initiate_shutdown *req = nullptr;
+                        CHECK_STATUS_RET(vx_req_connector_initiate_shutdown_create(&req));
                         req->connector_handle = vx_strdup(m_connectorHandle.c_str());
                         m_currentState = ConnectorStateUninitializing;
                         issueRequest(&req->base);
@@ -2439,8 +2445,8 @@ namespace VivoxClientApi {
             // audio device and master volume states
             if (!(m_currentAudioInputDevicePolicy == m_desiredAudioInputDevicePolicy)) {
                 /// This only puts in a change request if the effective device would change
-                vx_req_aux_set_capture_device_t *req;
-                vx_req_aux_set_capture_device_create(&req);
+                vx_req_aux_set_capture_device_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_aux_set_capture_device_create(&req));
 
                 req->base.vcookie = new AudioDevicePolicy(m_desiredAudioInputDevicePolicy);
 
@@ -2450,8 +2456,8 @@ namespace VivoxClientApi {
             }
             if (!(m_currentAudioOutputDevicePolicy == m_desiredAudioOutputDevicePolicy)) {
                 /// This only puts in a change request if the effective device would change
-                vx_req_aux_set_render_device_t *req;
-                vx_req_aux_set_render_device_create(&req);
+                vx_req_aux_set_render_device_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_aux_set_render_device_create(&req));
 
                 req->base.vcookie = new AudioDevicePolicy(m_desiredAudioOutputDevicePolicy);
 
@@ -2461,8 +2467,8 @@ namespace VivoxClientApi {
             }
             if (m_masterAudioInputDeviceVolume != m_desiredAudioInputDeviceVolume) {
                 if (!m_masterAudioInputDeviceVolumeRequestInProgress) {
-                    vx_req_connector_set_local_mic_volume_t *req;
-                    vx_req_connector_set_local_mic_volume_create(&req);
+                    vx_req_connector_set_local_mic_volume_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_connector_set_local_mic_volume_create(&req));
                     req->volume = m_desiredAudioInputDeviceVolume;
                     issueRequest(&req->base);
                     m_masterAudioInputDeviceVolumeRequestInProgress = true;
@@ -2471,8 +2477,8 @@ namespace VivoxClientApi {
 			}
             if (m_masterAudioOutputDeviceVolume != m_desiredAudioOutputDeviceVolume) {
                 if (!m_masterAudioOutputDeviceVolumeRequestInProgress) {
-                    vx_req_connector_set_local_speaker_volume_t *req;
-                    vx_req_connector_set_local_speaker_volume_create(&req);
+                    vx_req_connector_set_local_speaker_volume_t *req = nullptr;
+                    CHECK_STATUS_RET(vx_req_connector_set_local_speaker_volume_create(&req));
                     req->volume = m_desiredAudioOutputDeviceVolume;
                     issueRequest(&req->base);
                     m_masterAudioOutputDeviceVolumeRequestInProgress = true;
@@ -2481,8 +2487,8 @@ namespace VivoxClientApi {
 			}
 			if (m_autoVad != m_desiredAutoVad || (!m_autoVad && m_masterVadSensitivity != m_desiredVadSensitivity)) {
 				if (!m_masterVoiceActivateDetectionRequestInProgress) {
-					vx_req_aux_set_vad_properties *req;
-					vx_req_aux_set_vad_properties_create(&req);
+					vx_req_aux_set_vad_properties_t *req = nullptr;
+					CHECK_STATUS_RET(vx_req_aux_set_vad_properties_create(&req));
 					req->vad_sensitivity = m_desiredVadSensitivity;
 					req->vad_noise_floor = 576;
 					req->vad_hangover = 2000;
@@ -3186,8 +3192,8 @@ namespace VivoxClientApi {
         {
             if (value != m_audioOutputDeviceMuted) {
                 m_audioOutputDeviceMuted = value;
-                vx_req_connector_mute_local_speaker_t *req;
-                vx_req_connector_mute_local_speaker_create(&req);
+                vx_req_connector_mute_local_speaker_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_connector_mute_local_speaker_create(&req));
                 req->mute_level = value ? 1 : 0;
                 vx_issue_request(&req->base);
             }
@@ -3202,8 +3208,8 @@ namespace VivoxClientApi {
         {
             if (value != m_audioInputDeviceMuted) {
                 m_audioInputDeviceMuted = value;
-                vx_req_connector_mute_local_mic_t *req;
-                vx_req_connector_mute_local_mic_create(&req);
+                vx_req_connector_mute_local_mic_t *req = nullptr;
+                CHECK_STATUS_RET(vx_req_connector_mute_local_mic_create(&req));
                 req->mute_level = value ? 1 : 0;
                 vx_issue_request(&req->base);
             }
@@ -3221,8 +3227,8 @@ namespace VivoxClientApi {
         ///
         void EnteredBackground()
         {
-            vx_req_aux_notify_application_state_change *req;
-            vx_req_aux_notify_application_state_change_create(&req);
+            vx_req_aux_notify_application_state_change_t *req = nullptr;
+            CHECK_STATUS_RET(vx_req_aux_notify_application_state_change_create(&req));
             req->notification_type = vx_application_state_notification_type_before_background;
             issueRequest(&req->base);
         }
@@ -3234,8 +3240,8 @@ namespace VivoxClientApi {
         ///
         void WillEnterForeground()
         {
-            vx_req_aux_notify_application_state_change *req;
-            vx_req_aux_notify_application_state_change_create(&req);
+            vx_req_aux_notify_application_state_change_t *req = nullptr;
+            CHECK_STATUS_RET(vx_req_aux_notify_application_state_change_create(&req));
             req->notification_type = vx_application_state_notification_type_after_foreground;
             issueRequest(&req->base);
         }
@@ -3247,8 +3253,8 @@ namespace VivoxClientApi {
         ///
         void OnBackgroundIdleTimeout()
         {
-            vx_req_aux_notify_application_state_change *req;
-            vx_req_aux_notify_application_state_change_create(&req);
+            vx_req_aux_notify_application_state_change_t *req = nullptr;
+            CHECK_STATUS_RET(vx_req_aux_notify_application_state_change_create(&req));
             req->notification_type = vx_application_state_notification_type_periodic_background_idle;
             issueRequest(&req->base);
         }
@@ -3332,8 +3338,12 @@ namespace VivoxClientApi {
             m_app = NULL;
             m_desiredState = ConnectorStateUninitialized;
             m_currentState = ConnectorStateUninitialized;
+            m_connectorHandle.clear();
+            m_logins.clear();
             m_multiChannel = false;
             m_multiLogin = false;
+            m_audioOutputDeviceList.clear();
+            m_audioInputDeviceList.clear();
             m_audioInputDeviceListPopulated = false;
             m_audioOutputDeviceListPopulated = false;
             m_masterAudioInputDeviceVolume = 50;

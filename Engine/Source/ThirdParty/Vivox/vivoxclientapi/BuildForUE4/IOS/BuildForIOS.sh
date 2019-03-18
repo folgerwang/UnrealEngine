@@ -20,7 +20,8 @@ function build()
 	xcodebuild -project vivoxclientapi.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
 }
 
-build Release
+build RelWithDebInfo
+mv -v ../RelWithDebInfo/libvivoxclientapi.a ../Release/libvivoxclientapi.a
 build Debug
 cd "${SCRIPT_DIR}"
 rm -rf "${BUILD_DIR}"

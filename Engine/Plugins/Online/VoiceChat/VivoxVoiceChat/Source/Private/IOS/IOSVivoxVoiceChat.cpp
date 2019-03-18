@@ -36,12 +36,10 @@ bool FIOSVivoxVoiceChat::Initialize()
 		{
 			ApplicationWillEnterBackgroundHandle = FCoreDelegates::ApplicationWillDeactivateDelegate.AddRaw(this, &FIOSVivoxVoiceChat::HandleApplicationWillEnterBackground);
 		}
-		//ApplicationWillEnterBackgroundHandle = FCoreDelegates::ApplicationWillDeactivateDelegate.AddRaw(this, &FIOSVivoxVoiceChat::HandleApplicationWillEnterBackground);
 		if (!ApplicationDidEnterForegroundHandle.IsValid())
 		{
 			ApplicationDidEnterForegroundHandle = FCoreDelegates::ApplicationHasReactivatedDelegate.AddRaw(this, &FIOSVivoxVoiceChat::HandleApplicationHasEnteredForeground);
 		}
-		//ApplicationDidEnterForegroundHandle = FCoreDelegates::ApplicationHasReactivatedDelegate.AddRaw(this, &FIOSVivoxVoiceChat::HandleApplicationHasEnteredForeground);
 	}
 
 	bInBackground = false;
@@ -49,6 +47,22 @@ bool FIOSVivoxVoiceChat::Initialize()
 	bIsRecording = false;
 
 	return bResult;
+}
+
+bool FIOSVivoxVoiceChat::Uninitialize()
+{
+	if (ApplicationWillEnterBackgroundHandle.IsValid())
+	{
+		FCoreDelegates::ApplicationWillDeactivateDelegate.Remove(ApplicationWillEnterBackgroundHandle);
+		ApplicationWillEnterBackgroundHandle.Reset();
+	}
+	if (ApplicationDidEnterForegroundHandle.IsValid())
+	{
+		FCoreDelegates::ApplicationHasReactivatedDelegate.Remove(ApplicationDidEnterForegroundHandle);
+		ApplicationDidEnterForegroundHandle.Reset();
+	}
+
+	return FVivoxVoiceChat::Uninitialize();
 }
 
 FDelegateHandle FIOSVivoxVoiceChat::StartRecording(const FOnVoiceChatRecordSamplesAvailableDelegate::FDelegate& Delegate)
@@ -99,7 +113,7 @@ void FIOSVivoxVoiceChat::OnVoiceChatDisconnectComplete(const FVoiceChatResult& R
 	{
 		bShouldReconnect = true;
 	}
-	else
+	else if (IsInitialized())
 	{
 		// disconnect complete delegate fired after entering foreground
 		Reconnect();
@@ -146,13 +160,13 @@ void FIOSVivoxVoiceChat::HandleApplicationWillEnterBackground()
 void FIOSVivoxVoiceChat::HandleApplicationHasEnteredForeground()
 {
 	UE_LOG(LogVivoxVoiceChat, Log, TEXT("OnApplicationHasEnteredForegoundDelegate"));
-		
+
 	VivoxClientConnection.WillEnterForeground();
-		
+
 	if (BGTask != UIBackgroundTaskInvalid)
 	{
 		UIApplication* App = [UIApplication sharedApplication];
-		[App endBackgroundTask:BGTask];
+		[App endBackgroundTask : BGTask];
 		BGTask = UIBackgroundTaskInvalid;
 	}
 	if (bShouldReconnect)

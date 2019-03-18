@@ -82,6 +82,22 @@ bool FAndroidVivoxVoiceChat::Initialize()
 	return bReturn;
 }
 
+bool FAndroidVivoxVoiceChat::Uninitialize()
+{
+	if (ApplicationWillEnterBackgroundHandle.IsValid())
+	{
+		FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Remove(ApplicationWillEnterBackgroundHandle);
+		ApplicationWillEnterBackgroundHandle.Reset();
+	}
+	if (ApplicationDidEnterForegroundHandle.IsValid())
+	{
+		FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Remove(ApplicationDidEnterForegroundHandle);
+		ApplicationDidEnterForegroundHandle.Reset();
+	}
+
+	return FVivoxVoiceChat::Uninitialize();
+}
+
 void FAndroidVivoxVoiceChat::OnVoiceChatConnectComplete(const FVoiceChatResult& Result)
 {
 	if (Result.bSuccess)
@@ -100,7 +116,7 @@ void FAndroidVivoxVoiceChat::OnVoiceChatDisconnectComplete(const FVoiceChatResul
 	{
 		bShouldReconnect = true;
 	}
-	else
+	else if (IsInitialized())
 	{
 		// disconnect complete delegate fired after entering foreground
 		Reconnect();

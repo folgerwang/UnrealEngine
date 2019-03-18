@@ -12,6 +12,7 @@ public:
 
 	// ~Begin IVoiceChat Interface
 	virtual bool Initialize() override;
+	virtual bool Uninitialize() override;
 	// ~End IVoiceChat Interface
 
 private:

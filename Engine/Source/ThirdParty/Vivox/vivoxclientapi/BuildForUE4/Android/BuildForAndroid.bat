@@ -17,7 +17,7 @@ if exist "%ANDROID_BUILD_PATH%" (rmdir "%ANDROID_BUILD_PATH%" /s/q)
 echo Building for Android (64-bit) Release
 mkdir "%ANDROID_BUILD_PATH%"
 pushd "%ANDROID_BUILD_PATH%" 
-..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=Release -DANDROID_NATIVE_API_LEVEL=android-21 -DANDROID_ABI=arm64-v8a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
+..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=RelWithDebInfo -DANDROID_NATIVE_API_LEVEL=android-21 -DANDROID_ABI=arm64-v8a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
 
 REM Now compile it
 %MAKE%
@@ -41,7 +41,7 @@ rmdir "%ANDROID_BUILD_PATH%" /s/q
 echo Building for Android (32-bit) Release
 mkdir "%ANDROID_BUILD_PATH%"
 pushd "%ANDROID_BUILD_PATH%" 
-..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=Release -DANDROID_NATIVE_API_LEVEL=android-19 -DANDROID_ABI=armeabi-v7a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
+..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=RelWithDebInfo -DANDROID_NATIVE_API_LEVEL=android-19 -DANDROID_ABI=armeabi-v7a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
 
 REM Now compile it
 %MAKE%
@@ -53,7 +53,7 @@ rmdir "%ANDROID_BUILD_PATH%" /s/q
 echo Building for Android (32-bit) Debug
 mkdir "%ANDROID_BUILD_PATH%"
 pushd "%ANDROID_BUILD_PATH%" 
-..\..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=Debug -DANDROID_NATIVE_API_LEVEL=android-19 -DANDROID_ABI=armeabi-v7a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
+..\..\..\..\..\..\Extras\ThirdPartyNotUE\CMake\bin\cmake.exe -G "MinGW Makefiles" -DVIVOXSDK_PATH=../../vivox-sdk/Include -DCMAKE_TOOLCHAIN_FILE="%PATH_TO_CMAKE_FILE%\Android\Android.cmake" -DANDROID_NDK="%NDKROOT%" -DCMAKE_MAKE_PROGRAM=%MAKE% -DCMAKE_BUILD_TYPE=Debug -DANDROID_NATIVE_API_LEVEL=android-19 -DANDROID_ABI=armeabi-v7a -DANDROID_STL=gnustl_shared %PATH_TO_CMAKE_FILE%
 
 REM Now compile it
 %MAKE%
