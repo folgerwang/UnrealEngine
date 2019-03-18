@@ -41,12 +41,12 @@ namespace UnrealBuildTool.Rules
 					"CoreLocation"
 				});
 
-            bool bHasFlurrySDK =
-                (System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "Flurry")) &&
-                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "Flurry", "IOS"))) ||
-                (System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees")) &&
-                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees", "Flurry")) &&
-                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees", "Flurry", "IOS")));
+			bool bHasFlurrySDK = false; // Temporarily disabled. libFlurry_6.7.0.a was compiled without bitcode enabled, so it cannot be used in Shipping config any more
+//                (System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "Flurry")) &&
+//                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "Flurry", "IOS"))) ||
+//                (System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees")) &&
+//                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees", "Flurry")) &&
+//                  System.IO.Directory.Exists(System.IO.Path.Combine(Target.UEThirdPartySourceDirectory, "NotForLicensees", "Flurry", "IOS")));
             if (bHasFlurrySDK)
             {
                 PublicIncludePaths.Add(Target.UEThirdPartySourceDirectory + "NotForLicensees/Flurry/IOS/");

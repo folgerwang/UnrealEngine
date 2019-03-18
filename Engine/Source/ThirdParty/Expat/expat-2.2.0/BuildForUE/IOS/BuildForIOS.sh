@@ -17,7 +17,7 @@ cd "${BUILD_DIR}"
 function build()
 {
 	CONFIGURATION=$1
-	xcodebuild -project expat.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
+	xcodebuild BITCODE_GENERATION_MODE=bitcode -project expat.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
 	mkdir -p ../${CONFIGURATION}/
 	cp -v ${CONFIGURATION}-iphoneos/* ../${CONFIGURATION}/
 }

@@ -17,7 +17,7 @@ cd "${BUILD_DIR}"
 function build()
 {
 	CONFIGURATION=$1
-	xcodebuild -project libstrophe.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
+	xcodebuild BITCODE_GENERATION_MODE=bitcode -project libstrophe.xcodeproj -configuration $CONFIGURATION -destination generic/platform=iOS
 }
 
 build Release

@@ -77,6 +77,8 @@ set (CMAKE_CXX_OSX_CURRENT_VERSION_FLAG "${CMAKE_C_OSX_CURRENT_VERSION_FLAG}")
 # Hidden visibilty is required for cxx on iOS 
 add_definitions(-fvisibility=hidden -fvisibility-inlines-hidden)
 
+add_definitions(-fembed-bitcode)
+
 # Add in ios min version flag
 if (DEFINED CMAKE_IOS_DEPLOYMENT_TARGET)
 	add_definitions(-mios-version-min=${CMAKE_IOS_DEPLOYMENT_TARGET})
