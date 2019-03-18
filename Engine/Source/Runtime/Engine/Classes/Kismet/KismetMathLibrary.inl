@@ -1046,9 +1046,9 @@ FVector2D UKismetMathLibrary::Negated2D(const FVector2D& A)
 }
 
 KISMET_MATH_FORCEINLINE
-void UKismetMathLibrary::Set2D(FVector2D& A, float InX, float InY)
+void UKismetMathLibrary::Set2D(FVector2D& A, float X, float Y)
 {
-	A.Set(InX, InY);
+	A.Set(X, Y);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -1254,9 +1254,9 @@ void UKismetMathLibrary::Vector_Assign(FVector& A, const FVector& InVector)
 }
 
 KISMET_MATH_FORCEINLINE
-void UKismetMathLibrary::Vector_Set(FVector& A, float InX, float InY, float InZ)
+void UKismetMathLibrary::Vector_Set(FVector& A, float X, float Y, float Z)
 {
-	A.Set(InX, InY, InZ);
+	A.Set(X, Y, Z);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -1920,9 +1920,9 @@ void UKismetMathLibrary::Vector4_Assign(FVector4& A, const FVector4& InVector)
 }
 
 KISMET_MATH_FORCEINLINE
-void UKismetMathLibrary::Vector4_Set(FVector4& A, float InX, float InY, float InZ, float InW)
+void UKismetMathLibrary::Vector4_Set(FVector4& A, float X, float Y, float Z, float W)
 {
-	A.Set(InX, InY, InZ, InW);
+	A.Set(X, Y, Z, W);
 }
 
 KISMET_MATH_FORCEINLINE
@@ -2791,18 +2791,24 @@ FQuat UKismetMathLibrary::Quat_Log(const FQuat& Q)
 }
 
 KISMET_MATH_FORCEINLINE
-void UKismetMathLibrary::Quat_SetComponents(UPARAM(ref) FQuat& Q, float InX, float InY, float InZ, float InW)
+void UKismetMathLibrary::Quat_SetComponents(UPARAM(ref) FQuat& Q, float X, float Y, float Z, float W)
 {
-	Q.X = InX;
-	Q.Y = InY;
-	Q.Z = InZ;
-	Q.W = InW;
+	Q.X = X;
+	Q.Y = Y;
+	Q.Z = Z;
+	Q.W = W;
 }
 
 KISMET_MATH_FORCEINLINE
 void UKismetMathLibrary::Quat_SetFromEuler(UPARAM(ref) FQuat& Q, const FVector& Euler)
 {
 	Q = FQuat::MakeFromEuler(Euler);
+}
+
+KISMET_MATH_FORCEINLINE
+FQuat UKismetMathLibrary::Quat_MakeFromEuler(const FVector& Euler)
+{
+	return FQuat::MakeFromEuler(Euler);
 }
 
 KISMET_MATH_FORCEINLINE
