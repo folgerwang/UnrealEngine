@@ -1672,6 +1672,14 @@ void BuildMetalShaderOutput(
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=0");
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=0");
 						break;
+					case EMetalTypeBufferMode2DSRV:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=0");
+						break;
+					case EMetalTypeBufferModeTBSRV:
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=3");
+						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=0");
+						break;
 					case EMetalTypeBufferMode2D:
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_READ_IMPL__=1");
 						Defines += TEXT(" -D__METAL_TYPED_BUFFER_RW_IMPL__=1");
