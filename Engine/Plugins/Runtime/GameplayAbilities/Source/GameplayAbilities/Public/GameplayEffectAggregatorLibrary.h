@@ -6,5 +6,5 @@
 
 struct GAMEPLAYABILITIES_API FAggregatorEvaluateMetaDataLibrary
 {
-	static FAggregatorEvaluateMetaData MostNegativeMod_AllPostiiveMods;
+	static FAggregatorEvaluateMetaData MostNegativeMod_AllPositiveMods;
 };

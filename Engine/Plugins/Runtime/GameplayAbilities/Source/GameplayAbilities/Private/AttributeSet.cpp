@@ -682,7 +682,7 @@ void FAttributeSetInitterDiscreteLevels::InitAttributeSetDefaults(UAbilitySystem
 	const FAttributeSetDefaultsCollection* Collection = Defaults.Find(GroupName);
 	if (!Collection)
 	{
-		ABILITY_LOG(Warning, TEXT("Unable to find DefaultAttributeSet Group %s. Failing back to Defaults"), *GroupName.ToString());
+		ABILITY_LOG(Warning, TEXT("Unable to find DefaultAttributeSet Group %s. Falling back to Defaults"), *GroupName.ToString());
 		Collection = Defaults.Find(FName(TEXT("Default")));
 		if (!Collection)
 		{
@@ -729,7 +729,7 @@ void FAttributeSetInitterDiscreteLevels::ApplyAttributeDefault(UAbilitySystemCom
 	const FAttributeSetDefaultsCollection* Collection = Defaults.Find(GroupName);
 	if (!Collection)
 	{
-		ABILITY_LOG(Warning, TEXT("Unable to find DefaultAttributeSet Group %s. Failing back to Defaults"), *GroupName.ToString());
+		ABILITY_LOG(Warning, TEXT("Unable to find DefaultAttributeSet Group %s. Falling back to Defaults"), *GroupName.ToString());
 		Collection = Defaults.Find(FName(TEXT("Default")));
 		if (!Collection)
 		{

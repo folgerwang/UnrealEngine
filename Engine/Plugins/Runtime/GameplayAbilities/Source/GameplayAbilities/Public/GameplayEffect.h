@@ -624,7 +624,7 @@ enum class EGameplayEffectStackingExpirationPolicy : uint8
 	/** The current stack count will be decremented by 1 and the duration refreshed. The GE is not "reapplied", just continues to exist with one less stacks. */
 	RemoveSingleStackAndRefreshDuration,
 
-	/** The duration of the gameplay effect is refreshed. This essentially makes the effect infinite in duration. This can be used to manually handle stack decrements via XXX callback */
+	/** The duration of the gameplay effect is refreshed. This essentially makes the effect infinite in duration. This can be used to manually handle stack decrements via OnStackCountChange callback */
 	RefreshDuration,
 };
 

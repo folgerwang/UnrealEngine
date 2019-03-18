@@ -6,7 +6,7 @@
 #include "AbilitySystemComponent.h"
 
 /** Custom functions. The idea here is that we may want to mix and match these (if FAggregatorEvaluateMetaData starts to hold more than just the qualifier functions) */
-void QualifierFunc_MostNegativeMod_AllPostiiveMods(const FAggregatorEvaluateParameters& EvalParameters, const FAggregator* Aggregator)
+void QualifierFunc_MostNegativeMod_AllPositiveMods(const FAggregatorEvaluateParameters& EvalParameters, const FAggregator* Aggregator)
 {
 	// We want to inhibit all qualified negative effects except for the most severe. We want to leave positive modifiers alone
 	const FAggregatorMod* MostNegativeMod = nullptr;
@@ -60,4 +60,4 @@ void QualifierFunc_MostNegativeMod_AllPostiiveMods(const FAggregatorEvaluatePara
 }
 
 /** static FAggregatorEvaluateMetaDatas that use the above functions */
-FAggregatorEvaluateMetaData FAggregatorEvaluateMetaDataLibrary::MostNegativeMod_AllPostiiveMods(QualifierFunc_MostNegativeMod_AllPostiiveMods);
+FAggregatorEvaluateMetaData FAggregatorEvaluateMetaDataLibrary::MostNegativeMod_AllPositiveMods(QualifierFunc_MostNegativeMod_AllPositiveMods);

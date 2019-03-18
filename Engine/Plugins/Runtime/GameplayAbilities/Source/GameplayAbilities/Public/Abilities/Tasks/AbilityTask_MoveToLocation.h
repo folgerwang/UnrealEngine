@@ -18,7 +18,7 @@ class UGameplayTasksComponent;
 
 /**
  *	TODO:
- *		-Implement replicated time so that this can work as a simulated task for Join In Prgorss clients.
+ *		-Implement replicated time so that this can work as a simulated task for Join In Progress clients.
  */
 
 
