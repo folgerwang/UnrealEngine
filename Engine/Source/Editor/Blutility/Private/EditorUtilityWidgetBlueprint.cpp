@@ -26,11 +26,20 @@ void UEditorUtilityWidgetBlueprint::BeginDestroy()
 	if (!GIsRequestingExit)
 	{
 		IBlutilityModule* BlutilityModule = FModuleManager::GetModulePtr<IBlutilityModule>("Blutility");
-		BlutilityModule->RemoveLoadedScriptUI(this);
+		if (BlutilityModule)
+		{
+			BlutilityModule->RemoveLoadedScriptUI(this);
+		}
 
-		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
-		TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule.GetLevelEditorTabManager();
-		LevelEditorTabManager->UnregisterTabSpawner(RegistrationName);
+		FLevelEditorModule* LevelEditorModule = FModuleManager::GetModulePtr<FLevelEditorModule>(TEXT("LevelEditor"));
+		if (LevelEditorModule)
+		{
+			TSharedPtr<FTabManager> LevelEditorTabManager = LevelEditorModule->GetLevelEditorTabManager();
+			if (LevelEditorTabManager.IsValid())
+			{
+				LevelEditorTabManager->UnregisterTabSpawner(RegistrationName);
+			}
+		}
 	}
 
 	Super::BeginDestroy();
