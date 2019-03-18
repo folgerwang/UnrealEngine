@@ -328,7 +328,7 @@ void FPyOnlineDocsWriter::GenerateFiles(const FString& InPythonStubPath)
 		//   https://pip.pypa.io/en/stable/user_guide/#using-pip-from-your-program
 
 		FString PyCommandStr;
-		FString PythonPath = FPaths::ConvertRelativePathToFull(FPaths::EngineSourceDir()) / TEXT("ThirdParty/Python/Win64/python.exe");
+		FString PythonPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir()) / TEXT("Binaries/ThirdParty/Python/Win64/python.exe");
 
 		PyCommandStr += TEXT(
 			"import sys\n"
