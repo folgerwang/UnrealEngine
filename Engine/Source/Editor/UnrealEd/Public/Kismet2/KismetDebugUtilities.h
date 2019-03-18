@@ -251,7 +251,7 @@ protected:
 
 	// helper function for converting between blueprint and debuggable data
 	// output params are only valid if the return result is EWatchTextResult::EWTR_Valid
-	static EWatchTextResult FindDebuggingData(UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin, UProperty*& OutProperty, void*& OutData, void*& OutDelta, UObject*& OutParent);
+	static EWatchTextResult FindDebuggingData(UBlueprint* Blueprint, UObject* ActiveObject, const UEdGraphPin* WatchPin, UProperty*& OutProperty, void*& OutData, void*& OutDelta, UObject*& OutParent, TArray<UObject*>& SeenObjects);
 
 private:
 	FKismetDebugUtilities() {}
