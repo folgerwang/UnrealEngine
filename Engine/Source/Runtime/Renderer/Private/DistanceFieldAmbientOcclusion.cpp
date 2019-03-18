@@ -722,7 +722,7 @@ bool ShouldRenderDeferredDynamicSkyLight(const FScene* Scene, const FSceneViewFa
 {
 	return Scene->SkyLight
 		&& Scene->SkyLight->ProcessedTexture
-		&& !ShouldRenderRayTracingSkyLight(Scene->SkyLight)
+		&& !ShouldRenderRayTracingSkyLight(Scene->SkyLight) // Disable diffuse sky contribution if evaluated by RT Sky.
 		&& !Scene->SkyLight->bWantsStaticShadowing
 		&& !Scene->SkyLight->bHasStaticLighting
 		&& ViewFamily.EngineShowFlags.SkyLighting
