@@ -876,19 +876,9 @@ FMetalSurface::FMetalSurface(ERHIResourceType ResourceType, EPixelFormat Format,
 		else if (Flags & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable|TexCreate_ResolveTargetable|TexCreate_DepthStencilResolveTarget))
 		{
 			check(!(Flags & TexCreate_CPUReadback));
-#if PLATFORM_IOS
-			if (FMetalCommandQueue::SupportsFeature(EMetalFeaturesMemoryLessResources) && !(Flags & (TexCreate_ShaderResource|TexCreate_UAV)) && (GMaxRHIFeatureLevel < ERHIFeatureLevel::SM5))
-			{
-				Desc.SetStorageMode(mtlpp::StorageMode::Memoryless);
-				Desc.SetResourceOptions(mtlpp::ResourceOptions::StorageModeMemoryless);
-			}
-			else
-#endif
-			{
-				Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
-				Desc.SetStorageMode(mtlpp::StorageMode::Private);
-				Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
-			}
+			Desc.SetCpuCacheMode(mtlpp::CpuCacheMode::DefaultCache);
+			Desc.SetStorageMode(mtlpp::StorageMode::Private);
+			Desc.SetResourceOptions((mtlpp::ResourceOptions)(mtlpp::ResourceOptions::CpuCacheModeDefaultCache|mtlpp::ResourceOptions::StorageModePrivate));
 		}
 		else
 		{
