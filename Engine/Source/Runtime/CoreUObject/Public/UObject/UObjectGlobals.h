@@ -1965,6 +1965,16 @@ class FPackageReloadedEvent;
 
 class FGarbageCollectionTracer;
 
+enum class EHotReloadedClassFlags
+{
+	None = 0,
+
+	// Set when the hot reloaded class has been detected as changed
+	Changed = 0x01
+};
+
+ENUM_CLASS_FLAGS(EHotReloadedClassFlags)
+
 /**
  * Global CoreUObject delegates
  */
@@ -2030,7 +2040,7 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	static FRegisterHotReloadAddedClassesDelegate RegisterHotReloadAddedClassesDelegate;
 
 	/** Delegate for registering hot-reloaded classes that changed after hot-reload for reinstancing */
-	DECLARE_MULTICAST_DELEGATE_TwoParams(FRegisterClassForHotReloadReinstancingDelegate, UClass*, UClass*);
+	DECLARE_MULTICAST_DELEGATE_ThreeParams(FRegisterClassForHotReloadReinstancingDelegate, UClass*, UClass*, EHotReloadedClassFlags);
 	static FRegisterClassForHotReloadReinstancingDelegate RegisterClassForHotReloadReinstancingDelegate;
 
 	/** Delegate for reinstancing hot-reloaded classes */

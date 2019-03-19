@@ -370,7 +370,8 @@ void FPyWrapperTypeReinstancer::ProcessPending()
 	{
 		for (const auto& ClassToReinstancePair : ClassesToReinstance)
 		{
-			FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value);
+			// Assume the classes have changed
+			FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.Broadcast(ClassToReinstancePair.Key, ClassToReinstancePair.Value, EHotReloadedClassFlags::Changed);
 		}
 		FCoreUObjectDelegates::ReinstanceHotReloadedClassesDelegate.Broadcast();
 

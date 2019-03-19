@@ -204,7 +204,7 @@ private:
 	void ReplaceReferencesToReconstructedCDOs();
 
 #if WITH_ENGINE
-	void RegisterForReinstancing(UClass* OldClass, UClass* NewClass);
+	void RegisterForReinstancing(UClass* OldClass, UClass* NewClass, EHotReloadedClassFlags Flags);
 	void ReinstanceClasses();
 
 	/**
@@ -1219,15 +1219,23 @@ namespace {
 	}
 }
 
-void FHotReloadModule::RegisterForReinstancing(UClass* OldClass, UClass* NewClass)
+void FHotReloadModule::RegisterForReinstancing(UClass* OldClass, UClass* NewClass, EHotReloadedClassFlags Flags)
 {
 	TPair<UClass*, UClass*> Pair;
 	
 	Pair.Key = OldClass;
 	Pair.Value = NewClass;
 
-	TArray<TPair<UClass*, UClass*> >& ClassesToReinstance = GetClassesToReinstance();
-	ClassesToReinstance.Add(MoveTemp(Pair));
+	// Don't allow reinstancing of UEngine classes
+	if (!OldClass->IsChildOf(UEngine::StaticClass()) || !(Flags & EHotReloadedClassFlags::Changed))
+	{
+		TArray<TPair<UClass*, UClass*> >& ClassesToReinstance = GetClassesToReinstance();
+		ClassesToReinstance.Add(MoveTemp(Pair));
+	}
+	else
+	{
+		UE_LOG(LogHotReload, Warning, TEXT("Engine class '%s' has changed but will be ignored for hot reload"), *NewClass->GetName());
+	}
 }
 
 void FHotReloadModule::ReinstanceClasses()
@@ -1244,13 +1252,6 @@ void FHotReloadModule::ReinstanceClasses()
 	TMap<UClass*, UClass*> OldToNewClassesMap;
 	for (const TPair<UClass*, UClass*>& Pair : ClassesToReinstance)
 	{
-		// Don't allow reinstancing of UEngine classes
-		if (Pair.Key->IsChildOf(UEngine::StaticClass()))
-		{
-			UE_LOG(LogHotReload, Warning, TEXT("Engine class '%s' has changed but will be ignored for hot reload"), *Pair.Key->GetName());
-			continue;
-		}
-
 		if (Pair.Value != nullptr)
 		{
 			OldToNewClassesMap.Add(Pair.Key, Pair.Value);
@@ -1259,11 +1260,7 @@ void FHotReloadModule::ReinstanceClasses()
 
 	for (const TPair<UClass*, UClass*>& Pair : ClassesToReinstance)
 	{
-		// Don't allow reinstancing of UEngine classes
-		if (!Pair.Key->IsChildOf(UEngine::StaticClass()))
-		{
-			ReinstanceClass(Pair.Key, Pair.Value, OldToNewClassesMap);
-		}
+		ReinstanceClass(Pair.Key, Pair.Value, OldToNewClassesMap);
 	}
 
 	ClassesToReinstance.Empty();
