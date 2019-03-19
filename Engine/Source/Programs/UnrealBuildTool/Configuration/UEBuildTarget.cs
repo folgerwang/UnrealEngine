@@ -1301,10 +1301,6 @@ namespace UnrealBuildTool
 				foreach (UEBuildBinary Binary in Binaries)
 				{
 					List<FileItem> BinaryOutputItems = Binary.Build(Rules, TargetToolChain, GlobalCompileEnvironment, GlobalLinkEnvironment, WorkingSet, ExeDir, Makefile);
-					if(!bCompileMonolithic)
-					{
-						Makefile.ModuleNameToOutputItems[Binary.PrimaryModule.Name] = BinaryOutputItems.ToArray();
-					}
 					Makefile.OutputItems.AddRange(BinaryOutputItems);
 				}
 			}

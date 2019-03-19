@@ -201,6 +201,12 @@ namespace UnrealBuildTool
 			FileItem[] Executables = ToolChain.LinkAllFiles(BinaryLinkEnvironment, false, Makefile.Actions);
 			OutputFiles.AddRange(Executables);
 
+			// Save all the output items for this binary. This is used for hot-reload, and excludes any items added in PostBuild (such as additional files copied into the app).
+			if(Target.LinkType == TargetLinkType.Modular)
+			{
+				Makefile.ModuleNameToOutputItems[PrimaryModule.Name] = OutputFiles.ToArray();
+			}
+
 			// Produce additional console app if requested
 			if (bBuildAdditionalConsoleApp)
 			{
