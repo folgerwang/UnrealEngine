@@ -3721,7 +3721,6 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		];
 	}
 
-
 	this->ChildSlot
 	[
 		Contents.ToSharedRef()
@@ -3735,6 +3734,8 @@ void SSCSEditor::Construct( const FArguments& InArgs )
 		GEngine->OnLevelComponentRequestRename().AddSP(this, &SSCSEditor::OnLevelComponentRequestRename);
 		GEditor->OnObjectsReplaced().AddSP(this, &SSCSEditor::OnObjectsReplaced);
 	}
+
+	FSlateApplication::Get().OnPostTick().AddSP(this, &SSCSEditor::OnPostTick);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -5118,7 +5119,7 @@ UActorComponent* SSCSEditor::AddNewComponent( UClass* NewComponentClass, UObject
 	}
 
 	// Begin a transaction. The transaction will end when the component name will be provided/confirmed by the user.
-	check(!OngoingCreateTransaction.IsValid())
+	check(!DeferredOngoingCreateTransaction.IsValid())
 	TUniquePtr<FScopedTransaction> AddTransaction = MakeUnique<FScopedTransaction>( LOCTEXT("AddComponent", "Add Component") );
 
 	UActorComponent* NewComponent = nullptr;
@@ -6175,7 +6176,7 @@ void SSCSEditor::OnItemScrolledIntoView( FSCSEditorTreeNodePtrType InItem, const
 		if(DeferredRenameRequest == ItemName)
 		{
 			DeferredRenameRequest = NAME_None;
-			InItem->OnRequestRename(MoveTemp(OngoingCreateTransaction)); // Transfer responsibility to end the 'create + give initial name' transaction to the tree item if such transaction is ongoing.
+			InItem->OnRequestRename(MoveTemp(DeferredOngoingCreateTransaction)); // Transfer responsibility to end the 'create + give initial name' transaction to the tree item if such transaction is ongoing.
 		}
 	}
 }
@@ -6200,10 +6201,19 @@ void SSCSEditor::OnRenameComponent(TUniquePtr<FScopedTransaction> InComponentCre
 
 	DeferredRenameRequest = SelectedItems[0]->GetNodeID();
 
-	check(!OngoingCreateTransaction.IsValid()); // If this fails, something in the chain of responsibility failed to end the previous transaction.
-	OngoingCreateTransaction = MoveTemp(InComponentCreateTransaction); // If a 'create + give initial name' transaction is ongoing, take responsibility of ending it until it's transfered to the selected item.
+	check(!DeferredOngoingCreateTransaction.IsValid()); // If this fails, something in the chain of responsibility failed to end the previous transaction.
+	DeferredOngoingCreateTransaction = MoveTemp(InComponentCreateTransaction); // If a 'create + give initial name' transaction is ongoing, take responsibility of ending it until the selected item is scrolled into view.
 
 	SCSTreeWidget->RequestScrollIntoView(SelectedItems[0]);
+}
+
+void SSCSEditor::OnPostTick(float)
+{
+	// If a 'create + give initial name' is ongoing and the transaction ownership was not transferred during the frame it was requested, it is most likely because the newly
+	// created item could not be scrolled into view (should say 'teleported', the scrolling is not animated). But the tree view will not put the item in view if the there is
+	// no space left to display the item. (ex a splitter where all the display space is used by the other component). End the transaction before starting a new frame. The user
+	// will not be able to rename on creation, the widget is likely not in view and cannot be edited anyway.
+	DeferredOngoingCreateTransaction.Reset();
 }
 
 bool SSCSEditor::CanRenameComponent() const
