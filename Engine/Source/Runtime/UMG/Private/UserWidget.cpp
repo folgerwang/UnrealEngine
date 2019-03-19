@@ -90,36 +90,13 @@ UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 
 UWidgetBlueprintGeneratedClass* UUserWidget::GetWidgetTreeOwningClass()
 {
-	UWidgetBlueprintGeneratedClass* RootBGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
-	UWidgetBlueprintGeneratedClass* BGClass = RootBGClass;
-
-	while ( BGClass )
+	UWidgetBlueprintGeneratedClass* WidgetClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass());
+	if (WidgetClass != nullptr)
 	{
-		//TODO NickD: This conditional post load shouldn't be needed any more once the Fast Widget creation path is the only path!
-		// Force post load on the generated class so all subobjects are done (specifically the widget tree).
-		BGClass->ConditionalPostLoad();
-
-		const bool bNoRootWidget = ( nullptr == BGClass->WidgetTree ) || ( nullptr == BGClass->WidgetTree->RootWidget );
-
-		if ( bNoRootWidget )
-		{
-			UWidgetBlueprintGeneratedClass* SuperBGClass = Cast<UWidgetBlueprintGeneratedClass>(BGClass->GetSuperClass());
-			if ( SuperBGClass )
-			{
-				BGClass = SuperBGClass;
-				continue;
-			}
-			else
-			{
-				// If we reach a super class that isn't a UWidgetBlueprintGeneratedClass, return the root class.
-				return RootBGClass;
-			}
-		}
-
-		return BGClass;
+		WidgetClass = WidgetClass->FindWidgetTreeOwningClass();
 	}
 
-	return nullptr;
+	return WidgetClass;
 }
 
 void UUserWidget::TemplateInit()

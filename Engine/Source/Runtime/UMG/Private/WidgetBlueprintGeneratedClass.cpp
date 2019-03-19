@@ -133,53 +133,51 @@ void UWidgetBlueprintGeneratedClass::InitializeBindingsStatic(UUserWidget* UserW
 {
 	ensure(!UserWidget->HasAnyFlags(RF_ArchetypeObject));
 
-	// Iterate all generated classes in the widget's class hierarchy and initialize bindings found on each one.
-	UClass* CurrentClass = UserWidget->GetClass();
-	while (UWidgetBlueprintGeneratedClass* WBPGC = Cast<UWidgetBlueprintGeneratedClass>(CurrentClass))
+	// Note: It's not safe to assume here that the UserWidget class type is a UWidgetBlueprintGeneratedClass!
+	// - @see InitializeWidgetStatic()
+
+	// For each property binding that we're given, find the corresponding field, and setup the delegate binding on the widget.
+	for (const FDelegateRuntimeBinding& Binding : InBindings)
 	{
-		// For each property binding that we're given, find the corresponding field, and setup the delegate binding on the widget.
-		for (const FDelegateRuntimeBinding& Binding : WBPGC->Bindings)
+		// If the binding came from a parent class, this will still find it - FindField() searches the super class hierarchy by default.
+		UObjectProperty* WidgetProperty = FindField<UObjectProperty>(UserWidget->GetClass(), *Binding.ObjectName);
+		if (WidgetProperty == nullptr)
 		{
-			UObjectProperty* WidgetProperty = FindField<UObjectProperty>(WBPGC, *Binding.ObjectName);
-			if (WidgetProperty == nullptr)
+			continue;
+		}
+
+		UWidget* Widget = Cast<UWidget>(WidgetProperty->GetObjectPropertyValue_InContainer(UserWidget));
+
+		if (Widget)
+		{
+			UDelegateProperty* DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), FName(*(Binding.PropertyName.ToString() + TEXT("Delegate"))));
+			if (!DelegateProperty)
 			{
-				continue;
+				DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), Binding.PropertyName);
 			}
 
-			UWidget* Widget = Cast<UWidget>(WidgetProperty->GetObjectPropertyValue_InContainer(UserWidget));
-
-			if (Widget)
+			if (DelegateProperty)
 			{
-				UDelegateProperty* DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), FName(*(Binding.PropertyName.ToString() + TEXT("Delegate"))));
-				if (!DelegateProperty)
+				bool bSourcePathBound = false;
+
+				if (Binding.SourcePath.IsValid())
 				{
-					DelegateProperty = FindField<UDelegateProperty>(Widget->GetClass(), Binding.PropertyName);
+					bSourcePathBound = Widget->AddBinding(DelegateProperty, UserWidget, Binding.SourcePath);
 				}
 
-				if (DelegateProperty)
+				// If no native binder is found then the only possibility is that the binding is for
+				// a delegate that doesn't match the known native binders available and so we
+				// fallback to just attempting to bind to the function directly.
+				if (bSourcePathBound == false)
 				{
-					bool bSourcePathBound = false;
-
-					if (Binding.SourcePath.IsValid())
+					FScriptDelegate* ScriptDelegate = DelegateProperty->GetPropertyValuePtr_InContainer(Widget);
+					if (ScriptDelegate)
 					{
-						bSourcePathBound = Widget->AddBinding(DelegateProperty, UserWidget, Binding.SourcePath);
-					}
-
-					// If no native binder is found then the only possibility is that the binding is for
-					// a delegate that doesn't match the known native binders available and so we
-					// fallback to just attempting to bind to the function directly.
-					if (bSourcePathBound == false)
-					{
-						FScriptDelegate* ScriptDelegate = DelegateProperty->GetPropertyValuePtr_InContainer(Widget);
-						if (ScriptDelegate)
-						{
-							ScriptDelegate->BindUFunction(UserWidget, Binding.FunctionName);
-						}
+						ScriptDelegate->BindUFunction(UserWidget, Binding.FunctionName);
 					}
 				}
 			}
 		}
-		CurrentClass = CurrentClass->GetSuperClass();
 	}
 }
 
@@ -192,6 +190,10 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 	, const TArray< FDelegateRuntimeBinding >& InBindings)
 {
 	check(InClass);
+
+	// Note: It's not safe to assume here that the UserWidget class type is a UWidgetBlueprintGeneratedClass! In the case of a nativized widget
+	// blueprint class, it will be a UDynamicClass instead, and this API will be invoked by the blueprint's C++ code that's generated at cook time.
+	// - @see FBackendHelperUMG::EmitWidgetInitializationFunctions()
 
 	if ( UserWidget->HasAllFlags(RF_ArchetypeObject) )
 	{
@@ -316,25 +318,20 @@ void UWidgetBlueprintGeneratedClass::InitializeWidgetStatic(UUserWidget* UserWid
 
 void UWidgetBlueprintGeneratedClass::BindAnimations(UUserWidget* Instance, const TArray< UWidgetAnimation* >& InAnimations)
 {
-	// Iterate all generated classes in the widget's class hierarchy and initialize each animation property with the animation in the class.
+	// Note: It's not safe to assume here that the UserWidget class type is a UWidgetBlueprintGeneratedClass!
+	// - @see InitializeWidgetStatic()
 
-	// @todo: this will not work when nativizing widget blueprints if support for them is ever added - a more complete solution will be needed in that case
-	UClass* CurrentClass = Instance->GetClass();
-	while (UWidgetBlueprintGeneratedClass* WBPGC = Cast<UWidgetBlueprintGeneratedClass>(CurrentClass))
+	for (UWidgetAnimation* Animation : InAnimations)
 	{
-		for (UWidgetAnimation* Animation : WBPGC->Animations)
+		if (Animation->GetMovieScene())
 		{
-			if (Animation->GetMovieScene())
+			// Find property with the same name as the animation and assign the animation to it.
+			UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(Instance->GetClass(), Animation->GetMovieScene()->GetFName());
+			if (Prop)
 			{
-				// Find property with the same name as the animation and assign the animation to it.
-				UObjectPropertyBase* Prop = FindField<UObjectPropertyBase>(WBPGC, Animation->GetMovieScene()->GetFName());
-				if (Prop)
-				{
-					Prop->SetObjectPropertyValue_InContainer(Instance, Animation);
-				}
+				Prop->SetObjectPropertyValue_InContainer(Instance, Animation);
 			}
 		}
-		CurrentClass = CurrentClass->GetSuperClass();
 	}
 }
 
@@ -347,7 +344,26 @@ void UWidgetBlueprintGeneratedClass::SetClassRequiresNativeTick(bool InClassRequ
 
 void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) const
 {
-	InitializeWidgetStatic(UserWidget, this, HasTemplate(), bAllowDynamicCreation, WidgetTree, Animations, Bindings);
+	TArray<UWidgetAnimation*> AllAnims;
+	TArray<FDelegateRuntimeBinding> AllBindings;
+
+	// Include current class animations.
+	AllAnims.Append(Animations);
+
+	// Include current class bindings.
+	AllBindings.Append(Bindings);
+
+	// Iterate all generated classes in the widget's parent class hierarchy and include animations and bindings found on each one.
+	UClass* SuperClass = GetSuperClass();
+	while (UWidgetBlueprintGeneratedClass* WBPGC = Cast<UWidgetBlueprintGeneratedClass>(SuperClass))
+	{
+		AllAnims.Append(WBPGC->Animations);
+		AllBindings.Append(WBPGC->Bindings);
+
+		SuperClass = SuperClass->GetSuperClass();
+	}
+
+	InitializeWidgetStatic(UserWidget, this, HasTemplate(), bAllowDynamicCreation, WidgetTree, AllAnims, AllBindings);
 }
 
 void UWidgetBlueprintGeneratedClass::PostLoad()
@@ -624,6 +640,40 @@ void UWidgetBlueprintGeneratedClass::InitializeTemplate(const ITargetPlatform* T
 		}
 	}
 #endif
+}
+
+UWidgetBlueprintGeneratedClass* UWidgetBlueprintGeneratedClass::FindWidgetTreeOwningClass()
+{
+	UWidgetBlueprintGeneratedClass* RootBGClass = this;
+	UWidgetBlueprintGeneratedClass* BGClass = RootBGClass;
+
+	while (BGClass)
+	{
+		//TODO NickD: This conditional post load shouldn't be needed any more once the Fast Widget creation path is the only path!
+		// Force post load on the generated class so all subobjects are done (specifically the widget tree).
+		BGClass->ConditionalPostLoad();
+
+		const bool bNoRootWidget = (nullptr == BGClass->WidgetTree) || (nullptr == BGClass->WidgetTree->RootWidget);
+
+		if (bNoRootWidget)
+		{
+			UWidgetBlueprintGeneratedClass* SuperBGClass = Cast<UWidgetBlueprintGeneratedClass>(BGClass->GetSuperClass());
+			if (SuperBGClass)
+			{
+				BGClass = SuperBGClass;
+				continue;
+			}
+			else
+			{
+				// If we reach a super class that isn't a UWidgetBlueprintGeneratedClass, return the root class.
+				return RootBGClass;
+			}
+		}
+
+		return BGClass;
+	}
+
+	return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

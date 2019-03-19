@@ -120,6 +120,9 @@ public:
 	void SetTemplate(UUserWidget* InTemplate);
 	UUserWidget* GetTemplate();
 
+	// Walks up the hierarchy looking for a valid widget tree.
+	UWidgetBlueprintGeneratedClass* FindWidgetTreeOwningClass();
+
 	// UObject interface
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void Serialize(FArchive& Ar) override;
