@@ -363,6 +363,8 @@ protected:
 	TSharedPtr<SSearchBox> SearchBox;
 	/** Customization instances that need to be destroyed when safe to do so */
 	TArray< TSharedPtr<IDetailCustomization> > CustomizationClassInstancesPendingDelete;
+	/** Detail layouts that need to be destroyed when safe to do so */
+	TArray< TSharedPtr<FDetailLayoutBuilderImpl> > DetailLayoutsPendingDelete;
 	/** Map of nodes that are requesting an automatic expansion/collapse due to being filtered */
 	TMap< TSharedRef<FDetailTreeNode>, bool > FilteredNodesRequestingExpansionState;
 	/** Current set of expanded detail nodes (by path) that should be saved when the details panel closes */

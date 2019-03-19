@@ -30,6 +30,15 @@ public:
 		return MakeShareable( new FEditorKeyboardShortcutSettings );
 	}
 
+	virtual void PendingDelete()
+	{
+		if (EditorPanel.IsValid())
+		{
+			ensure(EditorPanel.IsUnique());
+			EditorPanel.Reset();
+		}
+	}
+
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 	{
 		EditorPanel = MakeShareable( new FInputBindingEditorPanel );

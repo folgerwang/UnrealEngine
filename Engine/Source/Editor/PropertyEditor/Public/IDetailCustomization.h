@@ -13,6 +13,9 @@ class IDetailCustomization : public TSharedFromThis<IDetailCustomization>
 public:
 	virtual ~IDetailCustomization() {}
 
+	/** Called when no longer used and will be deleted */
+	virtual void PendingDelete() {}
+
 	/** Called when details should be customized */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) = 0;
 
