@@ -23,62 +23,6 @@
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, PakFileUtilities);
 
-/**
- * Encryption keys: public and private
- */
-struct FKeyPair
-{
-	/** Public decryption key */
-	TPakRSAKey PublicKey;
-	/** Private encryption key */
-	TPakRSAKey PrivateKey;
-
-	bool IsValid() const
-	{
-		return !PrivateKey.Exponent.IsZero() &&
-		!PrivateKey.Modulus.IsZero() &&
-		!PublicKey.Exponent.IsZero() &&
-		!PublicKey.Modulus.IsZero();
-	}
-};
-
-bool TestKeys(FKeyPair& Pair)
-{
-	UE_LOG(LogPakFile, Display, TEXT("Testing signature keys."));
-
-	// Just some random values
-	static TPakRSAKey::TIntType TestData[] =
-	{
-		11,
-		253,
-		128,
-		234,
-		56,
-		89,
-		34,
-		179,
-		29,
-		1024,
-		(int64)(MAX_int32),
-		(int64)(MAX_uint32)-1
-	};
-
-	for (int32 TestIndex = 0; TestIndex < ARRAY_COUNT(TestData); ++TestIndex)
-	{
-		TPakRSAKey::TIntType EncryptedData = FEncryption::ModularPow(TestData[TestIndex], Pair.PrivateKey.Exponent, Pair.PrivateKey.Modulus);
-		TPakRSAKey::TIntType DecryptedData = FEncryption::ModularPow(EncryptedData, Pair.PublicKey.Exponent, Pair.PublicKey.Modulus);
-		if (TestData[TestIndex] != DecryptedData)
-		{
-			UE_LOG(LogPakFile, Error, TEXT("Keys do not properly encrypt/decrypt data (failed test with %lld)"), TestData[TestIndex].ToInt());
-			return false;
-		}
-	}
-
-	UE_LOG(LogPakFile, Display, TEXT("Signature keys check completed successfuly."));
-
-	return true;
-}
-
 struct FNamedAESKey
 {
 	FString Name;
@@ -1132,27 +1076,34 @@ TEncryptionInt ParseEncryptionIntFromJson(TSharedPtr<FJsonObject> InObj, const T
 	}
 }
 
-void ParseRSAKeyFromJson(TSharedPtr<FJsonObject> InObj, TPakRSAKey& OutKey)
+FRSA::TKeyPtr ParseRSAKeyFromJson(TSharedPtr<FJsonObject> InObj)
 {
-	FString ExponentBase64, ModulusBase64;
-	TArray<uint8> Exponent, Modulus;
-	if (InObj->TryGetStringField("Exponent", ExponentBase64)
-		&& InObj->TryGetStringField("Modulus", ModulusBase64))
-	{
-		FBase64::Decode(ExponentBase64, Exponent);
-		FBase64::Decode(ModulusBase64, Modulus);
+	TSharedPtr<FJsonObject> PublicKey = InObj->GetObjectField(TEXT("PublicKey"));
+	TSharedPtr<FJsonObject> PrivateKey = InObj->GetObjectField(TEXT("PrivateKey"));
 
-		check(Exponent.Num() > 0 && Exponent.Num() <= TPakRSAKey::KeySizeInBytes);
-		check(Modulus.Num() > 0 && Modulus.Num() <= TPakRSAKey::KeySizeInBytes);
-		OutKey = TPakRSAKey(Exponent, Modulus);
+	FString PublicExponentBase64, PrivateExponentBase64, PublicModulusBase64, PrivateModulusBase64;
+
+	if (   PublicKey->TryGetStringField("Exponent", PublicExponentBase64)
+		&& PublicKey->TryGetStringField("Modulus", PublicModulusBase64)
+		&& PrivateKey->TryGetStringField("Exponent", PrivateExponentBase64)
+		&& PrivateKey->TryGetStringField("Modulus", PrivateModulusBase64))
+	{
+		check(PublicModulusBase64 == PrivateModulusBase64);
+
+		TArray<uint8> PublicExponent, PrivateExponent, Modulus;
+		FBase64::Decode(PublicExponentBase64, PublicExponent);
+		FBase64::Decode(PrivateExponentBase64, PrivateExponent);
+		FBase64::Decode(PublicModulusBase64, Modulus);
+
+		return FRSA::CreateKey(PublicExponent, PrivateExponent, Modulus);
 	}
 	else
 	{
-		OutKey = TPakRSAKey();
+		return nullptr;
 	}
 }
 
-void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FKeyPair& OutSigningKey, TKeyChain& OutKeyChain)
+void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename, FRSA::TKeyPtr& OutSigningKey, TKeyChain& OutKeyChain)
 {
 	FArchive* File = IFileManager::Get().CreateFileReader(*InFilename);
 	UE_CLOG(File == nullptr, LogPakFile, Fatal, TEXT("Specified crypto keys cache '%s' does not exist!"), *InFilename);
@@ -1190,11 +1141,7 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 				const TSharedPtr<FJsonObject>* SigningKey = nullptr;
 				if (bEnablePakSigning && RootObject->TryGetObjectField(TEXT("SigningKey"), SigningKey))
 				{
-					TSharedPtr<FJsonObject> PublicKey = (*SigningKey)->GetObjectField(TEXT("PublicKey"));
-					TSharedPtr<FJsonObject> PrivateKey = (*SigningKey)->GetObjectField(TEXT("PrivateKey"));
-					ParseRSAKeyFromJson(PublicKey, OutSigningKey.PublicKey);
-					ParseRSAKeyFromJson(PrivateKey, OutSigningKey.PrivateKey);
-					check(OutSigningKey.PublicKey.Modulus == OutSigningKey.PrivateKey.Modulus);
+					OutSigningKey = ParseRSAKeyFromJson(*SigningKey);
 				}
 			}
 		}
@@ -1223,12 +1170,9 @@ void PrepareEncryptionAndSigningKeysFromCryptoKeyCache(const FString& InFilename
 	delete File;
 }
 
-void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningKey, TKeyChain& OutKeyChain)
+void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FRSA::TKeyPtr& OutSigningKey, TKeyChain& OutKeyChain)
 {
-	OutSigningKey.PrivateKey.Exponent.Zero();
-	OutSigningKey.PrivateKey.Modulus.Zero();
-	OutSigningKey.PublicKey.Exponent.Zero();
-	OutSigningKey.PublicKey.Modulus.Zero();
+	OutSigningKey.Reset();
 	OutKeyChain.Empty();
 
 	// First, try and parse the keys from a supplied crypto key cache file
@@ -1246,6 +1190,8 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 			&& FParse::Value(CmdLine, TEXT("enginedir="), EngineDir, false)
 			&& FParse::Value(CmdLine, TEXT("platform="), Platform, false))
 		{
+			UE_LOG(LogPakFile, Warning, TEXT("A legacy command line syntax is being used for crypto config. Please update to using the -cryptokey parameter as soon as possible as this mode is deprecated"));
+
 			FConfigFile EngineConfig;
 
 			FConfigCacheIni::LoadExternalIniFile(EngineConfig, TEXT("Engine"), *FPaths::Combine(EngineDir, TEXT("Config\\")), *FPaths::Combine(ProjectDir, TEXT("Config/")), true, *Platform);
@@ -1289,8 +1235,7 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 					FBase64::Decode(PrivateExpBase64, PrivateExp);
 					FBase64::Decode(ModulusBase64, Modulus);
 
-					OutSigningKey.PrivateKey = TPakRSAKey(PrivateExp, Modulus);
-					OutSigningKey.PublicKey = TPakRSAKey(PublicExp, Modulus);
+					OutSigningKey = FRSA::CreateKey(PublicExp, PrivateExp, Modulus);
 
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
@@ -1331,10 +1276,11 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 					ConfigFile.GetString(SectionName, TEXT("rsa.privateexp"), RSAPrivateExp);
 					ConfigFile.GetString(SectionName, TEXT("rsa.modulus"), RSAModulus);
 
-					OutSigningKey.PrivateKey.Exponent.Parse(RSAPrivateExp);
-					OutSigningKey.PrivateKey.Modulus.Parse(RSAModulus);
-					OutSigningKey.PublicKey.Exponent.Parse(RSAPublicExp);
-					OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
+
+					//OutSigningKey.PrivateKey.Exponent.Parse(RSAPrivateExp);
+					//OutSigningKey.PrivateKey.Modulus.Parse(RSAModulus);
+					//OutSigningKey.PublicKey.Exponent.Parse(RSAPublicExp);
+					//OutSigningKey.PublicKey.Modulus = OutSigningKey.PrivateKey.Modulus;
 
 					UE_LOG(LogPakFile, Display, TEXT("Parsed signature keys from config files."));
 				}
@@ -1368,6 +1314,8 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 
 		if (EncryptionKeyString.Len() > 0)
 		{
+			UE_LOG(LogPakFile, Warning, TEXT("A legacy command line syntax is being used for crypto config. Please update to using the -cryptokey parameter as soon as possible as this mode is deprecated"));
+
 			FNamedAESKey NewKey;
 			NewKey.Name = TEXT("Default");
 			NewKey.Guid = FGuid();
@@ -1397,15 +1345,6 @@ void PrepareEncryptionAndSigningKeys(const TCHAR* CmdLine, FKeyPair& OutSigningK
 			UE_LOG(LogPakFile, Display, TEXT("Parsed AES encryption key from command line."));
 		}
 	}
-
-	if (OutSigningKey.IsValid())
-	{
-		if (!TestKeys(OutSigningKey))
-		{
-			UE_LOG(LogPakFile, Fatal, TEXT("Pak signing keys are invalid"));
-			OutSigningKey.PrivateKey.Exponent.Zero();
-		}
-	}
 }
 
 void ApplyKeyChain(const TKeyChain& KeyChain)
@@ -1428,7 +1367,7 @@ void ApplyKeyChain(const TKeyChain& KeyChain)
 /**
  * Creates a pak file writer. This can be a signed writer if the encryption keys are specified in the command line
  */
-FArchive* CreatePakWriter(const TCHAR* Filename, const FKeyPair& SigningKey)
+FArchive* CreatePakWriter(const TCHAR* Filename, FRSA::TKeyPtr SigningKey)
 {
 	FArchive* Writer = IFileManager::Get().CreateFileWriter(Filename);
 	FString KeyFilename;
@@ -1439,14 +1378,14 @@ FArchive* CreatePakWriter(const TCHAR* Filename, const FKeyPair& SigningKey)
 		if (SigningKey.IsValid())
 		{
 			UE_LOG(LogPakFile, Display, TEXT("Creating signed pak %s."), Filename);
-			Writer = new FSignedArchiveWriter(*Writer, Filename, SigningKey.PublicKey, SigningKey.PrivateKey);
+			Writer = new FSignedArchiveWriter(*Writer, Filename, SigningKey);
 		}
 	}
 
 	return Writer;
 }
 
-bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, const FPakCommandLineParameters& CmdLineParameters, const FKeyPair& SigningKey, const TKeyChain& KeyChain)
+bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, const FPakCommandLineParameters& CmdLineParameters, FRSA::TKeyPtr SigningKey, const TKeyChain& KeyChain)
 {	
 	const double StartTime = FPlatformTime::Seconds();
 
@@ -3459,7 +3398,7 @@ FString GetPakPath(const TCHAR* SpecifiedPath, bool bIsForCreation)
 	return PakFilename;
 }
 
-bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPakCommandLineParameters& CmdLineParameters, const FKeyPair& SigningKey, const TKeyChain& KeyChain, bool bIncludeDeleted, bool bSigned)
+bool Repack(const FString& InputPakFile, const FString& OutputPakFile, const FPakCommandLineParameters& CmdLineParameters, FRSA::TKeyPtr SigningKey, const TKeyChain& KeyChain, bool bIncludeDeleted, bool bSigned)
 {
 	bool bResult = false;
 
@@ -3542,7 +3481,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 		}
 	}
 
-	FKeyPair SigningKey;
+	FRSA::TKeyPtr SigningKey;
 	TKeyChain KeyChain;
 	PrepareEncryptionAndSigningKeys(CmdLine, SigningKey, KeyChain);
 	ApplyKeyChain(KeyChain);
@@ -3860,7 +3799,7 @@ bool ExecuteUnrealPak(const TCHAR* CmdLine)
 
 			if (FParse::Value(FCommandLine::Get(), TEXT("PatchCryptoKeys="), PatchReferenceCryptoKeysFilename))
 			{
-				FKeyPair UnusedSigningKey;
+				FRSA::TKeyPtr UnusedSigningKey;
 				PrepareEncryptionAndSigningKeysFromCryptoKeyCache(PatchReferenceCryptoKeysFilename, UnusedSigningKey, PatchKeyChain);
 				ApplyKeyChain(PatchKeyChain);
 			}

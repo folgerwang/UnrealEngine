@@ -23,5 +23,5 @@ namespace CryptoKeysHelpers
 	@param InNumKeyBits 		- How many bits to use for the RSA key
 	@returns true if key generation succeeded, false otherwise
 	*/
-	bool GenerateSigningKey(FString& OutPublicExponent, FString& OutPrivateExponent, FString& OutModulus, int32 NumKeyBits = 2048);
+	bool GenerateSigningKey(FString& OutPublicExponent, FString& OutPrivateExponent, FString& OutModulus, int32 NumKeyBits = 4096);
 }

@@ -7,5 +7,6 @@ public class PakFile : ModuleRules
 	public PakFile(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
+		PublicDependencyModuleNames.Add("RSA");
 	}
 }

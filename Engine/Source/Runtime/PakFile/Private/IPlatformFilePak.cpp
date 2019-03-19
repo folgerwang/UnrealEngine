@@ -204,16 +204,26 @@ void FPakPlatformFile::GetPakEncryptionKey(FAES::FAESKey& OutKey, const FGuid& I
 	}
 }
 
-void FPakPlatformFile::GetPakSigningKeys(TPakRSAKey& OutKey)
+TSharedPtr<FRSA::FKey, ESPMode::ThreadSafe> FPakPlatformFile::GetPakSigningKey()
 {
-	FCoreDelegates::FPakSigningKeysDelegate& Delegate = FCoreDelegates::GetPakSigningKeysDelegate();
-	if (Delegate.IsBound())
+	static TSharedPtr<FRSA::FKey, ESPMode::ThreadSafe> Key;
+	static FCriticalSection Lock;
+	Lock.Lock();
+
+	if (!Key.IsValid())
 	{
-		TArray<uint8> Exponent;
-		TArray<uint8> Modulus;
-		Delegate.Execute(Exponent, Modulus);
-		OutKey = TPakRSAKey(Exponent, Modulus);
+		FCoreDelegates::FPakSigningKeysDelegate& Delegate = FCoreDelegates::GetPakSigningKeysDelegate();
+		if (Delegate.IsBound())
+		{
+			TArray<uint8> Exponent;
+			TArray<uint8> Modulus;
+			Delegate.Execute(Exponent, Modulus);
+			Key = FRSA::CreateKey(Exponent, TArray<uint8>(), Modulus);
+		}
 	}
+	
+	Lock.Unlock();
+	return Key;
 }
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("PakCache Sync Decrypts (Uncompressed Path)"), STAT_PakCache_SyncDecrypts, STATGROUP_PakFile);
@@ -1117,17 +1127,16 @@ class FPakPrecacher
 	uint32 Loads;
 	uint32 Frees;
 	uint64 LoadSize;
-	TPakRSAKey PublicKey;
-	bool bSigned;
+	FRSA::TKeyPtr SigningKey;
 	EAsyncIOPriorityAndFlags AsyncMinPriority;
 	FCriticalSection SetAsyncMinimumPriorityScopeLock;
 public:
 
-	static void Init(IPlatformFile* InLowerLevel, const TPakRSAKey& InEncryptionKey)
+	static void Init(IPlatformFile* InLowerLevel, FRSA::TKeyPtr InSigningKey)
 	{
 		if (!PakPrecacherSingleton)
 		{
-			verify(!FPlatformAtomics::InterlockedCompareExchangePointer((void**)&PakPrecacherSingleton, new FPakPrecacher(InLowerLevel, InEncryptionKey), nullptr));
+			verify(!FPlatformAtomics::InterlockedCompareExchangePointer((void**)&PakPrecacherSingleton, new FPakPrecacher(InLowerLevel, InSigningKey), nullptr));
 		}
 		check(PakPrecacherSingleton);
 	}
@@ -1163,7 +1172,7 @@ public:
 		return *PakPrecacherSingleton;
 	}
 
-	FPakPrecacher(IPlatformFile* InLowerLevel, const TPakRSAKey& InPublicKey)
+	FPakPrecacher(IPlatformFile* InLowerLevel, FRSA::TKeyPtr InSigningKey)
 		: LowerLevel(InLowerLevel)
 		, LastReadRequest(0)
 		, NextUniqueID(1)
@@ -1173,8 +1182,7 @@ public:
 		, Loads(0)
 		, Frees(0)
 		, LoadSize(0)
-		, PublicKey(InPublicKey)
-		, bSigned(!InPublicKey.Exponent.IsZero() && !InPublicKey.Modulus.IsZero())
+		, SigningKey(InSigningKey)
 		, AsyncMinPriority(AIOP_MIN)
 	{
 		check(LowerLevel && FPlatformProcess::SupportsMultithreading());
@@ -1214,7 +1222,7 @@ public:
 
 			FPakData& Pak = CachedPakData[*PakIndexPtr];
 
-			if (bSigned)
+			if (SigningKey.IsValid())
 			{
 				// Load signature data
 				FString SignaturesFilename = FPaths::ChangeExtension(*PakFilename, TEXT("sig"));
@@ -1223,7 +1231,7 @@ public:
 				FArchiveFileReaderGeneric* Reader = new FArchiveFileReaderGeneric(SignaturesFile, *SignaturesFilename, SignaturesFile->Size());
 				Pak.Signatures.Serialize(*Reader);
 				delete Reader;
-				Pak.Signatures.DecryptSignatureAndValidate(PublicKey, PakFilename);
+				Pak.Signatures.DecryptSignatureAndValidate(SigningKey, PakFilename);
 
 				// Check that we have the correct match between signature and pre-cache granularity
 				int64 NumPakChunks = Align(PakFileSize, FPakInfo::MaxChunkDataSize) / FPakInfo::MaxChunkDataSize;
@@ -2047,7 +2055,7 @@ private: // below here we assume CachedFilesScopeLock until we get to the next s
 		FAsyncFileCallBack CallbackFromLower =
 			[this, IndexToFill, bDoCheck](bool bWasCanceled, IAsyncReadRequest* Request)
 		{
-			if (bSigned && bDoCheck)
+			if (SigningKey.IsValid() && bDoCheck)
 			{
 				StartSignatureCheck(bWasCanceled, Request, IndexToFill);
 			}
@@ -5323,11 +5331,8 @@ bool FPakPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine)
 	GameUserSettingsIniFilename = TEXT("GameUserSettings.ini");
 #endif
 
-	TPakRSAKey DecryptionKey;
-	GetPakSigningKeys(DecryptionKey);
-
 	// signed if we have keys, and are not running with fileopenlog (currently results in a deadlock).
-	bSigned = !DecryptionKey.Exponent.IsZero() && !DecryptionKey.Modulus.IsZero() && !FParse::Param(FCommandLine::Get(), TEXT("fileopenlog"));;
+	bSigned = GetPakSigningKey().IsValid() && !FParse::Param(FCommandLine::Get(), TEXT("fileopenlog"));;
 
 	// Find and mount pak files from the specified directories.
 	TArray<FString> PakFolders;
@@ -5384,10 +5389,7 @@ void FPakPlatformFile::InitializeNewAsyncIO()
 #if !WITH_EDITOR
 	if (FPlatformProcess::SupportsMultithreading() && !FParse::Param(FCommandLine::Get(), TEXT("FileOpenLog")))
 	{
-		TPakRSAKey DecryptionKey;
-		GetPakSigningKeys(DecryptionKey);
-
-		FPakPrecacher::Init(LowerLevel, DecryptionKey);
+		FPakPrecacher::Init(LowerLevel, GetPakSigningKey());
 	}
 	else
 #endif
@@ -5868,6 +5870,7 @@ public:
 	virtual void StartupModule() override
 	{
 		Singleton = MakeUnique<FPakPlatformFile>();
+		FModuleManager::LoadModuleChecked<IModuleInterface>(TEXT("RSA"));
 	}
 
 	virtual void ShutdownModule() override

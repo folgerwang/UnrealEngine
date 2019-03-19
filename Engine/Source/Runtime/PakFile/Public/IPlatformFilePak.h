@@ -11,7 +11,7 @@
 #include "Templates/UniquePtr.h"
 #include "Math/BigInt.h"
 #include "Misc/AES.h"
-#include "Misc/RSA.h"
+#include "RSA.h"
 #include "Misc/SecureHash.h"
 #include "GenericPlatform/GenericPlatformChunkInstall.h"
 
@@ -32,9 +32,6 @@ typedef uint32 TPakChunkHash;
 #else
 typedef FSHAHash TPakChunkHash;
 #endif
-
-// Define the key size that we use for pak signing purposes. Must match with the key size created in the cryptokeys editor plugin
-typedef FRSAKey<2048> TPakRSAKey;
 
 PAKFILE_API TPakChunkHash ComputePakChunkHash(const void* InData, int64 InDataSizeInBytes);
 
@@ -1512,9 +1509,9 @@ public:
 	static void GetPakEncryptionKey(FAES::FAESKey& OutKey, const FGuid& InEncryptionKeyGuid);
 
 	/**
-	* Helper function for accessing pak signing keys
+	* Helper function for accessing pak the signing public key
 	*/
-	static void GetPakSigningKeys(TPakRSAKey& OutKey);
+	static TSharedPtr<FRSA::FKey, ESPMode::ThreadSafe> GetPakSigningKey();
 
 	/**
 	 * Constructor.
@@ -2358,11 +2355,11 @@ struct FPakSignatureFile
 	/**
 	 * Initialize and hash the CRC list then use the provided private key to encrypt the hash
 	 */
-	void Initialize(const TArray<TPakChunkHash>& InChunkHashes, const TPakRSAKey& InPrivateKey)
+	void SetChunkHashesAndSign(const TArray<TPakChunkHash>& InChunkHashes, const FRSA::TKeyPtr InKey)
 	{
 		ChunkHashes = InChunkHashes;
 		DecryptedHash = ComputeCurrentMasterHash();
-		TPakRSAKey::Encrypt(DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), EncryptedHash, InPrivateKey);
+		FRSA::Encrypt(FRSA::EKeyType::Private, DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), EncryptedHash, InKey);
 	}
 
 	/**
@@ -2397,19 +2394,19 @@ struct FPakSignatureFile
 	 */
 	bool DecryptSignatureAndValidate(const FString& InFilename)
 	{
-		TPakRSAKey PublicKey;
-		FPakPlatformFile::GetPakSigningKeys(PublicKey);
+		TSharedPtr<FRSA::FKey, ESPMode::ThreadSafe> PublicKey = FPakPlatformFile::GetPakSigningKey();
 		return DecryptSignatureAndValidate(PublicKey, InFilename);
 	}
 
 	/**
 	 * Decrypt the chunk CRCs hash and validate that it matches the current one
 	 */
-	bool DecryptSignatureAndValidate(TPakRSAKey& InPublicKey, const FString& InFilename)
+	bool DecryptSignatureAndValidate(FRSA::TKeyPtr InKey, const FString& InFilename)
 	{
-		TPakRSAKey::Decrypt(EncryptedHash, DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), InPublicKey);
+		FRSA::Decrypt(FRSA::EKeyType::Public, EncryptedHash, DecryptedHash.Hash, ARRAY_COUNT(FSHAHash::Hash), InKey);
 
-		if (DecryptedHash != ComputeCurrentMasterHash())
+		FSHAHash CurrentHash = ComputeCurrentMasterHash();
+		if (DecryptedHash != CurrentHash)
 		{
 			FPakPlatformFile::GetPakMasterSignatureTableCheckFailureHandler().Broadcast(InFilename);
 			return false;

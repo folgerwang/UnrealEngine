@@ -17,6 +17,12 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogCryptoKeys, Log, All);
 
+#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
+#define USE_LEGACY_OPENSSL 1
+#else
+#define USE_LEGACY_OPENSSL 0
+#endif
+
 namespace CryptoKeysOpenSSL
 {
 	bool GenerateNewEncryptionKey(TArray<uint8>& OutKey)
@@ -35,9 +41,10 @@ namespace CryptoKeysOpenSSL
 	{
 		int32 NumBytes = BN_num_bytes(InNum);
 		check(NumBytes <= InKeySize);
-		OutBytes.SetNumZeroed(InKeySize);
-		BN_bn2bin(InNum, OutBytes.GetData() + (InKeySize - NumBytes));
-		Algo::Reverse(OutBytes); // bn2bin produces big endian data
+		OutBytes.SetNumZeroed(NumBytes);
+
+		BN_bn2bin(InNum, OutBytes.GetData());
+		Algo::Reverse(OutBytes);
 	}
 
 	bool GenerateNewSigningKey(TArray<uint8>& OutPublicExponent, TArray<uint8>& OutPrivateExponent, TArray<uint8>& OutModulus, int32 InNumKeyBits)
@@ -50,7 +57,7 @@ namespace CryptoKeysOpenSSL
 		BN_set_word(E, RSA_F4);
 		RSA_generate_key_ex(RSAKey, KeySize, E, nullptr);
 
-#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
+#if USE_LEGACY_OPENSSL
 		const BIGNUM* PublicModulus = RSAKey->n;
 		const BIGNUM* PublicExponent = RSAKey->e;
 		const BIGNUM* PrivateExponent = RSAKey->d;
