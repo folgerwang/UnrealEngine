@@ -834,9 +834,14 @@ void SBlueprintDiff::OnCloseAssetEditor(UObject* Asset, EAssetEditorCloseReason 
 		// Tell our window to close and set our selves to collapsed to try and stop it from ticking
 		SetVisibility(EVisibility::Collapsed);
 
+		if (AssetEditorCloseDelegate.IsValid())
+		{
+			FAssetEditorManager::Get().OnAssetEditorRequestClose().Remove(AssetEditorCloseDelegate);
+		}
+
 		if (WeakParentWindow.IsValid())
 		{
-			WeakParentWindow.Pin()->DestroyWindowImmediately();
+			WeakParentWindow.Pin()->RequestDestroyWindow();
 		}
 	}
 }
