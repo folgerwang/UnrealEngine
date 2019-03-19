@@ -667,7 +667,7 @@ namespace UnrealBuildTool
 		/// Disables force-included PCHs for files that are in the adaptive non-unity working set.
 		/// </summary>
 		[XmlConfigFile(Category = "BuildConfiguration")]
-		public bool bAdaptiveUnityDisablesPCH = true;
+		public bool bAdaptiveUnityDisablesPCH = false;
 
 		/// <summary>
 		/// Backing storage for bAdaptiveUnityDisablesProjectPCH.
