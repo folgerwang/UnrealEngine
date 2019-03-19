@@ -145,8 +145,9 @@ void FEditorModeRegistry::RegisterMode(FEditorModeID ModeID, TSharedRef<IEditorM
 void FEditorModeRegistry::UnregisterMode(FEditorModeID ModeID)
 {
 	// First off delete the factory
-	ModeFactories.Remove(ModeID);
-
-	OnModeUnregisteredEvent.Broadcast(ModeID);
-	RegisteredModesChanged.Broadcast();
+	if (ModeFactories.Remove(ModeID) > 0)
+	{
+		OnModeUnregisteredEvent.Broadcast(ModeID);
+		RegisteredModesChanged.Broadcast();
+	}
 }
