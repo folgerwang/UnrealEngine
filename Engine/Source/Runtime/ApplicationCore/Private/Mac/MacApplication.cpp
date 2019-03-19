@@ -104,7 +104,7 @@ FMacApplication::FMacApplication()
 		
 		CacheKeyboardInputSource();
 
-		WindowUnderCursor = FindSlateWindowUnderCursor();
+		WindowUnderCursor = [FindSlateWindowUnderCursor() retain];
 	}, NSDefaultRunLoopMode, true);
 
 #if WITH_EDITOR
@@ -170,6 +170,8 @@ FMacApplication::~FMacApplication()
 			[KeyBoardLayoutData release];
 			KeyBoardLayoutData = nil;
 		}
+		
+		[WindowUnderCursor release];
 	}, NSDefaultRunLoopMode, true);
 
 	if (TextInputMethodSystem.IsValid())
@@ -366,7 +368,12 @@ void FMacApplication::DeferEvent(NSObject* Object)
 {
 	FDeferredMacEvent DeferredEvent;
 
-	WindowUnderCursor = FindSlateWindowUnderCursor();
+	FCocoaWindow* Window = FindSlateWindowUnderCursor();
+	if (WindowUnderCursor != Window)
+	{
+		[WindowUnderCursor release];
+		WindowUnderCursor = [Window retain];
+	}
 
 	if (Object && [Object isKindOfClass:[NSEvent class]])
 	{
