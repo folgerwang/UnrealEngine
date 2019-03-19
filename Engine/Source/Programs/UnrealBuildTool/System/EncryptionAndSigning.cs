@@ -61,6 +61,18 @@ namespace UnrealBuildTool
 			{
 				return PublicKey != null && PrivateKey != null && PublicKey.IsValid() && PrivateKey.IsValid();
 			}
+
+			/// <summary>
+			/// Returns TRUE if this is a short key from the old 256-bit system
+			/// </summary>
+			public bool IsUnsecureLegacyKey()
+			{
+				int LongestKey = PublicKey.Exponent.Length;
+				LongestKey = Math.Max(LongestKey, PublicKey.Modulus.Length);
+				LongestKey = Math.Max(LongestKey, PrivateKey.Exponent.Length);
+				LongestKey = Math.Max(LongestKey, PrivateKey.Modulus.Length);
+				return LongestKey <= 64;
+			}
 		}
 
 		/// <summary>
@@ -394,6 +406,12 @@ namespace UnrealBuildTool
 				CryptoSettings NewSettings = new CryptoSettings();
 				NewSettings.SecondaryEncryptionKeys = Settings.SecondaryEncryptionKeys;
 				Settings = NewSettings;
+			}
+
+			// Check if we have a valid signing key that is of the old short form
+			if (Settings.SigningKey != null && Settings.SigningKey.IsValid() && Settings.SigningKey.IsUnsecureLegacyKey())
+			{
+				Log.TraceWarningOnce("Project signing keys found in '{0}' are of the old insecure short format. Please regenerate them using the project crypto settings panel in the editor!", InProjectDirectory);
 			}
 
 			return Settings;
