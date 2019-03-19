@@ -82,7 +82,7 @@ UObject* UAlembicImportFactory::FactoryCreateFile(UClass* InClass, UObject* InPa
 
 	bOutOperationCanceled = false;
 
-	if (bShowOption)
+	if (!GIsRunningUnattendedScript && bShowOption)
 	{
 		TSharedPtr<SAlembicImportOptions> Options;
 		ShowImportOptionsWindow(Options, UFactory::CurrentFilename, Importer);
