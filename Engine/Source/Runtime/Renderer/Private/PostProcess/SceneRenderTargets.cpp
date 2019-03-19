@@ -304,31 +304,44 @@ inline const TCHAR* GetSceneColorTargetName(EShadingPath ShadingPath)
 
 #if PREVENT_RENDERTARGET_SIZE_THRASHING
 
-static inline void UpdateHistoryFlags(uint8& Flags, bool bIsSceneCapture, bool bIsReflectionCapture)
+namespace ERenderTargetHistory
 {
-	Flags |= bIsSceneCapture ? 1 : 0;
-	Flags |= bIsReflectionCapture ? (1 << 1) : 0;
+	enum Type
+	{
+		RTH_SceneCapture		= 0x1,
+		RTH_ReflectionCapture	= 0x2,
+		RTH_HighresScreenshot	= 0x4,
+		RTH_MaskAll				= 0x7,
+	};
+}
+
+static inline void UpdateHistoryFlags(uint8& Flags, bool bIsSceneCapture, bool bIsReflectionCapture, bool bIsHighResScreenShot)
+{
+	Flags |= bIsSceneCapture ? ERenderTargetHistory::RTH_SceneCapture : 0;
+	Flags |= bIsReflectionCapture ? ERenderTargetHistory::RTH_ReflectionCapture : 0;
+	Flags |= bIsHighResScreenShot ? ERenderTargetHistory::RTH_HighresScreenshot : 0;
 }
 
 template <uint32 NumEntries>
-static bool AnyCaptureRenderedRecently(const uint8* HitoryFlags)
+static bool AnyCaptureRenderedRecently(const uint8* HistoryFlags, uint8 Mask)
 {
 	uint8 Result = 0;
 	for (uint32 Idx = 0; Idx < NumEntries; ++Idx)
 	{
-		Result |= HitoryFlags[Idx];
+		Result |= (HistoryFlags[Idx] & Mask);
 	}
 	return Result != 0;
 }
 
-#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture) UpdateHistoryFlags(Flags, bIsSceneCapture, bIsReflectionCapture)
-#define ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) AnyCaptureRenderedRecently<NumEntries>(HistoryFlags)
+#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture, bIsHighResScreenShot) UpdateHistoryFlags(Flags, bIsSceneCapture, bIsReflectionCapture, bIsHighResScreenShot)
+#define ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) AnyCaptureRenderedRecently<NumEntries>(HistoryFlags, ERenderTargetHistory::RTH_MaskAll)
+#define ANY_HIGHRES_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) AnyCaptureRenderedRecently<NumEntries>(HistoryFlags, ERenderTargetHistory::RTH_HighresScreenshot)
 
 #else
 
-#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture)
+#define UPDATE_HISTORY_FLAGS(Flags, bIsSceneCapture, bIsReflectionCapture, bIsHighResScreenShot)
 #define ANY_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) (false)
-
+#define ANY_HIGHRES_CAPTURE_RENDERED_RECENTLY(HistoryFlags, NumEntries) (false)
 #endif
 
 FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFamily)
@@ -405,7 +418,8 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 	// this allows The BufferSize to not grow below the SceneCapture requests (happen before scene rendering, in the same frame with a Grow request)
 	FIntPoint& LargestDesiredSizeThisFrame = LargestDesiredSizes[CurrentDesiredSizeIndex];
 	LargestDesiredSizeThisFrame = LargestDesiredSizeThisFrame.ComponentMax(DesiredBufferSize);
-	UPDATE_HISTORY_FLAGS(HistoryFlags[CurrentDesiredSizeIndex], bIsSceneCapture, bIsReflectionCapture);
+	bool bIsHighResScreenshot = GIsHighResScreenshot;
+	UPDATE_HISTORY_FLAGS(HistoryFlags[CurrentDesiredSizeIndex], bIsSceneCapture, bIsReflectionCapture, bIsHighResScreenshot);
 
 	// we want to shrink the buffer but as we can have multiple scenecaptures per frame we have to delay that a frame to get all size requests
 	// Don't save buffer size in history while making high-res screenshot.
@@ -440,6 +454,11 @@ FIntPoint FSceneRenderTargets::ComputeDesiredSize(const FSceneViewFamily& ViewFa
 #endif
 			}
 		}
+	}
+	const bool bAnyHighresScreenshotRecently = ANY_HIGHRES_CAPTURE_RENDERED_RECENTLY(HistoryFlags, FrameSizeHistoryCount);
+	if(bAnyHighresScreenshotRecently != GIsHighResScreenshot)
+	{
+		bAllowDelayResize = false;
 	}
 
 	if(bAllowDelayResize)
