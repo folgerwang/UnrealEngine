@@ -1148,6 +1148,9 @@ public:
 	/** Scope the creation of a component which ends when the initial component 'name' is given/accepted by the user, which can be several frames after the component was actually created. */
 	TUniquePtr<FScopedTransaction> DeferredOngoingCreateTransaction;
 
+	/** Used to unregister from the post tick event. */
+	FDelegateHandle PostTickHandle;
+
 	/** Attribute that provides access to the Actor context for which we are viewing/editing the SCS. */
 	TAttribute<class AActor*> ActorContext;
 
