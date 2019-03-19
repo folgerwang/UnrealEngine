@@ -25,7 +25,16 @@
 			[[NSNotificationCenter defaultCenter] addObserver:self selector : @selector(iCloudAccountAvailabilityChanged:) name: NSUbiquityIdentityDidChangeNotification object : nil];
 		}
 
-		CloudContainer = [CKContainer defaultContainer];
+		NSString *ICloudContainerIdentifier = [[NSBundle mainBundle].infoDictionary objectForKey : @"ICloudContainerIdentifier"];
+		if (ICloudContainerIdentifier != nil)
+		{
+			NSLog(@"Using a custom CloudKit container: %@", ICloudContainerIdentifier);
+			CloudContainer = [CKContainer containerWithIdentifier:ICloudContainerIdentifier];
+		}
+		else
+		{
+			CloudContainer = [CKContainer defaultContainer];
+		}
 		SharedDatabase = [CloudContainer publicCloudDatabase];
 		UserDatabase = [CloudContainer privateCloudDatabase];
 	}

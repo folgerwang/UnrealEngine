@@ -9,6 +9,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Security.AccessControl;
 using System.Xml;
+using System.Xml.Linq;
 using System.Text;
 using Ionic.Zip;
 using Ionic.Zlib;
@@ -1758,18 +1759,53 @@ namespace UnrealBuildTool
 					// get some info from the mobileprovisioning file
 					// the iCloud identifier and the bundle id may differ
 					string iCloudContainerIdentifiersXML = "";
+					string iCloudContainerIdentifier = "";
 					string UbiquityContainerIdentifiersXML = "";
 					if (File.Exists(MobileProvisionFile.FullName))
 					{
 						MobileProvisionContents MobileProvisionContent = MobileProvisionContents.Read(MobileProvisionFile);
 
-						iCloudContainerIdentifiersXML = MobileProvisionContent.GetNodeValueByName("com.apple.developer.icloud-container-identifiers");
-						UbiquityContainerIdentifiersXML = MobileProvisionContent.GetNodeValueByName("com.apple.developer.ubiquity-container-identifiers");
+						iCloudContainerIdentifier = MobileProvisionContent.GetNodeValueByName("com.apple.developer.icloud-container-identifiers");
+						iCloudContainerIdentifiersXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.icloud-container-identifiers");
+						UbiquityContainerIdentifiersXML = MobileProvisionContent.GetNodeXMLValueByName("com.apple.developer.ubiquity-container-identifiers");
 					}
 					// create the entitlements file
 					string IntermediateDir = (((Target.ProjectFile != null) ? Target.ProjectFile.Directory.ToString() : 
 						UnrealBuildTool.EngineDirectory.ToString())) + "/Intermediate/" + (Target.Platform == UnrealTargetPlatform.IOS ? "IOS" : "TVOS");
 					WriteEntitlementsFile(Path.Combine(IntermediateDir, AppName + ".entitlements"), Target.ProjectFile, Target.bForDistribution, iCloudContainerIdentifiersXML, UbiquityContainerIdentifiersXML);
+
+					// create a pList key named ICloudContainerIdentifier
+					// to be used at run-time when intializing the CloudKit services
+					if (iCloudContainerIdentifier != "")
+					{
+						string PListFile = IntermediateDir + "/" + AppName + "-Info.plist";
+						if (File.Exists(PListFile))
+						{
+							string OldPListData = File.ReadAllText(PListFile);
+							XDocument XDoc;
+							try
+							{
+								XDoc = XDocument.Parse(OldPListData);
+								if (XDoc.DocumentType != null)
+									XDoc.DocumentType.InternalSubset = null;
+
+								XElement dictElement = XDoc.Root.Element("dict");
+								if (dictElement != null)
+								{
+									dictElement.Add(new XElement("key", "ICloudContainerIdentifier"));
+									dictElement.Add(new XElement("string", iCloudContainerIdentifier));
+
+									XDoc.Save(PListFile);
+								}
+							}
+							catch (Exception e)
+							{
+								throw new BuildException("plist is invalid {0}\n{1}", e, OldPListData);
+							}
+
+						}
+					}
+
 				}
 
 				Log.TraceInformation("Executing {0}", SignProjectScript);

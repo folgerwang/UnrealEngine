@@ -146,6 +146,25 @@ namespace UnrealBuildTool
 		}
 
 		// return the outerXML of the node's value
+		public string GetNodeXMLValueByName(string InValue)
+		{
+			XmlNodeList elemList = this.Document.GetElementsByTagName("key");
+			for (int i = 0; i < elemList.Count; i++)
+			{
+				if (elemList[i].InnerXml.Equals(InValue))
+				{
+					XmlNode valueNode = elemList[i].NextSibling;
+
+					if (valueNode != null)
+					{
+						return valueNode.OuterXml;
+					}
+				}
+			}
+			return "";
+		}
+
+		// return the innerXML of the node's value
 		public string GetNodeValueByName(string InValue)
 		{
 			XmlNodeList elemList = this.Document.GetElementsByTagName("key");
@@ -153,9 +172,21 @@ namespace UnrealBuildTool
 			{
 				if (elemList[i].InnerXml.Equals(InValue))
 				{
-					if (elemList[i].NextSibling != null)
+					XmlNode valueNode = elemList[i].NextSibling;
+					if (valueNode != null)
 					{
-						return elemList[i].NextSibling.OuterXml;
+						if (valueNode.Name.Equals("array"))
+						{
+							XmlNode firstChildNode = valueNode.FirstChild;
+							if (firstChildNode != null)
+							{
+								return firstChildNode.InnerXml;
+							}
+						}
+						else
+						{
+							return valueNode.InnerXml;
+						}
 					}
 				}
 			}
