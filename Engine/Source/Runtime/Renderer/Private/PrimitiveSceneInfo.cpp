@@ -126,6 +126,7 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	PackedIndex(INDEX_NONE),
 	ComponentForDebuggingOnly(InComponent),
 	bNeedsStaticMeshUpdate(false),
+	bNeedsStaticMeshUpdateWithoutVisibilityCheck(false),
 	bNeedsUniformBufferUpdate(false),
 	bIndirectLightingCacheBufferDirty(false),
 	LightmapDataOffset(INDEX_NONE),
@@ -635,6 +636,13 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 		bNeedsStaticMeshUpdate = false;
 	}
 
+	if (bNeedsStaticMeshUpdateWithoutVisibilityCheck)
+	{
+		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Remove(this);
+
+		bNeedsStaticMeshUpdateWithoutVisibilityCheck = false;
+	}
+
 	if (bUpdateStaticDrawLists)
 	{
 		// IndirectLightingCacheUniformBuffer may be cached inside cached mesh draw commands, so we 
@@ -663,10 +671,27 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 		}
 	}
 
+	if (!bNeedsStaticMeshUpdate && bNeedsStaticMeshUpdateWithoutVisibilityCheck)
+	{
+		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Remove(this);
+
+		bNeedsStaticMeshUpdateWithoutVisibilityCheck = false;
+	}
+
 	RemoveCachedMeshDrawCommands();
 	if (bReAddToDrawLists)
 	{
 		CacheMeshDrawCommands(RHICmdList);
+	}
+}
+
+void FPrimitiveSceneInfo::ConditionalUpdateStaticMeshesWithoutVisibilityCheckDuringNextInitViews()
+{
+	if (bNeedsStaticMeshUpdate && !bNeedsStaticMeshUpdateWithoutVisibilityCheck)
+	{
+		bNeedsStaticMeshUpdateWithoutVisibilityCheck = true;
+
+		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Add(this);
 	}
 }
 

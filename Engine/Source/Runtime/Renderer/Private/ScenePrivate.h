@@ -2491,6 +2491,7 @@ public:
 	TArray<FPrimitiveComponentId> PrimitiveComponentIds;
 
 	TSet<FPrimitiveSceneInfo*> PrimitivesNeedingStaticMeshUpdate;
+	TSet<FPrimitiveSceneInfo*> PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck;
 
 	struct FTypeOffsetTableEntry
 	{
