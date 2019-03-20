@@ -220,6 +220,20 @@ void SDeviceOutputLog::HandleTargetPlatformDeviceDiscovered(ITargetDeviceRef Dis
 	if (DeviceList.IsValidIndex(ExistingEntryIdx))
 	{
 		DeviceList[ExistingEntryIdx]->DeviceWeakPtr = DiscoveredDevice;
+		if (CurrentDevicePtr == DeviceList[ExistingEntryIdx])
+		{
+			if (!CurrentDeviceOutputPtr.IsValid())
+			{
+				if (CurrentDevicePtr.IsValid())
+				{
+					ITargetDevicePtr PinnedPtr = CurrentDevicePtr->DeviceWeakPtr.Pin();
+					if (PinnedPtr.IsValid() && PinnedPtr->IsConnected())
+					{
+						CurrentDeviceOutputPtr = PinnedPtr->CreateDeviceOutputRouter(this);
+					}
+				}
+			}
+		}
 	}
 	else
 	{
