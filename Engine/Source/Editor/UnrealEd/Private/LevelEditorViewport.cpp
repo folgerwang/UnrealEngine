@@ -1636,6 +1636,7 @@ FLevelEditorViewportClient::FLevelEditorViewportClient(const TSharedPtr<SLevelVi
 	, SoundShowFlags(ESoundShowFlags::Disabled)
 	, bEditorCameraCut(false)
 	, bWasEditorCameraCut(false)
+	, bApplyCameraSpeedScaleByDistance(true)
 {
 	// By default a level editor viewport is pointed to the editor world
 	SetReferenceToWorldContext(GEditor->GetEditorWorldContext());
@@ -2507,8 +2508,10 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* InViewport, EAxisLi
 
 				if( IsShiftPressed() )
 				{
+					bApplyCameraSpeedScaleByDistance = false;
 					FVector CameraDelta( Drag );
 					MoveViewportCamera( CameraDelta, FRotator::ZeroRotator );
+					bApplyCameraSpeedScaleByDistance = true;
 				}
 
 				TArray<FEdMode*> ActiveModes; 
@@ -2526,6 +2529,11 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* InViewport, EAxisLi
 	}
 
 	return bHandled;
+}
+
+bool FLevelEditorViewportClient::ShouldScaleCameraSpeedByDistance() const
+{
+	return bApplyCameraSpeedScaleByDistance && FEditorViewportClient::ShouldScaleCameraSpeedByDistance();
 }
 
 TSharedPtr<FDragTool> FLevelEditorViewportClient::MakeDragTool( EDragTool::Type DragToolType )
