@@ -1055,8 +1055,8 @@ void FPersonaMeshDetails::AddLODLevelCategories(IDetailLayoutBuilder& DetailLayo
 							.ButtonFlags(ButtonFlag)
 							.OnApplyLODChangeClicked(this, &FPersonaMeshDetails::RegenerateLOD, LODIndex)
 							.OnRemoveLODClicked(this, &FPersonaMeshDetails::RemoveOneLOD, LODIndex)
-							.OnReimportClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::Reimport, LODIndex)
-							.OnReimportNewFileClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, &DetailLayout, EReimportButtonType::ReimportWithNewFile, LODIndex)
+							.OnReimportClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, EReimportButtonType::Reimport, LODIndex)
+							.OnReimportNewFileClicked(this, &FPersonaMeshDetails::OnReimportLodClicked, EReimportButtonType::ReimportWithNewFile, LODIndex)
 						];
 				}
 			}
@@ -1892,7 +1892,7 @@ void FPersonaMeshDetails::OnSetPostProcessBlueprint(const FAssetData& AssetData,
 	}
 }
 
-FReply FPersonaMeshDetails::OnReimportLodClicked(IDetailLayoutBuilder* DetailLayout, EReimportButtonType InReimportType, int32 InLODIndex)
+FReply FPersonaMeshDetails::OnReimportLodClicked(EReimportButtonType InReimportType, int32 InLODIndex)
 {
 	if(USkeletalMesh* SkelMesh = GetPersonaToolkit()->GetMesh())
 	{
@@ -1915,14 +1915,6 @@ FReply FPersonaMeshDetails::OnReimportLodClicked(IDetailLayoutBuilder* DetailLay
 		{
 			// Copy old source file back, as this one failed
 			SkelMesh->GetLODInfo(InLODIndex)->SourceImportFilename = SourceFilenameBackup;
-		}
-
-		//Regenerate dependent LODs
-		RegenerateDependentLODs(InLODIndex);
-
-		if(DetailLayout)
-		{
-			DetailLayout->ForceRefreshDetails();
 		}
 
 		return FReply::Handled();

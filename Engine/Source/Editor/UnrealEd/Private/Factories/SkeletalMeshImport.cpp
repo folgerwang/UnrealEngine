@@ -541,6 +541,33 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh, 
 	return ExistingMeshDataPtr;
 }
 
+void RegenerateDependentLODs(USkeletalMesh* SkelMesh, int32 LODIndex)
+{
+	check(SkelMesh);
+
+	IMeshReductionModule& ReductionModule = FModuleManager::Get().LoadModuleChecked<IMeshReductionModule>("MeshReductionInterface");
+	IMeshReduction* MeshReduction = ReductionModule.GetSkeletalMeshReductionInterface();
+	if (MeshReduction && MeshReduction->IsSupported())
+	{
+		FSkeletalMeshUpdateContext UpdateContext;
+		UpdateContext.SkeletalMesh = SkelMesh;
+		TArray<bool> DependentLODs;
+		DependentLODs.AddZeroed(SkelMesh->GetLODNum());
+		DependentLODs[LODIndex] = true;
+		for (int32 CurrentLODIndex = LODIndex + 1; CurrentLODIndex < DependentLODs.Num(); ++CurrentLODIndex)
+		{
+			FSkeletalMeshLODInfo& CurrentLODInfo = *(SkelMesh->GetLODInfo(CurrentLODIndex));
+			FSkeletalMeshOptimizationSettings& Settings = CurrentLODInfo.ReductionSettings;
+			if (CurrentLODInfo.bHasBeenSimplified && DependentLODs[Settings.BaseLOD])
+			{
+				DependentLODs[CurrentLODIndex] = true;
+				//Regenerate this LOD
+				FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, CurrentLODIndex, false);
+			}
+		}
+	}
+}
+
 void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMesh)
 {
 	check(SkeletalMesh != nullptr);
@@ -814,12 +841,16 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		{
 			SkeletalMeshImportedModel->OriginalReductionSourceMeshData[ReimportLODIndex]->EmptyBulkData();
 		}
-		//Regenerate the reimport LOD
-		GWarn->BeginSlowTask(LOCTEXT("RegenReimportedLOD", "Generating reimported LOD"), true);
-		FSkeletalMeshUpdateContext UpdateContext;
-		UpdateContext.SkeletalMesh = SkeletalMesh;
-		FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, ReimportLODIndex, false);
-		GWarn->EndSlowTask();
+
+		if (SkeletalMesh->IsReductionActive(ReimportLODIndex))
+		{
+			//Regenerate the reimport LOD
+			GWarn->BeginSlowTask(LOCTEXT("RegenReimportedLOD", "Generating reimported LOD"), true);
+			FSkeletalMeshUpdateContext UpdateContext;
+			UpdateContext.SkeletalMesh = SkeletalMesh;
+			FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, ReimportLODIndex, false);
+			GWarn->EndSlowTask();
+		}
 	}
 
 	//Do everything we need for base LOD re-import
@@ -1106,6 +1137,10 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		}
 
 		SkeletalMesh->SetSamplingInfo(MeshData->ExistingSamplingInfo);
+	}
+	else
+	{
+		RegenerateDependentLODs(SkeletalMesh, ReimportLODIndex);
 	}
 
 	//Restore the section change only for the reimport LOD, other LOD are not affected since the material array can only grow.

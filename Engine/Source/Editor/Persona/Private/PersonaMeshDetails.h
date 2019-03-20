@@ -404,7 +404,7 @@ private:
 	};
 
 	// Handler for reimport buttons in LOD details
-	FReply OnReimportLodClicked(IDetailLayoutBuilder* DetailLayout, EReimportButtonType InReimportType, int32 InLODIndex);
+	FReply OnReimportLodClicked(EReimportButtonType InReimportType, int32 InLODIndex);
 
 	void OnCopySectionList(int32 LODIndex);
 	bool OnCanCopySectionList(int32 LODIndex) const;
