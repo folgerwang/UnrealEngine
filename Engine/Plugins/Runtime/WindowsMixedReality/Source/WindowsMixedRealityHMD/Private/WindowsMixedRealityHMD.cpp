@@ -402,33 +402,28 @@ namespace WindowsMixedReality
 
 				gameWindowWidth = windowRect.right - windowRect.left;
 				gameWindowHeight = windowRect.bottom - windowRect.top;
-			}
-		}
 
-		// Restore windows focus to game window to preserve keyboard/mouse input.
-		if ((currentWornState == EHMDWornState::Type::Worn) && GEngine)
-		{
-			HWND gameHWND = (HWND)GEngine->GameViewport->GetWindow()->GetNativeWindow()->GetOSWindowHandle();
+				// Restore windows focus to game window to preserve keyboard/mouse input.
+				if ((currentWornState == EHMDWornState::Type::Worn) && GEngine)
+				{
+					// Set mouse focus to center of game window so any clicks interact with the game.
+					if (mouseLockedToCenter)
+					{
+						CenterMouse(windowRect);
+					}
 
-			// Set mouse focus to center of game window so any clicks interact with the game.
-			if (mouseLockedToCenter)
-			{
-				RECT windowRect;
-				GetWindowRect(gameHWND, &windowRect);
+					if (GetCapture() != gameHWND)
+					{
+						// Keyboard input
+						SetForegroundWindow(gameHWND);
 
-				CenterMouse(windowRect);
-			}
+						// Mouse input
+						SetCapture(gameHWND);
+						SetFocus(gameHWND);
 
-			if (GetCapture() != gameHWND)
-			{
-				// Keyboard input
-				SetForegroundWindow(gameHWND);
-
-				// Mouse input
-				SetCapture(gameHWND);
-				SetFocus(gameHWND);
-
-				FSlateApplication::Get().SetAllUserFocusToGameViewport();
+						FSlateApplication::Get().SetAllUserFocusToGameViewport();
+					}
+				}
 			}
 		}
 
