@@ -589,7 +589,8 @@ bool FPluginManager::ConfigureEnabledPlugins()
 					for (const FString& ConfigFile : PluginConfigs)
 					{
 						FString PlaformName = FPlatformProperties::PlatformName();
-						PluginConfigFilename = FString::Printf(TEXT("%s%s/%s.ini"), *FPaths::GeneratedConfigDir(), *PlaformName, *FPaths::GetBaseFilename(ConfigFile));
+						// Use GetDestIniFilename to find the proper config file to combine into, since it manages command line overrides and path sanitization
+						PluginConfigFilename = FConfigCacheIni::GetDestIniFilename(*FPaths::GetBaseFilename(ConfigFile), *PlaformName, *FPaths::GeneratedConfigDir());
 						FConfigFile* FoundConfig = GConfig->Find(PluginConfigFilename, false);
 						if (FoundConfig != nullptr)
 						{

@@ -3128,16 +3128,7 @@ static void GetSourceIniHierarchyFilenames(const TCHAR* InBaseIniName, const TCH
 	OutHierarchy.KeySort([](const EConfigFileHierarchy& A, const EConfigFileHierarchy& B) { return (A < B); });
 }
 
-/**
- * Calculates the name of a dest (generated) .ini file for a given base (ie Engine, Game, etc)
- * 
- * @param IniBaseName Base name of the .ini (Engine, Game)
- * @param PlatformName Name of the platform to get the .ini path for (nullptr means to use the current platform)
- * @param GeneratedConfigDir The base folder that will contain the generated config files.
- * 
- * @return Standardized .ini filename
- */
-static FString GetDestIniFilename(const TCHAR* BaseIniName, const TCHAR* PlatformName, const TCHAR* GeneratedConfigDir)
+FString FConfigCacheIni::GetDestIniFilename(const TCHAR* BaseIniName, const TCHAR* PlatformName, const TCHAR* GeneratedConfigDir)
 {
 	// figure out what to look for on the commandline for an override
 	FString CommandLineSwitch = FString::Printf(TEXT("%sINI="), BaseIniName);
@@ -3148,14 +3139,13 @@ static FString GetDestIniFilename(const TCHAR* BaseIniName, const TCHAR* Platfor
 	{
 		FString Name(PlatformName ? PlatformName : ANSI_TO_TCHAR(FPlatformProperties::PlatformName()));
 
-		FString BaseIniNameString = BaseIniName;
-		if (BaseIniNameString.Contains(GeneratedConfigDir))
+		// if the BaseIniName doens't contain the config dir, put it all together
+		if (FCString::Stristr(BaseIniName, GeneratedConfigDir) != nullptr)
 		{
-			IniFilename = BaseIniNameString;
+			IniFilename = BaseIniName;
 		}
 		else
 		{
-			// put it all together
 			IniFilename = FString::Printf(TEXT("%s%s/%s.ini"), GeneratedConfigDir, *Name, BaseIniName);
 		}
 	}
