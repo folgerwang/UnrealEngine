@@ -565,7 +565,7 @@ void FProjectedShadowInfo::SetupFrustumForProjection(const FViewInfo* View, TArr
 		const FPlane Top(BackTopRight, BackTopLeft, FrontTopLeft);
 		const float TopDistance = Top.PlaneDot(ShadowViewOrigin);
 
-		const FPlane Bottom(FrontBottomRight, FrontBottomLeft, BackBottomLeft);
+		const FPlane Bottom(BackBottomLeft, BackBottomRight, FrontBottomLeft);
 		const float BottomDistance = Bottom.PlaneDot(ShadowViewOrigin);
 
 		// Use a distance threshold to treat the case where the near plane is intersecting the frustum as the camera being inside
