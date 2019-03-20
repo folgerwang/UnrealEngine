@@ -470,6 +470,9 @@ void FSceneViewState::UpdatePreExposure(FViewInfo& View)
 			bUpdateLastExposure = true;
 		}
 	}
+
+	// Update the pre-exposure value on the actual view
+	View.PreExposure = PreExposure;
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessEyeAdaptation::ComputeOutputDesc(EPassOutputId InPassOutputId) const
