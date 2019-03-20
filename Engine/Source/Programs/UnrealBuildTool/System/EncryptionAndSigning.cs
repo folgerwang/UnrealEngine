@@ -31,11 +31,11 @@ namespace UnrealBuildTool
 			public byte[] Modulus;
 
 			/// <summary>
-			/// Returns TRUE if this is a valid Signing key
+			/// Determine if this key is valid
 			/// </summary>
 			public bool IsValid()
 			{
-				return Exponent != null && Modulus != null;
+				return Exponent != null && Modulus != null && Exponent.Length > 0 && Modulus.Length > 0;
 			}
 		}
 
@@ -55,7 +55,7 @@ namespace UnrealBuildTool
 			public SigningKey PrivateKey = new SigningKey();
 
 			/// <summary>
-			/// Returns TRUE if this is a valid signing key pair
+			/// Determine if this key is valid
 			/// </summary>
 			public bool IsValid()
 			{
@@ -89,16 +89,15 @@ namespace UnrealBuildTool
 			/// </summary>
 			public string Guid;
 			/// <summary>
-			/// 128 bit AES key
+			/// AES key
 			/// </summary>
 			public byte[] Key;
-
 			/// <summary>
-			/// Returns TRUE if this is a valid encryption key
+			/// Determine if this key is valid
 			/// </summary>
 			public bool IsValid()
 			{
-				return Key != null && Guid != null;
+				return Key != null && Key.Length > 0 && Guid != null;
 			}
 		}
 
@@ -148,6 +147,16 @@ namespace UnrealBuildTool
 			/// </summary>
 			public bool bDataCryptoRequired = false;
 
+			/// <summary>
+			/// Config setting to enable pak signing
+			/// </summary>
+			public bool PakEncryptionRequired = true;
+
+			/// <summary>
+			/// Config setting to enable pak encryption
+			/// </summary>
+			public bool PakSigningRequired = true;
+			
 			/// <summary>
 			/// A set of named encryption keys that can be used to encrypt different sets of data with a different key that is delivered dynamically (i.e. not embedded within the game executable)
 			/// </summary>
@@ -218,10 +227,12 @@ namespace UnrealBuildTool
 		public static CryptoSettings ParseCryptoSettings(DirectoryReference InProjectDirectory, UnrealTargetPlatform InTargetPlatform)
 		{
 			CryptoSettings Settings = new CryptoSettings();
-
+			
 			ConfigHierarchy Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Engine, InProjectDirectory, InTargetPlatform);
 			Ini.GetBool("PlatformCrypto", "PlatformRequiresDataCrypto", out Settings.bDataCryptoRequired);
-			
+			Ini.GetBool("PlatformCrypto", "PakSigningRequired", out Settings.PakSigningRequired);
+			Ini.GetBool("PlatformCrypto", "PakEncryptionRequired", out Settings.PakEncryptionRequired);
+
 			{
 				// Start by parsing the legacy encryption.ini settings
 				Ini = ConfigCache.ReadHierarchy(ConfigHierarchyType.Encryption, InProjectDirectory, InTargetPlatform);
@@ -407,11 +418,44 @@ namespace UnrealBuildTool
 				NewSettings.SecondaryEncryptionKeys = Settings.SecondaryEncryptionKeys;
 				Settings = NewSettings;
 			}
+			else
+			{
+				if (!Settings.PakSigningRequired)
+				{
+					Settings.bEnablePakSigning = false;
+					Settings.SigningKey = null;
+				}
+
+				if (!Settings.PakEncryptionRequired)
+				{
+					Settings.bEnablePakFullAssetEncryption = false;
+					Settings.bEnablePakIndexEncryption = false;
+					Settings.bEnablePakIniEncryption = false;
+					Settings.EncryptionKey = null;
+					Settings.SigningKey = null;
+				}
+			}
 
 			// Check if we have a valid signing key that is of the old short form
 			if (Settings.SigningKey != null && Settings.SigningKey.IsValid() && Settings.SigningKey.IsUnsecureLegacyKey())
 			{
 				Log.TraceWarningOnce("Project signing keys found in '{0}' are of the old insecure short format. Please regenerate them using the project crypto settings panel in the editor!", InProjectDirectory);
+			}
+
+			// Validate the settings we have read
+			if (Settings.bDataCryptoRequired && Settings.bEnablePakSigning && (Settings.SigningKey == null || !Settings.SigningKey.IsValid()))
+			{
+				Log.TraceWarningOnce("Pak signing is enabled, but no valid signing keys were found. Please generate a key in the editor project crypto settings. Signing will be disabled");
+				Settings.bEnablePakSigning = false;
+			}
+
+			if (Settings.bDataCryptoRequired && Settings.IsAnyEncryptionEnabled() && (Settings.EncryptionKey == null || !Settings.EncryptionKey.IsValid()))
+			{
+				Log.TraceWarningOnce("Pak encryption is enabled, but no valid encryption key was found. Please generate a key in the editor project crypto settings. Encryption will be disabled");
+				Settings.bEnablePakUAssetEncryption = false;
+				Settings.bEnablePakFullAssetEncryption = false;
+				Settings.bEnablePakIndexEncryption = false;
+				Settings.bEnablePakIniEncryption = false;
 			}
 
 			return Settings;
