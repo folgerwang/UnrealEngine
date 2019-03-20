@@ -176,7 +176,7 @@ namespace AutomationTool
 				foreach (UnrealTargetPlatform ClientPlatform in ClientTargetPlatforms)
 				{
 					EncryptionAndSigning.CryptoSettings Settings = EncryptionAndSigning.ParseCryptoSettings(RawProjectPath.Directory, ClientPlatform);
-					if (Settings.IsAnyEncryptionEnabled() || Settings.bEnablePakSigning)
+					if (Settings.IsAnyEncryptionEnabled() || Settings.IsPakSigningEnabled())
 					{
 						Reason = "encryption/signing is enabled";
 						return true;
