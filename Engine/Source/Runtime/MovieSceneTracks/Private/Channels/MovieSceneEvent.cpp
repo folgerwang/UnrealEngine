@@ -11,6 +11,16 @@
 
 UK2Node_FunctionEntry* FMovieSceneEvent::GetFunctionEntry() const
 {
+	if (SoftBlueprintPath.IsNull())
+	{
+		// The function entry used to be serialized but is now only stored transiently. We use this pointer for the current lifecycle until the asset is saved, when we do the data upgrade.
+		UK2Node_FunctionEntry* FunctionEntryPtr = CastChecked<UK2Node_FunctionEntry>(FunctionEntry_DEPRECATED.Get(), ECastCheckedType::NullAllowed);
+		if (FunctionEntryPtr)
+		{
+			return FunctionEntryPtr;
+		}
+	}
+
 	UK2Node_FunctionEntry* Cached = CastChecked<UK2Node_FunctionEntry>(CachedFunctionEntry.Get(), ECastCheckedType::NullAllowed);
 	if (Cached)
 	{
@@ -106,8 +116,21 @@ void FMovieSceneEvent::PostSerialize(const FArchive& Ar)
 #if WITH_EDITORONLY_DATA
 	if (Ar.IsLoading() && !Ar.HasAnyPortFlags(PPF_Duplicate | PPF_DuplicateForPIE))
 	{
+		// Re-cache the function name when loading in-editor in case of renamed function graphs and the like
+		CacheFunctionName();
+	}
+#endif
+}
+
+bool FMovieSceneEvent::Serialize(FArchive& Ar)
+{
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsSaving())
+	{
 		// ---------------------------------------------------------------------------------------
 		// Data upgrade for content that was saved with FunctionEntry_DEPRECATED instead of SoftFunctionGraph
+		// We do this on save because there is no reliable way to ensure that FunctionGraph is fully loaded here
+		// since the track may live inside or outside of a blueprint. When not fully loaded, GraphGuid is not correct.
 		if (SoftBlueprintPath.IsNull())
 		{
 			// The function entry used to be serialized but is now only stored transiently. If this is set without the soft function graph being set, copy the graph reference over
@@ -121,11 +144,11 @@ void FMovieSceneEvent::PostSerialize(const FArchive& Ar)
 				GraphGuid           = FunctionGraph->GraphGuid;
 			}
 		}
-
-		// Re-cache the function name when loading in-editor in case of renamed function graphs and the like
-		CacheFunctionName();
 	}
 #endif
+
+	// Return false to ensure that the struct receives default serialization
+	return false;
 }
 
 bool FMovieSceneEvent::IsValidFunction(UFunction* Function)

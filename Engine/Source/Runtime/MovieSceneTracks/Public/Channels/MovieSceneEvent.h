@@ -38,6 +38,10 @@ struct MOVIESCENETRACKS_API FMovieSceneEvent
 	 */
 	void PostSerialize(const FArchive& Ar);
 
+	/**
+	 * Called to perform custom serialization logic for this struct.
+	 */
+	bool Serialize(FArchive& Ar);
 
 	/**
 	 * Check whether the specified function is valid for a movie scene event
@@ -122,6 +126,6 @@ private:
 template<>
 struct TStructOpsTypeTraits<FMovieSceneEvent> : TStructOpsTypeTraitsBase2<FMovieSceneEvent>
 {
-	enum { WithPostSerialize = true };
+	enum { WithSerializer = true, WithPostSerialize = true };
 };
 
