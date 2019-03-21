@@ -16,6 +16,8 @@ struct FRectLightRayTracingData
 #if RHI_RAYTRACING
 	FRWBuffer   RectLightMipTree;
 	FIntVector  RectLightMipTreeDimensions;
+	FGuid		TextureLightingGuid;
+	bool		bInitialised = false;
 #endif
 };
 
@@ -26,7 +28,7 @@ public:
 	float		SourceHeight;
 	float		BarnDoorAngle;
 	float		BarnDoorLength;
-	FRectLightRayTracingData* RayTracingData;
+	FRectLightRayTracingData* RayTracingData; // Render thread data only
 	UTexture*	SourceTexture;
 
 	FRectLightSceneProxy(const URectLightComponent* Component);
