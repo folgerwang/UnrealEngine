@@ -6112,7 +6112,8 @@ bool UEdGraphSchema_K2::ReplaceOldNodeWithNew(UK2Node* OldNode, UK2Node* NewNode
 		NewNode->NodeComment = OldNode->NodeComment;
 		NewNode->bCommentBubblePinned = OldNode->bCommentBubblePinned;
 		NewNode->bCommentBubbleVisible = OldNode->bCommentBubbleVisible;
-
+		
+		FLinkerLoad::InvalidateExport(OldNode);
 		OldNode->DestroyNode();
 	}
 	return !bFailedToFindPin;

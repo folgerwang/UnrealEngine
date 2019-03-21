@@ -753,9 +753,30 @@ void UObject::BeginDestroy()
 	}
 
 	LowLevelRename(NAME_None);
+	
+#if WITH_EDITORONLY_DATA
+	// Make sure the linker entry stays as 'bExportLoadFailed' if the entry was marked as such, 
+	// doing this prevents the object from being reloaded by subsequent load calls:
+	FLinkerLoad* Linker = GetLinker();
+	const int32 CachedLinkerIndex = GetLinkerIndex();
+	bool bLinkerEntryWasInvalid = false;
+	if(Linker && Linker->ExportMap.IsValidIndex(CachedLinkerIndex))
+	{
+		FObjectExport& ObjExport = Linker->ExportMap[CachedLinkerIndex];
+		bLinkerEntryWasInvalid = ObjExport.bExportLoadFailed;
+	}
+#endif // WITH_EDITORONLY_DATA
 
 	// Remove from linker's export table.
 	SetLinker( NULL, INDEX_NONE );
+	
+#if WITH_EDITORONLY_DATA
+	if(bLinkerEntryWasInvalid)
+	{
+		FObjectExport& ObjExport = Linker->ExportMap[CachedLinkerIndex];
+		ObjExport.bExportLoadFailed = true;
+	}
+#endif // WITH_EDITORONLY_DATA
 
 	// ensure BeginDestroy has been routed back to UObject::BeginDestroy.
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
