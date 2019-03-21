@@ -235,9 +235,14 @@ float3 ReflectionEnvironment(FScreenSpaceData ScreenSpaceData, float4 UVAndScree
 	Color.a = 1 - SSR.a;
 #endif
 
-#if ENABLE_CLEAR_COAT
+#if RAY_TRACED_REFLECTIONS
+	float4 SavedColor = Color;	// When a clear coat material is encountered, we save the reflection buffer color for it to not be affected by operations.
+#endif
 	if(GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
 	{
+#if RAY_TRACED_REFLECTIONS
+		Color = float4(0, 0, 0, 0); // Clear coat reflection is expected to be computed on a black background
+#endif
 		const float ClearCoat = GBuffer.CustomData.x;
 		Color = lerp( Color, float4(0,0,0,1), ClearCoat );
 
@@ -249,7 +254,6 @@ float3 ReflectionEnvironment(FScreenSpaceData ScreenSpaceData, float4 UVAndScree
 		R = 2 * dot( V, ClearCoatUnderNormal ) * ClearCoatUnderNormal - V;
 #endif
 	}
-#endif
 
 	float AO = GBuffer.GBufferAO * ScreenSpaceData.AmbientOcclusion;
 	float RoughnessSq = GBuffer.Roughness * GBuffer.Roughness;
@@ -268,13 +272,12 @@ float3 ReflectionEnvironment(FScreenSpaceData ScreenSpaceData, float4 UVAndScree
 	uint NumCulledReflectionCaptures = 0;
 #endif
 
-	//bottom for clearcoat or the only reflection.
+	//Top of regular reflection or bottom layer of clear coat.
 	Color.rgb += PreExposure * GatherRadiance(Color.a, WorldPosition, R, GBuffer.Roughness, BentNormal, IndirectIrradiance, GBuffer.ShadingModelID, NumCulledReflectionCaptures, DataStartIndex);
 
 	BRANCH
-	if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
+	if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT)
 	{
-#if ENABLE_CLEAR_COAT
 		const float ClearCoat			= GBuffer.CustomData.x;
 		const float ClearCoatRoughness	= GBuffer.CustomData.y;
 
@@ -299,9 +302,10 @@ float3 ReflectionEnvironment(FScreenSpaceData ScreenSpaceData, float4 UVAndScree
 
 		float3 TopLayerR = 2 * dot( V, N ) * N - V;
 		Color.rgb += PreExposure * GatherRadiance(Color.a, WorldPosition, TopLayerR, ClearCoatRoughness, BentNormal, IndirectIrradiance, GBuffer.ShadingModelID, NumCulledReflectionCaptures, DataStartIndex);
-#else
-		// When clear coat is disabled in ReflectionEnvironmentPS (both layers evaluated in ray traced reflections), do nothing here
-#endif
+
+	#if RAY_TRACED_REFLECTIONS
+		Color.rgb = SavedColor.rgb +  Color.rgb * SavedColor.a; // Compose default clear coat reflection over regular refelction (using Premultiplied alpha where SaveColor.a=transmittance)
+	#endif
 	}
 	else
 	{

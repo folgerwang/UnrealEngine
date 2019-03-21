@@ -476,7 +476,7 @@ float3 ComputeDirectLightingCulled(
 	return DirectLighting;
 }
 
-void ApplyViewDependentMaterialPayloadModifications(RayDesc Ray, inout FMaterialClosestHitPayload Payload)
+void ComputeBottomLayerMaterialProperties(RayDesc Ray, inout FMaterialClosestHitPayload Payload)
 {
 	if (Payload.ShadingModelID == SHADINGMODELID_CLEAR_COAT)
 	{
@@ -503,7 +503,7 @@ void ApplyViewDependentMaterialPayloadModifications(RayDesc Ray, inout FMaterial
 	}
 }
 
-FMaterialClosestHitPayload TraceRayAndAccumulateResults(
+FMaterialClosestHitPayload TraceRayResults(
 	in RayDesc Ray,
 	in RandomSequence RandSequence,
 	in uint RayFlags,
@@ -522,20 +522,25 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 		Ray,								// RayDesc
 		RayCone
 	);
-
-	uint2 LightCullMask = (uint2)0;
-	if (IsHit(Ray, PackedPayload))
-	{
-		const float3 WorldPosition = Ray.Origin + PackedPayload.HitT * Ray.Direction;
-		const float3 WorldNormal = UnpackRayTracingNormal(PackedPayload);
-		LightCullMask = CullDirectLighting(Ray, RayCone, WorldPosition, WorldNormal, RandSequence, ReflectedShadowsType > 0, ShadowMaxNormalBias);
-	}
-
 	FMaterialClosestHitPayload Payload = UnpackRayTracingPayload(PackedPayload, Ray);
+	return Payload;
+}
 
-	if (IsHit(Ray, PackedPayload))
+void AccumulateResults(
+	in FMaterialClosestHitPayload Payload,
+	in RayDesc Ray,
+	in RandomSequence RandSequence,
+	in uint RayFlags,
+	in float ShadowMaxNormalBias,
+	in uint Mask,
+	inout FRayCone RayCone,
+	inout float3 Radiance)
+{
+	if (IsHit(Ray, Payload))
 	{
-		ApplyViewDependentMaterialPayloadModifications(Ray, Payload);
+		uint2 LightCullMask = (uint2)0;
+		const float3 WorldPosition = Ray.Origin + Payload.HitT * Ray.Direction;
+		LightCullMask = CullDirectLighting(Ray, RayCone, WorldPosition, Payload.WorldNormal, RandSequence, ReflectedShadowsType > 0, ShadowMaxNormalBias);
 
 		Payload.DiffuseColor = Payload.BaseColor - Payload.BaseColor * Payload.Metallic;
 		Payload.SpecularColor = ComputeF0(Payload.Specular, Payload.BaseColor, Payload.Metallic);
@@ -556,6 +561,68 @@ FMaterialClosestHitPayload TraceRayAndAccumulateResults(
 			Radiance += Payload.DiffuseColor * Payload.IndirectIrradiance;
 		}
 	}
+}
+
+FMaterialClosestHitPayload TraceRayAndAccumulateResults(
+	in RayDesc Ray,
+	in RandomSequence RandSequence,
+	in uint RayFlags,
+	in float ShadowMaxNormalBias,
+	in uint Mask,
+	inout FRayCone RayCone,
+	inout float3 Radiance)
+{
+	FMaterialClosestHitPayload Payload = TraceRayResults(
+		Ray,
+		RandSequence,
+		RayFlags,
+		ShadowMaxNormalBias,
+		Mask,
+		RayCone,
+		Radiance);
+
+	AccumulateResults(
+		Payload,
+		Ray,
+		RandSequence,
+		RayFlags,
+		ShadowMaxNormalBias,
+		Mask,
+		RayCone,
+		Radiance);
 
 	return Payload;
+}
+
+FMaterialClosestHitPayload TraceRayAndAccumulateBottomLayerResults(
+	in RayDesc Ray,
+	in RandomSequence RandSequence,
+	in uint RayFlags,
+	in float ShadowMaxNormalBias,
+	in uint Mask,
+	inout FRayCone RayCone,
+	inout float3 Radiance)
+{
+	FMaterialClosestHitPayload BottomLayerPayload = TraceRayResults(
+		Ray,
+		RandSequence,
+		RayFlags,
+		ShadowMaxNormalBias,
+		Mask,
+		RayCone,
+		Radiance);
+
+	ComputeBottomLayerMaterialProperties(Ray, BottomLayerPayload);
+
+	AccumulateResults(
+		BottomLayerPayload,
+		Ray,
+		RandSequence,
+		RayFlags,
+		ShadowMaxNormalBias,
+		Mask,
+		RayCone,
+		Radiance);
+
+	return BottomLayerPayload;
 }
