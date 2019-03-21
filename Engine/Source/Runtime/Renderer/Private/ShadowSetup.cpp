@@ -1093,7 +1093,7 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 			{
 				// Need to defer to next InitViews, as main view visible primitives are processed on parallel tasks and calling 
 				// CacheMeshDrawCommands may resize CachedDrawLists/CachedMeshDrawCommandStateBuckets causing a crash.
-				PrimitiveSceneInfo->ConditionalUpdateStaticMeshesWithoutVisibilityCheckDuringNextInitViews();
+				PrimitiveSceneInfo->BeginDeferredUpdateStaticMeshesWithoutVisibilityCheck();
 			}
 		}
 

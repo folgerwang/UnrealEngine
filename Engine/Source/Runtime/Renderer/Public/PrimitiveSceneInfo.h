@@ -341,9 +341,6 @@ public:
 		}
 	}
 
-	/** Will update static meshes during next InitViews, even if it's not visible. */
-	void ConditionalUpdateStaticMeshesWithoutVisibilityCheckDuringNextInitViews();
-
 	/** Updates the primitive's uniform buffer. */
 	void UpdateUniformBuffer(FRHICommandListImmediate& RHICmdList);
 
@@ -358,6 +355,9 @@ public:
 
 	/** Sets a flag to update the primitive's static meshes before it is next rendered. */
 	void BeginDeferredUpdateStaticMeshes();
+
+	/** Will update static meshes during next InitViews, even if it's not visible. */
+	void BeginDeferredUpdateStaticMeshesWithoutVisibilityCheck();
 
 	/** Adds the primitive's static meshes to the scene. */
 	void AddStaticMeshes(FRHICommandListImmediate& RHICmdList, bool bUpdateStaticDrawLists = true);

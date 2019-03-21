@@ -629,22 +629,22 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 
 	DEC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + StaticMeshRelevances.GetAllocatedSize() + Proxy->GetMemoryFootprint());
 
-	if (bNeedsStaticMeshUpdate)
-	{
-		Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
-
-		bNeedsStaticMeshUpdate = false;
-	}
-
-	if (bNeedsStaticMeshUpdateWithoutVisibilityCheck)
-	{
-		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Remove(this);
-
-		bNeedsStaticMeshUpdateWithoutVisibilityCheck = false;
-	}
-
 	if (bUpdateStaticDrawLists)
 	{
+		if (bNeedsStaticMeshUpdate)
+		{
+			Scene->PrimitivesNeedingStaticMeshUpdate.Remove(this);
+
+			bNeedsStaticMeshUpdate = false;
+		}
+
+		if (bNeedsStaticMeshUpdateWithoutVisibilityCheck)
+		{
+			Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Remove(this);
+
+			bNeedsStaticMeshUpdateWithoutVisibilityCheck = false;
+		}
+
 		// IndirectLightingCacheUniformBuffer may be cached inside cached mesh draw commands, so we 
 		// can't delete it unless we also update cached mesh command.
 		IndirectLightingCacheUniformBuffer.SafeRelease();
@@ -685,16 +685,6 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 	}
 }
 
-void FPrimitiveSceneInfo::ConditionalUpdateStaticMeshesWithoutVisibilityCheckDuringNextInitViews()
-{
-	if (bNeedsStaticMeshUpdate && !bNeedsStaticMeshUpdateWithoutVisibilityCheck)
-	{
-		bNeedsStaticMeshUpdateWithoutVisibilityCheck = true;
-
-		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Add(this);
-	}
-}
-
 void FPrimitiveSceneInfo::UpdateUniformBuffer(FRHICommandListImmediate& RHICmdList)
 {
 	checkSlow(bNeedsUniformBufferUpdate);
@@ -710,6 +700,16 @@ void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshes()
 		bNeedsStaticMeshUpdate = true;
 
 		Scene->PrimitivesNeedingStaticMeshUpdate.Add(this);
+	}
+}
+
+void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshesWithoutVisibilityCheck()
+{
+	if (bNeedsStaticMeshUpdate && !bNeedsStaticMeshUpdateWithoutVisibilityCheck)
+	{
+		bNeedsStaticMeshUpdateWithoutVisibilityCheck = true;
+
+		Scene->PrimitivesNeedingStaticMeshUpdateWithoutVisibilityCheck.Add(this);
 	}
 }
 
