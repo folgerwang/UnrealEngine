@@ -4,6 +4,7 @@
 
 #include "CoreTypes.h"
 #include "HAL/CriticalSection.h"
+#include "HAL/Allocators/CachedOSPageAllocator.h"
 
 /**
  * This class pools OS allocations made from FMallocBinned2.
@@ -17,7 +18,7 @@
  * of pools that hold varied number of same-sized allocations (called blocks). Each bucket starts empty (linked list is empty).
  * 
  * Whenever an allocation request arrives, it is first bucketed based on its size (if it is larger than the largest bucket,
- * it is passed through to a platform function BinnedAllocFromOS()). Then, the linked list of that bucket is walked, and 
+ * it is passed through to a caching OS allocator). Then, the linked list of that bucket is walked, and 
  * the allocation is fulfilled by the first pool that has empty "blocks". If there are no such pool, a new pool is created 
  * (with number of blocks being possibly larger than in the existing list, if any), this pool becomes the new head of the 
  * list and the allocation happens there.
@@ -54,6 +55,7 @@
  * and we cannot "trim" anything here. Also, it does not make sense to put the global cap on the pooled memory
  * since BinnedAllocFromOS() can support only a limited number of allocations on some platforms.
  * 
+ * CachedOSPageAllocator sits "below" this and is used for allocs larger than the largest bucketed.
  */
 struct FPooledVirtualMemoryAllocator
 {
@@ -81,7 +83,10 @@ private:
 	enum Limits
 	{
 		NumAllocationSizeClasses	= 64,
-		MaxAllocationSizeToPool		= NumAllocationSizeClasses * 65536
+		MaxAllocationSizeToPool		= NumAllocationSizeClasses * 65536,
+
+		MaxOSAllocCacheSize			= 64 * 1024 * 1024,
+		MaxOSAllocsCached			= 64
 	};
 
 	/**
@@ -134,4 +139,10 @@ private:
 
 	/** Destroys a pool */
 	void DestroyPool(FPoolDescriptorBase* Pool);
+
+	/** Lock for accessing the caching allocator for larger allocs */
+	FCriticalSection OsAllocatorCacheLock;
+
+	/** Caching allocator for larger allocs */
+	TCachedOSPageAllocator<MaxOSAllocsCached, MaxOSAllocCacheSize> OsAllocatorCache;
 };
