@@ -5,7 +5,7 @@
 #include "MoviePlayer.h"
 #include "Modules/ModuleManager.h"
 
-#if WITH_WEBM_LIBS && !PLATFORM_WINDOWS
+#if WITH_WEBM_LIBS && !PLATFORM_WINDOWS && !PLATFORM_MAC
 	#define WITH_WEBM_STARTUP_MOVIES 1
 #else
 	#define WITH_WEBM_STARTUP_MOVIES 0
