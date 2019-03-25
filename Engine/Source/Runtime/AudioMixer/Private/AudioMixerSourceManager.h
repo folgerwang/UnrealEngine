@@ -549,6 +549,9 @@ namespace Audio
 		uint8 bInitialized : 1;
 		uint8 bUsingSpatializationPlugin : 1;
 
+		// Set to true when the audio source manager should pump the command queue
+		FThreadSafeBool bPumpQueue;
+
 		friend class FMixerSourceVoice;
 	};
 }
