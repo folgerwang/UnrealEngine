@@ -190,9 +190,9 @@ void FWebMMovieStreamer::ForceCompletion()
 
 void FWebMMovieStreamer::ReleaseAcquiredResources()
 {
-	Samples.Reset();
 	VideoDecoder.Reset();
 	AudioDecoder.Reset();
+	Samples.Reset();
 	Container.Reset();
 
 	SlateVideoTexture.Reset();
