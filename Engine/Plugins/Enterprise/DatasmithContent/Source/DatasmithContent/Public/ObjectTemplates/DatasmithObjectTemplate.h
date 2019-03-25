@@ -58,7 +58,7 @@ public:
 #define DATASMITHOBJECTTEMPLATE_CONDITIONALSETSOFTOBJECTPTR(MemberName, Destination, PreviousTemplate) \
 	if ( !PreviousTemplate || Destination->MemberName == PreviousTemplate->MemberName.Get() ) \
 	{ \
-		Destination->MemberName = MemberName.Get(); \
+		Destination->MemberName = MemberName.LoadSynchronous(); \
 	}
 
 struct DATASMITHCONTENT_API FDatasmithObjectTemplateUtils
