@@ -215,7 +215,7 @@ void MainVS_ES2(
 	UNROLL
 	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
-		SetUV(Output, CoordinateIndex, OutUV);
+		SetUV(Output, CoordinateIndex, InPosition.xy);
 	}
 	UNROLL
 	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
