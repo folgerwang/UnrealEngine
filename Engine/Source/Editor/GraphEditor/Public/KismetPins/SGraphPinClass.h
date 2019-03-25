@@ -11,13 +11,14 @@
 /////////////////////////////////////////////////////
 // SGraphPinClass
 
-class SGraphPinClass : public SGraphPinObject
+class GRAPHEDITOR_API SGraphPinClass : public SGraphPinObject
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphPinClass) {}
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
+	void SetAllowAbstractClasses(bool bAllow) { bAllowAbstractClasses = bAllow; }
 protected:
 
 	// Called when a new class was picked via the asset picker
@@ -34,4 +35,7 @@ protected:
 
 	/** Cached AssetData without the _C */
 	mutable FAssetData CachedEditorAssetData;
+
+	/** Whether abstract classes should be filtered out in the class viewer */
+	bool bAllowAbstractClasses;
 };

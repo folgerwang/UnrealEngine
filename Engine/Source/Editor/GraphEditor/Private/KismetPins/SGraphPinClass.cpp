@@ -19,6 +19,7 @@
 void SGraphPinClass::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
 	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);
+	bAllowAbstractClasses = true;
 }
 
 FReply SGraphPinClass::OnClickUse()
@@ -52,6 +53,8 @@ public:
 	/** All children of these classes will be included unless filtered out by another setting. */
 	TSet< const UClass* > AllowedChildrenOfClasses;
 
+	bool bAllowAbstractClasses = true;
+
 	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs ) override
 	{
 		// If it appears on the allowed child-of classes list (or there is nothing on that list)
@@ -64,6 +67,7 @@ public:
 		
 			// Don't allow classes from a loaded map (e.g. LSBPs) unless we're already working inside that package context. Otherwise, choosing the class would lead to a GLEO at save time.
 			Result &= !ClassPackage->ContainsMap() || ClassPackage == GraphPinOutermostPackage;
+			Result &= bAllowAbstractClasses || (InClass != nullptr && !InClass->HasAnyClassFlags(CLASS_Abstract));
 		}
 
 		return Result;
@@ -71,7 +75,7 @@ public:
 
 	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
 	{
-		return (InFilterFuncs->IfInChildOfClassesSet( AllowedChildrenOfClasses, InUnloadedClassData) != EFilterReturn::Failed);
+		return (InFilterFuncs->IfInChildOfClassesSet( AllowedChildrenOfClasses, InUnloadedClassData) != EFilterReturn::Failed) && (bAllowAbstractClasses || !InUnloadedClassData->HasAnyClassFlags(CLASS_Abstract));
 	}
 };
 
@@ -93,6 +97,7 @@ TSharedRef<SWidget> SGraphPinClass::GenerateAssetPicker()
 	}
 
 	TSharedPtr<FGraphPinFilter> Filter = MakeShareable(new FGraphPinFilter);
+	Filter->bAllowAbstractClasses = bAllowAbstractClasses;
 	Options.ClassFilter = Filter;
 
 	Filter->AllowedChildrenOfClasses.Add(PinRequiredParentClass);
