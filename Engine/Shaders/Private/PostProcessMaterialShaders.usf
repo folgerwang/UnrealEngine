@@ -215,7 +215,11 @@ void MainVS_ES2(
 	UNROLL
 	for (int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
+#if POST_PROCESS_AR_PASSTHROUGH
+		SetUV(Output, CoordinateIndex, OutUV);
+#else
 		SetUV(Output, CoordinateIndex, InPosition.xy);
+#endif
 	}
 	UNROLL
 	for (int CoordinateIndex = NUM_MATERIAL_TEXCOORDS; CoordinateIndex < NUM_TEX_COORD_INTERPOLATORS; CoordinateIndex++)
