@@ -875,8 +875,11 @@ void UPlanarReflectionComponent::PostEditChangeProperty(FPropertyChangedEvent& P
 		ViewStates[ViewIndex].Allocate();
 	}
 
-	ProxyMeshComponent->bVisible = bShowPreviewPlane;
-	ProxyMeshComponent->MarkRenderStateDirty();
+	if (ProxyMeshComponent)
+	{
+		ProxyMeshComponent->bVisible = bShowPreviewPlane;
+		ProxyMeshComponent->MarkRenderStateDirty();
+	}
 }
 
 #endif
