@@ -92,7 +92,10 @@ public:
 		SetupIcons();
 
 #if WITH_SNDFILE_IO
-		Audio::InitSoundFileIOManager();
+		if (!Audio::InitSoundFileIOManager())
+		{
+			UE_LOG(LogAudioEditor, Error, TEXT("LibSoundFile failed to load. Importing audio will not work correctly."));
+		}
 #endif // WITH_SNDFILE_IO
 	}
 
