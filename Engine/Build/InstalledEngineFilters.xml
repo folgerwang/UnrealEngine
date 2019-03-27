@@ -202,7 +202,10 @@
 
 			<!-- Build utilities -->
 			Engine/Build/Windows/cl-filter/cl-filter.exe
-			
+
+			<!-- Default resource files -->
+			Engine/Build/Windows/Resources/...
+
 			<!-- Binaries which are explicitly staged by UAT rather than listing runtime dependencies -->
 			Engine/Binaries/ThirdParty/OpenSSL/...
 
@@ -295,9 +298,6 @@
 
 	<!-- Win64 -->
 	<Property Name="CopyWin64Filter">
-		<!-- Default resource files -->
-		Engine/Build/Windows/Resources/...
-
 		<!-- Natvis helpers for live coding -->
 		Engine/Extras/NatvisHelpers/Win64/NatvisHelpers.lib
 
