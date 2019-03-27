@@ -685,6 +685,7 @@ struct FPreviousViewInfo
 		ReflectionsHistory.SafeRelease();
 		AmbientOcclusionHistory.SafeRelease();
 		GlobalIlluminationHistory.SafeRelease();
+		SkyLightHistory.SafeRelease();
 		ShadowHistories.Reset();
 	}
 };
