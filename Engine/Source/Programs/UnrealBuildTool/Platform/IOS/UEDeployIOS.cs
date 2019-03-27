@@ -720,6 +720,20 @@ namespace UnrealBuildTool
 				Text.AppendLine("\t</array>");
 			}
 
+			// write the iCloud container identifier, if present in the old file
+			if (!string.IsNullOrEmpty(OldPListData))
+			{
+				int index = OldPListData.IndexOf("ICloudContainerIdentifier");
+				if (index > 0)
+				{
+					index = OldPListData.IndexOf("<string>", index) + 8;
+					int length = OldPListData.IndexOf("</string>", index) - index;
+					string ICloudContainerIdentifier = OldPListData.Substring(index, length);
+					Text.AppendLine("\t<key>ICloudContainerIdentifier</key>");
+					Text.AppendLine(string.Format("\t<string>{0}</string>", ICloudContainerIdentifier));
+				}
+			}
+
 			Text.AppendLine("</dict>");
 			Text.AppendLine("</plist>");
 
