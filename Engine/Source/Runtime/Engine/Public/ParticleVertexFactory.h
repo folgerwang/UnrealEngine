@@ -247,7 +247,7 @@ private:
 	int32 NumVertsInInstanceBuffer;
 
 	/** Uniform buffer with sprite paramters. */
-	FUniformBufferRHIParamRef SpriteUniformBuffer;
+	FUniformBufferRHIRef SpriteUniformBuffer;
 
 	int32 NumCutoutVerticesPerFrame;
 	FShaderResourceViewRHIParamRef CutoutGeometrySRV;
