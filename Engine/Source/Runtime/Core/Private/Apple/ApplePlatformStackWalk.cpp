@@ -119,7 +119,7 @@ static void AsyncSafeProgramCounterToSymbolInfo( uint64 ProgramCounter, FProgram
 	// Increased the size of the demangle destination to reduce the chances that abi::__cxa_demangle will allocate
 	// this causes the app to hang as malloc isn't signal handler safe. Ideally we wouldn't call this function in a handler.
 	size_t DemangledNameLen = 65536;
-	ANSICHAR DemangledNameBuffer[65536]= {0};
+	static ANSICHAR DemangledNameBuffer[65536]= {0};
 	DemangledName = abi::__cxa_demangle(DylibInfo.dli_sname, DemangledNameBuffer, &DemangledNameLen, &Status);
 	
 	if (DemangledName)

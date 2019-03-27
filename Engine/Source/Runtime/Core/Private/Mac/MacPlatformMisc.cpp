@@ -1481,6 +1481,7 @@ static uint32 GMacStackIgnoreDepth = 6;
 /** Message for the assert triggered on this thread */
 thread_local const TCHAR* GCrashErrorMessage = nullptr;
 thread_local ECrashContextType GCrashErrorType = ECrashContextType::Crash;
+thread_local uint8* GCrashContextMemory[sizeof(FMacCrashContext)];
 
 /** True system-specific crash handler that gets called first */
 static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
@@ -1501,23 +1502,23 @@ static void PlatformCrashHandler(int32 Signal, siginfo_t* Info, void* Context)
 		Type = GCrashErrorType;
 		ErrorMessage = GCrashErrorMessage;
 	}
-	
-	FMacCrashContext CrashContext(Type, ErrorMessage);
-	CrashContext.IgnoreDepth = GMacStackIgnoreDepth;
-	CrashContext.InitFromSignal(Signal, Info, Context);
-	
+
+	FMacCrashContext* CrashContext = new (GCrashContextMemory) FMacCrashContext(Type, ErrorMessage);
+	CrashContext->IgnoreDepth = GMacStackIgnoreDepth;
+	CrashContext->InitFromSignal(Signal, Info, Context);
+
 	// Switch to crash handler malloc to avoid malloc reentrancy
 	check(GCrashMalloc);
-	GCrashMalloc->Enable(&CrashContext, FPlatformTLS::GetCurrentThreadId());
-	
+	GCrashMalloc->Enable(CrashContext, FPlatformTLS::GetCurrentThreadId());
+
 	if (GCrashHandlerPointer)
 	{
-		GCrashHandlerPointer(CrashContext);
+		GCrashHandlerPointer(*CrashContext);
 	}
 	else
 	{
 		// call default one
-		DefaultCrashHandler(CrashContext);
+		DefaultCrashHandler(*CrashContext);
 	}
 }
 
