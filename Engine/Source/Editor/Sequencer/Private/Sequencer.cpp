@@ -2299,6 +2299,8 @@ void FSequencer::SetLocalTimeDirectly(FFrameTime NewTime)
 
 void FSequencer::SetGlobalTime(FFrameTime NewTime)
 {
+	TSharedPtr<SWidget> PreviousFocusedWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
+
 	// Clear focus before setting time in case there's a key editor value selected that gets committed to a newly selected key on UserMovedFocus
 	FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
 
@@ -2320,6 +2322,11 @@ void FSequencer::SetGlobalTime(FFrameTime NewTime)
 	{
 		SetPlaybackStatus(EMovieScenePlayerStatus::Stopped);
 		AutoScrubTarget.Reset();
+	}
+
+	if (PreviousFocusedWidget.IsValid())
+	{
+		FSlateApplication::Get().SetKeyboardFocus(PreviousFocusedWidget);
 	}
 }
 
