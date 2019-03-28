@@ -43,6 +43,7 @@ const FString FGenericCrashContext::CrashGUIDRootPrefix = TEXT("UE4CC-");
 const FString FGenericCrashContext::CrashContextExtension = TEXT(".runtime-xml");
 const FString FGenericCrashContext::RuntimePropertiesTag = TEXT( "RuntimeProperties" );
 const FString FGenericCrashContext::PlatformPropertiesTag = TEXT( "PlatformProperties" );
+const FString FGenericCrashContext::EngineDataTag = TEXT( "EngineData" );
 const FString FGenericCrashContext::EnabledPluginsTag = TEXT("EnabledPlugins");
 const FString FGenericCrashContext::UE4MinidumpName = TEXT( "UE4Minidump.dmp" );
 const FString FGenericCrashContext::NewLineTag = TEXT( "&nl;" );
@@ -97,6 +98,7 @@ namespace NCachedCrashContextProperties
 	static FString CrashReportClientRichText;
 	static FString GameStateName;
 	static TArray<FString> EnabledPluginsList;
+	static TMap<FString, FString> EngineData;
 }
 
 void FGenericCrashContext::Initialize()
@@ -403,6 +405,14 @@ void FGenericCrashContext::SerializeContentToBuffer() const
 	AddPlatformSpecificProperties();
 	EndSection( *PlatformPropertiesTag );
 
+	// Add the engine data
+	BeginSection( *EngineDataTag );
+	for (const TPair<FString, FString>& Pair : NCachedCrashContextProperties::EngineData)
+	{
+		AddCrashProperty(*Pair.Key, *Pair.Value);
+	}
+	EndSection( *EngineDataTag );
+
 	// Writing out the list of plugin JSON descriptors causes us to run out of memory
 	// in GMallocCrash on console, so enable this only for desktop platforms.
 #if PLATFORM_DESKTOP
@@ -650,6 +660,24 @@ void FGenericCrashContext::PurgeOldCrashConfig()
 				FileManager.DeleteDirectory(*CrashConfigDirectory, false, true);
 			}
 		}
+	}
+}
+
+void FGenericCrashContext::ResetEngineData()
+{
+	NCachedCrashContextProperties::EngineData.Reset();
+}
+
+void FGenericCrashContext::SetEngineData(const FString& Key, const FString& Value)
+{
+	if (Value.Len() == 0)
+	{
+		NCachedCrashContextProperties::EngineData.Remove(Key);
+	}
+	else
+	{
+		FString& OldVal = NCachedCrashContextProperties::EngineData.FindOrAdd(Key);
+		OldVal = Value;
 	}
 }
 

@@ -119,6 +119,7 @@ public:
 	static const FString CrashContextExtension;
 	static const FString RuntimePropertiesTag;
 	static const FString PlatformPropertiesTag;
+	static const FString EngineDataTag;
 	static const FString EnabledPluginsTag;
 	static const FString UE4MinidumpName;
 	static const FString NewLineTag;
@@ -209,6 +210,12 @@ public:
 
 	/** Helper to clean out old files in the crash report client config folder. */
 	static void PurgeOldCrashConfig();
+
+	/** Clears the engine data dictionary */
+	static void ResetEngineData();
+
+	/** Updates (or adds if not already present) arbitrary engine data to the crash context (will remove the key if passed an empty string) */
+	static void SetEngineData(const FString& Key, const FString& Value);
 
 	/** Adds a plugin descriptor string to the enabled plugins list in the crash context */
 	static void AddPlugin(const FString& PluginDesc);
