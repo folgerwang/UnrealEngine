@@ -116,6 +116,8 @@ namespace UnrealBuildTool
 		/// </summary>
 		private List<string> CommonRsyncArguments;
 
+		private string IniBundleIdentifier = "";
+
 		/// <summary>
 		/// Constructor
 		/// </summary>
@@ -191,6 +193,8 @@ namespace UnrealBuildTool
 					throw new BuildException("SSH private key specified in config file ({0}) does not exist.", SshPrivateKey);
 				}
 			}
+
+			Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "BundleIdentifier", out IniBundleIdentifier);
 
 			// If it's not set, look in the standard locations. If that fails, spawn the batch file to generate one.
 			if (SshPrivateKey == null && !TryGetSshPrivateKey(out SshPrivateKey))
@@ -430,7 +434,7 @@ namespace UnrealBuildTool
 				RemoteArguments.Add("-NoUBTMakefiles");
 
 				// Get the provisioning data for this project
-				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile, TargetDesc.AdditionalArguments.HasOption("-distribution"));
+				IOSProvisioningData ProvisioningData = ((IOSPlatform)UEBuildPlatform.GetBuildPlatform(TargetDesc.Platform)).ReadProvisioningData(TargetDesc.ProjectFile, TargetDesc.AdditionalArguments.HasOption("-distribution"), IniBundleIdentifier);
 				if(ProvisioningData == null || ProvisioningData.MobileProvisionFile == null)
 				{
 					throw new BuildException("Unable to find mobile provision for {0}. See log for more information.", TargetDesc.Name);

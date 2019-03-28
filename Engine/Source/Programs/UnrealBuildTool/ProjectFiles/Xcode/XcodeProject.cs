@@ -85,11 +85,13 @@ namespace UnrealBuildTool
 		/// <param name="InitFilePath">The path to the project file on disk</param>
 		/// <param name="InOnlyGameProject"></param>
 		/// <param name="IsForDistribution">True for distribution builds</param>
-		public XcodeProjectFile(FileReference InitFilePath, FileReference InOnlyGameProject, bool IsForDistribution)
+		/// <param name="BundleID">Override option for bundle identifier</param>
+		public XcodeProjectFile(FileReference InitFilePath, FileReference InOnlyGameProject, bool IsForDistribution, string BundleID)
 			: base(InitFilePath)
 		{
 			OnlyGameProject = InOnlyGameProject;
 			bForDistribution = IsForDistribution;
+			BundleIdentifier = BundleID;
 		}
 
 		public override string ToString()
@@ -101,6 +103,11 @@ namespace UnrealBuildTool
 		///  Used to mark the project for distribution (some platforms require this)
 		/// </summary>
 		bool bForDistribution = false;
+
+		/// <summary>
+		/// Override for bundle identifier
+		/// </summary>
+		string BundleIdentifier = "";
 
 		/// <summary>
 		/// Gets Xcode file category based on its extension
@@ -889,12 +896,12 @@ namespace UnrealBuildTool
 							TargetReceipt Receipt;
 							TargetReceipt.TryRead(ReceiptFilename, out Receipt);
 							VersionNumber SdkVersion = UEDeployIOS.GetSdkVersion(Receipt);
-							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", SdkVersion, null, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
+							UEDeployIOS.GenerateIOSPList(ProjectFile, Config.BuildConfig, ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/IOS/Payload", SdkVersion, null, BundleIdentifier, out bSupportPortrait, out bSupportLandscape, out bSkipIcons);
 						}
 						if (bCreateTVOSInfoPlist)
 						{
 							Directory.CreateDirectory(Path.GetDirectoryName(TVOSInfoPlistPath));
-							UEDeployTVOS.GenerateTVOSPList(ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/TVOS/Payload", null);
+							UEDeployTVOS.GenerateTVOSPList(ProjectPath.FullName, bIsUE4Game, GameName, Config.BuildTarget, EngineDir.FullName, ProjectPath + "/Binaries/TVOS/Payload", null, BundleIdentifier);
 						}
 					}
 				}

@@ -28,8 +28,8 @@ namespace UnrealBuildTool
 			get { return "3"; }
 		}
 
-		public TVOSProjectSettings(FileReference ProjectFile)
-			: base(ProjectFile, UnrealTargetPlatform.TVOS)
+		public TVOSProjectSettings(FileReference ProjectFile, String Bundle)
+			: base(ProjectFile, UnrealTargetPlatform.TVOS, Bundle)
 		{
 		}
 	}
@@ -71,14 +71,14 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public new TVOSProjectSettings ReadProjectSettings(FileReference ProjectFile)
+		public new TVOSProjectSettings ReadProjectSettings(FileReference ProjectFile, string Bundle = "")
 		{
-			return (TVOSProjectSettings)base.ReadProjectSettings(ProjectFile);
+			return (TVOSProjectSettings)base.ReadProjectSettings(ProjectFile, Bundle);
 		}
 
-		protected override IOSProjectSettings CreateProjectSettings(FileReference ProjectFile)
+		protected override IOSProjectSettings CreateProjectSettings(FileReference ProjectFile, string Bundle)
 		{
-			return new TVOSProjectSettings(ProjectFile);
+			return new TVOSProjectSettings(ProjectFile, Bundle);
 		}
 
 		public TVOSProvisioningData ReadProvisioningData(TVOSProjectSettings ProjectSettings, bool bForDistribution = false)

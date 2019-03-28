@@ -32,12 +32,21 @@ namespace UnrealBuildTool
 		/// </summary>
 		bool bForDistribution = false;
 
+		/// <summary>
+		/// Override BundleID
+		/// </summary>
+		string BundleIdentifier = "";
+
 		public XcodeProjectFileGenerator(FileReference InOnlyGameProject, CommandLineArguments CommandLine)
 			: base(InOnlyGameProject)
 		{
 			if (CommandLine.HasOption("-distribution"))
 			{
 				bForDistribution = true;
+			}
+			if (CommandLine.HasValue("-bundleID="))
+			{
+				BundleIdentifier = CommandLine.GetString("-bundleID=");
 			}
 		}
 
@@ -99,7 +108,7 @@ namespace UnrealBuildTool
 		/// <returns>The newly allocated project file object</returns>
 		protected override ProjectFile AllocateProjectFile(FileReference InitFilePath)
 		{
-			return new XcodeProjectFile(InitFilePath, OnlyGameProject, bForDistribution);
+			return new XcodeProjectFile(InitFilePath, OnlyGameProject, bForDistribution, BundleIdentifier);
 		}
 
 		/// ProjectFileGenerator interface
